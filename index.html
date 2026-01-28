@@ -16,6 +16,45 @@
       <img id="photo" src="" />
       <img id="paletteImg" src="" />
     </div>
+
+    <div class="filters-panel">
+      <div class="preset-filters">
+        <button class="filter-btn active" data-filter="none">Original</button>
+        <button class="filter-btn" data-filter="vintage">Vintage</button>
+        <button class="filter-btn" data-filter="warm">Warm</button>
+        <button class="filter-btn" data-filter="cool">Cool</button>
+        <button class="filter-btn" data-filter="bw">B&W</button>
+        <button class="filter-btn" data-filter="sepia">Sepia</button>
+      </div>
+
+      <div class="adjustments">
+        <label>
+          <span>Brightness</span>
+          <input type="range" id="brightness" min="-100" max="100" value="0" />
+        </label>
+        <label>
+          <span>Contrast</span>
+          <input type="range" id="contrast" min="-100" max="100" value="0" />
+        </label>
+        <label>
+          <span>Saturation</span>
+          <input type="range" id="saturation" min="-100" max="100" value="0" />
+        </label>
+        <label>
+          <span>Warmth</span>
+          <input type="range" id="warmth" min="-100" max="100" value="0" />
+        </label>
+        <label>
+          <span>Sharpen</span>
+          <input type="range" id="sharpen" min="0" max="100" value="0" />
+        </label>
+      </div>
+
+      <div class="filter-btns">
+        <button class="btn-reset">Reset</button>
+        <button class="btn-save">Save Palette</button>
+      </div>
+    </div>
     <div class="btn-containers">
       <div class="allow-container">
         <button class="btn-allow-media">
