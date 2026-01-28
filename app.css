@@ -1,0 +1,113 @@
+:root {
+  --primary-color: #222222;
+  --dark-color: #2f2c1f;
+  --secondary-color: #F0F0F0;
+  --accent-color: #ffc800;
+}
+
+img {
+  display: block;
+  height: auto;
+}
+
+body {
+  background-color: var(--primary-color);
+  font-family: Arial, sans-serif;
+  max-width: 450px;
+  height: 100lvh;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+.capture {
+  display: block;
+  width: 100%;
+  height: 450px;
+  border: inset 1px solid var(--secondary-color);
+}
+
+#canvas,.camera-feed {
+  display: none;
+}
+
+.output {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+.camera-feed {
+  transform: scaleX(-1);
+}
+
+.btn-containers {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: .5rem 0rem;
+
+  button {
+    height: fit-content;
+  }
+
+  .allow-container {
+    display: inline-block;
+    position: absolute;
+    left: 0;
+
+    span {
+      color: var(--accent-color);
+      text-shadow: 0px 0px 2px var(--accent-color);
+      font-size: .85rem;
+    }
+  }
+
+  .btn-allow-media {
+    display: grid;
+    place-content: center;
+    gap: .25rem;
+    padding: .25rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background-color: var(--dark-color);
+    border: 1px solid var(--accent-color);
+    box-shadow: inset 0px 0px 3px var(--accent-color);
+    border-radius: 2px;
+
+    svg {
+      fill: var(--secondary-color);
+      stroke-width: 4px;
+      border: 1px;
+    }
+
+    &:hover {
+      cursor: pointer;
+    }
+
+    &:active {
+      border: 2px solid #9d7b00;
+      svg {
+        width: .75rem;
+        height: .75rem;
+      }
+    }
+  }
+
+  .btn-capture {
+    display: grid;
+    place-content: center;
+    width: fit-content;
+    width: 60px;
+    height: 60px;
+    border-radius: 9999px;
+
+    svg {
+      fill: var(--primary-color);
+    }
+  }
+}
