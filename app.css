@@ -56,14 +56,22 @@ body {
   }
 
   .allow-container {
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
     position: absolute;
     left: 0;
 
     span {
+      max-width: 9ch;
+      line-height: .85;
       color: var(--accent-color);
-      text-shadow: 0px 0px 2px var(--accent-color);
+      text-shadow: 0px 0px 1px var(--accent-color);
       font-size: .85rem;
+    }
+
+    &:hover {
+      cursor: pointer;
     }
   }
 
@@ -216,8 +224,7 @@ body {
   justify-content: space-between;
 }
 
-.filter-btns .btn-reset,
-.filter-btns .btn-save {
+.filter-btns .btn-reset {
   padding: 0.5rem 1.5rem;
   background-color: transparent;
   border: 1px solid var(--secondary-color);
@@ -227,18 +234,44 @@ body {
   font-size: 0.85rem;
 }
 
-.filter-btns .btn-reset:hover,
-.filter-btns .btn-save:hover {
+.filter-btns .btn-reset:hover {
   background-color: var(--secondary-color);
   color: var(--primary-color);
 }
 
-.btn-save {
+.btns-actions {
+  display: flex;
+  gap: .25rem;
+  position: absolute;
+  right: 0;
+}
+
+.btn-small {
+  padding: 0.25rem;
+  background-color: transparent;
+  border: 1px solid var(--secondary-color);
+  color: var(--secondary-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-small:hover {
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
+}
+
+
+.btn-small {
   border-color: var(--accent-color) !important;
   color: var(--accent-color) !important;
 }
 
-.btn-save:hover {
+.btn-small:hover {
   background-color: var(--accent-color) !important;
   color: var(--primary-color) !important;
+}
+
+.none {
+  display: none;
 }
