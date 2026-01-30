@@ -15,6 +15,16 @@ let streamingFlag = false;
 let captureContainerH = captureContainer.clientHeight;
 let captureContainerW = captureContainer.clientWidth;
 
+// Zoom and camera controls
+const zoomBtns = document.querySelectorAll('.zoom-btns .btn-small');
+const zoomDisplay = document.querySelector('.zoom-btns span');
+const rotateBtn = document.querySelector('.btn-rotate');
+
+let currentZoom = 1;
+let zoomInterval = null;
+let videoTrack = null;
+let currentFacingMode = "environment"; // "environment" for back camera, "user" for front
+
 if (navigator.mediaDevices?.getUserMedia) {
   allowBtn.addEventListener('click', () => {
       getMediaStream();
@@ -27,10 +37,23 @@ if (navigator.mediaDevices?.getUserMedia) {
 
 const getMediaStream = () => {
     navigator.mediaDevices
-    .getUserMedia({ video: { facingMode: "environment" }, audio: false })
+    .getUserMedia({ video: { facingMode: currentFacingMode }, audio: false })
     .then((stream) =>{
         cameraFeed.srcObject = stream;
         cameraFeed.play();
+
+        // Get the video track for zoom control
+        videoTrack = stream.getVideoTracks()[0];
+
+        // Check zoom capabilities
+        if (videoTrack && videoTrack.getCapabilities) {
+            const capabilities = videoTrack.getCapabilities();
+            if (capabilities.zoom) {
+                console.log('Zoom range:', capabilities.zoom.min, '-', capabilities.zoom.max);
+                currentZoom = capabilities.zoom.min || 1;
+                updateZoomDisplay();
+            }
+        }
     })
     .catch((err) => {
         console.error("An error occurred: " + err);
@@ -204,3 +227,88 @@ function takePicture() {
     clearPhoto();
   }
 }
+
+// Zoom functionality
+function updateZoomDisplay() {
+  zoomDisplay.textContent = currentZoom.toFixed(1);
+}
+
+function applyZoom(zoomValue) {
+  if (videoTrack && videoTrack.getCapabilities) {
+    const capabilities = videoTrack.getCapabilities();
+
+    if (capabilities.zoom) {
+      // Clamp zoom value to the camera's min/max
+      const clampedZoom = Math.max(
+        capabilities.zoom.min,
+        Math.min(capabilities.zoom.max, zoomValue)
+      );
+
+      currentZoom = clampedZoom;
+
+      videoTrack.applyConstraints({
+        advanced: [{ zoom: currentZoom }]
+      }).then(() => {
+        updateZoomDisplay();
+      }).catch(err => {
+        console.error('Error applying zoom:', err);
+      });
+    }
+  }
+}
+
+function startZoom(direction) {
+  const zoomStep = 0.1; // Zoom increment per frame
+
+  zoomInterval = setInterval(() => {
+    const newZoom = direction === 'in'
+      ? currentZoom + zoomStep
+      : currentZoom - zoomStep;
+
+    applyZoom(newZoom);
+  }, 50); // Update every 50ms for smooth zooming
+}
+
+function stopZoom() {
+  if (zoomInterval) {
+    clearInterval(zoomInterval);
+    zoomInterval = null;
+  }
+}
+
+// Zoom button event listeners
+zoomBtns.forEach((btn, index) => {
+  const direction = index === 0 ? 'out' : 'in'; // First button is -, second is +
+
+  // Mouse events
+  btn.addEventListener('mousedown', () => startZoom(direction));
+  btn.addEventListener('mouseup', stopZoom);
+  btn.addEventListener('mouseleave', stopZoom);
+
+  // Touch events for mobile
+  btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    startZoom(direction);
+  });
+  btn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    stopZoom();
+  });
+});
+
+// Rotate camera (switch between front and back)
+rotateBtn.addEventListener('click', () => {
+  // Stop current stream
+  if (cameraFeed.srcObject) {
+    cameraFeed.srcObject.getTracks().forEach(track => track.stop());
+  }
+
+  // Toggle facing mode
+  currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+
+  // Reset zoom
+  currentZoom = 1;
+
+  // Restart stream with new camera
+  getMediaStream();
+});

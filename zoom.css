@@ -1,0 +1,11 @@
+.zoom-btns {
+  position: absolute;
+  left: .5rem;
+  color: var(--accent-color);
+  font-family: monospace;
+
+  button {
+    width: 2rem;
+    height: 2rem;
+  }
+}

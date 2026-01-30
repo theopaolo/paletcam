@@ -1,3 +1,6 @@
+@import url("reset.css");
+@import url("zoom.css");
+
 :root {
   --primary-color: #222222;
   --dark-color: #2f2c1f;
@@ -24,13 +27,21 @@ body {
 
 .capture {
   display: block;
+  position: relative;
   width: 100%;
   flex: 1;
   min-height: 0;
 }
-
-#canvas,.camera-feed {
+#canvas {
   display: none;
+}
+
+.camera-feed {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: fit-content;
+  width: 20%;
 }
 
 .output {
@@ -115,6 +126,12 @@ body {
     }
   }
 
+  .btns-camera {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+  }
+
   .btn-capture {
     display: grid;
     place-content: center;
@@ -135,8 +152,12 @@ body {
       svg {
         scale: 0.9;;
       }
-
     }
+  }
+  .btn-rotate {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--accent-color);
   }
 }
 
