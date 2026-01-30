@@ -1,0 +1,126 @@
+/* PWA Install Toast Styles */
+.install-toast {
+  position: fixed;
+  bottom: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  transition: bottom 0.3s ease-out;
+  max-width: 90%;
+  width: 400px;
+}
+
+.install-toast.show {
+  bottom: 20px;
+}
+
+.install-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  position: relative;
+}
+
+.install-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.install-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.install-text strong {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 4px;
+  color: #000;
+}
+
+.install-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.install-btn {
+  background: #000;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.install-btn:hover {
+  background: #333;
+}
+
+.install-btn:active {
+  background: #000;
+  transform: scale(0.98);
+}
+
+.install-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.install-close:hover {
+  background: #f0f0f0;
+  color: #000;
+}
+
+@media (max-width: 480px) {
+  .install-toast {
+    width: calc(100% - 32px);
+    max-width: none;
+  }
+
+  .install-toast-content {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .install-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .install-text strong {
+    font-size: 14px;
+  }
+
+  .install-text p {
+    font-size: 12px;
+  }
+
+  .install-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}

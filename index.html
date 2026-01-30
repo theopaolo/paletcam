@@ -4,7 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ColorCatcher</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Capture colors from your camera and create beautiful palettes" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/png" href="logo/colorcatchers.png" />
+    <link rel="apple-touch-icon" href="logo/colorcatchers.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="ColorCatcher" />
+
     <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="pwa-install.css" />
   </head>
   <body>
     <div class="capture">
@@ -71,17 +83,7 @@
         </button>
 
         <button class="btn-capture">
-          <svg
-            aria-hidden="true"
-            xmlns="http://www.w3.org/2000/svg"
-            width="32"
-            height="32"
-            fill=""
-            viewBox="0 0 256 256"
-          >
-            <path
-              d="M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56Zm-44,76a36,36,0,1,1-36-36A36,36,0,0,1,164,132Z"
-            ></path>
+          <img src="logo/colorcatchers.svg" alt="">
           </svg>
         </button>
       </div>
@@ -107,6 +109,7 @@
     <script src="palette-storage.js"></script>
     <script src="app.js"></script>
     <script src="collection-ui.js"></script>
+    <script src="pwa-install.js"></script>
     <!-- <script src="filters.js"></script> -->
   </body>
 </html>
