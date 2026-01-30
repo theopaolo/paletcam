@@ -93,7 +93,6 @@ function clearPhoto() {
   photo.setAttribute('src', data);
 }
 
-
 const canvasPalette = document.getElementById('canvas-palette');
 const ctxPalette = canvasPalette.getContext('2d');
 
@@ -112,10 +111,14 @@ function canvasRefresh(paletteHeight = captureContainerH) {
     canvasPalette.height = captureH;
   }
 
-  // Flip horizontally to un-mirror the video
+  // Flip horizontally only for front-facing camera
   ctx.save();
-  ctx.scale(-1, 1);
-  ctx.drawImage(cameraFeed, -width, 0, width, height);
+  if (currentFacingMode === "user") {
+    ctx.scale(-1, 1);
+    ctx.drawImage(cameraFeed, -width, 0, width, height);
+  } else {
+    ctx.drawImage(cameraFeed, 0, 0, width, height);
+  }
   ctx.restore();
 
   let barWidth = canvasPalette.width / 5;
@@ -148,18 +151,25 @@ function takePicture() {
   canvas.width = width;
   canvas.height = height;
 
-  // Flip horizontally to un-mirror the captured image
+  // Flip horizontally only for front-facing camera
   ctx.save();
-  ctx.scale(-1, 1);
-  ctx.drawImage(cameraFeed, -width, 0, width, height);
+  if (currentFacingMode === "user") {
+    ctx.scale(-1, 1);
+    ctx.drawImage(cameraFeed, -width, 0, width, height);
+  } else {
+    ctx.drawImage(cameraFeed, 0, 0, width, height);
+  }
   ctx.restore();
 
   if (width && height) {
+    // Use 3x pixel density for sharp images
+    const pixelDensity = 3;
+
     // Create a separate canvas for the 100px tall palette export
     const exportPaletteCanvas = document.createElement('canvas');
     const exportCtx = exportPaletteCanvas.getContext('2d');
-    exportPaletteCanvas.width = canvasPalette.width;
-    exportPaletteCanvas.height = 100;
+    exportPaletteCanvas.width = canvasPalette.width * pixelDensity;
+    exportPaletteCanvas.height = 100 * pixelDensity;
 
     // Draw the palette colors at 100px height and extract RGB values
     const pixelData = ctx.getImageData(0, 0, width, height).data;
@@ -180,7 +190,7 @@ function takePicture() {
       currentPaletteColors.push({ r, g, b });
 
       exportCtx.fillStyle = `rgb(${r},${g},${b})`;
-      exportCtx.fillRect(startX, 0, barWidth, 100);
+      exportCtx.fillRect(startX * pixelDensity, 0, barWidth * pixelDensity, 100 * pixelDensity);
     }
 
     const paletteData = exportPaletteCanvas.toDataURL('image/png');
@@ -188,8 +198,8 @@ function takePicture() {
     // Create a square photo canvas (same width as one palette color)
     const photoCanvas = document.createElement('canvas');
     const photoCtx = photoCanvas.getContext('2d');
-    photoCanvas.width = barWidth;
-    photoCanvas.height = 100;
+    photoCanvas.width = barWidth * pixelDensity;
+    photoCanvas.height = 100 * pixelDensity;
 
     // Calculate dimensions for object-fit: cover behavior
     const canvasAspect = width / height;
@@ -208,7 +218,7 @@ function takePicture() {
     }
 
     // Draw the cropped image to fit the square canvas (object-fit: cover effect)
-    photoCtx.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, barWidth, 100);
+    photoCtx.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, barWidth * pixelDensity, 100 * pixelDensity);
     const photoData = photoCanvas.toDataURL('image/png');
 
     photo.setAttribute('src', photoData);
