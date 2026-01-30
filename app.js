@@ -56,6 +56,8 @@ captureBtn.addEventListener('click', (ev) => {
     ev.preventDefault();
     if (streamingFlag && width > 0 && height > 0) {
       takePicture();
+    } else {
+      getMediaStream();
     }
 });
 
@@ -159,7 +161,32 @@ function takePicture() {
     }
 
     const paletteData = exportPaletteCanvas.toDataURL('image/png');
-    const photoData = canvas.toDataURL('image/png');
+
+    // Create a square photo canvas (same width as one palette color)
+    const photoCanvas = document.createElement('canvas');
+    const photoCtx = photoCanvas.getContext('2d');
+    photoCanvas.width = barWidth;
+    photoCanvas.height = 100;
+
+    // Calculate dimensions for object-fit: cover behavior
+    const canvasAspect = width / height;
+    const targetAspect = barWidth / 100;
+
+    let sourceX = 0, sourceY = 0, sourceWidth = width, sourceHeight = height;
+
+    if (canvasAspect > targetAspect) {
+      // Source is wider, crop the sides
+      sourceWidth = height * targetAspect;
+      sourceX = (width - sourceWidth) / 2;
+    } else {
+      // Source is taller, crop top/bottom
+      sourceHeight = width / targetAspect;
+      sourceY = (height - sourceHeight) / 2;
+    }
+
+    // Draw the cropped image to fit the square canvas (object-fit: cover effect)
+    photoCtx.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, barWidth, 100);
+    const photoData = photoCanvas.toDataURL('image/png');
 
     photo.setAttribute('src', photoData);
     paletteImg.setAttribute('src', paletteData);

@@ -93,10 +93,8 @@ function createPaletteCard(palette) {
   btnDelete.className = 'btn-action btn-delete';
   btnDelete.textContent = '×';
   btnDelete.addEventListener('click', () => {
-    if (confirm('Delete this palette?')) {
-      deletePalette(palette.id);
-      loadCollectionUI();
-    }
+    deletePalette(palette.id);
+    loadCollectionUI();
   });
 
   actionsDiv.appendChild(btnExportPNG);

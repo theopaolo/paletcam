@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Paletcam</title>
+    <title>ColorCatch</title>
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
@@ -13,14 +13,14 @@
       <canvas id="canvas-palette"></canvas>
     </div>
     <div class="output">
-      <img id="photo" src="" />
-      <img id="paletteImg" src="" />
+      <img class="output-img" id="photo" src="" />
+      <img class="output-img" id="paletteImg" src="" />
     </div>
 
     <!-- Palette Collection Panel -->
     <div class="collection-panel">
       <div class="collection-header">
-        <h2>Collection</h2>
+        <h2>Catches</h2>
         <button class="btn-close-collection">×</button>
       </div>
       <div class="collection-grid" id="collectionGrid">
@@ -29,7 +29,7 @@
     </div>
 
     <div class="btn-containers">
-      <div class="allow-container">
+      <div class="allow-container none">
         <button class="btn-allow-media">
           <svg
             aria-hidden="true"
