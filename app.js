@@ -27,7 +27,7 @@ if (navigator.mediaDevices?.getUserMedia) {
 
 const getMediaStream = () => {
     navigator.mediaDevices
-    .getUserMedia({ video: true, audio: false })
+    .getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then((stream) =>{
         cameraFeed.srcObject = stream;
         cameraFeed.play();
@@ -164,6 +164,12 @@ function takePicture() {
     photo.setAttribute('src', photoData);
     paletteImg.setAttribute('src', paletteData);
 
+    // Automatically save to localStorage
+    if (currentPaletteColors.length > 0) {
+      const savedPalette = savePalette(currentPaletteColors, paletteData);
+      console.log('Palette automatically saved:', savedPalette);
+    }
+
     // Show filters panel and store original image data
     // const imageData = ctx.getImageData(0, 0, width, height);
     // showFiltersPanel(imageData, width, height);
@@ -171,23 +177,3 @@ function takePicture() {
     clearPhoto();
   }
 }
-
-// Save button functionality
-const saveBtn = document.querySelector('.btn-save');
-saveBtn.addEventListener('click', () => {
-  const paletteDataUrl = paletteImg.getAttribute('src');
-  if (paletteDataUrl && currentPaletteColors.length > 0) {
-    // Save to localStorage
-    const savedPalette = savePalette(currentPaletteColors, paletteDataUrl);
-    console.log('Palette saved:', savedPalette);
-
-    // Also download the image
-    const link = document.createElement('a');
-    link.download = `palette-${savedPalette.id}.png`;
-    link.href = paletteDataUrl;
-    link.click();
-
-    // Log success
-    console.log('Palette saved to collection and exported!');
-  }
-});
