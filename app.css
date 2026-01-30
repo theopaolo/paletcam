@@ -14,18 +14,19 @@ body {
   background-color: var(--primary-color);
   font-family: Arial, sans-serif;
   max-width: 450px;
-  height: 100lvh;
+  height: 100dvh;
   margin: 0 auto;
   display: flex;
-  align-items: center;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 .capture {
   display: block;
   width: 100%;
-  height: calc(100% - 100px);
+  flex: 1;
+  min-height: 0;
 }
 
 #canvas,.camera-feed {
@@ -36,6 +37,7 @@ body {
   display: flex;
   width: 100%;
   height: 100px;
+  flex-shrink: 0;
   align-items: center;
   overflow-x: scroll;
 }
@@ -56,6 +58,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: .5rem 0rem;
+  flex-shrink: 0;
 
   button {
     height: fit-content;
