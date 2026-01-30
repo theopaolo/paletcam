@@ -115,6 +115,9 @@ function canvasRefresh(paletteHeight = captureContainerH) {
   requestAnimationFrame(canvasRefresh);
 }
 
+// Store current palette colors
+let currentPaletteColors = [];
+
 function takePicture() {
   console.log('Taking picture...');
   canvas.width = width;
@@ -133,9 +136,10 @@ function takePicture() {
     exportPaletteCanvas.width = canvasPalette.width;
     exportPaletteCanvas.height = 100;
 
-    // Draw the palette colors at 100px height
+    // Draw the palette colors at 100px height and extract RGB values
     const pixelData = ctx.getImageData(0, 0, width, height).data;
     const barWidth = exportPaletteCanvas.width / 5;
+    currentPaletteColors = []; // Reset the current palette
 
     for (let i = 0; i < 5; i++) {
       let x = Math.floor((width / 5) * i + (width / 10));
@@ -146,6 +150,9 @@ function takePicture() {
       let r = pixelData[index];
       let g = pixelData[index + 1];
       let b = pixelData[index + 2];
+
+      // Store the RGB colors
+      currentPaletteColors.push({ r, g, b });
 
       exportCtx.fillStyle = `rgb(${r},${g},${b})`;
       exportCtx.fillRect(startX, 0, barWidth, 100);
@@ -164,3 +171,23 @@ function takePicture() {
     clearPhoto();
   }
 }
+
+// Save button functionality
+const saveBtn = document.querySelector('.btn-save');
+saveBtn.addEventListener('click', () => {
+  const paletteDataUrl = paletteImg.getAttribute('src');
+  if (paletteDataUrl && currentPaletteColors.length > 0) {
+    // Save to localStorage
+    const savedPalette = savePalette(currentPaletteColors, paletteDataUrl);
+    console.log('Palette saved:', savedPalette);
+
+    // Also download the image
+    const link = document.createElement('a');
+    link.download = `palette-${savedPalette.id}.png`;
+    link.href = paletteDataUrl;
+    link.click();
+
+    // Log success
+    console.log('Palette saved to collection and exported!');
+  }
+});
