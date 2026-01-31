@@ -1,4 +1,4 @@
-const CACHE_NAME = 'colorcatcher-v1';
+const CACHE_NAME = 'colorcatcher-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,8 +6,11 @@ const urlsToCache = [
   '/app.js',
   '/palette-storage.js',
   '/collection-ui.js',
+  '/pwa-install.css',
+  '/pwa-install.js',
   '/logo/colorcatchers.svg',
-  '/logo/colorcatchers.png'
+  '/icons/icon-192-framed.png',
+  '/icons/icon-512-framed.png'
 ];
 
 self.addEventListener('install', (event) => {
