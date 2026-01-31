@@ -8,13 +8,14 @@ function getSavedPalettes() {
 }
 
 // Save a new palette to localStorage
-function savePalette(colors, imageDataUrl) {
+function savePalette(colors, imageDataUrl, photoDataUrl) {
   const palettes = getSavedPalettes();
   const newPalette = {
     id: Date.now(),
     timestamp: new Date().toISOString(),
     colors: colors, // Array of {r, g, b} objects
-    imageDataUrl: imageDataUrl // Base64 image data
+    imageDataUrl: imageDataUrl, // Base64 image data for palette
+    photoDataUrl: photoDataUrl // Base64 image data for photo
   };
 
   palettes.unshift(newPalette); // Add to beginning of array

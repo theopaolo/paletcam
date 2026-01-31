@@ -40,6 +40,16 @@ function createPaletteCard(palette) {
   const swatchesDiv = document.createElement('div');
   swatchesDiv.className = 'palette-swatches';
 
+  // Add photo as first item if available
+  if (palette.photoDataUrl) {
+    const photoSwatch = document.createElement('div');
+    photoSwatch.className = 'color-swatch photo-swatch';
+    photoSwatch.style.backgroundImage = `url(${palette.photoDataUrl})`;
+    photoSwatch.style.backgroundSize = 'cover';
+    photoSwatch.style.backgroundPosition = 'center';
+    swatchesDiv.appendChild(photoSwatch);
+  }
+
   palette.colors.forEach(color => {
     const swatch = document.createElement('div');
     swatch.className = 'color-swatch';

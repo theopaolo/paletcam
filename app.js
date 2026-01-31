@@ -208,30 +208,19 @@ function takePicture() {
 
     const paletteData = exportPaletteCanvas.toDataURL('image/png');
 
-    // Create a square photo canvas (same width as one palette color)
+    // Create a photo canvas that maintains the camera's aspect ratio
     const photoCanvas = document.createElement('canvas');
     const photoCtx = photoCanvas.getContext('2d');
-    photoCanvas.width = barWidth * pixelDensity;
-    photoCanvas.height = 100 * pixelDensity;
 
-    // Calculate dimensions for object-fit: cover behavior
-    const canvasAspect = width / height;
-    const targetAspect = barWidth / 100;
+    // Use the actual camera aspect ratio
+    const photoWidth = 200; // Match max-width in CSS
+    const photoHeight = (height / width) * photoWidth;
 
-    let sourceX = 0, sourceY = 0, sourceWidth = width, sourceHeight = height;
+    photoCanvas.width = photoWidth * pixelDensity;
+    photoCanvas.height = photoHeight * pixelDensity;
 
-    if (canvasAspect > targetAspect) {
-      // Source is wider, crop the sides
-      sourceWidth = height * targetAspect;
-      sourceX = (width - sourceWidth) / 2;
-    } else {
-      // Source is taller, crop top/bottom
-      sourceHeight = width / targetAspect;
-      sourceY = (height - sourceHeight) / 2;
-    }
-
-    // Draw the cropped image to fit the square canvas (object-fit: cover effect)
-    photoCtx.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, barWidth * pixelDensity, 100 * pixelDensity);
+    // Draw the full image without cropping
+    photoCtx.drawImage(canvas, 0, 0, width, height, 0, 0, photoWidth * pixelDensity, photoHeight * pixelDensity);
     const photoData = photoCanvas.toDataURL('image/png');
 
     photo.setAttribute('src', photoData);
@@ -257,7 +246,7 @@ function takePicture() {
 
     // Automatically save to localStorage
     if (currentPaletteColors.length > 0) {
-      const savedPalette = savePalette(currentPaletteColors, paletteData);
+      const savedPalette = savePalette(currentPaletteColors, paletteData, photoData);
       console.log('Palette automatically saved:', savedPalette);
     }
 

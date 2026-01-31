@@ -61,17 +61,19 @@ body {
 
 .output-img{
   height: 100%;
-  object-fit: cover;
+  max-width: 200px;
+  object-fit: contain;
 }
 
 .output-palette {
   display: flex;
   height: 100%;
+  width: 100%;
   flex-shrink: 0;
 }
 
 .output-swatch {
-  width: 50px;
+  flex: 1;
   height: 100%;
   cursor: pointer;
   transition: transform 0.2s;
