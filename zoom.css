@@ -13,7 +13,7 @@
 .swatch-count-btns {
   position: absolute;
   display: flex;
-  right: 3rem;
+  right: .5rem;
   color: var(--accent-color);
   font-family: monospace;
 
