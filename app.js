@@ -7,7 +7,7 @@ const allowBtn = document.querySelector('.btn-allow-media');
 const allowText = document.querySelector('.allow-container span');
 const captureContainer = document.querySelector('.capture');
 const photo = document.getElementById('photo');
-const paletteImg = document.getElementById('paletteImg')
+const outputPalette = document.getElementById('outputPalette');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
@@ -228,7 +228,25 @@ function takePicture() {
     const photoData = photoCanvas.toDataURL('image/png');
 
     photo.setAttribute('src', photoData);
-    paletteImg.setAttribute('src', paletteData);
+
+    // Create dynamic palette swatches in the output
+    outputPalette.innerHTML = '';
+    currentPaletteColors.forEach(color => {
+      const swatch = document.createElement('div');
+      swatch.className = 'output-swatch';
+      swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+      swatch.title = `rgb(${color.r}, ${color.g}, ${color.b})`;
+
+      // Copy color on click
+      swatch.addEventListener('click', () => {
+        const colorText = `rgb(${color.r}, ${color.g}, ${color.b})`;
+        navigator.clipboard.writeText(colorText).then(() => {
+          console.log('Color copied:', colorText);
+        });
+      });
+
+      outputPalette.appendChild(swatch);
+    });
 
     // Automatically save to localStorage
     if (currentPaletteColors.length > 0) {

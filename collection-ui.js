@@ -88,6 +88,28 @@ function createPaletteCard(palette) {
     exportPaletteAsCSS(palette);
   });
 
+  function copyToClipBoard(palette, button) {
+     const colorsText = palette.colors
+      .map(color => `rgb(${color.r}, ${color.g}, ${color.b})`)
+      .join('\n');
+
+    navigator.clipboard.writeText(colorsText).then(() => {
+      // Visual feedback
+      button.textContent = 'FAIT';
+      setTimeout(() => {
+        button.textContent = 'COPIER';
+      }, 1500);
+    });
+  }
+
+  // Copy to clipboard
+  const btnCopySwatches = document.createElement('button');
+  btnCopySwatches.className = 'btn-action';
+  btnCopySwatches.textContent = 'COPIER';
+  btnCopySwatches.addEventListener('click', () => {
+    copyToClipBoard(palette, btnCopySwatches);
+  });
+
   // Delete button
   const btnDelete = document.createElement('button');
   btnDelete.className = 'btn-action btn-delete';
@@ -97,9 +119,11 @@ function createPaletteCard(palette) {
     loadCollectionUI();
   });
 
-  actionsDiv.appendChild(btnExportPNG);
-  actionsDiv.appendChild(btnExportJSON);
-  actionsDiv.appendChild(btnExportCSS);
+  // actionsDiv.appendChild(btnExportPNG);
+  // actionsDiv.appendChild(btnExportJSON);
+  // actionsDiv.appendChild(btnExportCSS);
+  actionsDiv.appendChild(btnCopySwatches);
+
   actionsDiv.appendChild(btnDelete);
 
   card.appendChild(swatchesDiv);

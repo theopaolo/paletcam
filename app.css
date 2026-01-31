@@ -58,6 +58,20 @@ body {
   object-fit: cover;
 }
 
+.output-palette {
+  display: flex;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.output-swatch {
+  width: 50px;
+  height: 100%;
+  cursor: pointer;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
 .btn-containers {
   position: relative;
   width: 100%;
@@ -406,7 +420,6 @@ body {
 .color-swatch {
   flex: 1;
   height: 80px;
-  max-width: 50px;
   cursor: pointer;
   transition: transform 0.2s;
 }
@@ -417,27 +430,36 @@ body {
 }
 
 .btn-action {
-  padding: 6px 12px;
   border: 1px solid var(--secondary-color);
   background-color: transparent;
   color: var(--secondary-color);
   cursor: pointer;
-  font-size: .85;
+  font-size: 0.85rem;
   transition: all 0.2s;
   flex: 1;
+  min-height: 44px;
 }
 
-.btn-action:hover {
-  background-color: var(--secondary-color);
+.btn-copy {
+  background-color: var(--accent-color);
   color: var(--primary-color);
+  border-color: var(--accent-color);
+  font-weight: 500;
+}
+
+.btn-copy:active {
+  background-color: #d4a700;
 }
 
 .btn-delete {
   border-color: #ff4444;
   color: #ff4444;
+  flex: 0 0 44px;
+  font-size: 1.5rem;
+  padding: 0;
 }
 
-.btn-delete:hover {
+.btn-delete:active {
   background-color: #ff4444;
   color: white;
 }
