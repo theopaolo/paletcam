@@ -1,4 +1,4 @@
-const CACHE_NAME = 'colorcatcher-v4';
+const CACHE_NAME = 'colorcatcher-v5';
 const urlsToCache = [
   '/',
   '/index.html',
