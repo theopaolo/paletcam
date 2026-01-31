@@ -270,8 +270,6 @@ body {
 .btns-actions {
   display: flex;
   gap: .25rem;
-  position: absolute;
-  right: 7rem  ;
 }
 
 .zoom-btns {
