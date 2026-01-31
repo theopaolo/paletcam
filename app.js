@@ -20,10 +20,16 @@ const zoomBtns = document.querySelectorAll('.zoom-btns .btn-small');
 const zoomDisplay = document.querySelector('.zoom-btns span');
 const rotateBtn = document.querySelector('.btn-rotate');
 
+// Swatch count controls
+const swatchIncreaseBtn = document.querySelector('.btn-swatch-increase');
+const swatchDecreaseBtn = document.querySelector('.btn-swatch-decrease');
+const swatchCountDisplay = document.querySelector('.swatch-count-display');
+
 let currentZoom = 1;
 let zoomInterval = null;
 let videoTrack = null;
 let currentFacingMode = "environment"; // "environment" for back camera, "user" for front
+let swatchCount = 5; // Default number of swatches
 
 if (navigator.mediaDevices?.getUserMedia) {
   allowBtn.addEventListener('click', () => {
@@ -121,12 +127,12 @@ function canvasRefresh(paletteHeight = captureContainerH) {
   }
   ctx.restore();
 
-  let barWidth = canvasPalette.width / 5;
+  let barWidth = canvasPalette.width / swatchCount;
 
   if( height > 0 && width > 0) {
     const pixelData = ctx.getImageData(0, 0, width, height).data;
-    for(let i = 0; i < 5; i++) {
-      let x = Math.floor((width / 5) * i + (width / 10));
+    for(let i = 0; i < swatchCount; i++) {
+      let x = Math.floor((width / swatchCount) * i + (width / (swatchCount * 2)));
       let y = Math.floor(height / 2);
       let index = (y * width + x) * 4;
       let startX = i * barWidth;
@@ -173,11 +179,11 @@ function takePicture() {
 
     // Draw the palette colors at 100px height and extract RGB values
     const pixelData = ctx.getImageData(0, 0, width, height).data;
-    const barWidth = exportPaletteCanvas.width / 5;
+    const barWidth = exportPaletteCanvas.width / swatchCount;
     currentPaletteColors = []; // Reset the current palette
 
-    for (let i = 0; i < 5; i++) {
-      let x = Math.floor((width / 5) * i + (width / 10));
+    for (let i = 0; i < swatchCount; i++) {
+      let x = Math.floor((width / swatchCount) * i + (width / (swatchCount * 2)));
       let y = Math.floor(height / 2);
       let index = (y * width + x) * 4;
       let startX = i * barWidth;
@@ -321,4 +327,21 @@ rotateBtn.addEventListener('click', () => {
 
   // Restart stream with new camera
   getMediaStream();
+});
+
+// Swatch count controls
+function updateSwatchCountDisplay() {
+  swatchCountDisplay.textContent = swatchCount;
+}
+
+swatchIncreaseBtn.addEventListener('click', () => {
+  swatchCount++;
+  updateSwatchCountDisplay();
+});
+
+swatchDecreaseBtn.addEventListener('click', () => {
+  if (swatchCount > 1) { // Minimum of 1 swatch
+    swatchCount--;
+    updateSwatchCountDisplay();
+  }
 });

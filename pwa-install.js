@@ -1,4 +1,6 @@
 // Register Service Worker
+// DISABLED FOR DEVELOPMENT - Uncomment for production
+/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
@@ -10,6 +12,7 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+*/
 
 // PWA Install Prompt
 let deferredPrompt;

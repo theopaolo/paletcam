@@ -4,13 +4,12 @@
   bottom: -200px;
   left: 50%;
   transform: translateX(-50%);
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  background: var(--secondary-color);
+  border-radius: 4px;
   z-index: 10000;
   transition: bottom 0.3s ease-out;
   max-width: 90%;
-  width: 400px;
+  width: 450px;
 }
 
 .install-toast.show {
@@ -20,8 +19,8 @@
 .install-toast-content {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
+  gap: 1rem;
+  padding: .5rem;
   position: relative;
 }
 
@@ -37,13 +36,6 @@
   min-width: 0;
 }
 
-.install-text strong {
-  display: block;
-  font-size: 16px;
-  margin-bottom: 4px;
-  color: #000;
-}
-
 .install-text p {
   margin: 0;
   font-size: 14px;
@@ -51,12 +43,12 @@
 }
 
 .install-btn {
-  background: #000;
-  color: white;
+  background: var(--dark-color);
+  color: var(--accent-color);
   border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: .5rem;
+  border-radius: 4px;
+  font-size: .85rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
@@ -73,26 +65,22 @@
 }
 
 .install-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: transparent;
+  background: var(--accent-color);
   border: none;
-  font-size: 24px;
-  color: #999;
+  font-size: 1rem;
+  color: var(--dark-color);
   cursor: pointer;
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
   transition: background 0.2s;
 }
 
 .install-close:hover {
-  background: #f0f0f0;
-  color: #000;
+  background: var(--dark-color);
+  color: var(--accent-color);
 }
 
 @media (max-width: 480px) {

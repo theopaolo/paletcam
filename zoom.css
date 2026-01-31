@@ -9,3 +9,22 @@
     height: 2rem;
   }
 }
+
+.swatch-count-btns {
+  position: absolute;
+  display: flex;
+  right: 3rem;
+  color: var(--accent-color);
+  font-family: monospace;
+
+  button {
+    width: 2rem;
+    height: fit-content;
+  }
+
+  .swatch-count-display {
+    font-family: monospace;
+    display: inline-block;
+    text-align: center;
+  }
+}
