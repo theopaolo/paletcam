@@ -1,18 +1,39 @@
 // Register Service Worker
-// DISABLED FOR DEVELOPMENT - Uncomment for production
-/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then((registration) => {
         console.log('Service Worker registered:', registration);
+
+        // Check for updates every time the page loads
+        registration.update();
+
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              console.log('New service worker activated! Reloading...');
+              // Reload to get the latest version
+              window.location.reload();
+            }
+          });
+        });
       })
       .catch((error) => {
         console.log('Service Worker registration failed:', error);
       });
   });
+
+  // Listen for controller change and reload
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
 }
-*/
 
 // PWA Install Prompt
 let deferredPrompt;
