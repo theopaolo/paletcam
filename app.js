@@ -42,11 +42,18 @@ if (navigator.mediaDevices?.getUserMedia) {
 }
 
 const getMediaStream = () => {
+    const btnOn = document.querySelector('.btn-on');
+    const btnShoot = document.querySelector('.btn-shoot');
+
     navigator.mediaDevices
     .getUserMedia({ video: { facingMode: currentFacingMode }, audio: false })
     .then((stream) =>{
         cameraFeed.srcObject = stream;
         cameraFeed.play();
+
+        // Hide btn-on and show btn-shoot when camera turns on
+        btnOn.classList.add('hidden');
+        btnShoot.classList.remove('hidden');
 
         // Get the video track for zoom control
         videoTrack = stream.getVideoTracks()[0];

@@ -6,7 +6,10 @@
     <title>ColorCatcher</title>
 
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Capture colors from your camera and create beautiful palettes" />
+    <meta
+      name="description"
+      content="Capture colors from your camera and create beautiful palettes"
+    />
     <meta name="theme-color" content="#000000" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" href="icons/icon-192-framed.png" />
@@ -89,12 +92,23 @@
         </button>
 
         <button class="btn-capture">
-          <img src="logo/colorcatchers.svg" alt="">
+          <img src="logo/colorcatchers.svg" alt="" class="btn-shoot hidden" />
+          <svg
+            class="btn-on"
+            xmlns="http://www.w3.org/2000/svg"
+            width="32"
+            height="32"
+            fill="#000000"
+            viewBox="0 0 256 256"
+          >
+            <path
+              d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm66.55-82a12,12,0,0,0-13.1,20.1C191.41,80.37,204,103,204,128a76,76,0,0,1-152,0c0-25,12.59-47.63,34.55-61.95A12,12,0,0,0,73.45,46C44.56,64.78,28,94.69,28,128a100,100,0,0,0,200,0C228,94.69,211.44,64.78,182.55,46Z"
+            ></path>
           </svg>
         </button>
 
         <div class="btns-actions">
-        <!-- <button class="btn-small btn-filters">filtres</button> -->
+          <!-- <button class="btn-small btn-filters">filtres</button> -->
           <button class="btn-view-collection">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -110,8 +124,6 @@
           </button>
         </div>
       </div>
-
-
     </div>
 
     <script src="palette-storage.js"></script>
