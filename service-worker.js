@@ -1,4 +1,4 @@
-const CACHE_NAME = 'colorcatcher-v5';
+const CACHE_NAME = 'colorcatcher-v6';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -29,6 +29,11 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Skip caching for non-HTTP(S) requests (e.g., chrome-extension://)
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
   event.respondWith(
     // Network first, falling back to cache
     fetch(event.request)

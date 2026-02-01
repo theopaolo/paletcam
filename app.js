@@ -178,22 +178,14 @@ function takePicture() {
     // Use 3x pixel density for sharp images
     const pixelDensity = 3;
 
-    // Create a separate canvas for the 100px tall palette export
-    const exportPaletteCanvas = document.createElement('canvas');
-    const exportCtx = exportPaletteCanvas.getContext('2d');
-    exportPaletteCanvas.width = canvasPalette.width * pixelDensity;
-    exportPaletteCanvas.height = 100 * pixelDensity;
-
-    // Draw the palette colors at 100px height and extract RGB values
+    // Extract RGB values from the captured image
     const pixelData = ctx.getImageData(0, 0, width, height).data;
-    const barWidth = exportPaletteCanvas.width / swatchCount;
     currentPaletteColors = []; // Reset the current palette
 
     for (let i = 0; i < swatchCount; i++) {
       let x = Math.floor((width / swatchCount) * i + (width / (swatchCount * 2)));
       let y = Math.floor(height / 2);
       let index = (y * width + x) * 4;
-      let startX = i * barWidth;
 
       let r = pixelData[index];
       let g = pixelData[index + 1];
@@ -201,12 +193,7 @@ function takePicture() {
 
       // Store the RGB colors
       currentPaletteColors.push({ r, g, b });
-
-      exportCtx.fillStyle = `rgb(${r},${g},${b})`;
-      exportCtx.fillRect(startX * pixelDensity, 0, barWidth * pixelDensity, 100 * pixelDensity);
     }
-
-    const paletteData = exportPaletteCanvas.toDataURL('image/png');
 
     // Create a photo canvas that maintains the camera's aspect ratio
     const photoCanvas = document.createElement('canvas');
@@ -221,7 +208,9 @@ function takePicture() {
 
     // Draw the full image without cropping
     photoCtx.drawImage(canvas, 0, 0, width, height, 0, 0, photoWidth * pixelDensity, photoHeight * pixelDensity);
-    const photoData = photoCanvas.toDataURL('image/png');
+
+    // Use WebP format with quality 0.9 for better compression
+    const photoData = photoCanvas.toDataURL('image/webp', 0.9);
 
     photo.setAttribute('src', photoData);
 
@@ -244,10 +233,11 @@ function takePicture() {
       outputPalette.appendChild(swatch);
     });
 
-    // Automatically save to localStorage
+    // Automatically save to IndexedDB
     if (currentPaletteColors.length > 0) {
-      const savedPalette = savePalette(currentPaletteColors, paletteData, photoData);
-      console.log('Palette automatically saved:', savedPalette);
+      savePalette(currentPaletteColors, photoData).then(savedPalette => {
+        console.log('Palette automatically saved:', savedPalette);
+      });
     }
 
     // Show filters panel and store original image data
