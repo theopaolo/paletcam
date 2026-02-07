@@ -1,351 +1,273 @@
-let width = 0;
-let height = 0;
+import { savePalette } from './palette-storage.js';
+import {
+  extractPaletteColors,
+  renderPaletteBars,
+} from './modules/palette-extraction.js';
+import {
+  drawFrameToCanvas,
+  renderOutputSwatches,
+  setCaptureState,
+  updateSliderTooltip,
+  updateZoomText,
+} from './modules/camera-ui.js';
+import { createCameraController } from './modules/camera-controller.js';
+
+const PHOTO_EXPORT_WIDTH = 200;
+const PHOTO_PIXEL_DENSITY = 3;
 
 const cameraFeed = document.querySelector('.camera-feed');
-const captureBtn = document.querySelector('.btn-capture');
-const allowBtn = document.querySelector('.btn-allow-media');
+const captureButton = document.querySelector('.btn-capture');
+const allowButton = document.querySelector('.btn-allow-media');
 const allowText = document.querySelector('.allow-container span');
 const captureContainer = document.querySelector('.capture');
-const photo = document.getElementById('photo');
+const photoOutput = document.getElementById('photo');
 const outputPalette = document.getElementById('outputPalette');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
-let streamingFlag = false;
-let captureContainerH = captureContainer.clientHeight;
-let captureContainerW = captureContainer.clientWidth;
-
-// Zoom and camera controls
-const zoomBtns = document.querySelectorAll('.zoom-btns .btn-small');
+const frameCanvas = document.getElementById('canvas');
+const paletteCanvas = document.getElementById('canvas-palette');
+const zoomButtons = document.querySelectorAll('.zoom-btns .btn-small');
 const zoomDisplay = document.querySelector('.zoom-btns span');
-const rotateBtn = document.querySelector('.btn-rotate');
+const rotateButton = document.querySelector('.btn-rotate');
+const swatchSlider = document.querySelector('.swatch-slider input[type="range"]');
+const btnOn = document.querySelector('.btn-on');
+const btnShoot = document.querySelector('.btn-shoot');
 
-// Swatch count controls
-const swatchIncreaseBtn = document.querySelector('.btn-swatch-increase');
-const swatchDecreaseBtn = document.querySelector('.btn-swatch-decrease');
-const swatchCountDisplay = document.querySelector('.swatch-count-display');
+const frameContext = frameCanvas?.getContext('2d');
+const paletteContext = paletteCanvas?.getContext('2d');
 
-let currentZoom = 1;
-let zoomInterval = null;
-let videoTrack = null;
-let currentFacingMode = "environment"; // "environment" for back camera, "user" for front
-let swatchCount = 5; // Default number of swatches
+let frameWidth = 0;
+let frameHeight = 0;
+let isStreaming = false;
+let swatchCount = Number(swatchSlider?.value) || 4;
 
-if (navigator.mediaDevices?.getUserMedia) {
-  allowBtn.addEventListener('click', () => {
-      getMediaStream();
-  });
+const cameraController = createCameraController({
+  cameraFeed,
+  onCameraActiveChange: (isCameraActive) => {
+    setCaptureState({ btnOn, btnShoot, isCameraActive });
 
-  allowText.addEventListener('click', () => {
-      getMediaStream();
-  });
-}
-
-const getMediaStream = () => {
-    const btnOn = document.querySelector('.btn-on');
-    const btnShoot = document.querySelector('.btn-shoot');
-
-    navigator.mediaDevices
-    .getUserMedia({ video: { facingMode: currentFacingMode }, audio: false })
-    .then((stream) =>{
-        cameraFeed.srcObject = stream;
-        cameraFeed.play();
-
-        // Hide btn-on and show btn-shoot when camera turns on
-        btnOn.classList.add('hidden');
-        btnShoot.classList.remove('hidden');
-
-        // Get the video track for zoom control
-        videoTrack = stream.getVideoTracks()[0];
-
-        // Check zoom capabilities
-        if (videoTrack && videoTrack.getCapabilities) {
-            const capabilities = videoTrack.getCapabilities();
-            if (capabilities.zoom) {
-                console.log('Zoom range:', capabilities.zoom.min, '-', capabilities.zoom.max);
-                currentZoom = capabilities.zoom.min || 1;
-                updateZoomDisplay();
-            }
-        }
-    })
-    .catch((err) => {
-        console.error("An error occurred: " + err);
-  });
-}
-
-cameraFeed.addEventListener('canplay', (ev) => {
-  if (!streamingFlag) {
-    width = captureContainer.clientWidth;
-    height = cameraFeed.videoHeight / (cameraFeed.videoWidth / width);
-
-    cameraFeed.setAttribute('width', width);
-    cameraFeed.setAttribute('height', height);
-    canvas.setAttribute('width', width);
-    canvas.setAttribute('height', height);
-    streamingFlag = true;
-
-    requestAnimationFrame(canvasRefresh);
-  }
+    if (!isCameraActive) {
+      isStreaming = false;
+    }
+  },
+  onZoomChange: (zoomValue) => {
+    updateZoomText(zoomDisplay, zoomValue);
+  },
 });
 
-captureBtn.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    if (streamingFlag && width > 0 && height > 0) {
-      takePicture();
-    } else {
-      getMediaStream();
-    }
-});
+function initializeApp() {
+  if (!cameraFeed || !captureButton || !captureContainer || !frameCanvas || !paletteCanvas) {
+    console.error('Missing required DOM elements for camera app initialization.');
+    return;
+  }
 
-function clearPhoto() {
-  console.log('Clearing photo...');
-  ctx.fillStyle = "#222222"
-  ctx.fillRect(0, 0, 0,0);
+  bindCameraPermissionEvents();
+  bindCaptureEvents();
+  bindZoomEvents();
+  bindRotationEvents();
+  bindSwatchEvents();
 
-  const data = canvas.toDataURL('image/png');
-  photo.setAttribute('src', data);
+  updateZoomText(zoomDisplay, cameraController.getCurrentZoom());
+  updateSliderTooltip(swatchSlider, swatchCount);
+  setCaptureState({ btnOn, btnShoot, isCameraActive: false });
 }
 
-const canvasPalette = document.getElementById('canvas-palette');
-const ctxPalette = canvasPalette.getContext('2d');
-
-function canvasRefresh(paletteHeight = captureContainerH) {
-  let w = captureContainer.clientWidth;
-  let h = cameraFeed.videoHeight;
-  let captureH = captureContainerH;
-
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.height = h;
-    canvas.width = w;
+function bindCameraPermissionEvents() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return;
   }
 
-  if (canvasPalette.width !== w || canvasPalette.height !== h) {
-    canvasPalette.width = w;
-    canvasPalette.height = captureH;
-  }
-
-  // Flip horizontally only for front-facing camera
-  ctx.save();
-  if (currentFacingMode === "user") {
-    ctx.scale(-1, 1);
-    ctx.drawImage(cameraFeed, -width, 0, width, height);
-  } else {
-    ctx.drawImage(cameraFeed, 0, 0, width, height);
-  }
-  ctx.restore();
-
-  let barWidth = canvasPalette.width / swatchCount;
-
-  if( height > 0 && width > 0) {
-    const pixelData = ctx.getImageData(0, 0, width, height).data;
-    for(let i = 0; i < swatchCount; i++) {
-      let x = Math.floor((width / swatchCount) * i + (width / (swatchCount * 2)));
-      let y = Math.floor(height / 2);
-      let index = (y * width + x) * 4;
-      let startX = i * barWidth;
-
-      let r = pixelData[index];
-      let g = pixelData[index + 1];
-      let b = pixelData[index + 2];
-
-      ctxPalette.fillStyle = `rgb(${r},${g},${b})`;
-      ctxPalette.fillRect(startX, 0, barWidth, captureContainerH);
-    }
-  }
-
-  requestAnimationFrame(canvasRefresh);
+  allowButton?.addEventListener('click', startCameraStream);
+  allowText?.addEventListener('click', startCameraStream);
 }
 
-// Store current palette colors
-let currentPaletteColors = [];
+function bindCaptureEvents() {
+  cameraFeed.addEventListener('canplay', handleCameraCanPlay);
 
-function takePicture() {
-  console.log('Taking picture...');
-  canvas.width = width;
-  canvas.height = height;
+  captureButton.addEventListener('click', (event) => {
+    event.preventDefault();
 
-  // Flip horizontally only for front-facing camera
-  ctx.save();
-  if (currentFacingMode === "user") {
-    ctx.scale(-1, 1);
-    ctx.drawImage(cameraFeed, -width, 0, width, height);
-  } else {
-    ctx.drawImage(cameraFeed, 0, 0, width, height);
-  }
-  ctx.restore();
-
-  if (width && height) {
-    // Use 3x pixel density for sharp images
-    const pixelDensity = 3;
-
-    // Extract RGB values from the captured image
-    const pixelData = ctx.getImageData(0, 0, width, height).data;
-    currentPaletteColors = []; // Reset the current palette
-
-    for (let i = 0; i < swatchCount; i++) {
-      let x = Math.floor((width / swatchCount) * i + (width / (swatchCount * 2)));
-      let y = Math.floor(height / 2);
-      let index = (y * width + x) * 4;
-
-      let r = pixelData[index];
-      let g = pixelData[index + 1];
-      let b = pixelData[index + 2];
-
-      // Store the RGB colors
-      currentPaletteColors.push({ r, g, b });
+    if (!isStreaming || frameWidth <= 0 || frameHeight <= 0) {
+      void startCameraStream();
+      return;
     }
 
-    // Create a photo canvas that maintains the camera's aspect ratio
-    const photoCanvas = document.createElement('canvas');
-    const photoCtx = photoCanvas.getContext('2d');
+    void captureCurrentFrame();
+  });
+}
 
-    // Use the actual camera aspect ratio
-    const photoWidth = 200; // Match max-width in CSS
-    const photoHeight = (height / width) * photoWidth;
+function bindZoomEvents() {
+  zoomButtons.forEach((button, index) => {
+    const direction = index === 0 ? 'out' : 'in';
 
-    photoCanvas.width = photoWidth * pixelDensity;
-    photoCanvas.height = photoHeight * pixelDensity;
+    button.addEventListener('mousedown', () => cameraController.startZoom(direction));
+    button.addEventListener('mouseup', cameraController.stopZoom);
+    button.addEventListener('mouseleave', cameraController.stopZoom);
 
-    // Draw the full image without cropping
-    photoCtx.drawImage(canvas, 0, 0, width, height, 0, 0, photoWidth * pixelDensity, photoHeight * pixelDensity);
-
-    // Use WebP format with quality 0.9 for better compression
-    const photoData = photoCanvas.toDataURL('image/webp', 0.9);
-
-    photo.setAttribute('src', photoData);
-
-    // Create dynamic palette swatches in the output
-    outputPalette.innerHTML = '';
-    currentPaletteColors.forEach(color => {
-      const swatch = document.createElement('div');
-      swatch.className = 'output-swatch';
-      swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-      swatch.title = `rgb(${color.r}, ${color.g}, ${color.b})`;
-
-      // Copy color on click
-      swatch.addEventListener('click', () => {
-        const colorText = `rgb(${color.r}, ${color.g}, ${color.b})`;
-        navigator.clipboard.writeText(colorText).then(() => {
-          console.log('Color copied:', colorText);
-        });
-      });
-
-      outputPalette.appendChild(swatch);
+    button.addEventListener('touchstart', (event) => {
+      event.preventDefault();
+      cameraController.startZoom(direction);
     });
 
-    // Automatically save to IndexedDB
-    if (currentPaletteColors.length > 0) {
-      savePalette(currentPaletteColors, photoData).then(savedPalette => {
-        console.log('Palette automatically saved:', savedPalette);
-      });
+    button.addEventListener('touchend', (event) => {
+      event.preventDefault();
+      cameraController.stopZoom();
+    });
+  });
+}
+
+function bindRotationEvents() {
+  rotateButton?.addEventListener('click', async () => {
+    isStreaming = false;
+    await cameraController.toggleFacingMode();
+  });
+}
+
+function bindSwatchEvents() {
+  swatchSlider?.addEventListener('input', (event) => {
+    const nextSwatchCount = Number(event.target.value);
+
+    if (!Number.isFinite(nextSwatchCount) || nextSwatchCount < 1) {
+      return;
     }
 
-    // Show filters panel and store original image data
-    // const imageData = ctx.getImageData(0, 0, width, height);
-    // showFiltersPanel(imageData, width, height);
-  } else {
-    clearPhoto();
+    swatchCount = nextSwatchCount;
+    updateSliderTooltip(swatchSlider, swatchCount);
+  });
+}
+
+async function startCameraStream() {
+  isStreaming = false;
+  await cameraController.startStream();
+}
+
+function handleCameraCanPlay() {
+  frameWidth = captureContainer.clientWidth;
+  const aspectRatio = cameraFeed.videoHeight / cameraFeed.videoWidth;
+  frameHeight = Math.floor(frameWidth * aspectRatio);
+
+  cameraFeed.setAttribute('width', String(frameWidth));
+  cameraFeed.setAttribute('height', String(frameHeight));
+  frameCanvas.setAttribute('width', String(frameWidth));
+  frameCanvas.setAttribute('height', String(frameHeight));
+
+  if (!isStreaming) {
+    isStreaming = true;
+    requestAnimationFrame(refreshPreview);
   }
 }
 
-// Zoom functionality
-function updateZoomDisplay() {
-  zoomDisplay.textContent = currentZoom.toFixed(1);
+function refreshPreview() {
+  if (!isStreaming || !frameContext || !paletteContext) {
+    return;
+  }
+
+  const nextCanvasWidth = captureContainer.clientWidth;
+  const nextCanvasHeight = cameraFeed.videoHeight;
+
+  if (frameCanvas.width !== nextCanvasWidth || frameCanvas.height !== nextCanvasHeight) {
+    frameCanvas.width = nextCanvasWidth;
+    frameCanvas.height = nextCanvasHeight;
+  }
+
+  if (
+    paletteCanvas.width !== nextCanvasWidth ||
+    paletteCanvas.height !== captureContainer.clientHeight
+  ) {
+    paletteCanvas.width = nextCanvasWidth;
+    paletteCanvas.height = captureContainer.clientHeight;
+  }
+
+  drawFrameToCanvas({
+    context: frameContext,
+    cameraFeed,
+    width: frameWidth,
+    height: frameHeight,
+    facingMode: cameraController.getFacingMode(),
+  });
+
+  const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+  const paletteColors = extractPaletteColors(
+    frameImageData,
+    frameWidth,
+    frameHeight,
+    swatchCount
+  );
+
+  renderPaletteBars(
+    paletteContext,
+    paletteColors,
+    paletteCanvas.width,
+    paletteCanvas.height
+  );
+
+  requestAnimationFrame(refreshPreview);
 }
 
-function applyZoom(zoomValue) {
-  if (videoTrack && videoTrack.getCapabilities) {
-    const capabilities = videoTrack.getCapabilities();
+async function captureCurrentFrame() {
+  if (!frameContext || frameWidth <= 0 || frameHeight <= 0) {
+    return;
+  }
 
-    if (capabilities.zoom) {
-      // Clamp zoom value to the camera's min/max
-      const clampedZoom = Math.max(
-        capabilities.zoom.min,
-        Math.min(capabilities.zoom.max, zoomValue)
-      );
+  frameCanvas.width = frameWidth;
+  frameCanvas.height = frameHeight;
 
-      currentZoom = clampedZoom;
+  drawFrameToCanvas({
+    context: frameContext,
+    cameraFeed,
+    width: frameWidth,
+    height: frameHeight,
+    facingMode: cameraController.getFacingMode(),
+  });
 
-      videoTrack.applyConstraints({
-        advanced: [{ zoom: currentZoom }]
-      }).then(() => {
-        updateZoomDisplay();
-      }).catch(err => {
-        console.error('Error applying zoom:', err);
-      });
+  const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+  const paletteColors = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
+
+  const photoData = exportPhotoData(frameCanvas, frameWidth, frameHeight);
+
+  photoOutput.setAttribute('src', photoData);
+  renderOutputSwatches(outputPalette, paletteColors);
+
+  if (paletteColors.length > 0) {
+    try {
+      await savePalette(paletteColors, photoData);
+    } catch (error) {
+      console.error('Failed to save palette:', error);
     }
   }
 }
 
-function startZoom(direction) {
-  const zoomStep = 0.1; // Zoom increment per frame
+function exportPhotoData(sourceCanvas, sourceWidth, sourceHeight) {
+  const photoCanvas = document.createElement('canvas');
+  const photoContext = photoCanvas.getContext('2d');
 
-  zoomInterval = setInterval(() => {
-    const newZoom = direction === 'in'
-      ? currentZoom + zoomStep
-      : currentZoom - zoomStep;
-
-    applyZoom(newZoom);
-  }, 50); // Update every 50ms for smooth zooming
-}
-
-function stopZoom() {
-  if (zoomInterval) {
-    clearInterval(zoomInterval);
-    zoomInterval = null;
-  }
-}
-
-// Zoom button event listeners
-zoomBtns.forEach((btn, index) => {
-  const direction = index === 0 ? 'out' : 'in'; // First button is -, second is +
-
-  // Mouse events
-  btn.addEventListener('mousedown', () => startZoom(direction));
-  btn.addEventListener('mouseup', stopZoom);
-  btn.addEventListener('mouseleave', stopZoom);
-
-  // Touch events for mobile
-  btn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    startZoom(direction);
-  });
-  btn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    stopZoom();
-  });
-});
-
-// Rotate camera (switch between front and back)
-rotateBtn.addEventListener('click', () => {
-  // Stop current stream
-  if (cameraFeed.srcObject) {
-    cameraFeed.srcObject.getTracks().forEach(track => track.stop());
+  if (!photoContext) {
+    return sourceCanvas.toDataURL('image/webp', 0.9);
   }
 
-  // Toggle facing mode
-  currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+  const photoHeight = (sourceHeight / sourceWidth) * PHOTO_EXPORT_WIDTH;
 
-  // Reset zoom
-  currentZoom = 1;
+  photoCanvas.width = PHOTO_EXPORT_WIDTH * PHOTO_PIXEL_DENSITY;
+  photoCanvas.height = photoHeight * PHOTO_PIXEL_DENSITY;
 
-  // Restart stream with new camera
-  getMediaStream();
-});
+  photoContext.drawImage(
+    sourceCanvas,
+    0,
+    0,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    photoCanvas.width,
+    photoCanvas.height
+  );
 
-// Swatch count controls
-function updateSwatchCountDisplay() {
-  swatchCountDisplay.textContent = swatchCount;
+  return photoCanvas.toDataURL('image/webp', 0.9);
 }
 
-swatchIncreaseBtn.addEventListener('click', () => {
-  swatchCount++;
-  updateSwatchCountDisplay();
-});
+function stopCurrentStream() {
+  isStreaming = false;
+  cameraController.stopStream();
+}
 
-swatchDecreaseBtn.addEventListener('click', () => {
-  if (swatchCount > 1) { // Minimum of 1 swatch
-    swatchCount--;
-    updateSwatchCountDisplay();
-  }
-});
+window.addEventListener('beforeunload', stopCurrentStream);
+
+initializeApp();

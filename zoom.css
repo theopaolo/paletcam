@@ -1,6 +1,4 @@
 .zoom-btns {
-  position: absolute;
-  left: .5rem;
   color: var(--accent-color);
   font-family: monospace;
 
@@ -12,6 +10,7 @@
 
 .swatch-count-btns {
   position: absolute;
+  display: none;
   display: flex;
   right: .5rem;
   color: var(--accent-color);

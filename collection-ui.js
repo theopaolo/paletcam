@@ -1,66 +1,220 @@
-// Collection UI functionality
+import { deletePalette, getSavedPalettes } from './palette-storage.js';
+
 const collectionPanel = document.querySelector('.collection-panel');
 const collectionGrid = document.getElementById('collectionGrid');
-const btnViewCollection = document.querySelector('.btn-view-collection');
-const btnCloseCollection = document.querySelector('.btn-close-collection');
+const viewCollectionButton = document.querySelector('.btn-view-collection');
+const closeCollectionButton = document.querySelector('.btn-close-collection');
 
-// Export palette as image (photo + color swatches)
+function toRgbCss({ r, g, b }) {
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    console.error('Clipboard write failed:', error);
+    return false;
+  }
+}
+
 async function exportPaletteAsImage(palette) {
   const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const context = canvas.getContext('2d');
 
-  // Create image from blob
-  const img = new Image();
-  const photoURL = URL.createObjectURL(palette.photoBlob);
+  if (!context || !palette.photoBlob) {
+    return;
+  }
 
-  img.onload = () => {
-    const photoWidth = img.width;
-    const photoHeight = img.height;
+  const image = new Image();
+  const photoUrl = URL.createObjectURL(palette.photoBlob);
+
+  image.onload = () => {
+    const photoWidth = image.width;
+    const photoHeight = image.height;
     const swatchHeight = 100;
 
-    // Set canvas size: photo on top, swatches below
     canvas.width = photoWidth;
     canvas.height = photoHeight + swatchHeight;
 
-    // Draw photo
-    ctx.drawImage(img, 0, 0, photoWidth, photoHeight);
+    context.drawImage(image, 0, 0, photoWidth, photoHeight);
 
-    // Draw color swatches
     const swatchWidth = photoWidth / palette.colors.length;
     palette.colors.forEach((color, index) => {
-      ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
-      ctx.fillRect(index * swatchWidth, photoHeight, swatchWidth, swatchHeight);
+      context.fillStyle = toRgbCss(color);
+      context.fillRect(index * swatchWidth, photoHeight, swatchWidth, swatchHeight);
     });
 
-    // Export as WebP
     canvas.toBlob((blob) => {
+      if (!blob) {
+        URL.revokeObjectURL(photoUrl);
+        return;
+      }
+
       const link = document.createElement('a');
       link.download = `palette-${palette.id}.webp`;
       link.href = URL.createObjectURL(blob);
       link.click();
 
-      // Cleanup
       URL.revokeObjectURL(link.href);
-      URL.revokeObjectURL(photoURL);
+      URL.revokeObjectURL(photoUrl);
     }, 'image/webp', 0.95);
   };
 
-  img.src = photoURL;
+  image.onerror = () => {
+    URL.revokeObjectURL(photoUrl);
+  };
+
+  image.src = photoUrl;
 }
 
-// Open collection panel
-btnViewCollection.addEventListener('click', () => {
-  collectionPanel.classList.add('visible');
-  loadCollectionUI();
-});
+function createPhotoSwatch(palette) {
+  if (!palette.photoBlob) {
+    return null;
+  }
 
-// Close collection panel
-btnCloseCollection.addEventListener('click', () => {
-  collectionPanel.classList.remove('visible');
-});
+  const photoSwatch = document.createElement('div');
+  const photoUrl = URL.createObjectURL(palette.photoBlob);
 
-// Load and display all saved palettes
-async function loadCollectionUI() {
+  photoSwatch.className = 'color-swatch photo-swatch';
+  photoSwatch.style.backgroundImage = `url(${photoUrl})`;
+  photoSwatch.style.backgroundSize = 'cover';
+  photoSwatch.style.backgroundPosition = 'center';
+  photoSwatch.title = 'Click to copy photo';
+
+  photoSwatch.addEventListener('click', async () => {
+    try {
+      const image = new Image();
+      const imageUrl = URL.createObjectURL(palette.photoBlob);
+
+      image.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          URL.revokeObjectURL(imageUrl);
+          return;
+        }
+
+        canvas.width = image.width;
+        canvas.height = image.height;
+        context.drawImage(image, 0, 0);
+
+        canvas.toBlob(async (pngBlob) => {
+          try {
+            if (!pngBlob) {
+              return;
+            }
+
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'image/png': pngBlob,
+              }),
+            ]);
+          } catch (error) {
+            console.error('Failed to copy photo, downloading fallback:', error);
+            if (!pngBlob) {
+              return;
+            }
+
+            const link = document.createElement('a');
+            link.download = `photo-${palette.id}.png`;
+            link.href = URL.createObjectURL(pngBlob);
+            link.click();
+            URL.revokeObjectURL(link.href);
+          } finally {
+            URL.revokeObjectURL(imageUrl);
+          }
+        }, 'image/png');
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+      };
+
+      image.src = imageUrl;
+    } catch (error) {
+      console.error('Failed to process photo:', error);
+    }
+  });
+
+  return photoSwatch;
+}
+
+function createColorSwatch(color) {
+  const swatch = document.createElement('div');
+  const rgbText = toRgbCss(color);
+
+  swatch.className = 'color-swatch';
+  swatch.style.backgroundColor = rgbText;
+  swatch.title = rgbText;
+
+  swatch.addEventListener('click', async () => {
+    await copyTextToClipboard(rgbText);
+  });
+
+  return swatch;
+}
+
+function createPaletteCard(palette) {
+  const card = document.createElement('div');
+  card.className = 'palette-card';
+
+  const swatchesContainer = document.createElement('div');
+  swatchesContainer.className = 'palette-swatches';
+
+  const photoSwatch = createPhotoSwatch(palette);
+  if (photoSwatch) {
+    swatchesContainer.appendChild(photoSwatch);
+  }
+
+  palette.colors.forEach((color) => {
+    swatchesContainer.appendChild(createColorSwatch(color));
+  });
+
+  const actionsContainer = document.createElement('div');
+  actionsContainer.className = 'palette-actions';
+
+  const exportButton = document.createElement('button');
+  exportButton.className = 'btn-action';
+  exportButton.textContent = 'EXPORT';
+  exportButton.addEventListener('click', async () => {
+    await exportPaletteAsImage(palette);
+  });
+
+  const copyButton = document.createElement('button');
+  copyButton.className = 'btn-action';
+  copyButton.textContent = 'COPIER';
+  copyButton.addEventListener('click', async () => {
+    const colorsText = palette.colors.map((color) => toRgbCss(color)).join('\n');
+    const copied = await copyTextToClipboard(colorsText);
+
+    if (!copied) {
+      return;
+    }
+
+    copyButton.textContent = 'FAIT';
+    window.setTimeout(() => {
+      copyButton.textContent = 'COPIER';
+    }, 1500);
+  });
+
+  const deleteButton = document.createElement('button');
+  deleteButton.className = 'btn-action btn-delete';
+  deleteButton.textContent = '×';
+  deleteButton.addEventListener('click', async () => {
+    await deletePalette(palette.id);
+    await loadCollectionUi();
+  });
+
+  actionsContainer.append(exportButton, copyButton, deleteButton);
+  card.append(swatchesContainer, actionsContainer);
+
+  return card;
+}
+
+async function loadCollectionUi() {
   const palettes = await getSavedPalettes();
   collectionGrid.innerHTML = '';
 
@@ -69,149 +223,24 @@ async function loadCollectionUI() {
     return;
   }
 
-  palettes.forEach(palette => {
-    const paletteCard = createPaletteCard(palette);
-    collectionGrid.appendChild(paletteCard);
+  palettes.forEach((palette) => {
+    collectionGrid.appendChild(createPaletteCard(palette));
   });
 }
 
-// Create a palette card element
-function createPaletteCard(palette) {
-  const card = document.createElement('div');
-  card.className = 'palette-card';
-
-  // Create color swatches
-  const swatchesDiv = document.createElement('div');
-  swatchesDiv.className = 'palette-swatches';
-
-  // Add photo as first item if available
-  if (palette.photoBlob) {
-    const photoSwatch = document.createElement('div');
-    photoSwatch.className = 'color-swatch photo-swatch';
-    const photoURL = URL.createObjectURL(palette.photoBlob);
-    photoSwatch.style.backgroundImage = `url(${photoURL})`;
-    photoSwatch.style.backgroundSize = 'cover';
-    photoSwatch.style.backgroundPosition = 'center';
-    photoSwatch.style.cursor = 'pointer';
-    photoSwatch.title = 'Click to copy photo';
-
-    // Copy photo to clipboard when clicking
-    photoSwatch.addEventListener('click', async () => {
-      try {
-        // Load WebP image
-        const img = new Image();
-        const photoURL = URL.createObjectURL(palette.photoBlob);
-
-        img.onload = async () => {
-          // Create canvas with image dimensions
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-
-          // Convert to PNG blob
-          canvas.toBlob(async (pngBlob) => {
-            try {
-              // Create ClipboardItem with PNG
-              const item = new ClipboardItem({
-                'image/png': pngBlob
-              });
-
-              await navigator.clipboard.write([item]);
-              console.log('Photo copied to clipboard as PNG');
-            } catch (err) {
-              console.error('Failed to copy photo:', err);
-              // Fallback: Download the image instead
-              const link = document.createElement('a');
-              link.download = `photo-${palette.id}.png`;
-              link.href = URL.createObjectURL(pngBlob);
-              link.click();
-              URL.revokeObjectURL(link.href);
-            }
-
-            // Cleanup
-            URL.revokeObjectURL(photoURL);
-          }, 'image/png');
-        };
-
-        img.src = photoURL;
-      } catch (err) {
-        console.error('Failed to process photo:', err);
-      }
-    });
-
-    swatchesDiv.appendChild(photoSwatch);
+function bindCollectionUiEvents() {
+  if (!collectionPanel || !collectionGrid || !viewCollectionButton || !closeCollectionButton) {
+    return;
   }
 
-  palette.colors.forEach(color => {
-    const swatch = document.createElement('div');
-    swatch.className = 'color-swatch';
-    swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    swatch.title = `rgb(${color.r}, ${color.g}, ${color.b})`;
-
-    // Copy color on click
-    swatch.addEventListener('click', () => {
-      const colorText = `rgb(${color.r}, ${color.g}, ${color.b})`;
-      navigator.clipboard.writeText(colorText).then(() => {
-        console.log('Color copied:', colorText);
-      });
-    });
-
-    swatchesDiv.appendChild(swatch);
+  viewCollectionButton.addEventListener('click', async () => {
+    collectionPanel.classList.add('visible');
+    await loadCollectionUi();
   });
 
-  // Create actions div
-  const actionsDiv = document.createElement('div');
-  actionsDiv.className = 'palette-actions';
-
-  function copyToClipBoard(palette, button) {
-     const colorsText = palette.colors
-      .map(color => `rgb(${color.r}, ${color.g}, ${color.b})`)
-      .join('\n');
-
-    navigator.clipboard.writeText(colorsText).then(() => {
-      // Visual feedback
-      button.textContent = 'FAIT';
-      setTimeout(() => {
-        button.textContent = 'COPIER';
-      }, 1500);
-    });
-  }
-
-  // Export palette as image
-  const btnExport = document.createElement('button');
-  btnExport.className = 'btn-action';
-  btnExport.textContent = 'EXPORT';
-  btnExport.addEventListener('click', async () => {
-    await exportPaletteAsImage(palette);
+  closeCollectionButton.addEventListener('click', () => {
+    collectionPanel.classList.remove('visible');
   });
-
-  // Copy to clipboard
-  const btnCopySwatches = document.createElement('button');
-  btnCopySwatches.className = 'btn-action';
-  btnCopySwatches.textContent = 'COPIER';
-  btnCopySwatches.addEventListener('click', () => {
-    copyToClipBoard(palette, btnCopySwatches);
-  });
-
-  // Delete button
-  const btnDelete = document.createElement('button');
-  btnDelete.className = 'btn-action btn-delete';
-  btnDelete.textContent = '×';
-  btnDelete.addEventListener('click', async () => {
-    await deletePalette(palette.id);
-    loadCollectionUI();
-  });
-
-  // Three buttons: Export, Copy, and Delete
-  actionsDiv.appendChild(btnExport);
-  actionsDiv.appendChild(btnCopySwatches);
-  actionsDiv.appendChild(btnDelete);
-
-  card.appendChild(swatchesDiv);
-  card.appendChild(actionsDiv);
-
-  return card;
 }
+
+bindCollectionUiEvents();

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ColorCatcher</title>
+    <title>Color Catcher</title>
 
     <!-- PWA Meta Tags -->
     <meta
@@ -70,18 +70,12 @@
         <button class="btn-small">T</button>
       </div>
 
-      <div class="swatch-count-btns">
-        <button class="btn-small btn-swatch-decrease">-</button>
-        <span class="counter swatch-count-display">5</span>
-        <button class="btn-small btn-swatch-increase">+</button>
-      </div>
-
       <div class="btns-camera">
         <button class="btn-rotate">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
+            width="18"
+            height="18"
             fill="#000000"
             viewBox="0 0 256 256"
           >
@@ -112,24 +106,33 @@
           <button class="btn-view-collection">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
+              width="18"
+              height="18"
               fill="#000000"
               viewBox="0 0 256 256"
             >
               <path
-                d="M208,136H48a16,16,0,0,0-16,16v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,56H48V152H208v40Zm0-144H48A16,16,0,0,0,32,64v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V64A16,16,0,0,0,208,48Zm0,56H48V64H208v40Z"
+                d="M216,40H72A16,16,0,0,0,56,56V72H40A16,16,0,0,0,24,88V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V184h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM172,72a12,12,0,1,1-12,12A12,12,0,0,1,172,72Zm12,128H40V88H56v80a16,16,0,0,0,16,16H184Zm32-32H72V120.69l30.34-30.35a8,8,0,0,1,11.32,0L163.31,140,189,114.34a8,8,0,0,1,11.31,0L216,130.07V168Z"
               ></path>
             </svg>
           </button>
         </div>
       </div>
+
+      <!-- <div class="swatch-count-btns">
+        <button class="btn-small btn-swatch-decrease">-</button>
+        <span class="counter swatch-count-display">5</span>
+        <button class="btn-small btn-swatch-increase">+</button>
+      </div> -->
+
+      <div class="swatch-slider">
+        <input type="range" min="1" max="6" value="4" step="1" />
+      </div>
     </div>
 
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-    <script src="palette-storage.js"></script>
-    <script src="app.js"></script>
-    <script src="collection-ui.js"></script>
+    <script type="module" src="app.js"></script>
+    <script type="module" src="collection-ui.js"></script>
     <script src="pwa-install.js"></script>
     <!-- <script src="filters.js"></script> -->
   </body>
