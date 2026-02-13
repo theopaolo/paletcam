@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color Catcher - Hors ligne</title>
+    <style>
+      :root {
+        --bg: #0f0f0f;
+        --panel: #171717;
+        --text: #f0f0f0;
+        --muted: #b8b8b8;
+        --accent: #ffc800;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at top, #1f1f1f, var(--bg) 62%);
+        color: var(--text);
+        font-family: Arial, sans-serif;
+        padding: 1rem;
+      }
+
+      main {
+        width: min(460px, 100%);
+        background: var(--panel);
+        border: 1px solid #2e2e2e;
+        border-radius: 10px;
+        padding: 1.25rem;
+        text-align: center;
+      }
+
+      img {
+        width: 72px;
+        margin: 0 auto 0.75rem;
+      }
+
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 0.5rem;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      button {
+        margin-top: 1rem;
+        border: 1px solid #8c6d00;
+        background: var(--accent);
+        color: #1d1d1d;
+        font-weight: 700;
+        border-radius: 6px;
+        padding: 0.55rem 0.85rem;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/logo/colorcatchers.svg" alt="" />
+      <h1>Vous etes hors ligne</h1>
+      <p>
+        Color Catcher a besoin d'une connexion pour charger les pages camera.
+        Vous pouvez reessayer maintenant ou vous reconnecter puis rouvrir l'app.
+      </p>
+      <button type="button" onclick="window.location.reload()">Reessayer</button>
+    </main>
+  </body>
+</html>

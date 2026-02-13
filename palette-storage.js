@@ -1,3 +1,5 @@
+import Dexie from 'dexie';
+
 const db = new Dexie('PaletcamDB');
 
 db.version(1).stores({

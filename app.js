@@ -1,8 +1,4 @@
-import { savePalette } from './palette-storage.js';
-import {
-  extractPaletteColors,
-  renderPaletteBars,
-} from './modules/palette-extraction.js';
+import { createCameraController } from './modules/camera-controller.js';
 import {
   drawFrameToCanvas,
   renderOutputSwatches,
@@ -10,7 +6,12 @@ import {
   updateSliderTooltip,
   updateZoomText,
 } from './modules/camera-ui.js';
-import { createCameraController } from './modules/camera-controller.js';
+import {
+  extractPaletteColors,
+  renderPaletteBars,
+  smoothColors
+} from './modules/palette-extraction.js';
+import { savePalette } from './palette-storage.js';
 
 const PHOTO_EXPORT_WIDTH = 200;
 const PHOTO_PIXEL_DENSITY = 3;
@@ -253,6 +254,7 @@ function refreshPreview() {
   });
 
   const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+
   const paletteColors = extractPaletteColors(
     frameImageData,
     frameWidth,
@@ -260,9 +262,12 @@ function refreshPreview() {
     swatchCount
   );
 
+
+  const smoothedColors = smoothColors(paletteColors, 0.1);
+
   renderPaletteBars(
     paletteContext,
-    paletteColors,
+    smoothedColors,
     paletteCanvas.width,
     paletteCanvas.height
   );

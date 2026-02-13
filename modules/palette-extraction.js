@@ -1,4 +1,5 @@
 const MIN_SWATCH_COUNT = 1;
+const COLOR_DISTANCE_THRESHOLD = 12;
 
 function clampSwatchCount(swatchCount) {
   return Math.max(MIN_SWATCH_COUNT, Number(swatchCount) || MIN_SWATCH_COUNT);
@@ -11,7 +12,6 @@ function buildRgbColor(red, green, blue) {
 export function toRgbCss(color) {
   return `rgb(${color.r}, ${color.g}, ${color.b})`;
 }
-
 
 export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
@@ -89,4 +89,32 @@ export function renderPaletteBars(context, colors, canvasWidth, canvasHeight) {
     context.fillStyle = toRgbCss(color);
     context.fillRect(index * barWidth, 0, barWidth, canvasHeight);
   });
+}
+
+let previousColors = null;
+
+export function smoothColors(rawColors, lerpFactor) {
+
+  if (!previousColors || previousColors.length !== rawColors.length) {
+    previousColors = rawColors;       // nothing to lerp from yet
+    return rawColors;
+  }
+
+  const smoothed = rawColors.map((rawColor, index) => {
+    const prevColor = previousColors[index];
+
+    let distance = Math.hypot(rawColor.r - prevColor.r, rawColor.g - prevColor.g, rawColor.b - prevColor.b)
+
+    if (distance < COLOR_DISTANCE_THRESHOLD) return prevColor;
+
+    const r = Math.round(prevColor.r + (rawColor.r - prevColor.r) * lerpFactor);
+    const g = Math.round(prevColor.g + (rawColor.g - prevColor.g) * lerpFactor);
+    const b = Math.round(prevColor.b + (rawColor.b - prevColor.b) * lerpFactor);
+
+    return buildRgbColor(r,g,b);
+  })
+
+  previousColors = smoothed;
+
+  return smoothed;
 }
