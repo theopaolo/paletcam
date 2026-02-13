@@ -1,4 +1,4 @@
-import Dexie from 'dexie';
+import Dexie from './vendor/dexie.mjs';
 
 const db = new Dexie('PaletcamDB');
 

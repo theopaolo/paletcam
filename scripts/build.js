@@ -18,7 +18,7 @@ const staticFiles = [
   'filters.js',
 ];
 
-const staticDirectories = ['icons', 'logo', 'modules'];
+const staticDirectories = ['icons', 'logo', 'modules', 'vendor'];
 
 function exitWithBuildErrors(logs) {
   for (const log of logs) {
@@ -38,13 +38,6 @@ async function copyStaticAssets() {
       recursive: true,
     });
   }
-
-  // Keep the import-map target available in dist.
-  await cp(
-    join(projectRoot, 'node_modules/dexie/dist'),
-    join(outDir, 'node_modules/dexie/dist'),
-    { recursive: true }
-  );
 }
 
 await rm(outDir, { recursive: true, force: true });

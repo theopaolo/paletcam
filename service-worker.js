@@ -1,4 +1,4 @@
-const CACHE_NAME = 'colorcatcher-v8';
+const CACHE_NAME = 'colorcatcher-v9';
 const OFFLINE_FALLBACK_URL = '/offline.html';
 const APP_SHELL_URLS = [
   '/',
@@ -21,7 +21,7 @@ const APP_SHELL_URLS = [
   '/icons/icon-512-framed.png',
   '/icons/icon-192-padded.png',
   '/icons/icon-512-padded.png',
-  '/node_modules/dexie/dist/dexie.mjs',
+  '/vendor/dexie.mjs',
 ];
 
 async function cacheAppShell() {
