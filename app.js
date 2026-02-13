@@ -33,7 +33,8 @@ const swatchSlider = document.querySelector('.swatch-slider input[type="range"]'
 const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
 
-const frameContext = frameCanvas?.getContext('2d');
+const frameContext = frameCanvas?.getContext('2d', { willReadFrequently: true })
+  ?? frameCanvas?.getContext('2d');
 const paletteContext = paletteCanvas?.getContext('2d');
 
 let frameWidth = 0;
