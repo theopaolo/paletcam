@@ -23,7 +23,14 @@
   </head>
   <body>
     <div class="capture">
-      <video class="camera-feed" autoplay></video>
+      <video
+        class="camera-feed"
+        autoplay
+        muted
+        playsinline
+        webkit-playsinline
+        disablepictureinpicture
+      ></video>
       <canvas id="canvas"></canvas>
       <canvas id="canvas-palette"></canvas>
     </div>

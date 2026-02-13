@@ -28,6 +28,26 @@ export function createCameraController({
     onError?.(error);
   }
 
+  function enforceInlineVideoPlayback() {
+    if (!cameraFeed) {
+      return;
+    }
+
+    // iOS Safari/PWA may force fullscreen unless these are set as both attrs and props.
+    cameraFeed.setAttribute('playsinline', '');
+    cameraFeed.setAttribute('webkit-playsinline', '');
+    cameraFeed.setAttribute('autoplay', '');
+    cameraFeed.setAttribute('muted', '');
+    cameraFeed.setAttribute('disablepictureinpicture', '');
+
+    cameraFeed.playsInline = true;
+    cameraFeed.autoplay = true;
+    cameraFeed.muted = true;
+    cameraFeed.defaultMuted = true;
+    cameraFeed.controls = false;
+    cameraFeed.disablePictureInPicture = true;
+  }
+
   function stopZoom() {
     if (!zoomTimer) {
       return;
@@ -91,6 +111,7 @@ export function createCameraController({
       return false;
     }
 
+    enforceInlineVideoPlayback();
     stopStream();
 
     try {

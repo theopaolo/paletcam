@@ -47,6 +47,7 @@ body {
   left: 0;
   height: fit-content;
   width: 20%;
+  pointer-events: none;
 }
 
 .output {
