@@ -24,8 +24,9 @@ const photoOutput = document.getElementById('photo');
 const outputPalette = document.getElementById('outputPalette');
 const frameCanvas = document.getElementById('canvas');
 const paletteCanvas = document.getElementById('canvas-palette');
-const zoomButtons = document.querySelectorAll('.zoom-btns .btn-small');
-const zoomDisplay = document.querySelector('.zoom-btns span');
+const zoomWheel = document.querySelector('.zoom-wheel');
+const zoomWheelContainer = document.querySelector('.wheel-range');
+const zoomDisplay = document.querySelector('.zoom-display');
 const rotateButton = document.querySelector('.btn-rotate');
 const swatchSlider = document.querySelector('.swatch-slider input[type="range"]');
 const btnOn = document.querySelector('.btn-on');
@@ -45,11 +46,21 @@ const cameraController = createCameraController({
     setCaptureState({ btnOn, btnShoot, isCameraActive });
 
     if (!isCameraActive) {
+      setZoomWheelDisabled();
+    } else {
+      syncZoomWheelCapabilities();
+    }
+
+    if (!isCameraActive) {
       isStreaming = false;
     }
   },
   onZoomChange: (zoomValue) => {
     updateZoomText(zoomDisplay, zoomValue);
+
+    if (zoomWheel) {
+      zoomWheel.value = String(zoomValue);
+    }
   },
 });
 
@@ -66,6 +77,7 @@ function initializeApp() {
   bindSwatchEvents();
 
   updateZoomText(zoomDisplay, cameraController.getCurrentZoom());
+  setZoomWheelDisabled();
   updateSliderTooltip(swatchSlider, swatchCount);
   setCaptureState({ btnOn, btnShoot, isCameraActive: false });
 }
@@ -95,23 +107,75 @@ function bindCaptureEvents() {
 }
 
 function bindZoomEvents() {
-  zoomButtons.forEach((button, index) => {
-    const direction = index === 0 ? 'out' : 'in';
+  if (!zoomWheel) {
+    return;
+  }
 
-    button.addEventListener('mousedown', () => cameraController.startZoom(direction));
-    button.addEventListener('mouseup', cameraController.stopZoom);
-    button.addEventListener('mouseleave', cameraController.stopZoom);
+  zoomWheel.addEventListener('input', (event) => {
+    const nextZoom = Number(event.target.value);
+    if (!Number.isFinite(nextZoom)) {
+      return;
+    }
 
-    button.addEventListener('touchstart', (event) => {
-      event.preventDefault();
-      cameraController.startZoom(direction);
-    });
-
-    button.addEventListener('touchend', (event) => {
-      event.preventDefault();
-      cameraController.stopZoom();
-    });
+    updateZoomText(zoomDisplay, nextZoom);
+    void cameraController.applyZoom(nextZoom);
   });
+}
+
+function syncZoomTickMarks() {
+  if (!zoomWheel) {
+    return;
+  }
+
+  const min = Number(zoomWheel.min);
+  const max = Number(zoomWheel.max);
+  const step = Number(zoomWheel.step);
+
+  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(step) || step <= 0) {
+    return;
+  }
+
+  const intervals = Math.max(1, Math.floor(((max - min) / step) + Number.EPSILON));
+  zoomWheel.style.setProperty('--zoom-intervals', String(intervals));
+  zoomWheelContainer?.style.setProperty('--zoom-intervals', String(intervals));
+}
+
+function setZoomWheelDisabled() {
+  if (!zoomWheel) {
+    return;
+  }
+
+  zoomWheel.setAttribute('disabled', '');
+}
+
+function syncZoomWheelCapabilities() {
+  if (!zoomWheel) {
+    return;
+  }
+
+  const zoomCapabilities = cameraController.getZoomCapabilities?.();
+  const minZoom = Number(zoomCapabilities?.min);
+  const maxZoom = Number(zoomCapabilities?.max);
+  const stepZoom = Number(zoomCapabilities?.step);
+  const hasZoomCapabilities = Number.isFinite(minZoom)
+    && Number.isFinite(maxZoom)
+    && maxZoom > minZoom;
+
+  if (!hasZoomCapabilities) {
+    setZoomWheelDisabled();
+    return;
+  }
+
+  const safeStep = Number.isFinite(stepZoom) && stepZoom > 0 ? stepZoom : 0.1;
+  const currentZoom = cameraController.getCurrentZoom();
+  const clampedZoom = Math.min(maxZoom, Math.max(minZoom, currentZoom));
+
+  zoomWheel.min = String(minZoom);
+  zoomWheel.max = String(maxZoom);
+  zoomWheel.step = String(safeStep);
+  zoomWheel.value = String(clampedZoom);
+  zoomWheel.removeAttribute('disabled');
+  syncZoomTickMarks();
 }
 
 function bindRotationEvents() {
@@ -136,7 +200,11 @@ function bindSwatchEvents() {
 
 async function startCameraStream() {
   isStreaming = false;
-  await cameraController.startStream();
+  const started = await cameraController.startStream();
+
+  if (started) {
+    syncZoomWheelCapabilities();
+  }
 }
 
 function handleCameraCanPlay() {

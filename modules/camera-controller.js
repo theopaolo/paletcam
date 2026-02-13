@@ -136,9 +136,23 @@ export function createCameraController({
     return currentZoom;
   }
 
+  function getZoomCapabilities() {
+    const zoomCapabilities = videoTrack?.getCapabilities?.().zoom;
+    if (!zoomCapabilities) {
+      return null;
+    }
+
+    return {
+      min: zoomCapabilities.min,
+      max: zoomCapabilities.max,
+      step: zoomCapabilities.step ?? zoomStep,
+    };
+  }
+
   return {
     applyZoom,
     getCurrentZoom,
+    getZoomCapabilities,
     getFacingMode,
     startStream,
     startZoom,

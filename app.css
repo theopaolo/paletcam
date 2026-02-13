@@ -20,7 +20,6 @@ body {
   width: 100%;
   height: 100dvh;
   margin: 0 auto;
-  padding: 1rem;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -31,9 +30,11 @@ body {
   display: block;
   position: relative;
   width: 100%;
-  border: 2px solid var(--accent-color);
+  border-radius: 2px;
   flex: 1;
   min-height: 0;
+  border: 5px solid #242424;
+  background: linear-gradient(to right, #141414, #1c1c1c 2%, #0a0a0a 50%, #0d0d0d 150%);
 }
 
 #canvas {
@@ -49,7 +50,7 @@ body {
 }
 
 .output {
-  display: flex;
+  display: none;
   width: 100%;
   height: 100px;
   flex-shrink: 0;
@@ -85,13 +86,35 @@ body {
   width: 100%;
   display: flex;
   gap: 1rem;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   padding: 2rem .5rem;
   flex-shrink: 0;
-  /* border: 2px solid var(--accent-color); */
   border-top: 0px;
   background-color: #1b1b1b;
+  background-image:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.25) 100%),
+    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="1" seed="12"/><feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1.35 -0.45"/></filter><rect width="120" height="120" filter="url(%23n)" opacity="0.28"/></svg>');
+  background-size: 100% 100%, 140px 140px;
+  background-repeat: repeat;
+  background-blend-mode: soft-light;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="1.15" numOctaves="1" seed="5"/><feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1.6 -0.6"/></filter><rect width="90" height="90" filter="url(%23n)" opacity="0.26"/></svg>');
+    background-size: 70px 70px;
+    background-repeat: repeat;
+    opacity: 0.5;
+    mix-blend-mode: hard-light;
+    pointer-events: none;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
 
   button {
     height: fit-content;
@@ -368,6 +391,25 @@ body {
 
 .zoom-btns {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.25rem 0.4rem 0.5rem;
+  background: linear-gradient(to bottom, #141414 0%, #101010 58%, #151515 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6),
+    0 2px 5px rgba(0, 0, 0, 0.45);
+}
+
+.zoom-display {
+  min-width: 4ch;
+  color: #d3d3d3;
+  font-family: monospace;
+  font-size: 1.05rem;
+  text-shadow: 0 1px 0 #000;
+  letter-spacing: 0.08em;
 }
 
 .counter {
@@ -552,133 +594,282 @@ body {
 
 .swatch-slider {
   position: relative;
-  padding-top: 16px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  --swatch-inline-pad: 0.9rem;
+  --swatch-thumb-width: 18px;
+  --tick-count: 6;
+  --tick-index: 3;
+  --tick-intervals: 5;
+  --tick-step: calc(100% / var(--tick-intervals));
+  --tick-highlight-local: calc(var(--tick-step) * var(--tick-index));
+  padding: 1rem var(--swatch-inline-pad) 0.5rem;
+  overflow: visible;
+  background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.62);
 }
 
+.swatch-meta {
+  width: 100%;
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
 
-/* Tick marks below the track */
-.swatch-slider::after {
+.swatch-scale-label {
+  color: rgba(208, 208, 208, 0.68);
+  font-family: monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 0 #000;
+}
+
+.swatch-scale-label-min {
+  justify-self: start;
+}
+
+.swatch-scale-label-max {
+  justify-self: end;
+}
+
+.swatch-count-indicator {
+  display: inline-block;
+  min-width: 4.2ch;
+  padding: 0.07rem 0.45rem 0.1rem;
+  text-align: center;
+  color: #ebebeb;
+  font-family: monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-shadow: 0 1px 0 #000;
+}
+
+.swatch-slider::before {
   content: "";
   position: absolute;
-  top: 3px;
-  left: 7%;
-  width: 85%;
+  top: .25rem;
+  left: calc(var(--swatch-inline-pad) + (var(--swatch-thumb-width) / 2));
+  right: calc(var(--swatch-inline-pad) + (var(--swatch-thumb-width) / 2));
   height: 8px;
-  background: linear-gradient(to right, #555 1px, transparent 1px), linear-gradient(to left, #555 1px, transparent 1px);
-  background-size: calc(100% / 5) 100%, 100% 100%;
-  background-repeat: repeat-x, no-repeat;
+  background:
+    radial-gradient(
+      circle at var(--tick-highlight-local) 50%,
+      rgba(255, 224, 109, 0.78) 0%,
+      rgba(255, 224, 109, 0.18) 35%,
+      rgba(255, 224, 109, 0) 72%
+    ),
+    linear-gradient(
+      to right,
+      transparent calc(var(--tick-highlight-local) - 0.65px),
+      #ffe06d calc(var(--tick-highlight-local) - 0.65px),
+      #ffe06d calc(var(--tick-highlight-local) + 0.65px),
+      transparent calc(var(--tick-highlight-local) + 0.65px)
+    ),
+    repeating-linear-gradient(
+      to right,
+      rgba(210, 210, 210, 0.82) 0 1.25px,
+      transparent 1px 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent calc(100% - 1.25px),
+      rgba(210, 210, 210, 0.82) calc(100% - 1.25px) 100%
+    );
+  background-size: 12px 9px, 100% 100%, var(--tick-step) 100%, 100% 100%;
+  background-position: var(--tick-highlight-local) 50%, 0 0, 0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, repeat-x, no-repeat;
   pointer-events: none;
+  z-index: 1;
 }
 
-/* Track: metallic raised pipe */
 .swatch-slider input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 20px;
+  align-self: stretch;
+  height: 22px;
   border: none;
   outline: none;
   border-radius: 4px;
   cursor: pointer;
-  background: linear-gradient(#212121, #1f1f1f 10%, #0c0c0c 30%, #000000 50%, #000000 80%, #000000);
-  box-shadow: 0 -3px 3px #1b1b1ba6 inset,
-  inset 0 1px 8px rgb(0 0 0 / 71%),
-  0 0px 1px rgb(86 86 86),
-  0px 1px 5px rgb(0 0 0 / 34%);
+  margin: 0;
+  background: linear-gradient(#111111 30%, #141414 50%, #141414 80%, #141414);
+  box-shadow: 0 -3px 3px #1b1b1ba6 inset, inset 0 1px 8px rgb(0 0 0 / 70%), 0 0px 1px rgb(86 86 86);
 }
 
-/* Firefox track */
-/* .swatch-slider input[type="range"]::-moz-range-track {
-  height: 10px;
-  border-radius: 5px;
-  border: none;
-  background: linear-gradient(
-    to bottom,
-    #c8c8c8 0%,
-    #b8b8b8 15%,
-    #a0a0a0 40%,
-    #909090 60%,
-    #787878 85%,
-    #686868 100%
-  );
-  box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.5),
-    inset 0 -2px 2px rgba(0, 0, 0, 0.25),
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    0 -1px 1px rgba(255, 255, 255, 0.05);
-} */
-
-/* Thumb: dark pill with vertical ridges — WebKit */
 .swatch-slider input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 24px;
-  height: 18px;
-  border-radius: 4px;
+  width: var(--swatch-thumb-width);
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 3px;
   cursor: pointer;
-  border: 1px solid #0a0a0a;
-  background: repeating-linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.35) 0px,
-    rgba(0, 0, 0, 0.35) 1.5px,
-    rgba(255, 255, 255, 0.1) 1.5px,
-    rgba(255, 255, 255, 0.1) 3px,
-    transparent 2px, transparent 2px) center / 24px 50% no-repeat,
-    linear-gradient(to bottom,
-    #555 0%,
-    #3a3a3a 20%,
-    #2a2a2a 50%,
-    #5656566b 80%,
-    #1a1a1a 100%);
-    box-shadow:
-    inset 0 0px 2px rgb(118 118 118),
-    inset 0 0 0 rgb(0 0 0 / 55%),
-    0 1px 0px rgb(0 0 0 / 83%),
-    0 1px 1px rgb(102 102 102);
+  border: 1px solid #111111;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02))
+      center 1px / 72% 1px no-repeat,
+    repeating-linear-gradient(
+      to right,
+      rgba(18, 18, 18, 0.65) 0 1.5px,
+      rgba(86, 86, 86, 0.55) 1.5px 3px
+    ),
+    linear-gradient(to bottom, #5e5e5e 0%, #3a3a3a 50%, #1a1a1a 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.14),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.72),
+    0 1px 1px rgba(0, 0, 0, 0.64);
   transition: box-shadow 0.15s;
 }
 
-/* Thumb: dark pill with vertical ridges — Firefox */
-/* .swatch-slider input[type="range"]::-moz-range-thumb {
-  width: 80px;
-  height: 36px;
-  border-radius: 8px;
+.swatch-slider input[type="range"]::-webkit-slider-thumb:active {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.1),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.78),
+    0 1px 1px rgba(0, 0, 0, 0.68);
+}
+
+.swatch-slider input[type="range"]::-moz-range-track {
+  height: 10px;
+  border-radius: 5px;
+  border: none;
+  background: linear-gradient(#111111 30%, #141414 50%, #141414 80%, #141414);
+  box-shadow: 0 -3px 3px #1b1b1ba6 inset, inset 0 1px 8px rgb(0 0 0 / 70%), 0 0px 1px rgb(86 86 86);
+}
+
+.swatch-slider input[type="range"]::-moz-range-thumb {
+  width: var(--swatch-thumb-width);
+  height: 16px;
+  border-radius: 3px;
   cursor: pointer;
-  border: 1px solid #0a0a0a;
+  border: 1px solid #111111;
   background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02))
+      center 1px / 72% 1px no-repeat,
     repeating-linear-gradient(
       to right,
-      rgba(0, 0, 0, 0.35) 0px,
-      rgba(0, 0, 0, 0.35) 1.5px,
-      rgba(255, 255, 255, 0.1) 1.5px,
-      rgba(255, 255, 255, 0.1) 3px,
-      transparent 3px,
-      transparent 6px
-    ) center / 36px 55% no-repeat,
-    linear-gradient(
-      to bottom,
-      #555 0%,
-      #3a3a3a 20%,
-      #2a2a2a 50%,
-      #222 80%,
-      #1a1a1a 100%
-    );
+      rgba(18, 18, 18, 0.65) 0 1.5px,
+      rgba(86, 86, 86, 0.55) 1.5px 3px
+    ),
+    linear-gradient(to bottom, #5e5e5e 0%, #3a3a3a 50%, #1a1a1a 100%);
   box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.15),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.4),
-    0 3px 6px rgba(0, 0, 0, 0.7),
-    0 1px 2px rgba(0, 0, 0, 0.5);
-  transition: box-shadow 0.15s;
-} */
-
-/* Active: pressed feel — reduced lift */
-.swatch-slider input[type="range"]::-webkit-slider-thumb:active {
-  box-shadow: inset 0 0px 0px rgb(118 118 118), inset 0 0 0 rgb(0 0 0 / 55%), 0 1px 0px rgb(0 0 0 / 83%), 0 0px 1px rgb(102 102 102);
+    inset 0 1px 1px rgba(255, 255, 255, 0.14),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.72),
+    0 1px 1px rgba(0, 0, 0, 0.64);
 }
 
 .swatch-slider input[type="range"]::-moz-range-thumb:active {
   box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.1),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.5),
-    0 1px 3px rgba(0, 0, 0, 0.5);
+    inset 0 1px 1px rgba(255, 255, 255, 0.1),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.78),
+    0 1px 1px rgba(0, 0, 0, 0.68);
+}
+
+/* ── Zoom Wheel Range ── */
+.wheel-range {
+  position: relative;
+  width: min(100%, 680px);
+  height: 30px;
+  --zoom-thumb-width: 18px;
+  --zoom-intervals: 30;
+  padding: 0 6px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.wheel-range input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  --zoom-mark-step: calc((100% - var(--zoom-thumb-width)) / var(--zoom-intervals));
+  background: transparent;
+  outline: none;
+  border: none;
+  cursor: ew-resize;
+  touch-action: none;
+  margin: 0;
+}
+
+.wheel-range input[type="range"]::-webkit-slider-runnable-track {
+  height: 20px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(216, 216, 216, 0.42) 0 1px,
+      transparent 1px 100%
+    ),
+    linear-gradient(to bottom, #1d1d1d 0%, #151515 45%, #111111 100%);
+  background-size: var(--zoom-mark-step) 100%, 100% 100%;
+  background-position: calc(var(--zoom-thumb-width) / 2) 0, 0 0;
+  background-repeat: repeat-x, no-repeat;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.06),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.82);
+}
+
+.wheel-range input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--zoom-thumb-width);
+  height: 24px;
+  margin-top: -1px;
+  border-radius: 0;
+  border: none;
+  cursor: pointer;
+  background:
+    linear-gradient(to bottom, rgba(250, 250, 250, 0.98), rgba(250, 250, 250, 0.98))
+      center 0 / 2px 14px no-repeat,
+    linear-gradient(135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
+      left bottom / 50% 10px no-repeat,
+    linear-gradient(-135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
+      right bottom / 50% 10px no-repeat;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.72);
+}
+
+.wheel-range input[type="range"]::-moz-range-track {
+  height: 20px;
+  border-radius: 2px;
+  border: none;
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(216, 216, 216, 0.42) 0 1px,
+      transparent 1px 100%
+    ),
+    linear-gradient(to bottom, #1d1d1d 0%, #151515 45%, #111111 100%);
+  background-size: var(--zoom-mark-step) 100%, 100% 100%;
+  background-position: calc(var(--zoom-thumb-width) / 2) 0, 0 0;
+  background-repeat: repeat-x, no-repeat;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.06),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.82);
+}
+
+.wheel-range input[type="range"]::-moz-range-thumb {
+  width: var(--zoom-thumb-width);
+  height: 24px;
+  border-radius: 0;
+  border: none;
+  cursor: pointer;
+  background:
+    linear-gradient(to bottom, rgba(250, 250, 250, 0.98), rgba(250, 250, 250, 0.98))
+      center 0 / 2px 14px no-repeat,
+    linear-gradient(135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
+      left bottom / 50% 10px no-repeat,
+    linear-gradient(-135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
+      right bottom / 50% 10px no-repeat;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.72);
+}
+
+.wheel-range input[type="range"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
