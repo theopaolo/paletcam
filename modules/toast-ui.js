@@ -1,11 +1,12 @@
 const DEFAULT_TOAST_DURATION = 1200;
 const DEFAULT_UNDO_DURATION = 5000;
-const TOAST_CLOSE_FALLBACK_MS = 240;
-const toastQueue = [];
+const TOAST_CLOSE_FALLBACK_MS = 460;
+const standardToastQueue = [];
+const activeUndoToasts = [];
 let hostElement;
 let politeLiveRegion;
 let assertiveLiveRegion;
-let activeToast;
+let activeStandardToast;
 
 function ensureHost() {
   if (hostElement) {
@@ -39,60 +40,38 @@ function announceToast(message, isAssertive) {
   });
 }
 
-function dismissActiveToast(reason = 'timeout') {
-  if (!activeToast || activeToast.isClosing) {
-    return;
-  }
-
-  const { element, timerId, toast } = activeToast;
-  let closed = false;
-  activeToast.isClosing = true;
-  window.clearTimeout(timerId);
-
-  const finishClose = () => {
-    if (closed) {
-      return;
-    }
-
-    closed = true;
-    element.remove();
-    activeToast = undefined;
-
-    if (reason === 'action') {
-      toast.onAction?.();
-    } else {
-      toast.onExpire?.();
-    }
-
-    showNextToast();
-  };
-
-  element.classList.remove('is-visible');
-  element.addEventListener('transitionend', finishClose, { once: true });
-  window.setTimeout(finishClose, TOAST_CLOSE_FALLBACK_MS);
+function updateUndoStackLayout() {
+  activeUndoToasts.forEach((entry, index) => {
+    entry.element.style.setProperty('--stack-index', String(index));
+    entry.element.style.zIndex = String(200 - index);
+    entry.element.classList.toggle('is-top', index === 0);
+  });
 }
 
-function insertHighPriorityToast(toast) {
-  const firstNormalIndex = toastQueue.findIndex((queuedToast) => queuedToast.priority !== 'high');
-
-  if (firstNormalIndex === -1) {
-    toastQueue.push(toast);
+function removeUndoEntry(entry) {
+  const index = activeUndoToasts.indexOf(entry);
+  if (index === -1) {
     return;
   }
 
-  toastQueue.splice(firstNormalIndex, 0, toast);
+  activeUndoToasts.splice(index, 1);
+  updateUndoStackLayout();
 }
 
-function showNextToast() {
-  if (activeToast || toastQueue.length === 0) {
+function showNextStandardToast() {
+  if (activeStandardToast || activeUndoToasts.length > 0 || standardToastQueue.length === 0) {
     return;
   }
 
+  const toast = standardToastQueue.shift();
+  createToastEntry(toast);
+}
+
+function createToastEntry(toast) {
   const host = ensureHost();
-  const toast = toastQueue.shift();
   const element = document.createElement('div');
-
   element.className = `toast toast--${toast.variant}`;
+  element.dataset.toastType = toast.type;
 
   const message = document.createElement('p');
   message.className = 'toast-message';
@@ -104,47 +83,107 @@ function showNextToast() {
     actionButton.type = 'button';
     actionButton.className = 'toast-action';
     actionButton.textContent = toast.actionLabel;
-    actionButton.addEventListener('click', () => {
-      dismissActiveToast('action');
-    });
     element.appendChild(actionButton);
   }
 
+  const progressTrack = document.createElement('div');
+  progressTrack.className = 'toast-progress';
+
+  const progressBar = document.createElement('span');
+  progressBar.className = 'toast-progress-bar';
+  progressBar.style.setProperty('--toast-duration', `${toast.duration}ms`);
+  progressTrack.appendChild(progressBar);
+  element.appendChild(progressTrack);
+
   host.appendChild(element);
+
+  const entry = {
+    toast,
+    element,
+    timerId: undefined,
+    isClosing: false,
+  };
+
+  if (toast.type === 'undo') {
+    activeUndoToasts.push(entry);
+    updateUndoStackLayout();
+  } else {
+    activeStandardToast = entry;
+    element.classList.add('is-top');
+  }
+
+  const actionButton = element.querySelector('.toast-action');
+  actionButton?.addEventListener('click', () => {
+    dismissToast(entry, 'action');
+  });
+
   window.requestAnimationFrame(() => {
     element.classList.add('is-visible');
   });
 
-  const timerId = window.setTimeout(() => {
-    dismissActiveToast('timeout');
+  entry.timerId = window.setTimeout(() => {
+    dismissToast(entry, 'timeout');
   }, toast.duration);
-
-  activeToast = {
-    toast,
-    element,
-    timerId,
-    isClosing: false,
-  };
 
   announceToast(toast.message, toast.type === 'undo');
 }
 
-function enqueueToast(toast) {
-  ensureHost();
-
-  if (toast.priority === 'high' && activeToast && activeToast.toast.type !== 'undo') {
-    insertHighPriorityToast(toast);
-    dismissActiveToast('interrupted');
+function dismissToast(entry, reason = 'timeout') {
+  if (!entry || entry.isClosing) {
     return;
   }
 
-  if (toast.priority === 'high') {
-    insertHighPriorityToast(toast);
-  } else {
-    toastQueue.push(toast);
+  entry.isClosing = true;
+  if (entry.timerId) {
+    window.clearTimeout(entry.timerId);
   }
 
-  showNextToast();
+  let closed = false;
+  const finishClose = () => {
+    if (closed) {
+      return;
+    }
+
+    closed = true;
+    entry.element.remove();
+
+    if (entry.toast.type === 'undo') {
+      removeUndoEntry(entry);
+      if (reason === 'action') {
+        entry.toast.onAction?.();
+      } else if (reason === 'timeout') {
+        entry.toast.onExpire?.();
+      }
+
+      showNextStandardToast();
+      return;
+    }
+
+    if (activeStandardToast === entry) {
+      activeStandardToast = undefined;
+    }
+
+    if (reason === 'action') {
+      entry.toast.onAction?.();
+    } else if (reason === 'timeout') {
+      entry.toast.onExpire?.();
+    }
+
+    showNextStandardToast();
+  };
+
+  entry.element.classList.add('is-leaving');
+  entry.element.addEventListener('transitionend', finishClose, { once: true });
+  window.setTimeout(finishClose, TOAST_CLOSE_FALLBACK_MS);
+}
+
+function interruptStandardToastIfNeeded() {
+  if (!activeStandardToast || activeStandardToast.isClosing) {
+    return;
+  }
+
+  standardToastQueue.unshift(activeStandardToast.toast);
+  dismissToast(activeStandardToast, 'interrupted');
 }
 
 export function showToast(message, options = {}) {
@@ -152,13 +191,19 @@ export function showToast(message, options = {}) {
     return;
   }
 
-  enqueueToast({
+  const toast = {
     type: 'standard',
     message,
     duration: options.duration ?? DEFAULT_TOAST_DURATION,
     variant: options.variant === 'error' ? 'error' : 'default',
-    priority: 'normal',
-  });
+  };
+
+  if (activeUndoToasts.length > 0 || activeStandardToast) {
+    standardToastQueue.push(toast);
+    return;
+  }
+
+  createToastEntry(toast);
 }
 
 export function showUndoToast(message, options = {}) {
@@ -166,7 +211,7 @@ export function showUndoToast(message, options = {}) {
     return;
   }
 
-  enqueueToast({
+  const toast = {
     type: 'undo',
     message,
     actionLabel: 'Undo',
@@ -174,6 +219,8 @@ export function showUndoToast(message, options = {}) {
     onExpire: options.onExpire,
     duration: options.duration ?? DEFAULT_UNDO_DURATION,
     variant: 'undo',
-    priority: 'high',
-  });
+  };
+
+  interruptStandardToastIfNeeded();
+  createToastEntry(toast);
 }

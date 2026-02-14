@@ -1,18 +1,27 @@
-import { deletePalette, getSavedPalettes } from './palette-storage.js';
 import { showToast, showUndoToast } from './modules/toast-ui.js';
+import { deletePalette, getSavedPalettes } from './palette-storage.js';
 
 const collectionPanel = document.querySelector('.collection-panel');
 const collectionGrid = document.getElementById('collectionGrid');
 const viewCollectionButton = document.querySelector('.btn-view-collection');
 const closeCollectionButton = document.querySelector('.btn-close-collection');
-const QUICK_ACTION_WIDTH = 72;
+const QUICK_ACTION_WIDTH = 144;
 const LEFT_ACTION_WIDTH = QUICK_ACTION_WIDTH;
 const RIGHT_ACTION_WIDTH = QUICK_ACTION_WIDTH * 2;
 const SWIPE_START_THRESHOLD = 8;
 const SWIPE_OPEN_RATIO = 0.38;
 const EMPTY_MESSAGE_TEXT = 'No palettes saved yet';
 const DELETE_UNDO_DURATION_MS = 5000;
+const SESSION_GAP_MS = 30 * 60 * 1000;
+const SESSION_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
+const DAY_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
+const DAY_DURATION_MS = 24 * 60 * 60 * 1000;
 const pendingDeletionIds = new Set();
+const collapsedSessionIds = new Set();
 let activeSwipeController;
 
 function toRgbCss({ r, g, b }) {
@@ -67,6 +76,206 @@ function ensureEmptyMessage() {
   collectionGrid.appendChild(message);
 }
 
+function getPaletteTimestampDate(timestamp) {
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getDayPeriodLabel(date) {
+  const hour = date.getHours();
+
+  if (hour < 5) {
+    return 'Night';
+  }
+
+  if (hour < 12) {
+    return 'Morning';
+  }
+
+  if (hour < 17) {
+    return 'Afternoon';
+  }
+
+  if (hour < 22) {
+    return 'Evening';
+  }
+
+  return 'Night';
+}
+
+function getDayLabel(date) {
+  if (!date) {
+    return 'Unknown Day';
+  }
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.round((todayStart.getTime() - dateStart.getTime()) / DAY_DURATION_MS);
+
+  if (dayDiff === 0) {
+    return 'Today';
+  }
+
+  if (dayDiff === 1) {
+    return 'Yesterday';
+  }
+
+  return SESSION_WEEKDAY_FORMATTER.format(date);
+}
+
+function getDayDateLabel(date) {
+  if (!date) {
+    return '';
+  }
+
+  return DAY_DATE_FORMATTER.format(date);
+}
+
+function getDayKey(date) {
+  if (!date) {
+    return 'unknown';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getSessionTitle(date) {
+  if (!date) {
+    return 'Session';
+  }
+
+  return getDayPeriodLabel(date);
+}
+
+function groupPalettesByDay(palettes) {
+  const dayGroups = [];
+  let currentDay;
+  let currentSession;
+  let previousDate;
+
+  palettes.forEach((palette) => {
+    const paletteDate = getPaletteTimestampDate(palette.timestamp);
+    const paletteDayKey = getDayKey(paletteDate);
+    const shouldStartNewDay = !currentDay || currentDay.key !== paletteDayKey;
+
+    if (shouldStartNewDay) {
+      currentDay = {
+        key: paletteDayKey,
+        id: `day-${paletteDayKey}`,
+        title: getDayLabel(paletteDate),
+        dateLabel: getDayDateLabel(paletteDate),
+        paletteCount: 0,
+        sessions: [],
+      };
+      dayGroups.push(currentDay);
+      currentSession = undefined;
+      previousDate = undefined;
+    }
+
+    const shouldStartNewSession =
+      !currentSession ||
+      !paletteDate ||
+      !previousDate ||
+      previousDate.getTime() - paletteDate.getTime() > SESSION_GAP_MS;
+
+    if (shouldStartNewSession) {
+      currentSession = {
+        id: `session-${palette.id}`,
+        title: getSessionTitle(paletteDate),
+        palettes: [],
+      };
+      currentDay.sessions.push(currentSession);
+    }
+
+    currentSession.palettes.push(palette);
+    currentDay.paletteCount += 1;
+    previousDate = paletteDate;
+  });
+
+  return dayGroups;
+}
+
+function setSessionCollapsed(sessionElement, isCollapsed) {
+  const toggle = sessionElement.querySelector('.collection-session-toggle');
+  if (!toggle) {
+    return;
+  }
+
+  sessionElement.classList.toggle('is-collapsed', isCollapsed);
+  toggle.setAttribute('aria-expanded', String(!isCollapsed));
+}
+
+function updateSessionCardCount(sessionElement) {
+  if (!sessionElement) {
+    return 0;
+  }
+
+  const sessionBody = sessionElement.querySelector('.collection-session-body');
+  const countElement = sessionElement.querySelector('.collection-session-count');
+
+  if (!sessionBody || !countElement) {
+    return 0;
+  }
+
+  const cardCount = sessionBody.querySelectorAll('.palette-card').length;
+  countElement.textContent = String(cardCount);
+  return cardCount;
+}
+
+function updateDayCardCount(dayElement) {
+  if (!dayElement) {
+    return 0;
+  }
+
+  const countElement = dayElement.querySelector('.collection-day-count');
+  if (!countElement) {
+    return 0;
+  }
+
+  const cardCount = dayElement.querySelectorAll('.palette-card').length;
+  countElement.textContent = String(cardCount);
+  return cardCount;
+}
+
+function syncSessionStateFromCardContainer(cardContainer) {
+  const sessionElement = cardContainer?.closest('.collection-session');
+
+  if (!sessionElement) {
+    ensureEmptyMessage();
+    return;
+  }
+
+  const dayElement = sessionElement.closest('.collection-day');
+  const cardCount = updateSessionCardCount(sessionElement);
+
+  if (cardCount === 0) {
+    const sessionId = sessionElement.dataset.sessionId;
+    if (sessionId) {
+      collapsedSessionIds.delete(sessionId);
+    }
+
+    sessionElement.remove();
+  }
+
+  if (!dayElement) {
+    ensureEmptyMessage();
+    return;
+  }
+
+  const dayCount = updateDayCardCount(dayElement);
+  if (dayCount > 0) {
+    removeEmptyMessage();
+    return;
+  }
+
+  dayElement.remove();
+  ensureEmptyMessage();
+}
+
 function takeCardPositionSnapshot(card) {
   return {
     parent: card.parentElement,
@@ -75,19 +284,111 @@ function takeCardPositionSnapshot(card) {
 }
 
 function restoreCardFromSnapshot(card, snapshot) {
-  if (!collectionGrid || card.parentElement === collectionGrid) {
+  if (!collectionGrid || card.isConnected) {
     return;
   }
 
   removeEmptyMessage();
 
-  const { nextSibling } = snapshot;
-  if (nextSibling && nextSibling.parentElement === collectionGrid) {
-    collectionGrid.insertBefore(card, nextSibling);
+  const { parent, nextSibling } = snapshot;
+  if (!parent || !parent.isConnected) {
+    void loadCollectionUi();
     return;
   }
 
-  collectionGrid.appendChild(card);
+  if (nextSibling && nextSibling.parentElement === parent) {
+    parent.insertBefore(card, nextSibling);
+  } else {
+    parent.appendChild(card);
+  }
+
+  syncSessionStateFromCardContainer(parent);
+}
+
+function getSessionCaretMarkup() {
+  return `
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3.2 5.5L8 10.3l4.8-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  `;
+}
+
+function createSessionGroup(session) {
+  const section = document.createElement('section');
+  section.className = 'collection-session';
+  section.dataset.sessionId = session.id;
+
+  const sessionBodyId = `${session.id}-body`;
+
+  const headerButton = document.createElement('button');
+  headerButton.type = 'button';
+  headerButton.className = 'collection-session-toggle';
+  headerButton.setAttribute('aria-controls', sessionBodyId);
+  headerButton.innerHTML = `
+    <span class="collection-session-title">${session.title}</span>
+    <span class="collection-session-meta">
+      <span class="collection-session-count">${session.palettes.length}</span>
+      <span class="collection-session-caret">${getSessionCaretMarkup()}</span>
+    </span>
+  `;
+
+  const body = document.createElement('div');
+  body.className = 'collection-session-body';
+  body.id = sessionBodyId;
+
+  session.palettes.forEach((palette) => {
+    body.appendChild(createPaletteCard(palette));
+  });
+
+  headerButton.addEventListener('click', () => {
+    closeActiveSwipeController();
+
+    const isCollapsed = section.classList.contains('is-collapsed');
+    const nextCollapsedState = !isCollapsed;
+    setSessionCollapsed(section, nextCollapsedState);
+
+    if (nextCollapsedState) {
+      collapsedSessionIds.add(session.id);
+      return;
+    }
+
+    collapsedSessionIds.delete(session.id);
+  });
+
+  section.append(headerButton, body);
+  setSessionCollapsed(section, collapsedSessionIds.has(session.id));
+
+  return section;
+}
+
+function createDayGroup(dayGroup) {
+  const daySection = document.createElement('section');
+  daySection.className = 'collection-day';
+  daySection.dataset.dayId = dayGroup.id;
+
+  const dayHeader = document.createElement('header');
+  dayHeader.className = 'collection-day-header';
+
+  const dayTitle = document.createElement('p');
+  dayTitle.className = 'collection-day-title';
+  dayTitle.textContent = dayGroup.dateLabel
+    ? `${dayGroup.title} — ${dayGroup.dateLabel}`
+    : dayGroup.title;
+
+  const dayCount = document.createElement('span');
+  dayCount.className = 'collection-day-count';
+  dayCount.textContent = String(dayGroup.paletteCount);
+
+  const sessionsContainer = document.createElement('div');
+  sessionsContainer.className = 'collection-day-sessions';
+
+  dayGroup.sessions.forEach((session) => {
+    sessionsContainer.appendChild(createSessionGroup(session));
+  });
+
+  dayHeader.append(dayTitle, dayCount);
+  daySection.append(dayHeader, sessionsContainer);
+  return daySection;
 }
 
 async function copyTextToClipboard(text) {
@@ -502,7 +803,7 @@ function createPaletteCard(palette) {
 
     clearActiveSwipeController(swipeController);
     card.remove();
-    ensureEmptyMessage();
+    syncSessionStateFromCardContainer(snapshot.parent);
 
     showUndoToast('Palette deleted', {
       duration: DELETE_UNDO_DURATION_MS,
@@ -542,8 +843,23 @@ async function loadCollectionUi() {
     return;
   }
 
-  palettes.forEach((palette) => {
-    collectionGrid.appendChild(createPaletteCard(palette));
+  const dayGroups = groupPalettesByDay(palettes);
+  const availableSessionIds = new Set();
+
+  dayGroups.forEach((dayGroup) => {
+    dayGroup.sessions.forEach((session) => {
+      availableSessionIds.add(session.id);
+    });
+  });
+
+  [...collapsedSessionIds].forEach((sessionId) => {
+    if (!availableSessionIds.has(sessionId)) {
+      collapsedSessionIds.delete(sessionId);
+    }
+  });
+
+  dayGroups.forEach((dayGroup) => {
+    collectionGrid.appendChild(createDayGroup(dayGroup));
   });
 }
 
