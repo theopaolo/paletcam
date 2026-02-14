@@ -13,14 +13,21 @@ export function setCaptureState({ btnOn, btnShoot, isCameraActive }) {
   setClassVisibility(btnShoot, isCameraActive);
 }
 
-export function drawFrameToCanvas({ context, cameraFeed, width, height, facingMode }) {
+export function drawFrameToCanvas({
+  context,
+  cameraFeed,
+  width,
+  height,
+  facingMode,
+  shouldMirrorUserFacing = true,
+}) {
   if (!context || !cameraFeed || width <= 0 || height <= 0) {
     return;
   }
 
   context.save();
 
-  if (facingMode === 'user') {
+  if (facingMode === 'user' && shouldMirrorUserFacing) {
     context.scale(-1, 1);
     context.drawImage(cameraFeed, -width, 0, width, height);
   } else {

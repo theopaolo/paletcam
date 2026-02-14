@@ -42,9 +42,27 @@ let frameHeight = 0;
 let isStreaming = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
 
+function shouldMirrorUserFacingCamera() {
+  if (cameraController.getFacingMode() !== 'user') {
+    return false;
+  }
+
+  // Keep mirror behavior for touch-first devices, but disable it on desktop.
+  return window.matchMedia?.('(any-pointer: coarse)').matches ?? false;
+}
+
+function syncCameraFeedOrientation() {
+  if (!cameraFeed) {
+    return;
+  }
+
+  cameraFeed.style.transform = shouldMirrorUserFacingCamera() ? 'scaleX(-1)' : 'scaleX(1)';
+}
+
 const cameraController = createCameraController({
   cameraFeed,
   onCameraActiveChange: (isCameraActive) => {
+    syncCameraFeedOrientation();
     setCaptureState({ btnOn, btnShoot, isCameraActive });
 
     if (!isCameraActive) {
@@ -77,6 +95,7 @@ function initializeApp() {
   bindZoomEvents();
   bindRotationEvents();
   bindSwatchEvents();
+  syncCameraFeedOrientation();
 
   updateZoomText(zoomDisplay, cameraController.getCurrentZoom());
   setZoomWheelDisabled();
@@ -252,6 +271,7 @@ function refreshPreview() {
     width: frameWidth,
     height: frameHeight,
     facingMode: cameraController.getFacingMode(),
+    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
   });
 
   const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
@@ -290,6 +310,7 @@ async function captureCurrentFrame() {
     width: frameWidth,
     height: frameHeight,
     facingMode: cameraController.getFacingMode(),
+    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
   });
 
   const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
