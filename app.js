@@ -27,11 +27,29 @@ const frameCanvas = document.getElementById('canvas');
 const paletteCanvas = document.getElementById('canvas-palette');
 const zoomWheel = document.querySelector('.zoom-wheel');
 const zoomWheelContainer = document.querySelector('.wheel-range');
+const zoomPanel = document.querySelector('.zoom-btns');
 const zoomDisplay = document.querySelector('.zoom-display');
+const zoomMinDisplay = document.querySelector('.zoom-scale-min');
+const zoomMaxDisplay = document.querySelector('.zoom-scale-max');
 const rotateButton = document.querySelector('.btn-rotate');
 const swatchSlider = document.querySelector('.swatch-slider input[type="range"]');
 const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
+
+const SWATCH_ACTIVE_PULSE_MS = 170;
+const CAPTURE_POP_MS = 170;
+const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
+const CAPTURE_KEYBOARD_KEYS = new Set(['Enter', ' ', 'Spacebar']);
+const SWATCH_KEYBOARD_KEYS = new Set([
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+]);
 
 const frameContext = frameCanvas?.getContext('2d', { willReadFrequently: true })
   ?? frameCanvas?.getContext('2d');
@@ -41,6 +59,133 @@ let frameWidth = 0;
 let frameHeight = 0;
 let isStreaming = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
+let capturePopTimeout = 0;
+let lastCaptureGlowRgb = '';
+
+function toRgbToken(color) {
+  return `${color.r}, ${color.g}, ${color.b}`;
+}
+
+function getColorDistanceSquared(firstColor, secondColor) {
+  const deltaR = firstColor.r - secondColor.r;
+  const deltaG = firstColor.g - secondColor.g;
+  const deltaB = firstColor.b - secondColor.b;
+
+  return (deltaR * deltaR) + (deltaG * deltaG) + (deltaB * deltaB);
+}
+
+function getColorLuma(color) {
+  return (0.2126 * color.r) + (0.7152 * color.g) + (0.0722 * color.b);
+}
+
+function getDominantColor(colors) {
+  if (!Array.isArray(colors) || colors.length === 0) {
+    return null;
+  }
+
+  const clusterDistanceSquared = DOMINANT_COLOR_CLUSTER_DISTANCE ** 2;
+  const colorClusters = [];
+
+  colors.forEach((color) => {
+    let matchingCluster = null;
+
+    for (const cluster of colorClusters) {
+      if (getColorDistanceSquared(color, cluster) <= clusterDistanceSquared) {
+        matchingCluster = cluster;
+        break;
+      }
+    }
+
+    if (!matchingCluster) {
+      colorClusters.push({
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        totalR: color.r,
+        totalG: color.g,
+        totalB: color.b,
+        count: 1,
+      });
+      return;
+    }
+
+    matchingCluster.totalR += color.r;
+    matchingCluster.totalG += color.g;
+    matchingCluster.totalB += color.b;
+    matchingCluster.count += 1;
+    matchingCluster.r = Math.round(matchingCluster.totalR / matchingCluster.count);
+    matchingCluster.g = Math.round(matchingCluster.totalG / matchingCluster.count);
+    matchingCluster.b = Math.round(matchingCluster.totalB / matchingCluster.count);
+  });
+
+  colorClusters.sort((firstCluster, secondCluster) => {
+    if (secondCluster.count !== firstCluster.count) {
+      return secondCluster.count - firstCluster.count;
+    }
+
+    return getColorLuma(secondCluster) - getColorLuma(firstCluster);
+  });
+
+  return colorClusters[0];
+}
+
+function setCaptureButtonGlowColor(color) {
+  if (!captureButton || !color) {
+    return;
+  }
+
+  const rgbToken = toRgbToken(color);
+  if (rgbToken === lastCaptureGlowRgb) {
+    return;
+  }
+
+  captureButton.style.setProperty('--capture-glow-rgb', rgbToken);
+  lastCaptureGlowRgb = rgbToken;
+}
+
+function setCaptureGlowActive(isActive) {
+  captureButton?.classList.toggle('is-catching', isActive);
+}
+
+function pulseCaptureButton() {
+  if (!captureButton) {
+    return;
+  }
+
+  captureButton.classList.remove('is-pop');
+  void captureButton.offsetWidth;
+  captureButton.classList.add('is-pop');
+
+  if (capturePopTimeout) {
+    window.clearTimeout(capturePopTimeout);
+  }
+
+  capturePopTimeout = window.setTimeout(() => {
+    captureButton.classList.remove('is-pop');
+    capturePopTimeout = 0;
+  }, CAPTURE_POP_MS);
+
+  if (navigator.vibrate) {
+    navigator.vibrate(14);
+  }
+}
+
+function formatZoomScaleValue(value) {
+  return `${value.toFixed(1)}x`;
+}
+
+function updateZoomScaleBounds(minValue, maxValue) {
+  const safeMin = Number.isFinite(minValue) ? minValue : 1;
+  const safeMax = Number.isFinite(maxValue) ? maxValue : safeMin;
+
+  if (zoomMinDisplay) {
+    zoomMinDisplay.textContent = formatZoomScaleValue(safeMin);
+  }
+
+  if (zoomMaxDisplay) {
+    zoomMaxDisplay.textContent = formatZoomScaleValue(safeMax);
+  }
+}
 
 function shouldMirrorUserFacingCamera() {
   if (cameraController.getFacingMode() !== 'user') {
@@ -67,6 +212,7 @@ const cameraController = createCameraController({
 
     if (!isCameraActive) {
       setZoomWheelDisabled();
+      setCaptureGlowActive(false);
     } else {
       syncZoomWheelCapabilities();
     }
@@ -98,6 +244,7 @@ function initializeApp() {
   syncCameraFeedOrientation();
 
   updateZoomText(zoomDisplay, cameraController.getCurrentZoom());
+  updateZoomScaleBounds(Number(zoomWheel?.min), Number(zoomWheel?.max));
   setZoomWheelDisabled();
   updateSliderTooltip(swatchSlider, swatchCount);
   setCaptureState({ btnOn, btnShoot, isCameraActive: false });
@@ -114,6 +261,13 @@ function bindCameraPermissionEvents() {
 
 function bindCaptureEvents() {
   cameraFeed.addEventListener('canplay', handleCameraCanPlay);
+
+  captureButton.addEventListener('pointerdown', pulseCaptureButton);
+  captureButton.addEventListener('keydown', (event) => {
+    if (CAPTURE_KEYBOARD_KEYS.has(event.key)) {
+      pulseCaptureButton();
+    }
+  });
 
   captureButton.addEventListener('click', (event) => {
     event.preventDefault();
@@ -159,6 +313,7 @@ function syncZoomTickMarks() {
   const intervals = Math.max(1, Math.floor(((max - min) / step) + Number.EPSILON));
   zoomWheel.style.setProperty('--zoom-intervals', String(intervals));
   zoomWheelContainer?.style.setProperty('--zoom-intervals', String(intervals));
+  zoomPanel?.style.setProperty('--zoom-intervals', String(intervals));
 }
 
 function setZoomWheelDisabled() {
@@ -167,6 +322,7 @@ function setZoomWheelDisabled() {
   }
 
   zoomWheel.setAttribute('disabled', '');
+  updateZoomScaleBounds(Number(zoomWheel.min), Number(zoomWheel.max));
 }
 
 function syncZoomWheelCapabilities() {
@@ -196,6 +352,7 @@ function syncZoomWheelCapabilities() {
   zoomWheel.step = String(safeStep);
   zoomWheel.value = String(clampedZoom);
   zoomWheel.removeAttribute('disabled');
+  updateZoomScaleBounds(minZoom, maxZoom);
   syncZoomTickMarks();
 }
 
@@ -207,7 +364,49 @@ function bindRotationEvents() {
 }
 
 function bindSwatchEvents() {
-  swatchSlider?.addEventListener('input', (event) => {
+  if (!swatchSlider) {
+    return;
+  }
+
+  const sliderPanel = swatchSlider.closest('.swatch-slider');
+  let activePulseTimeout = 0;
+
+  const setDragState = (isDragging) => {
+    sliderPanel?.classList.toggle('is-dragging', isDragging);
+  };
+
+  const pulseActiveIndicator = () => {
+    if (!sliderPanel) {
+      return;
+    }
+
+    sliderPanel.classList.add('is-active');
+
+    if (activePulseTimeout) {
+      window.clearTimeout(activePulseTimeout);
+    }
+
+    activePulseTimeout = window.setTimeout(() => {
+      sliderPanel.classList.remove('is-active');
+      activePulseTimeout = 0;
+    }, SWATCH_ACTIVE_PULSE_MS);
+  };
+
+  swatchSlider.addEventListener('pointerdown', () => {
+    setDragState(true);
+    pulseActiveIndicator();
+    window.addEventListener('pointerup', () => setDragState(false), { once: true });
+  });
+
+  swatchSlider.addEventListener('pointercancel', () => setDragState(false));
+  swatchSlider.addEventListener('blur', () => setDragState(false));
+  swatchSlider.addEventListener('keydown', (event) => {
+    if (SWATCH_KEYBOARD_KEYS.has(event.key)) {
+      pulseActiveIndicator();
+    }
+  });
+
+  swatchSlider.addEventListener('input', (event) => {
     const nextSwatchCount = Number(event.target.value);
 
     if (!Number.isFinite(nextSwatchCount) || nextSwatchCount < 1) {
@@ -216,6 +415,7 @@ function bindSwatchEvents() {
 
     swatchCount = nextSwatchCount;
     updateSliderTooltip(swatchSlider, swatchCount);
+    pulseActiveIndicator();
   });
 }
 
@@ -285,6 +485,7 @@ function refreshPreview() {
 
 
   const smoothedColors = smoothColors(paletteColors, 0.1);
+  const dominantColor = getDominantColor(smoothedColors);
 
   renderPaletteBars(
     paletteContext,
@@ -292,6 +493,13 @@ function refreshPreview() {
     paletteCanvas.width,
     paletteCanvas.height
   );
+
+  if (dominantColor) {
+    setCaptureButtonGlowColor(dominantColor);
+    setCaptureGlowActive(true);
+  } else {
+    setCaptureGlowActive(false);
+  }
 
   requestAnimationFrame(refreshPreview);
 }
@@ -360,6 +568,7 @@ function exportPhotoData(sourceCanvas, sourceWidth, sourceHeight) {
 
 function stopCurrentStream() {
   isStreaming = false;
+  setCaptureGlowActive(false);
   cameraController.stopStream();
 }
 

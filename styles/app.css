@@ -1,0 +1,117 @@
+:root {
+  --primary-color: #222222;
+  --dark-color: #2f2c1f;
+  --secondary-color: #F0F0F0;
+  --accent-color: #ffc800;
+}
+
+img {
+  display: block;
+  height: auto;
+}
+
+body {
+  background-color: var(--primary-color);
+  font-family: Arial, sans-serif;
+  max-width: 500px;
+  width: 100%;
+  height: 100dvh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+
+.capture {
+  display: block;
+  position: relative;
+  width: 100%;
+  border-radius: 2px;
+  flex: 1;
+  min-height: 0;
+  border: 5px solid #242424;
+  background: linear-gradient(to right, #141414, #1c1c1c 2%, #0a0a0a 50%, #0d0d0d 150%);
+}
+
+#canvas {
+  display: none;
+}
+
+.camera-feed {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  height: fit-content;
+  height: 80px;
+  width: 20%;
+  pointer-events: none;
+  border-radius: 16px;
+  opacity: 1;
+  border: 2px solid #0f0f0f;
+  box-shadow: inset 0px 2px 5px #5757578a, 0px 2px 4px #303030;
+
+  &::after {
+    content: " ";
+  }
+
+  &::before {
+    content: " ";
+  }
+}
+
+.output {
+  height: 4rem;
+  flex-shrink: 0;
+  align-items: center;
+  overflow-x: scroll;
+  display: flex;
+      background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 4px rgba(0, 0, 0, 0.62);
+}
+
+.output-img{
+  height: 100%;
+  object-fit: cover;
+}
+
+.output-palette {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.output-swatch {
+  flex: 1;
+  height: 100%;
+  cursor: pointer;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.zoom-display {
+  min-width: 4ch;
+  color: #d3d3d3;
+  font-family: monospace;
+  font-size: .9rem;
+  text-shadow: 0 1px 0 #000;
+  letter-spacing: 0.08em;
+}
+
+.counter {
+  box-shadow: 0px 2px 0px #9d7b00, inset 0px 0px 19px #ffc800;
+  border: 1px solid #bb9300;
+  border-radius: 2px;
+  width: 2rem;
+  display: flex;
+  text-align: center;
+  justify-content: center;
+  line-height: 2;
+  background: linear-gradient(182deg, #ffe06d 5%, #bb9300 50%, #bb9300 100%);
+}
+
+.none {
+  display: none !important;
+}
