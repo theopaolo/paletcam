@@ -35,6 +35,36 @@ body {
   background: linear-gradient(to right, #141414, #1c1c1c 2%, #0a0a0a 50%, #0d0d0d 150%);
 }
 
+.capture-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.22) 45%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.08));
+  mix-blend-mode: screen;
+}
+
+.capture-flash.is-active {
+  animation: capture-flash-pop 120ms ease-out both;
+}
+
+@keyframes capture-flash-pop {
+  0% {
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 0.92;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 #canvas {
   display: none;
 }
@@ -90,6 +120,27 @@ body {
   cursor: pointer;
   transition: transform 0.2s;
   flex-shrink: 0;
+}
+
+.output-copy-mode-toggle {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 3;
+  border: 1px solid rgba(240, 240, 240, 0.34);
+  border-radius: 3px;
+  padding: 0.17rem 0.5rem 0.2rem;
+  font-size: 0.5rem;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(240, 240, 240, 0.86);
+  background: rgba(15, 15, 15, 0.6);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+
+.output-copy-mode-toggle:active {
+  transform: scale(0.96);
 }
 
 .output-palette.is-empty {

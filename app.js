@@ -33,12 +33,15 @@ const zoomMinDisplay = document.querySelector('.zoom-scale-min');
 const zoomMaxDisplay = document.querySelector('.zoom-scale-max');
 const rotateButton = document.querySelector('.btn-rotate');
 const swatchSlider = document.querySelector('.swatch-slider input[type="range"]');
+const sfxToggleButton = document.querySelector('.btn-sfx-toggle');
 const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
 
 const SWATCH_ACTIVE_PULSE_MS = 170;
 const CAPTURE_POP_MS = 170;
+const CAPTURE_FLASH_MS = 120;
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
+const CAPTURE_SFX_STORAGE_KEY = 'paletcam.captureSfxEnabled';
 const CAPTURE_KEYBOARD_KEYS = new Set(['Enter', ' ', 'Spacebar']);
 const SWATCH_KEYBOARD_KEYS = new Set([
   'ArrowLeft',
@@ -59,8 +62,33 @@ let frameWidth = 0;
 let frameHeight = 0;
 let isStreaming = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
+let isCaptureSfxEnabled = readStoredFlag(CAPTURE_SFX_STORAGE_KEY, true);
+let captureAudioContext = null;
+let captureFlashElement = null;
 let capturePopTimeout = 0;
+let captureFlashTimeout = 0;
 let lastCaptureGlowRgb = '';
+
+function readStoredFlag(storageKey, fallbackValue) {
+  try {
+    const storedValue = window.localStorage.getItem(storageKey);
+    if (storedValue === null) {
+      return fallbackValue;
+    }
+
+    return storedValue === '1';
+  } catch (error) {
+    return fallbackValue;
+  }
+}
+
+function writeStoredFlag(storageKey, value) {
+  try {
+    window.localStorage.setItem(storageKey, value ? '1' : '0');
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
 
 function toRgbToken(color) {
   return `${color.r}, ${color.g}, ${color.b}`;
@@ -170,6 +198,138 @@ function pulseCaptureButton() {
   }
 }
 
+function ensureCaptureFlashElement() {
+  if (!captureContainer) {
+    return null;
+  }
+
+  if (captureFlashElement?.isConnected) {
+    return captureFlashElement;
+  }
+
+  const nextFlashElement = document.createElement('div');
+  nextFlashElement.className = 'capture-flash';
+  captureContainer.appendChild(nextFlashElement);
+  captureFlashElement = nextFlashElement;
+  return captureFlashElement;
+}
+
+function triggerCaptureFlash() {
+  const flashElement = ensureCaptureFlashElement();
+  if (!flashElement) {
+    return;
+  }
+
+  flashElement.classList.remove('is-active');
+  void flashElement.offsetWidth;
+  flashElement.classList.add('is-active');
+
+  if (captureFlashTimeout) {
+    window.clearTimeout(captureFlashTimeout);
+  }
+
+  captureFlashTimeout = window.setTimeout(() => {
+    flashElement.classList.remove('is-active');
+    captureFlashTimeout = 0;
+  }, CAPTURE_FLASH_MS);
+}
+
+function getAudioContextClass() {
+  return window.AudioContext ?? window.webkitAudioContext;
+}
+
+async function ensureCaptureAudioContext() {
+  const AudioContextClass = getAudioContextClass();
+  if (!AudioContextClass) {
+    return null;
+  }
+
+  if (!captureAudioContext) {
+    captureAudioContext = new AudioContextClass();
+  }
+
+  if (captureAudioContext.state === 'suspended') {
+    try {
+      await captureAudioContext.resume();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  return captureAudioContext;
+}
+
+async function playCaptureClickSound() {
+  if (!isCaptureSfxEnabled) {
+    return;
+  }
+
+  const audioContext = await ensureCaptureAudioContext();
+  if (!audioContext) {
+    return;
+  }
+
+  const startAt = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const filter = audioContext.createBiquadFilter();
+  const gainNode = audioContext.createGain();
+
+  oscillator.type = 'triangle';
+  oscillator.frequency.setValueAtTime(1900, startAt);
+  oscillator.frequency.exponentialRampToValueAtTime(880, startAt + 0.055);
+
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(1600, startAt);
+  filter.Q.setValueAtTime(4.6, startAt);
+
+  gainNode.gain.setValueAtTime(0.0001, startAt);
+  gainNode.gain.exponentialRampToValueAtTime(0.16, startAt + 0.004);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.055);
+
+  oscillator.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.start(startAt);
+  oscillator.stop(startAt + 0.06);
+}
+
+function syncSfxToggleButtonState() {
+  if (!sfxToggleButton) {
+    return;
+  }
+
+  sfxToggleButton.classList.toggle('is-active', isCaptureSfxEnabled);
+  sfxToggleButton.setAttribute('aria-pressed', String(isCaptureSfxEnabled));
+  sfxToggleButton.textContent = isCaptureSfxEnabled ? 'SFX ON' : 'SFX OFF';
+}
+
+function bindSoundEvents() {
+  if (!sfxToggleButton) {
+    return;
+  }
+
+  const supportsWebAudio = Boolean(getAudioContextClass());
+  if (!supportsWebAudio) {
+    sfxToggleButton.setAttribute('disabled', '');
+    sfxToggleButton.textContent = 'SFX N/A';
+    sfxToggleButton.setAttribute('aria-disabled', 'true');
+    return;
+  }
+
+  syncSfxToggleButtonState();
+
+  sfxToggleButton.addEventListener('click', async () => {
+    isCaptureSfxEnabled = !isCaptureSfxEnabled;
+    writeStoredFlag(CAPTURE_SFX_STORAGE_KEY, isCaptureSfxEnabled);
+    syncSfxToggleButtonState();
+
+    if (isCaptureSfxEnabled) {
+      await playCaptureClickSound();
+    }
+  });
+}
+
 function formatZoomScaleValue(value) {
   return `${value.toFixed(1)}x`;
 }
@@ -241,6 +401,7 @@ function initializeApp() {
   bindZoomEvents();
   bindRotationEvents();
   bindSwatchEvents();
+  bindSoundEvents();
   syncCameraFeedOrientation();
 
   updateZoomText(zoomDisplay, cameraController.getCurrentZoom());
@@ -511,6 +672,9 @@ async function captureCurrentFrame() {
     return;
   }
 
+  triggerCaptureFlash();
+  void playCaptureClickSound();
+
   frameCanvas.width = frameWidth;
   frameCanvas.height = frameHeight;
 
@@ -571,6 +735,12 @@ function exportPhotoData(sourceCanvas, sourceWidth, sourceHeight) {
 function stopCurrentStream() {
   isStreaming = false;
   setCaptureGlowActive(false);
+
+  if (captureFlashTimeout) {
+    window.clearTimeout(captureFlashTimeout);
+    captureFlashTimeout = 0;
+  }
+
   cameraController.stopStream();
 }
 

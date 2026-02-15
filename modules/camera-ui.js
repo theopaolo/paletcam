@@ -1,6 +1,96 @@
 import { toRgbCss } from './palette-extraction.js';
 
-const EMPTY_OUTPUT_HINT_TEXT = 'Zone aperçus de la capture';
+const EMPTY_OUTPUT_HINT_TEXT = 'Zone aperçus de capture.';
+const OUTPUT_COPY_MODE_STORAGE_KEY = 'paletcam.outputCopyMode';
+const OUTPUT_COPY_MODES = ['rgb', 'hex', 'hsl'];
+const OUTPUT_COPY_MODE_LABELS = {
+  rgb: 'RGB',
+  hex: 'HEX',
+  hsl: 'HSL',
+};
+let outputCopyMode = readStoredCopyMode();
+
+function readStoredCopyMode() {
+  try {
+    const storedMode = window.localStorage.getItem(OUTPUT_COPY_MODE_STORAGE_KEY);
+    if (OUTPUT_COPY_MODES.includes(storedMode)) {
+      return storedMode;
+    }
+  } catch (error) {
+    return 'rgb';
+  }
+
+  return 'rgb';
+}
+
+function persistCopyMode(nextMode) {
+  try {
+    window.localStorage.setItem(OUTPUT_COPY_MODE_STORAGE_KEY, nextMode);
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
+
+function formatHexColor(color) {
+  const r = color.r.toString(16).padStart(2, '0').toUpperCase();
+  const g = color.g.toString(16).padStart(2, '0').toUpperCase();
+  const b = color.b.toString(16).padStart(2, '0').toUpperCase();
+  return `#${r}${g}${b}`;
+}
+
+function formatHslColor(color) {
+  const normalizedR = color.r / 255;
+  const normalizedG = color.g / 255;
+  const normalizedB = color.b / 255;
+  const maxChannel = Math.max(normalizedR, normalizedG, normalizedB);
+  const minChannel = Math.min(normalizedR, normalizedG, normalizedB);
+  const delta = maxChannel - minChannel;
+  const lightness = (maxChannel + minChannel) / 2;
+  const saturation = delta === 0
+    ? 0
+    : delta / (1 - Math.abs((2 * lightness) - 1));
+
+  let hue = 0;
+  if (delta !== 0) {
+    if (maxChannel === normalizedR) {
+      hue = ((normalizedG - normalizedB) / delta) % 6;
+    } else if (maxChannel === normalizedG) {
+      hue = ((normalizedB - normalizedR) / delta) + 2;
+    } else {
+      hue = ((normalizedR - normalizedG) / delta) + 4;
+    }
+  }
+
+  const roundedHue = Math.round(hue * 60 < 0 ? (hue * 60) + 360 : hue * 60);
+  const roundedSaturation = Math.round(saturation * 100);
+  const roundedLightness = Math.round(lightness * 100);
+
+  return `hsl(${roundedHue}, ${roundedSaturation}%, ${roundedLightness}%)`;
+}
+
+function getCopyTextForColor(color) {
+  if (outputCopyMode === 'hex') {
+    return formatHexColor(color);
+  }
+
+  if (outputCopyMode === 'hsl') {
+    return formatHslColor(color);
+  }
+
+  return toRgbCss(color);
+}
+
+function getCopyModeToggleLabel() {
+  const modeLabel = OUTPUT_COPY_MODE_LABELS[outputCopyMode] ?? OUTPUT_COPY_MODE_LABELS.rgb;
+  return `Copy ${modeLabel}`;
+}
+
+function cycleCopyMode() {
+  const currentModeIndex = OUTPUT_COPY_MODES.indexOf(outputCopyMode);
+  const nextModeIndex = (currentModeIndex + 1) % OUTPUT_COPY_MODES.length;
+  outputCopyMode = OUTPUT_COPY_MODES[nextModeIndex];
+  persistCopyMode(outputCopyMode);
+}
 
 function setClassVisibility(element, shouldShow) {
   if (!element) {
@@ -56,15 +146,31 @@ export function renderOutputSwatches(container, colors) {
     return;
   }
 
+  const copyModeToggle = document.createElement('button');
+  copyModeToggle.type = 'button';
+  copyModeToggle.className = 'output-copy-mode-toggle';
+  copyModeToggle.textContent = getCopyModeToggleLabel();
+  copyModeToggle.setAttribute(
+    'aria-label',
+    `${getCopyModeToggleLabel()}. Tap to switch copy format.`
+  );
+  copyModeToggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    cycleCopyMode();
+    renderOutputSwatches(container, safeColors);
+  });
+  container.appendChild(copyModeToggle);
+
   safeColors.forEach((color) => {
     const swatch = document.createElement('div');
     swatch.className = 'output-swatch';
     swatch.style.backgroundColor = toRgbCss(color);
-    swatch.title = toRgbCss(color);
+    swatch.title = getCopyTextForColor(color);
 
     swatch.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(toRgbCss(color));
+        await navigator.clipboard.writeText(getCopyTextForColor(color));
       } catch (error) {
         console.error('Failed to copy color to clipboard:', error);
       }

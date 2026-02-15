@@ -72,7 +72,10 @@
     <div class="collection-panel">
       <div class="collection-header">
         <h2>Catches</h2>
-        <button class="btn-close-collection">×</button>
+        <div class="collection-header-actions">
+          <button class="collection-copy-mode-toggle" type="button" aria-label="Copy RGB. Tap to switch format.">Copy RGB</button>
+          <button class="btn-close-collection">×</button>
+        </div>
       </div>
       <div class="collection-grid" id="collectionGrid">
         <!-- Palettes will be dynamically added here -->
@@ -122,6 +125,7 @@
 
           <div class="btns-actions">
             <!-- <button class="btn-small btn-filters">filtres</button> -->
+            <button class="btn-small btn-sfx-toggle" type="button" aria-pressed="true">SFX ON</button>
             <button class="btn-view-collection">
               <svg
                 xmlns="http://www.w3.org/2000/svg"

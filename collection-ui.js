@@ -5,17 +5,28 @@ const collectionPanel = document.querySelector('.collection-panel');
 const collectionGrid = document.getElementById('collectionGrid');
 const viewCollectionButton = document.querySelector('.btn-view-collection');
 const closeCollectionButton = document.querySelector('.btn-close-collection');
+const collectionCopyModeButton = document.querySelector('.collection-copy-mode-toggle');
 const QUICK_ACTION_WIDTH = 144;
 const LEFT_ACTION_WIDTH = QUICK_ACTION_WIDTH;
 const RIGHT_ACTION_WIDTH = QUICK_ACTION_WIDTH * 2;
 const SWIPE_START_THRESHOLD = 8;
 const SWIPE_OPEN_RATIO = 0.38;
+const COLLECTION_COPY_MODE_STORAGE_KEY = 'paletcam.collectionCopyMode';
+const COLLECTION_COPY_MODES = ['rgb', 'hex', 'hsl'];
+const COLLECTION_COPY_MODE_LABELS = {
+  rgb: 'RGB',
+  hex: 'HEX',
+  hsl: 'HSL',
+};
 const DELETE_SWIPE_HAPTIC_MS = 11;
+const SWIPE_HINT_STORAGE_KEY = 'paletcam.swipeHintSeen.v1';
+const SWIPE_HINT_RESET_DELAY_MS = 2400;
 const EMPTY_MESSAGE_TEXT = 'No palettes saved yet';
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_GAP_MS = 30 * 60 * 1000;
 const SESSION_REVEAL_DURATION_MS = 280;
 const SESSION_REVEAL_STAGGER_MS = 42;
+const MAGNETIC_SNAP_RESET_MS = 320;
 const SESSION_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
 const DAY_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -25,10 +36,122 @@ const DAY_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
 const DAY_DURATION_MS = 24 * 60 * 60 * 1000;
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
+let hasShownSwipeHint = false;
 let activeSwipeController;
+let collectionCopyMode = readStoredCopyMode(COLLECTION_COPY_MODE_STORAGE_KEY, COLLECTION_COPY_MODES);
+
+function readStoredFlag(storageKey) {
+  try {
+    return window.localStorage.getItem(storageKey) === '1';
+  } catch (error) {
+    return false;
+  }
+}
+
+function writeStoredFlag(storageKey, nextValue) {
+  try {
+    window.localStorage.setItem(storageKey, nextValue ? '1' : '0');
+  } catch (error) {
+    // Ignore storage failures (private mode, disabled storage).
+  }
+}
+
+hasShownSwipeHint = readStoredFlag(SWIPE_HINT_STORAGE_KEY);
+
+function readStoredCopyMode(storageKey, allowedModes) {
+  try {
+    const storedMode = window.localStorage.getItem(storageKey);
+    if (allowedModes.includes(storedMode)) {
+      return storedMode;
+    }
+  } catch (error) {
+    return 'rgb';
+  }
+
+  return 'rgb';
+}
+
+function writeStoredValue(storageKey, value) {
+  try {
+    window.localStorage.setItem(storageKey, value);
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
 
 function toRgbCss({ r, g, b }) {
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+function formatHexColor({ r, g, b }) {
+  const red = r.toString(16).padStart(2, '0').toUpperCase();
+  const green = g.toString(16).padStart(2, '0').toUpperCase();
+  const blue = b.toString(16).padStart(2, '0').toUpperCase();
+  return `#${red}${green}${blue}`;
+}
+
+function formatHslColor(color) {
+  const normalizedR = color.r / 255;
+  const normalizedG = color.g / 255;
+  const normalizedB = color.b / 255;
+  const maxChannel = Math.max(normalizedR, normalizedG, normalizedB);
+  const minChannel = Math.min(normalizedR, normalizedG, normalizedB);
+  const delta = maxChannel - minChannel;
+  const lightness = (maxChannel + minChannel) / 2;
+  const saturation = delta === 0
+    ? 0
+    : delta / (1 - Math.abs((2 * lightness) - 1));
+
+  let hue = 0;
+  if (delta !== 0) {
+    if (maxChannel === normalizedR) {
+      hue = ((normalizedG - normalizedB) / delta) % 6;
+    } else if (maxChannel === normalizedG) {
+      hue = ((normalizedB - normalizedR) / delta) + 2;
+    } else {
+      hue = ((normalizedR - normalizedG) / delta) + 4;
+    }
+  }
+
+  const roundedHue = Math.round(hue * 60 < 0 ? (hue * 60) + 360 : hue * 60);
+  const roundedSaturation = Math.round(saturation * 100);
+  const roundedLightness = Math.round(lightness * 100);
+
+  return `hsl(${roundedHue}, ${roundedSaturation}%, ${roundedLightness}%)`;
+}
+
+function getCollectionCopyTextForColor(color) {
+  if (collectionCopyMode === 'hex') {
+    return formatHexColor(color);
+  }
+
+  if (collectionCopyMode === 'hsl') {
+    return formatHslColor(color);
+  }
+
+  return toRgbCss(color);
+}
+
+function getCollectionCopyModeToggleLabel() {
+  const modeLabel = COLLECTION_COPY_MODE_LABELS[collectionCopyMode] ?? COLLECTION_COPY_MODE_LABELS.rgb;
+  return `Copy ${modeLabel}`;
+}
+
+function cycleCollectionCopyMode() {
+  const currentModeIndex = COLLECTION_COPY_MODES.indexOf(collectionCopyMode);
+  const nextModeIndex = (currentModeIndex + 1) % COLLECTION_COPY_MODES.length;
+  collectionCopyMode = COLLECTION_COPY_MODES[nextModeIndex];
+  writeStoredValue(COLLECTION_COPY_MODE_STORAGE_KEY, collectionCopyMode);
+}
+
+function syncCollectionCopyModeButton() {
+  if (!collectionCopyModeButton) {
+    return;
+  }
+
+  const label = getCollectionCopyModeToggleLabel();
+  collectionCopyModeButton.textContent = label;
+  collectionCopyModeButton.setAttribute('aria-label', `${label}. Tap to switch format.`);
 }
 
 function setActiveSwipeController(controller) {
@@ -59,6 +182,32 @@ function triggerHapticTick(durationMs = DELETE_SWIPE_HAPTIC_MS) {
   }
 
   navigator.vibrate(durationMs);
+}
+
+function maybeRunFirstSwipeHint() {
+  if (!collectionGrid || hasShownSwipeHint) {
+    return;
+  }
+
+  const shouldReduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (shouldReduceMotion) {
+    hasShownSwipeHint = true;
+    writeStoredFlag(SWIPE_HINT_STORAGE_KEY, true);
+    return;
+  }
+
+  const handle = collectionGrid.querySelector('.collection-session:not(.is-collapsed) .palette-swipe-handle');
+  if (!handle) {
+    return;
+  }
+
+  hasShownSwipeHint = true;
+  writeStoredFlag(SWIPE_HINT_STORAGE_KEY, true);
+  handle.classList.add('is-nudging');
+
+  window.setTimeout(() => {
+    handle.classList.remove('is-nudging');
+  }, SWIPE_HINT_RESET_DELAY_MS);
 }
 
 function removeEmptyMessage() {
@@ -160,6 +309,44 @@ function getSessionTitle(date) {
   }
 
   return getDayPeriodLabel(date);
+}
+
+function clampColorChannel(channel) {
+  return Math.max(0, Math.min(255, Math.round(channel)));
+}
+
+function offsetColor(color, delta) {
+  return {
+    r: clampColorChannel(color.r + delta),
+    g: clampColorChannel(color.g + delta),
+    b: clampColorChannel(color.b + delta),
+  };
+}
+
+function getSessionAverageColor(session) {
+  let totalR = 0;
+  let totalG = 0;
+  let totalB = 0;
+  let sampleCount = 0;
+
+  session.palettes.forEach((palette) => {
+    palette.colors.forEach((color) => {
+      totalR += color.r;
+      totalG += color.g;
+      totalB += color.b;
+      sampleCount += 1;
+    });
+  });
+
+  if (sampleCount === 0) {
+    return { r: 74, g: 74, b: 74 };
+  }
+
+  return {
+    r: Math.round(totalR / sampleCount),
+    g: Math.round(totalG / sampleCount),
+    b: Math.round(totalB / sampleCount),
+  };
 }
 
 function groupPalettesByDay(palettes) {
@@ -358,6 +545,20 @@ function getSessionCaretMarkup() {
   `;
 }
 
+function createSessionCover(session) {
+  const cover = document.createElement('div');
+  cover.className = 'collection-session-cover';
+  cover.setAttribute('aria-hidden', 'true');
+
+  const averageColor = getSessionAverageColor(session);
+  const darkColor = offsetColor(averageColor, -38);
+  const lightColor = offsetColor(averageColor, 26);
+
+  cover.style.backgroundImage = `linear-gradient(108deg, ${toRgbCss(darkColor)} 0%, ${toRgbCss(averageColor)} 52%, ${toRgbCss(lightColor)} 100%)`;
+
+  return cover;
+}
+
 function createSessionGroup(session) {
   const section = document.createElement('section');
   section.className = 'collection-session';
@@ -380,6 +581,7 @@ function createSessionGroup(session) {
   const body = document.createElement('div');
   body.className = 'collection-session-body';
   body.id = sessionBodyId;
+  const cover = createSessionCover(session);
 
   session.palettes.forEach((palette) => {
     body.appendChild(createPaletteCard(palette));
@@ -399,9 +601,10 @@ function createSessionGroup(session) {
 
     collapsedSessionIds.delete(session.id);
     animateSessionExpansion(section);
+    maybeRunFirstSwipeHint();
   });
 
-  section.append(headerButton, body);
+  section.append(cover, headerButton, body);
   setSessionCollapsed(section, collapsedSessionIds.has(session.id));
 
   return section;
@@ -581,15 +784,14 @@ function createPhotoSwatch(palette) {
 
 function createColorSwatch(color) {
   const swatch = document.createElement('div');
-  const rgbText = toRgbCss(color);
 
   swatch.className = 'color-swatch';
-  swatch.style.backgroundColor = rgbText;
-  swatch.title = rgbText;
+  swatch.style.backgroundColor = toRgbCss(color);
+  swatch.title = getCollectionCopyTextForColor(color);
 
   swatch.addEventListener('click', async () => {
-    const copied = await copyTextToClipboard(rgbText);
-    showToast(copied ? 'RGB copied' : 'Copy failed', {
+    const copied = await copyTextToClipboard(getCollectionCopyTextForColor(color));
+    showToast(copied ? `${(COLLECTION_COPY_MODE_LABELS[collectionCopyMode] ?? 'RGB')} copied` : 'Copy failed', {
       variant: copied ? 'default' : 'error',
       duration: copied ? 1000 : 1800,
     });
@@ -660,6 +862,7 @@ function createSwipeController({ card, track }) {
   let gestureAxis;
   let movedHorizontally = false;
   let hasTickedDeleteThreshold = false;
+  let magneticSnapTimeout = 0;
   let controller;
 
   function applyOffset(nextOffset, shouldAnimate) {
@@ -673,12 +876,23 @@ function createSwipeController({ card, track }) {
   }
 
   function snapTo(nextOffset) {
+    if (magneticSnapTimeout) {
+      window.clearTimeout(magneticSnapTimeout);
+      magneticSnapTimeout = 0;
+    }
+
+    card.classList.toggle('is-snapping-open', nextOffset !== 0);
     applyOffset(nextOffset, true);
 
     if (nextOffset === 0) {
       clearActiveSwipeController(controller);
       return;
     }
+
+    magneticSnapTimeout = window.setTimeout(() => {
+      card.classList.remove('is-snapping-open');
+      magneticSnapTimeout = 0;
+    }, MAGNETIC_SNAP_RESET_MS);
 
     setActiveSwipeController(controller);
   }
@@ -850,7 +1064,7 @@ function createPaletteCard(palette) {
   const swipeController = createSwipeController({ card, track });
 
   copyAllButton.addEventListener('click', async () => {
-    const colorsText = palette.colors.map((color) => toRgbCss(color)).join('\n');
+    const colorsText = palette.colors.map((color) => getCollectionCopyTextForColor(color)).join('\n');
     const copied = await copyTextToClipboard(colorsText);
     showToast(copied ? 'Palette copied' : 'Copy failed', {
       variant: copied ? 'default' : 'error',
@@ -912,6 +1126,7 @@ async function loadCollectionUi() {
   closeActiveSwipeController();
   const palettes = (await getSavedPalettes()).filter((palette) => !pendingDeletionIds.has(palette.id));
   collectionGrid.innerHTML = '';
+  syncCollectionCopyModeButton();
 
   if (palettes.length === 0) {
     collectionGrid.innerHTML = `<p class="empty-message">${EMPTY_MESSAGE_TEXT}</p>`;
@@ -936,6 +1151,8 @@ async function loadCollectionUi() {
   dayGroups.forEach((dayGroup) => {
     collectionGrid.appendChild(createDayGroup(dayGroup));
   });
+
+  maybeRunFirstSwipeHint();
 }
 
 function bindCollectionUiEvents() {
@@ -943,8 +1160,21 @@ function bindCollectionUiEvents() {
     return;
   }
 
+  syncCollectionCopyModeButton();
+
   viewCollectionButton.addEventListener('click', async () => {
     collectionPanel.classList.add('visible');
+    await loadCollectionUi();
+  });
+
+  collectionCopyModeButton?.addEventListener('click', async () => {
+    cycleCollectionCopyMode();
+    syncCollectionCopyModeButton();
+
+    if (!collectionPanel.classList.contains('visible')) {
+      return;
+    }
+
     await loadCollectionUi();
   });
 
