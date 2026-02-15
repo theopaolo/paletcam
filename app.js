@@ -248,6 +248,8 @@ function initializeApp() {
   setZoomWheelDisabled();
   updateSliderTooltip(swatchSlider, swatchCount);
   setCaptureState({ btnOn, btnShoot, isCameraActive: false });
+  photoOutput?.removeAttribute('src');
+  renderOutputSwatches(outputPalette, []);
 }
 
 function bindCameraPermissionEvents() {

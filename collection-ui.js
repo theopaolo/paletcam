@@ -10,9 +10,12 @@ const LEFT_ACTION_WIDTH = QUICK_ACTION_WIDTH;
 const RIGHT_ACTION_WIDTH = QUICK_ACTION_WIDTH * 2;
 const SWIPE_START_THRESHOLD = 8;
 const SWIPE_OPEN_RATIO = 0.38;
+const DELETE_SWIPE_HAPTIC_MS = 11;
 const EMPTY_MESSAGE_TEXT = 'No palettes saved yet';
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_GAP_MS = 30 * 60 * 1000;
+const SESSION_REVEAL_DURATION_MS = 280;
+const SESSION_REVEAL_STAGGER_MS = 42;
 const SESSION_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
 const DAY_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -48,6 +51,14 @@ function closeActiveSwipeController() {
   }
 
   activeSwipeController.close();
+}
+
+function triggerHapticTick(durationMs = DELETE_SWIPE_HAPTIC_MS) {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') {
+    return;
+  }
+
+  navigator.vibrate(durationMs);
 }
 
 function removeEmptyMessage() {
@@ -209,6 +220,40 @@ function setSessionCollapsed(sessionElement, isCollapsed) {
   toggle.setAttribute('aria-expanded', String(!isCollapsed));
 }
 
+function animateSessionExpansion(sessionElement) {
+  const sessionBody = sessionElement.querySelector('.collection-session-body');
+  if (!sessionBody) {
+    return;
+  }
+
+  const shouldReduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (shouldReduceMotion) {
+    return;
+  }
+
+  const cards = [...sessionBody.querySelectorAll('.palette-card')];
+  if (cards.length === 0) {
+    return;
+  }
+
+  cards.forEach((card, index) => {
+    card.style.setProperty('--reveal-index', String(index));
+    card.classList.remove('is-revealing');
+  });
+
+  void sessionBody.offsetHeight;
+
+  cards.forEach((card) => {
+    card.classList.add('is-revealing');
+  });
+
+  window.setTimeout(() => {
+    cards.forEach((card) => {
+      card.classList.remove('is-revealing');
+    });
+  }, SESSION_REVEAL_DURATION_MS + SESSION_REVEAL_STAGGER_MS * cards.length);
+}
+
 function updateSessionCardCount(sessionElement) {
   if (!sessionElement) {
     return 0;
@@ -353,6 +398,7 @@ function createSessionGroup(session) {
     }
 
     collapsedSessionIds.delete(session.id);
+    animateSessionExpansion(section);
   });
 
   section.append(headerButton, body);
@@ -588,6 +634,23 @@ function createQuickActionButton({ className, label, iconName, visibleLabel }) {
   return button;
 }
 
+function createSwipeHandle() {
+  const handle = document.createElement('span');
+  handle.className = 'palette-swipe-handle';
+  handle.setAttribute('aria-hidden', 'true');
+  handle.innerHTML = `
+    <svg viewBox="0 0 14 18" focusable="false">
+      <circle cx="4" cy="4" r="1.1"></circle>
+      <circle cx="10" cy="4" r="1.1"></circle>
+      <circle cx="4" cy="9" r="1.1"></circle>
+      <circle cx="10" cy="9" r="1.1"></circle>
+      <circle cx="4" cy="14" r="1.1"></circle>
+      <circle cx="10" cy="14" r="1.1"></circle>
+    </svg>
+  `;
+  return handle;
+}
+
 function createSwipeController({ card, track }) {
   let currentOffset = 0;
   let pointerId;
@@ -596,6 +659,7 @@ function createSwipeController({ card, track }) {
   let startOffset = 0;
   let gestureAxis;
   let movedHorizontally = false;
+  let hasTickedDeleteThreshold = false;
   let controller;
 
   function applyOffset(nextOffset, shouldAnimate) {
@@ -644,6 +708,7 @@ function createSwipeController({ card, track }) {
     startOffset = currentOffset;
     gestureAxis = undefined;
     movedHorizontally = false;
+    hasTickedDeleteThreshold = false;
     track.setPointerCapture(pointerId);
   });
 
@@ -673,6 +738,12 @@ function createSwipeController({ card, track }) {
     movedHorizontally = true;
     event.preventDefault();
     applyOffset(startOffset + deltaX, false);
+
+    const openRightThreshold = -RIGHT_ACTION_WIDTH * SWIPE_OPEN_RATIO;
+    if (currentOffset <= openRightThreshold && !hasTickedDeleteThreshold) {
+      triggerHapticTick();
+      hasTickedDeleteThreshold = true;
+    }
   });
 
   function releasePointer(event) {
@@ -700,6 +771,9 @@ function createSwipeController({ card, track }) {
     }
 
     if (currentOffset <= openRightThreshold) {
+      if (!hasTickedDeleteThreshold) {
+        triggerHapticTick();
+      }
       snapTo(-RIGHT_ACTION_WIDTH);
       return;
     }
@@ -751,7 +825,8 @@ function createPaletteCard(palette) {
 
   const track = document.createElement('div');
   track.className = 'palette-track';
-  track.appendChild(swatchesContainer);
+  const swipeHandle = createSwipeHandle();
+  track.append(swatchesContainer, swipeHandle);
 
   const copyAllButton = createQuickActionButton({
     className: 'palette-action-copy',

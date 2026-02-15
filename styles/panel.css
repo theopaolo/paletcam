@@ -117,6 +117,7 @@
   cursor: pointer;
   text-align: left;
   font: inherit;
+  transition: color 0.2s ease;
 }
 
 .collection-session-toggle:focus-visible {
@@ -128,6 +129,12 @@
   font-size: clamp(1rem, 4.8vw, 1.5rem);
   text-transform: uppercase;
   line-height: 1.1;
+  opacity: 1;
+  transition: opacity 0.22s ease;
+}
+
+.collection-session.is-collapsed .collection-session-title {
+  opacity: 0.58;
 }
 
 .collection-session-meta {
@@ -185,6 +192,23 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.collection-session:not(.is-collapsed) .palette-card.is-revealing {
+  animation: session-palette-reveal 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--reveal-index, 0) * 42ms);
+}
+
+@keyframes session-palette-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .palette-track {
   position: relative;
   z-index: 2;
@@ -194,6 +218,37 @@
   will-change: transform;
   touch-action: pan-y;
   background-color: #0f0b02;
+}
+
+.palette-swipe-handle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 16px;
+  height: 100%;
+  background: rgba(29, 29, 29, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%) translateX(0);
+  pointer-events: none;
+  opacity: 0.75;
+  transition: opacity 0.18s ease, transform 0.22s ease;
+}
+
+.palette-swipe-handle svg {
+  width: 10px;
+  height: 18px;
+  fill: rgba(205, 205, 205, 0.66);
+  display: block;
+}
+
+.palette-card.is-dragging .palette-swipe-handle,
+.palette-card.is-open-left .palette-swipe-handle,
+.palette-card.is-open-right .palette-swipe-handle {
+  opacity: 0;
+  transform: translateY(-50%) translateX(6px);
 }
 
 .palette-card.is-dragging .palette-track {

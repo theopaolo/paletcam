@@ -1,5 +1,7 @@
 import { toRgbCss } from './palette-extraction.js';
 
+const EMPTY_OUTPUT_HINT_TEXT = 'Zone aperçus de la capture';
+
 function setClassVisibility(element, shouldShow) {
   if (!element) {
     return;
@@ -42,9 +44,19 @@ export function renderOutputSwatches(container, colors) {
     return;
   }
 
+  const safeColors = Array.isArray(colors) ? colors : [];
   container.innerHTML = '';
+  container.classList.toggle('is-empty', safeColors.length === 0);
 
-  colors.forEach((color) => {
+  if (safeColors.length === 0) {
+    const hint = document.createElement('p');
+    hint.className = 'output-empty-hint';
+    hint.textContent = EMPTY_OUTPUT_HINT_TEXT;
+    container.appendChild(hint);
+    return;
+  }
+
+  safeColors.forEach((color) => {
     const swatch = document.createElement('div');
     swatch.className = 'output-swatch';
     swatch.style.backgroundColor = toRgbCss(color);
