@@ -7,10 +7,7 @@ const outDir = join(projectRoot, 'dist');
 const staticFiles = [
   'index.html',
   'offline.html',
-  'app.css',
   'pwa-install.css',
-  'reset.css',
-  'zoom.css',
   'manifest.json',
   'service-worker.js',
   'palette-storage.js',
@@ -18,7 +15,7 @@ const staticFiles = [
   'filters.js',
 ];
 
-const staticDirectories = ['icons', 'logo', 'modules', 'vendor'];
+const staticDirectories = ['icons', 'logo', 'modules', 'vendor', 'styles'];
 
 function exitWithBuildErrors(logs) {
   for (const log of logs) {
