@@ -145,21 +145,9 @@ body {
 }
 
 .output-palette.is-empty {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  text-align: center;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0 0.65rem;
-}
-
-.output-palette.is-empty::before {
-  content: '';
-  width: 1.95rem;
-  height: 1.95rem;
-  border-radius: 2px;
-  border: 1px dashed rgba(240, 240, 240, 0.22);
-  background:linear-gradient(160deg, rgba(240, 240, 240, 0.14), rgba(240, 240, 240, 0.04));
-  opacity: 0.6;
+  width: 100%;
 }
 
 .output-empty-hint {

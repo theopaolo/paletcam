@@ -1,6 +1,6 @@
 import { toRgbCss } from './palette-extraction.js';
 
-const EMPTY_OUTPUT_HINT_TEXT = 'Zone aperçus de capture.';
+const EMPTY_OUTPUT_HINT_TEXT = 'Votre premiere capture apparaitra ici.';
 const OUTPUT_COPY_MODE_STORAGE_KEY = 'paletcam.outputCopyMode';
 const OUTPUT_COPY_MODES = ['rgb', 'hex', 'hsl'];
 const OUTPUT_COPY_MODE_LABELS = {
@@ -82,7 +82,7 @@ function getCopyTextForColor(color) {
 
 function getCopyModeToggleLabel() {
   const modeLabel = OUTPUT_COPY_MODE_LABELS[outputCopyMode] ?? OUTPUT_COPY_MODE_LABELS.rgb;
-  return `Copy ${modeLabel}`;
+  return `Copier ${modeLabel}`;
 }
 
 function cycleCopyMode() {
@@ -152,7 +152,7 @@ export function renderOutputSwatches(container, colors) {
   copyModeToggle.textContent = getCopyModeToggleLabel();
   copyModeToggle.setAttribute(
     'aria-label',
-    `${getCopyModeToggleLabel()}. Tap to switch copy format.`
+    `${getCopyModeToggleLabel()}. Touchez pour changer le format de copie.`
   );
   copyModeToggle.addEventListener('click', (event) => {
     event.preventDefault();
@@ -207,7 +207,7 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
   const stepValue = Number(sliderElement.step);
   const step = Number.isFinite(stepValue) && stepValue > 0 ? stepValue : 1;
   const clampedCount = Math.min(Math.max(swatchCount, minValue), maxValue);
-  sliderElement.setAttribute('aria-label', `Swatches: ${formatScaleValue(clampedCount)}`);
+  sliderElement.setAttribute('aria-label', `Echantillons: ${formatScaleValue(clampedCount)}`);
   const tickCount = Math.max(1, Math.floor(((maxValue - minValue) / step) + Number.EPSILON) + 1);
   const tickIndex = Math.max(0, Math.floor(((clampedCount - minValue) / step) + Number.EPSILON));
   const tickIntervals = Math.max(1, tickCount - 1);

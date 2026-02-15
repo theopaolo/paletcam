@@ -26,7 +26,7 @@ const SWIPE_HINT_PAUSE_DURATION_MS = 360;
 const SWIPE_HINT_EASING = 'cubic-bezier(0.25, 0.85, 0.25, 1)';
 const SWIPE_HINT_COPY_OFFSET = Math.round(LEFT_ACTION_WIDTH * 0.5);
 const SWIPE_HINT_DELETE_OFFSET = -Math.round(RIGHT_ACTION_WIDTH * 0.2);
-const EMPTY_MESSAGE_TEXT = 'No palettes saved yet';
+const EMPTY_MESSAGE_TEXT = 'Aucune palette enregistree pour le moment';
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_GAP_MS = 30 * 60 * 1000;
 const SESSION_REVEAL_DURATION_MS = 280;
@@ -140,7 +140,7 @@ function getCollectionCopyTextForColor(color) {
 
 function getCollectionCopyModeToggleLabel() {
   const modeLabel = COLLECTION_COPY_MODE_LABELS[collectionCopyMode] ?? COLLECTION_COPY_MODE_LABELS.rgb;
-  return `Copy ${modeLabel}`;
+  return `Copier ${modeLabel}`;
 }
 
 function cycleCollectionCopyMode() {
@@ -157,7 +157,7 @@ function syncCollectionCopyModeButton() {
 
   const label = getCollectionCopyModeToggleLabel();
   collectionCopyModeButton.textContent = label;
-  collectionCopyModeButton.setAttribute('aria-label', `${label}. Tap to switch format.`);
+  collectionCopyModeButton.setAttribute('aria-label', `${label}. Touchez pour changer le format.`);
 }
 
 function setActiveSwipeController(controller) {
@@ -317,27 +317,27 @@ function getDayPeriodLabel(date) {
   const hour = date.getHours();
 
   if (hour < 5) {
-    return 'Night';
+    return 'Nuit';
   }
 
   if (hour < 12) {
-    return 'Morning';
+    return 'Matin';
   }
 
   if (hour < 17) {
-    return 'Afternoon';
+    return 'Apres-midi';
   }
 
   if (hour < 22) {
-    return 'Evening';
+    return 'Soiree';
   }
 
-  return 'Night';
+  return 'Nuit';
 }
 
 function getDayLabel(date) {
   if (!date) {
-    return 'Unknown Day';
+    return 'Jour inconnu';
   }
 
   const now = new Date();
@@ -346,11 +346,11 @@ function getDayLabel(date) {
   const dayDiff = Math.round((todayStart.getTime() - dateStart.getTime()) / DAY_DURATION_MS);
 
   if (dayDiff === 0) {
-    return 'Today';
+    return 'Aujourd\'hui';
   }
 
   if (dayDiff === 1) {
-    return 'Yesterday';
+    return 'Hier';
   }
 
   return SESSION_WEEKDAY_FORMATTER.format(date);
@@ -789,7 +789,7 @@ function createPhotoSwatch(palette) {
   photoSwatch.style.backgroundImage = `url(${photoUrl})`;
   photoSwatch.style.backgroundSize = 'cover';
   photoSwatch.style.backgroundPosition = 'center';
-  photoSwatch.title = 'Click to copy photo';
+  photoSwatch.title = 'Touchez pour copier la photo';
 
   photoSwatch.addEventListener('click', async () => {
     try {
@@ -820,11 +820,11 @@ function createPhotoSwatch(palette) {
                 'image/png': pngBlob,
               }),
             ]);
-            showToast('Photo copied');
+            showToast('Photo copiee');
           } catch (error) {
             console.error('Failed to copy photo, downloading fallback:', error);
             if (!pngBlob) {
-              showToast('Copy failed', { variant: 'error', duration: 1800 });
+              showToast('Copie echouee', { variant: 'error', duration: 1800 });
               return;
             }
 
@@ -833,7 +833,7 @@ function createPhotoSwatch(palette) {
             link.href = URL.createObjectURL(pngBlob);
             link.click();
             URL.revokeObjectURL(link.href);
-            showToast('Photo downloaded', { duration: 1500 });
+            showToast('Photo telechargee', { duration: 1500 });
           } finally {
             URL.revokeObjectURL(imageUrl);
           }
@@ -847,7 +847,7 @@ function createPhotoSwatch(palette) {
       image.src = imageUrl;
     } catch (error) {
       console.error('Failed to process photo:', error);
-      showToast('Copy failed', { variant: 'error', duration: 1800 });
+      showToast('Copie echouee', { variant: 'error', duration: 1800 });
     }
   });
 
@@ -863,7 +863,7 @@ function createColorSwatch(color) {
 
   swatch.addEventListener('click', async () => {
     const copied = await copyTextToClipboard(getCollectionCopyTextForColor(color));
-    showToast(copied ? `${(COLLECTION_COPY_MODE_LABELS[collectionCopyMode] ?? 'RGB')} copied` : 'Copy failed', {
+    showToast(copied ? `${(COLLECTION_COPY_MODE_LABELS[collectionCopyMode] ?? 'RGB')} copie` : 'Copie echouee', {
       variant: copied ? 'default' : 'error',
       duration: copied ? 1000 : 1800,
     });
@@ -1120,21 +1120,21 @@ function createPaletteCard(palette) {
 
   const copyAllButton = createQuickActionButton({
     className: 'palette-action-copy',
-    label: 'Copy palette',
+    label: 'Copier la palette',
     iconName: 'copy',
-    visibleLabel: 'copy',
+    visibleLabel: 'copier',
   });
   const exportButton = createQuickActionButton({
     className: 'palette-action-export',
-    label: 'Export palette',
+    label: 'Exporter la palette',
     iconName: 'export',
-    visibleLabel: 'export',
+    visibleLabel: 'exporter',
   });
   const deleteButton = createQuickActionButton({
     className: 'palette-action-delete',
-    label: 'Delete palette',
+    label: 'Supprimer la palette',
     iconName: 'delete',
-    visibleLabel: 'delete',
+    visibleLabel: 'supprimer',
   });
 
   const swipeController = createSwipeController({ card, track });
@@ -1142,7 +1142,7 @@ function createPaletteCard(palette) {
   copyAllButton.addEventListener('click', async () => {
     const colorsText = palette.colors.map((color) => getCollectionCopyTextForColor(color)).join('\n');
     const copied = await copyTextToClipboard(colorsText);
-    showToast(copied ? 'Palette copied' : 'Copy failed', {
+    showToast(copied ? 'Palette copiee' : 'Copie echouee', {
       variant: copied ? 'default' : 'error',
       duration: copied ? 1300 : 1800,
     });
@@ -1151,7 +1151,7 @@ function createPaletteCard(palette) {
 
   exportButton.addEventListener('click', async () => {
     const exported = await exportPaletteAsImage(palette);
-    showToast(exported ? 'Palette exported' : 'Export failed', {
+    showToast(exported ? 'Palette exportee' : 'Export echoue', {
       variant: exported ? 'default' : 'error',
       duration: exported ? 1400 : 1800,
     });
@@ -1170,7 +1170,7 @@ function createPaletteCard(palette) {
     card.remove();
     syncSessionStateFromCardContainer(snapshot.parent);
 
-    showUndoToast('Palette deleted', {
+    showUndoToast('Palette supprimee', {
       duration: DELETE_UNDO_DURATION_MS,
       onUndo: () => {
         pendingDeletionIds.delete(palette.id);
@@ -1185,7 +1185,7 @@ function createPaletteCard(palette) {
           console.error(`Failed to delete palette ${palette.id}:`, error);
           pendingDeletionIds.delete(palette.id);
           restoreCardFromSnapshot(card, snapshot);
-          showToast('Delete failed', { variant: 'error', duration: 1800 });
+          showToast('Suppression echouee', { variant: 'error', duration: 1800 });
         }
       },
     });

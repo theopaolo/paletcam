@@ -214,7 +214,7 @@ export function showUndoToast(message, options = {}) {
   const toast = {
     type: 'undo',
     message,
-    actionLabel: 'Undo',
+    actionLabel: 'Annuler',
     onAction: options.onUndo,
     onExpire: options.onExpire,
     duration: options.duration ?? DEFAULT_UNDO_DURATION,

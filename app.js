@@ -301,7 +301,7 @@ function syncSfxToggleButtonState() {
 
   sfxToggleButton.classList.toggle('is-active', isCaptureSfxEnabled);
   sfxToggleButton.setAttribute('aria-pressed', String(isCaptureSfxEnabled));
-  sfxToggleButton.textContent = isCaptureSfxEnabled ? 'SFX ON' : 'SFX OFF';
+  sfxToggleButton.textContent = isCaptureSfxEnabled ? 'SON ACTIF' : 'SON COUPE';
 }
 
 function bindSoundEvents() {
@@ -312,7 +312,7 @@ function bindSoundEvents() {
   const supportsWebAudio = Boolean(getAudioContextClass());
   if (!supportsWebAudio) {
     sfxToggleButton.setAttribute('disabled', '');
-    sfxToggleButton.textContent = 'SFX N/A';
+    sfxToggleButton.textContent = 'SON INDISPONIBLE';
     sfxToggleButton.setAttribute('aria-disabled', 'true');
     return;
   }
