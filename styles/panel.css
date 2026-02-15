@@ -281,33 +281,16 @@
   display: block;
 }
 
-.palette-swipe-handle.is-nudging {
-  animation: swipe-handle-nudge 1.1s cubic-bezier(0.2, 0.9, 0.3, 1) 2;
-}
-
-@keyframes swipe-handle-nudge {
-  0%,
-  100% {
-    transform: translateY(-50%) translateX(0);
-    opacity: 0.75;
-  }
-
-  34% {
-    transform: translateY(-50%) translateX(-8px);
-    opacity: 1;
-  }
-
-  68% {
-    transform: translateY(-50%) translateX(0);
-    opacity: 0.75;
-  }
-}
-
 .palette-card.is-dragging .palette-swipe-handle,
 .palette-card.is-open-left .palette-swipe-handle,
 .palette-card.is-open-right .palette-swipe-handle {
   opacity: 0;
   transform: translateY(-50%) translateX(6px);
+}
+
+.palette-card.is-hinting .palette-track,
+.palette-card.is-hinting .palette-quick-action {
+  pointer-events: none;
 }
 
 .palette-card.is-dragging .palette-track {

@@ -109,7 +109,7 @@ body {
 .output-palette {
   display: flex;
   height: 100%;
-  width: 100%;
+  width: 82%;
   flex-shrink: 0;
   position: relative;
 }
@@ -123,6 +123,7 @@ body {
 }
 
 .output-copy-mode-toggle {
+  display: none;
   position: absolute;
   top: 0.35rem;
   right: 0.35rem;

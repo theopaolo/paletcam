@@ -19,8 +19,13 @@ const COLLECTION_COPY_MODE_LABELS = {
   hsl: 'HSL',
 };
 const DELETE_SWIPE_HAPTIC_MS = 11;
-const SWIPE_HINT_STORAGE_KEY = 'paletcam.swipeHintSeen.v1';
-const SWIPE_HINT_RESET_DELAY_MS = 2400;
+const SWIPE_HINT_STORAGE_KEY = 'paletcam.swipeHintSeen.v2';
+const SWIPE_HINT_START_DELAY_MS = 120;
+const SWIPE_HINT_STAGE_DURATION_MS = 750;
+const SWIPE_HINT_PAUSE_DURATION_MS = 360;
+const SWIPE_HINT_EASING = 'cubic-bezier(0.25, 0.85, 0.25, 1)';
+const SWIPE_HINT_COPY_OFFSET = Math.round(LEFT_ACTION_WIDTH * 0.5);
+const SWIPE_HINT_DELETE_OFFSET = -Math.round(RIGHT_ACTION_WIDTH * 0.2);
 const EMPTY_MESSAGE_TEXT = 'No palettes saved yet';
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_GAP_MS = 30 * 60 * 1000;
@@ -37,6 +42,7 @@ const DAY_DURATION_MS = 24 * 60 * 60 * 1000;
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
 let hasShownSwipeHint = false;
+let isSwipeHintQueued = false;
 let activeSwipeController;
 let collectionCopyMode = readStoredCopyMode(COLLECTION_COPY_MODE_STORAGE_KEY, COLLECTION_COPY_MODES);
 
@@ -185,7 +191,7 @@ function triggerHapticTick(durationMs = DELETE_SWIPE_HAPTIC_MS) {
 }
 
 function maybeRunFirstSwipeHint() {
-  if (!collectionGrid || hasShownSwipeHint) {
+  if (!collectionGrid || hasShownSwipeHint || isSwipeHintQueued) {
     return;
   }
 
@@ -196,18 +202,84 @@ function maybeRunFirstSwipeHint() {
     return;
   }
 
-  const handle = collectionGrid.querySelector('.collection-session:not(.is-collapsed) .palette-swipe-handle');
-  if (!handle) {
+  const cards = [...collectionGrid.querySelectorAll('.palette-card')];
+  const card = cards.find((candidate) => candidate.offsetParent !== null);
+  if (!card) {
     return;
   }
 
-  hasShownSwipeHint = true;
-  writeStoredFlag(SWIPE_HINT_STORAGE_KEY, true);
-  handle.classList.add('is-nudging');
+  isSwipeHintQueued = true;
+
+  window.requestAnimationFrame(() => {
+    window.setTimeout(() => {
+      if (!card.isConnected || !collectionPanel?.classList.contains('visible')) {
+        isSwipeHintQueued = false;
+        return;
+      }
+
+      hasShownSwipeHint = true;
+      isSwipeHintQueued = false;
+      writeStoredFlag(SWIPE_HINT_STORAGE_KEY, true);
+      runSwipeTrackHint(card);
+    }, SWIPE_HINT_START_DELAY_MS);
+  });
+}
+
+function runSwipeTrackHint(card) {
+  const track = card.querySelector('.palette-track');
+  if (!track) {
+    return;
+  }
+
+  const previousTransition = track.style.transition;
+  const previousTransform = track.style.transform;
+  const hintToDeleteAt = SWIPE_HINT_STAGE_DURATION_MS + SWIPE_HINT_PAUSE_DURATION_MS;
+  const hintToCenterAt = (SWIPE_HINT_STAGE_DURATION_MS * 2) + (SWIPE_HINT_PAUSE_DURATION_MS * 2);
+  const hintCleanupAt = hintToCenterAt + SWIPE_HINT_STAGE_DURATION_MS;
+
+  card.classList.add('is-hinting');
+  card.classList.remove('is-open-left', 'is-open-right');
+  track.style.transition = `transform ${SWIPE_HINT_STAGE_DURATION_MS}ms ${SWIPE_HINT_EASING}`;
+  track.style.transform = 'translateX(0px)';
 
   window.setTimeout(() => {
-    handle.classList.remove('is-nudging');
-  }, SWIPE_HINT_RESET_DELAY_MS);
+    if (!card.isConnected) {
+      return;
+    }
+
+    card.classList.add('is-open-left');
+    card.classList.remove('is-open-right');
+    track.style.transform = `translateX(${SWIPE_HINT_COPY_OFFSET}px)`;
+  }, 0);
+
+  window.setTimeout(() => {
+    if (!card.isConnected) {
+      return;
+    }
+
+    card.classList.remove('is-open-left');
+    card.classList.add('is-open-right');
+    track.style.transform = `translateX(${SWIPE_HINT_DELETE_OFFSET}px)`;
+  }, hintToDeleteAt);
+
+  window.setTimeout(() => {
+    if (!card.isConnected) {
+      return;
+    }
+
+    card.classList.remove('is-open-left', 'is-open-right');
+    track.style.transform = 'translateX(0px)';
+  }, hintToCenterAt);
+
+  window.setTimeout(() => {
+    if (!card.isConnected) {
+      return;
+    }
+
+    card.classList.remove('is-hinting');
+    track.style.transition = previousTransition;
+    track.style.transform = previousTransform;
+  }, hintCleanupAt);
 }
 
 function removeEmptyMessage() {
@@ -909,6 +981,10 @@ function createSwipeController({ card, track }) {
 
   track.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    if (card.classList.contains('is-hinting')) {
       return;
     }
 
