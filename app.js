@@ -21,6 +21,10 @@ const captureButton = document.querySelector('.btn-capture');
 const allowButton = document.querySelector('.btn-allow-media');
 const allowText = document.querySelector('.allow-container span');
 const captureContainer = document.querySelector('.capture');
+const capturePaletteStage = document.querySelector('.capture-palette-stage');
+const captureCameraStage = document.querySelector('.capture-camera-stage');
+const cameraStageMount = document.getElementById('cameraStageMount');
+const cameraPreviewDock = document.getElementById('cameraPreviewDock');
 const photoOutput = document.getElementById('photo');
 const outputPalette = document.getElementById('outputPalette');
 const frameCanvas = document.getElementById('canvas');
@@ -43,6 +47,7 @@ const CAPTURE_FLASH_MS = 120;
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
 const CAPTURE_SFX_STORAGE_KEY = 'paletcam.captureSfxEnabled';
 const CAPTURE_KEYBOARD_KEYS = new Set(['Enter', ' ', 'Spacebar']);
+const PREVIEW_TOGGLE_KEYS = new Set(['Enter', ' ', 'Spacebar']);
 const SWATCH_KEYBOARD_KEYS = new Set([
   'ArrowLeft',
   'ArrowRight',
@@ -68,6 +73,7 @@ let captureFlashElement = null;
 let capturePopTimeout = 0;
 let captureFlashTimeout = 0;
 let lastCaptureGlowRgb = '';
+let isPreviewExpanded = false;
 
 function readStoredFlag(storageKey, fallbackValue) {
   try {
@@ -364,6 +370,44 @@ function syncCameraFeedOrientation() {
   cameraFeed.style.transform = shouldMirrorUserFacingCamera() ? 'scaleX(-1)' : 'scaleX(1)';
 }
 
+function getPaletteViewportSize() {
+  const paletteViewport = capturePaletteStage ?? captureContainer;
+
+  return {
+    width: paletteViewport?.clientWidth ?? 0,
+    height: paletteViewport?.clientHeight ?? 0,
+  };
+}
+
+function mountCameraFeed(targetElement) {
+  if (!cameraFeed || !targetElement || cameraFeed.parentElement === targetElement) {
+    return;
+  }
+
+  targetElement.appendChild(cameraFeed);
+}
+
+function setPreviewExpanded(shouldExpand) {
+  if (!captureContainer || !cameraStageMount || !cameraPreviewDock) {
+    return;
+  }
+
+  const nextExpandedState = Boolean(shouldExpand);
+  isPreviewExpanded = nextExpandedState;
+
+  captureContainer.classList.toggle('is-preview-expanded', nextExpandedState);
+  document.body.classList.toggle('is-preview-expanded', nextExpandedState);
+  captureCameraStage?.setAttribute('aria-hidden', String(!nextExpandedState));
+  cameraFeed?.setAttribute('aria-expanded', String(nextExpandedState));
+
+  mountCameraFeed(nextExpandedState ? cameraStageMount : cameraPreviewDock);
+  syncCameraFeedOrientation();
+}
+
+function togglePreviewExpanded() {
+  setPreviewExpanded(!isPreviewExpanded);
+}
+
 const cameraController = createCameraController({
   cameraFeed,
   onCameraActiveChange: (isCameraActive) => {
@@ -391,13 +435,23 @@ const cameraController = createCameraController({
 });
 
 function initializeApp() {
-  if (!cameraFeed || !captureButton || !captureContainer || !frameCanvas || !paletteCanvas) {
+  if (
+    !cameraFeed ||
+    !captureButton ||
+    !captureContainer ||
+    !frameCanvas ||
+    !paletteCanvas ||
+    !cameraStageMount ||
+    !cameraPreviewDock
+  ) {
     console.error('Missing required DOM elements for camera app initialization.');
     return;
   }
 
+  setPreviewExpanded(false);
   bindCameraPermissionEvents();
   bindCaptureEvents();
+  bindPreviewEvents();
   bindZoomEvents();
   bindRotationEvents();
   bindSwatchEvents();
@@ -441,6 +495,26 @@ function bindCaptureEvents() {
     }
 
     void captureCurrentFrame();
+  });
+}
+
+function bindPreviewEvents() {
+  if (!cameraFeed) {
+    return;
+  }
+
+  cameraFeed.addEventListener('click', (event) => {
+    event.preventDefault();
+    togglePreviewExpanded();
+  });
+
+  cameraFeed.addEventListener('keydown', (event) => {
+    if (!PREVIEW_TOGGLE_KEYS.has(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    togglePreviewExpanded();
   });
 }
 
@@ -592,7 +666,12 @@ async function startCameraStream() {
 }
 
 function handleCameraCanPlay() {
-  frameWidth = captureContainer.clientWidth;
+  const { width: nextFrameWidth } = getPaletteViewportSize();
+  if (nextFrameWidth <= 0 || cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
+    return;
+  }
+
+  frameWidth = nextFrameWidth;
   const aspectRatio = cameraFeed.videoHeight / cameraFeed.videoWidth;
   frameHeight = Math.floor(frameWidth * aspectRatio);
 
@@ -612,8 +691,18 @@ function refreshPreview() {
     return;
   }
 
-  const nextCanvasWidth = captureContainer.clientWidth;
-  const nextCanvasHeight = cameraFeed.videoHeight;
+  const { width: paletteWidth, height: paletteHeight } = getPaletteViewportSize();
+  if (paletteWidth <= 0 || paletteHeight <= 0 || cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
+    requestAnimationFrame(refreshPreview);
+    return;
+  }
+
+  frameWidth = paletteWidth;
+  const aspectRatio = cameraFeed.videoHeight / cameraFeed.videoWidth;
+  frameHeight = Math.floor(frameWidth * aspectRatio);
+
+  const nextCanvasWidth = frameWidth;
+  const nextCanvasHeight = frameHeight;
 
   if (frameCanvas.width !== nextCanvasWidth || frameCanvas.height !== nextCanvasHeight) {
     frameCanvas.width = nextCanvasWidth;
@@ -622,10 +711,10 @@ function refreshPreview() {
 
   if (
     paletteCanvas.width !== nextCanvasWidth ||
-    paletteCanvas.height !== captureContainer.clientHeight
+    paletteCanvas.height !== paletteHeight
   ) {
     paletteCanvas.width = nextCanvasWidth;
-    paletteCanvas.height = captureContainer.clientHeight;
+    paletteCanvas.height = paletteHeight;
   }
 
   drawFrameToCanvas({
