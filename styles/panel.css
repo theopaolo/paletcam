@@ -65,7 +65,6 @@
 .collection-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  letter-spacing: 2px;
   text-transform: uppercase;
   font-weight: 400;
 }
@@ -111,7 +110,6 @@
 .collection-day-title {
   margin: 0;
   font-size: 0.82rem;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 500;
 }
@@ -140,7 +138,7 @@
   appearance: none;
   width: 100%;
   border: none;
-  background: #3e3e3e;
+  background: #282828;
   color: var(--secondary-color);
   display: flex;
   align-items: center;
@@ -160,9 +158,9 @@
 
 .collection-session-title {
   font-size: clamp(1rem, 4.8vw, 1.5rem);
-  text-transform: uppercase;
   line-height: 1.1;
   opacity: 1;
+  padding: .25rem;
   transition: opacity 0.22s ease;
 }
 

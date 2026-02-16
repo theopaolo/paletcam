@@ -94,7 +94,6 @@
     flex-shrink: 0;
     overflow: hidden;
     border-radius: 16px;
-    border: 2px solid #0f0f0f;
     box-shadow: inset 0px 2px 5px #5757578a, 0px 2px 4px #303030;
     background: linear-gradient(#181818, #141414 8%, #131313 20%, #0c0c0c 50%, #131313bd 80%, #161616);
     transition: width 0.2s ease, opacity 0.2s ease, border-width 0.2s ease;
@@ -213,9 +212,7 @@
 }
 
 body.is-preview-expanded .camera-preview-dock {
-  width: 0;
   opacity: 0;
-  border-width: 0;
   pointer-events: none;
 }
 

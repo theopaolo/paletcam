@@ -185,7 +185,7 @@ export function updateZoomText(zoomDisplay, zoomValue) {
     return;
   }
 
-  zoomDisplay.textContent = `${zoomValue.toFixed(1)}x`;
+  zoomDisplay.textContent = `${zoomValue.toFixed(1)}x zoom`;
 }
 
 function formatScaleValue(value) {
@@ -218,7 +218,7 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
 
   const countIndicator = sliderWrapper.querySelector('.swatch-count-indicator');
   if (countIndicator) {
-    countIndicator.textContent = `${formatScaleValue(clampedCount)}/${formatScaleValue(maxValue)}`;
+    countIndicator.textContent = `${formatScaleValue(clampedCount)}/${formatScaleValue(maxValue)} palettes`;
   }
 
   const minIndicator = sliderWrapper.querySelector('.swatch-scale-label-min');

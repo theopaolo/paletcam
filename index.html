@@ -3,14 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Attrape Couleurs</title>
-
-    <!-- PWA Meta Tags -->
-    <meta
-      name="description"
-      content="Captureur de jolies palettes de couleurs 📸🌈 !"
-    />
-    <meta name="theme-color" content="#000000" />
+    <title>Colors Catcher</title>
+    <meta name="description" content="Capturer des couleurs 📸🌈 !" />
+    <meta name="theme-color" content="#2d2d2d" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" href="icons/icon-192-framed.png" />
     <link rel="apple-touch-icon" href="icons/icon-192-framed.png" />
@@ -23,6 +18,7 @@
     <link rel="stylesheet" href="pwa-install.css" />
   </head>
   <body>
+    <h1 class="colorscatcher">Colors Catcher</h1>
     <div class="capture">
       <div class="capture-palette-stage">
         <canvas id="canvas-palette"></canvas>
@@ -48,7 +44,9 @@
         />
         <div class="swatch-meta">
           <span class="swatch-scale-label swatch-scale-label-min">1</span>
-          <span class="swatch-count-indicator" aria-live="polite">4/24</span>
+          <span class="swatch-count-indicator" aria-live="polite"
+            >4/24 palettes</span
+          >
           <span class="swatch-scale-label swatch-scale-label-max">24</span>
         </div>
       </div>
@@ -67,7 +65,7 @@
         </div>
         <div class="zoom-meta">
           <span class="zoom-scale-bound zoom-scale-min">1.0x</span>
-          <span class="zoom-display">1.0x</span>
+          <span class="zoom-display">1.0x zoom</span>
           <span class="zoom-scale-bound zoom-scale-max">1.0x</span>
         </div>
       </div>
@@ -133,19 +131,7 @@
             >
               SON ACTIF
             </button>
-            <button class="btn-view-collection">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                fill="#000000"
-                viewBox="0 0 256 256"
-              >
-                <path
-                  d="M216,40H72A16,16,0,0,0,56,56V72H40A16,16,0,0,0,24,88V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V184h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM172,72a12,12,0,1,1-12,12A12,12,0,0,1,172,72Zm12,128H40V88H56v80a16,16,0,0,0,16,16H184Zm32-32H72V120.69l30.34-30.35a8,8,0,0,1,11.32,0L163.31,140,189,114.34a8,8,0,0,1,11.31,0L216,130.07V168Z"
-                ></path>
-              </svg>
-            </button>
+
             <button class="btn-rotate">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -156,6 +142,19 @@
               >
                 <path
                   d="M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56ZM156.81,166.4A48.21,48.21,0,0,1,96,163.77V168a8,8,0,0,1-16,0V144a8,8,0,0,1,8-8h24a8,8,0,0,1,0,16h-5.15a32.12,32.12,0,0,0,40.34,1.61,8,8,0,0,1,9.62,12.79ZM176,120a8,8,0,0,1-8,8H144a8,8,0,0,1,0-16h5.15a32.12,32.12,0,0,0-40.34-1.61A8,8,0,0,1,99.19,97.6,48.21,48.21,0,0,1,160,100.23V96a8,8,0,0,1,16,0Z"
+                ></path>
+              </svg>
+            </button>
+            <button class="btn-view-collection">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                fill="#000000"
+                viewBox="0 0 256 256"
+              >
+                <path
+                  d="M216,40H72A16,16,0,0,0,56,56V72H40A16,16,0,0,0,24,88V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V184h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM172,72a12,12,0,1,1-12,12A12,12,0,0,1,172,72Zm12,128H40V88H56v80a16,16,0,0,0,16,16H184Zm32-32H72V120.69l30.34-30.35a8,8,0,0,1,11.32,0L163.31,140,189,114.34a8,8,0,0,1,11.31,0L216,130.07V168Z"
                 ></path>
               </svg>
             </button>

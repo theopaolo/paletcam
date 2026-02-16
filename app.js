@@ -16,6 +16,7 @@ import { savePalette } from './palette-storage.js';
 const PHOTO_EXPORT_WIDTH = 200;
 const PHOTO_PIXEL_DENSITY = 3;
 
+const colorscatcher = document.querySelector('.colorscatcher');
 const cameraFeed = document.querySelector('.camera-feed');
 const captureButton = document.querySelector('.btn-capture');
 const allowButton = document.querySelector('.btn-allow-media');
@@ -73,6 +74,7 @@ let captureFlashElement = null;
 let capturePopTimeout = 0;
 let captureFlashTimeout = 0;
 let lastCaptureGlowRgb = '';
+let lastNameColor = '';
 let isPreviewExpanded = false;
 
 function readStoredFlag(storageKey, fallbackValue) {
@@ -161,6 +163,16 @@ function getDominantColor(colors) {
   });
 
   return colorClusters[0];
+}
+
+function setNameColor(color){
+  if( !colorscatcher || !color) { return; }
+  const rgbToken = toRgbToken(color);
+
+  if (rgbToken === lastNameColor) { return; }
+
+  colorscatcher.style.setProperty('--name-rgba', rgbToken);
+  lastNameColor = rgbToken;
 }
 
 function setCaptureButtonGlowColor(color) {
@@ -748,6 +760,7 @@ function refreshPreview() {
 
   if (dominantColor) {
     setCaptureButtonGlowColor(dominantColor);
+    setNameColor(dominantColor)
     setCaptureGlowActive(true);
   } else {
     setCaptureGlowActive(false);

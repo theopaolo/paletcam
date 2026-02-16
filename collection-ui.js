@@ -325,11 +325,11 @@ function getDayPeriodLabel(date) {
   }
 
   if (hour < 17) {
-    return 'Apres-midi';
+    return 'Après-midi';
   }
 
   if (hour < 22) {
-    return 'Soiree';
+    return 'Soirée';
   }
 
   return 'Nuit';
