@@ -3,12 +3,12 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "allowJs": true,
     "checkJs": false,
-    "strict": true,
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["*.js", "modules/**/*.js", "scripts/**/*.js", "modules/smoothColor.ts"]
+  "include": ["*.js", "modules/**/*.js", "types/**/*.d.ts"],
+  "exclude": ["scripts/**", "dist/**", "vendor/**", "service-worker.js"]
 }

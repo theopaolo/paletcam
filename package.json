@@ -6,13 +6,15 @@
   "scripts": {
     "dev": "bun run scripts/dev-server.js",
     "build": "bun run scripts/build.js",
-    "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write ."
   },
   "dependencies": {
     "dexie": "^4.2.1"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "@biomejs/biome": "^2.4.2"
   }
 }
