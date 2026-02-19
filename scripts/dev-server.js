@@ -1,6 +1,8 @@
 import { extname, join, normalize } from 'node:path';
 
 const projectRoot = process.cwd();
+const publicRoot = join(projectRoot, 'public');
+const sourceRoot = join(projectRoot, 'src');
 const initialPort = Number(process.env.PORT ?? 3000);
 const fallbackPorts = [
   ...Array.from({ length: 120 }, (_, index) => initialPort + index),
@@ -13,22 +15,28 @@ const MIME_TYPES = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.html', 'text/html; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
+  ['.mjs', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
   ['.png', 'image/png'],
   ['.svg', 'image/svg+xml'],
+  ['.woff', 'font/woff'],
+  ['.woff2', 'font/woff2'],
   ['.webmanifest', 'application/manifest+json; charset=utf-8'],
   ['.webp', 'image/webp'],
 ]);
 
-function resolveRequestPath(urlPathname) {
+function resolveRequestCandidates(urlPathname) {
   const requestedPath = urlPathname === '/' ? 'index.html' : urlPathname.replace(/^\/+/, '');
   const normalizedPath = normalize(requestedPath);
 
   if (normalizedPath.startsWith('..') || normalizedPath.includes('\0')) {
-    return null;
+    return [];
   }
 
-  return join(projectRoot, normalizedPath);
+  return [
+    join(publicRoot, normalizedPath),
+    join(sourceRoot, normalizedPath),
+  ];
 }
 
 async function serveFile(filePath) {
@@ -51,15 +59,13 @@ async function serveFile(filePath) {
 async function handleRequest(request) {
   const url = new URL(request.url);
   const decodedPathname = decodeURIComponent(url.pathname);
-  const resolvedPath = resolveRequestPath(decodedPathname);
+  const candidatePaths = resolveRequestCandidates(decodedPathname);
 
-  if (!resolvedPath) {
-    return new Response('Not found', { status: 404 });
-  }
-
-  const response = await serveFile(resolvedPath);
-  if (response) {
-    return response;
+  for (const candidatePath of candidatePaths) {
+    const response = await serveFile(candidatePath);
+    if (response) {
+      return response;
+    }
   }
 
   return new Response('Not found', { status: 404 });

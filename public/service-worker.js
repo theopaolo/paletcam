@@ -1,34 +1,44 @@
-const CACHE_NAME = 'colorcatcher-v9';
-const OFFLINE_FALLBACK_URL = '/offline.html';
-const APP_SHELL_URLS = [
-  '/',
-  '/index.html',
-  OFFLINE_FALLBACK_URL,
-  '/app.css',
-  '/reset.css',
-  '/zoom.css',
-  '/pwa-install.css',
-  '/app.js',
-  '/collection-ui.js',
-  '/palette-storage.js',
-  '/pwa-install.js',
-  '/modules/camera-controller.js',
-  '/modules/camera-ui.js',
-  '/modules/palette-extraction.js',
-  '/manifest.json',
-  '/logo/colorcatchers.svg',
-  '/icons/icon-192-framed.png',
-  '/icons/icon-512-framed.png',
-  '/icons/icon-192-padded.png',
-  '/icons/icon-512-padded.png',
-  '/vendor/dexie.mjs',
-];
+const CACHE_NAME = 'colorcatcher-v12';
+const SW_BASE_URL = new URL('./', self.location.href);
+
+function toScopedPath(pathname = '') {
+  const normalizedPath = pathname.replace(/^\/+/, '');
+  return new URL(normalizedPath, SW_BASE_URL).pathname;
+}
+
+const INDEX_FALLBACK_URL = toScopedPath('index.html');
+const OFFLINE_FALLBACK_URL = toScopedPath('offline.html');
+const PRECACHE_MANIFEST_URL = toScopedPath('precache-manifest.json');
+const CORE_APP_SHELL_URLS = [INDEX_FALLBACK_URL, OFFLINE_FALLBACK_URL];
+
+async function readPrecacheManifest() {
+  try {
+    const manifestResponse = await fetch(new Request(PRECACHE_MANIFEST_URL, { cache: 'no-store' }));
+    if (!manifestResponse.ok) {
+      return [];
+    }
+
+    const manifestUrls = await manifestResponse.json();
+    if (!Array.isArray(manifestUrls)) {
+      return [];
+    }
+
+    return manifestUrls
+      .filter((url) => typeof url === 'string')
+      .map((url) => toScopedPath(url));
+  } catch {
+    return [];
+  }
+}
 
 async function cacheAppShell() {
   const cache = await caches.open(CACHE_NAME);
-  const requests = APP_SHELL_URLS.map((url) => new Request(url, { cache: 'reload' }));
+  const manifestUrls = await readPrecacheManifest();
+  const urlsToCache = [...new Set([...CORE_APP_SHELL_URLS, ...manifestUrls])];
 
-  await cache.addAll(requests);
+  await Promise.allSettled(
+    urlsToCache.map((url) => cache.add(new Request(url, { cache: 'reload' })))
+  );
 }
 
 function isSameOriginRequest(requestUrl) {
@@ -36,7 +46,7 @@ function isSameOriginRequest(requestUrl) {
 }
 
 function shouldCacheResponse(response) {
-  return Boolean(response && response.ok && response.type === 'basic');
+  return Boolean(response?.ok && response.type === 'basic');
 }
 
 self.addEventListener('install', (event) => {
@@ -70,7 +80,7 @@ self.addEventListener('fetch', (event) => {
         try {
           const networkResponse = await fetch(request);
           const cache = await caches.open(CACHE_NAME);
-          cache.put('/index.html', networkResponse.clone());
+          cache.put(INDEX_FALLBACK_URL, networkResponse.clone());
           return networkResponse;
         } catch (error) {
           const fallbackResponse = await caches.match(OFFLINE_FALLBACK_URL);
@@ -78,7 +88,7 @@ self.addEventListener('fetch', (event) => {
             return fallbackResponse;
           }
 
-          const appShellFallback = await caches.match('/index.html');
+          const appShellFallback = await caches.match(INDEX_FALLBACK_URL);
           if (appShellFallback) {
             return appShellFallback;
           }

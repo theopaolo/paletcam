@@ -15,9 +15,7 @@ const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
 const closeCollectionButton = document.querySelector(".btn-close-collection");
-const collectionCopyModeButton = document.querySelector(
-  ".collection-copy-mode-toggle",
-);
+const collectionCopyModeButton = document.querySelector( ".collection-copy-mode-toggle");
 const QUICK_ACTION_WIDTH = 144;
 const LEFT_ACTION_WIDTH = QUICK_ACTION_WIDTH;
 const RIGHT_ACTION_WIDTH = QUICK_ACTION_WIDTH * 2;
@@ -25,11 +23,7 @@ const SWIPE_START_THRESHOLD = 8;
 const SWIPE_OPEN_RATIO = 0.38;
 const COLLECTION_COPY_MODE_STORAGE_KEY = "paletcam.collectionCopyMode";
 const COLLECTION_COPY_MODES = ["rgb", "hex", "hsl"];
-const COLLECTION_COPY_MODE_LABELS = {
-  rgb: "RGB",
-  hex: "HEX",
-  hsl: "HSL",
-};
+const COLLECTION_COPY_MODE_LABELS = { rgb: "RGB", hex: "HEX", hsl: "HSL"};
 const DELETE_SWIPE_HAPTIC_MS = 11;
 const SWIPE_HINT_STORAGE_KEY = "paletcam.swipeHintSeen.v2";
 const SWIPE_HINT_START_DELAY_MS = 120;

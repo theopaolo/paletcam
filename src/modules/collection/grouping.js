@@ -1,9 +1,9 @@
 const SESSION_GAP_MS = 30 * 60 * 1000;
 const DAY_DURATION_MS = 24 * 60 * 60 * 1000;
-const SESSION_WEEKDAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const SESSION_WEEKDAY_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
   weekday: "long",
 });
-const DAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const DAY_DATE_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
   month: "short",
   day: "numeric",
   year: "numeric",

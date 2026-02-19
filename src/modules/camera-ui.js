@@ -16,7 +16,7 @@ function readStoredCopyMode() {
     if (OUTPUT_COPY_MODES.includes(storedMode)) {
       return storedMode;
     }
-  } catch (error) {
+  } catch (_error) {
     return 'rgb';
   }
 
@@ -26,7 +26,7 @@ function readStoredCopyMode() {
 function persistCopyMode(nextMode) {
   try {
     window.localStorage.setItem(OUTPUT_COPY_MODE_STORAGE_KEY, nextMode);
-  } catch (error) {
+  } catch (_error) {
     // Ignore storage failures.
   }
 }
@@ -218,7 +218,7 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
 
   const countIndicator = sliderWrapper.querySelector('.swatch-count-indicator');
   if (countIndicator) {
-    countIndicator.textContent = `${formatScaleValue(clampedCount)}/${formatScaleValue(maxValue)} palettes`;
+    countIndicator.textContent = `${formatScaleValue(clampedCount)} colors`;
   }
 
   const minIndicator = sliderWrapper.querySelector('.swatch-scale-label-min');

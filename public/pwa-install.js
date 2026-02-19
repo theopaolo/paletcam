@@ -12,9 +12,12 @@ if ('serviceWorker' in navigator) {
   });
 
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    const serviceWorkerUrl = new URL('service-worker.js', window.location.href);
+    const serviceWorkerScope = new URL('.', window.location.href).pathname;
+
+    navigator.serviceWorker.register(serviceWorkerUrl.pathname, { scope: serviceWorkerScope })
       .then((registration) => {
-        // Check for updates every time the page loads
+
         void registration.update();
       })
       .catch((error) => {

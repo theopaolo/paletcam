@@ -9,6 +9,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["*.js", "modules/**/*.js", "types/**/*.d.ts"],
-  "exclude": ["scripts/**", "dist/**", "vendor/**", "service-worker.js"]
+  "include": ["src/**/*.js", "types/**/*.d.ts"],
+  "exclude": ["scripts/**", "dist/**", "src/vendor/**"]
 }
