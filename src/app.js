@@ -8,7 +8,12 @@ import {
 } from './modules/camera-ui.js';
 import {
   extractPaletteColors,
+  getDefaultPaletteAlgorithmId,
+  getDefaultPaletteAlgorithmOptions,
+  getPaletteAlgorithmDefinitions,
+  resolvePaletteAlgorithmOptions,
   renderPaletteBars,
+  resetColorSmoothing,
   smoothColors
 } from './modules/palette-extraction.js';
 import { savePalette } from './palette-storage.js';
@@ -38,6 +43,9 @@ const zoomMinDisplay = document.querySelector('.zoom-scale-min');
 const zoomMaxDisplay = document.querySelector('.zoom-scale-max');
 const rotateButton = document.querySelector('.btn-rotate');
 const swatchSlider = document.querySelector('.swatch-slider input[type="range"]');
+const algorithmSelect = document.getElementById('algorithmSelect');
+const algorithmControls = document.getElementById('algorithmControls');
+const algorithmDescription = document.getElementById('algorithmDescription');
 const sfxToggleButton = document.querySelector('.btn-sfx-toggle');
 const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
@@ -47,6 +55,8 @@ const CAPTURE_POP_MS = 170;
 const CAPTURE_FLASH_MS = 120;
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
 const CAPTURE_SFX_STORAGE_KEY = 'paletcam.captureSfxEnabled';
+const PALETTE_ALGORITHM_STORAGE_KEY = 'paletcam.paletteAlgorithm';
+const PALETTE_ALGORITHM_OPTIONS_STORAGE_KEY = 'paletcam.paletteAlgorithmOptions';
 const CAPTURE_KEYBOARD_KEYS = new Set(['Enter', ' ', 'Spacebar']);
 const PREVIEW_TOGGLE_KEYS = new Set(['Enter', ' ', 'Spacebar']);
 const SWATCH_KEYBOARD_KEYS = new Set([
@@ -68,6 +78,12 @@ let frameWidth = 0;
 let frameHeight = 0;
 let isStreaming = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
+const paletteAlgorithmDefinitions = getPaletteAlgorithmDefinitions();
+const paletteAlgorithmById = new Map(
+  paletteAlgorithmDefinitions.map((definition) => [definition.id, definition]),
+);
+let activePaletteAlgorithmId = getDefaultPaletteAlgorithmId();
+let paletteAlgorithmOptionsById = {};
 let isCaptureSfxEnabled = readStoredFlag(CAPTURE_SFX_STORAGE_KEY, true);
 let captureAudioContext = null;
 let captureFlashElement = null;
@@ -93,6 +109,32 @@ function readStoredFlag(storageKey, fallbackValue) {
 function writeStoredFlag(storageKey, value) {
   try {
     window.localStorage.setItem(storageKey, value ? '1' : '0');
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
+
+function readStoredJson(storageKey, fallbackValue) {
+  try {
+    const rawValue = window.localStorage.getItem(storageKey);
+    if (!rawValue) {
+      return fallbackValue;
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+    if (parsedValue && typeof parsedValue === 'object') {
+      return parsedValue;
+    }
+  } catch (error) {
+    return fallbackValue;
+  }
+
+  return fallbackValue;
+}
+
+function writeStoredJson(storageKey, value) {
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(value));
   } catch (error) {
     // Ignore storage failures.
   }
@@ -467,6 +509,7 @@ function initializeApp() {
   bindZoomEvents();
   bindRotationEvents();
   bindSwatchEvents();
+  initializeAlgorithmLab();
   bindSoundEvents();
   syncCameraFeedOrientation();
 
@@ -668,6 +711,189 @@ function bindSwatchEvents() {
   });
 }
 
+function getAlgorithmDefinition(algorithmId) {
+  return paletteAlgorithmById.get(algorithmId) ?? paletteAlgorithmById.get(getDefaultPaletteAlgorithmId());
+}
+
+function getStoredPaletteAlgorithmId() {
+  try {
+    const storedAlgorithmId = window.localStorage.getItem(PALETTE_ALGORITHM_STORAGE_KEY);
+    if (storedAlgorithmId && paletteAlgorithmById.has(storedAlgorithmId)) {
+      return storedAlgorithmId;
+    }
+  } catch (error) {
+    return getDefaultPaletteAlgorithmId();
+  }
+
+  return getDefaultPaletteAlgorithmId();
+}
+
+function persistPaletteAlgorithmState() {
+  try {
+    window.localStorage.setItem(PALETTE_ALGORITHM_STORAGE_KEY, activePaletteAlgorithmId);
+  } catch (error) {
+    // Ignore storage failures.
+  }
+
+  writeStoredJson(PALETTE_ALGORITHM_OPTIONS_STORAGE_KEY, paletteAlgorithmOptionsById);
+}
+
+function buildDefaultAlgorithmOptions(algorithmId) {
+  return getDefaultPaletteAlgorithmOptions(algorithmId);
+}
+
+function ensureAlgorithmOptions(algorithmId) {
+  const current = paletteAlgorithmOptionsById[algorithmId];
+  const merged = resolvePaletteAlgorithmOptions(
+    algorithmId,
+    current ?? buildDefaultAlgorithmOptions(algorithmId),
+  );
+
+  paletteAlgorithmOptionsById[algorithmId] = merged;
+  return merged;
+}
+
+function formatAlgorithmControlValue(value, control) {
+  if (control.type === 'toggle') {
+    return value ? 'On' : 'Off';
+  }
+
+  const step = Number(control.step);
+  if (Number.isInteger(step)) {
+    return String(value);
+  }
+
+  return Number(value).toFixed(step < 0.1 ? 2 : 1);
+}
+
+function createAlgorithmRangeControl(control, options) {
+  const row = document.createElement('label');
+  row.className = 'algo-control algo-control-range';
+
+  const header = document.createElement('div');
+  header.className = 'algo-control-header';
+
+  const label = document.createElement('span');
+  label.className = 'algo-control-label';
+  label.textContent = control.label;
+
+  const value = document.createElement('span');
+  value.className = 'algo-control-value';
+  value.textContent = formatAlgorithmControlValue(options[control.key], control);
+
+  header.append(label, value);
+
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = String(control.min);
+  input.max = String(control.max);
+  input.step = String(control.step);
+  input.value = String(options[control.key]);
+  input.className = 'algo-control-input';
+
+  input.addEventListener('input', () => {
+    options[control.key] = Number(input.value);
+    value.textContent = formatAlgorithmControlValue(options[control.key], control);
+    persistPaletteAlgorithmState();
+    resetColorSmoothing();
+  });
+
+  row.append(header, input);
+  return row;
+}
+
+function createAlgorithmToggleControl(control, options) {
+  const row = document.createElement('label');
+  row.className = 'algo-control algo-control-toggle';
+
+  const text = document.createElement('span');
+  text.className = 'algo-control-label';
+  text.textContent = control.label;
+
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.className = 'algo-control-checkbox';
+  input.checked = Boolean(options[control.key]);
+
+  const indicator = document.createElement('span');
+  indicator.className = 'algo-control-checkbox-indicator';
+
+  input.addEventListener('change', () => {
+    options[control.key] = input.checked;
+    persistPaletteAlgorithmState();
+    resetColorSmoothing();
+  });
+
+  row.append(text, input, indicator);
+  return row;
+}
+
+function renderAlgorithmControls() {
+  if (!algorithmControls) {
+    return;
+  }
+
+  const definition = getAlgorithmDefinition(activePaletteAlgorithmId);
+  const options = ensureAlgorithmOptions(definition.id);
+
+  algorithmControls.innerHTML = '';
+  definition.controls.forEach((control) => {
+    const controlElement = control.type === 'toggle'
+      ? createAlgorithmToggleControl(control, options)
+      : createAlgorithmRangeControl(control, options);
+
+    algorithmControls.append(controlElement);
+  });
+
+  if (algorithmDescription) {
+    algorithmDescription.textContent = definition.description;
+  }
+}
+
+function initializeAlgorithmLab() {
+  if (!algorithmSelect || !algorithmControls) {
+    return;
+  }
+
+  const storedOptions = readStoredJson(PALETTE_ALGORITHM_OPTIONS_STORAGE_KEY, {});
+  paletteAlgorithmOptionsById = storedOptions && typeof storedOptions === 'object' ? storedOptions : {};
+  activePaletteAlgorithmId = getStoredPaletteAlgorithmId();
+
+  algorithmSelect.innerHTML = '';
+  paletteAlgorithmDefinitions.forEach((definition) => {
+    const option = document.createElement('option');
+    option.value = definition.id;
+    option.textContent = definition.label;
+    algorithmSelect.append(option);
+    ensureAlgorithmOptions(definition.id);
+  });
+
+  algorithmSelect.value = activePaletteAlgorithmId;
+
+  algorithmSelect.addEventListener('change', (event) => {
+    const nextAlgorithmId = String(event.target.value);
+    if (!paletteAlgorithmById.has(nextAlgorithmId)) {
+      return;
+    }
+
+    activePaletteAlgorithmId = nextAlgorithmId;
+    ensureAlgorithmOptions(activePaletteAlgorithmId);
+    persistPaletteAlgorithmState();
+    renderAlgorithmControls();
+    resetColorSmoothing();
+  });
+
+  renderAlgorithmControls();
+  persistPaletteAlgorithmState();
+}
+
+function getActivePaletteExtractionConfig() {
+  return {
+    algorithmId: activePaletteAlgorithmId,
+    options: ensureAlgorithmOptions(activePaletteAlgorithmId),
+  };
+}
+
 async function startCameraStream() {
   isStreaming = false;
   const started = await cameraController.startStream();
@@ -744,7 +970,8 @@ function refreshPreview() {
     frameImageData,
     frameWidth,
     frameHeight,
-    swatchCount
+    swatchCount,
+    getActivePaletteExtractionConfig(),
   );
 
 
@@ -790,7 +1017,13 @@ async function captureCurrentFrame() {
   });
 
   const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-  const paletteColors = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
+  const paletteColors = extractPaletteColors(
+    imageData,
+    frameWidth,
+    frameHeight,
+    swatchCount,
+    getActivePaletteExtractionConfig(),
+  );
 
   const photoData = exportPhotoData(frameCanvas, frameWidth, frameHeight);
 

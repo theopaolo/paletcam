@@ -1,6 +1,7 @@
 .sliders-container {
   display: flex;
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
 
@@ -361,4 +362,135 @@
 .wheel-range input[type="range"]:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.algo-lab {
+  width: 100%;
+  padding: 0.6rem 0.85rem 0.75rem;
+  background: linear-gradient(to bottom, #191919 0%, #111111 55%, #121212 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.algo-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.algo-select-label {
+  color: rgba(220, 220, 220, 0.82);
+  font-family: monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.algo-select {
+  width: 100%;
+  background: #0e0e0e;
+  color: #f1f1f1;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 0.35rem 0.45rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.algo-description {
+  margin: 0.42rem 0 0.5rem;
+  color: rgba(200, 200, 200, 0.76);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  min-height: 1.1em;
+}
+
+.algo-controls {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.algo-control {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.algo-control-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.algo-control-label,
+.algo-control-value {
+  font-family: monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.algo-control-label {
+  color: rgba(224, 224, 224, 0.84);
+  font-size: 0.72rem;
+}
+
+.algo-control-value {
+  color: rgba(255, 214, 125, 0.95);
+  font-size: 0.72rem;
+}
+
+.algo-control-input {
+  width: 100%;
+}
+
+.algo-control-toggle {
+  grid-template-columns: 1fr auto auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.algo-control-checkbox {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
+}
+
+.algo-control-checkbox-indicator {
+  width: 38px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background: rgba(20, 20, 20, 0.95);
+  position: relative;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.algo-control-checkbox-indicator::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #d8d8d8;
+  transition: transform 0.18s ease, background-color 0.18s ease;
+}
+
+.algo-control-checkbox:checked + .algo-control-checkbox-indicator {
+  border-color: rgba(255, 200, 0, 0.85);
+  background: rgba(87, 64, 0, 0.5);
+}
+
+.algo-control-checkbox:checked + .algo-control-checkbox-indicator::after {
+  transform: translateX(18px);
+  background: #ffd26b;
+}
+
+.algo-control-toggle .algo-control-label {
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
