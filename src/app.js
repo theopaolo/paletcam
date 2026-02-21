@@ -54,6 +54,8 @@ const SWATCH_ACTIVE_PULSE_MS = 170;
 const CAPTURE_POP_MS = 170;
 const CAPTURE_FLASH_MS = 120;
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
+const PREVIEW_EXTRACTION_INTERVAL_MS = 96;
+const PREVIEW_SMOOTH_LERP = 0.1;
 const CAPTURE_SFX_STORAGE_KEY = 'paletcam.captureSfxEnabled';
 const PALETTE_ALGORITHM_STORAGE_KEY = 'paletcam.paletteAlgorithm';
 const PALETTE_ALGORITHM_OPTIONS_STORAGE_KEY = 'paletcam.paletteAlgorithmOptions';
@@ -92,6 +94,9 @@ let captureFlashTimeout = 0;
 let lastCaptureGlowRgb = '';
 let lastNameColor = '';
 let isPreviewExpanded = false;
+let lastPaletteExtractionAt = 0;
+let lastPreviewPaletteColors = [];
+let lastPreviewDominantColor = null;
 
 function readStoredFlag(storageKey, fallbackValue) {
   try {
@@ -233,6 +238,17 @@ function setCaptureButtonGlowColor(color) {
 
 function setCaptureGlowActive(isActive) {
   captureButton?.classList.toggle('is-catching', isActive);
+}
+
+function resetPreviewPaletteState() {
+  lastPaletteExtractionAt = 0;
+  lastPreviewPaletteColors = [];
+  lastPreviewDominantColor = null;
+  resetColorSmoothing();
+
+  if (paletteContext && paletteCanvas) {
+    paletteContext.clearRect(0, 0, paletteCanvas.width, paletteCanvas.height);
+  }
 }
 
 function pulseCaptureButton() {
@@ -471,6 +487,7 @@ const cameraController = createCameraController({
     if (!isCameraActive) {
       setZoomWheelDisabled();
       setCaptureGlowActive(false);
+      resetPreviewPaletteState();
     } else {
       syncZoomWheelCapabilities();
     }
@@ -512,6 +529,7 @@ function initializeApp() {
   initializeAlgorithmLab();
   bindSoundEvents();
   syncCameraFeedOrientation();
+  resetPreviewPaletteState();
 
   updateZoomText(zoomDisplay, cameraController.getCurrentZoom());
   updateZoomScaleBounds(Number(zoomWheel?.min), Number(zoomWheel?.max));
@@ -651,6 +669,7 @@ function syncZoomWheelCapabilities() {
 function bindRotationEvents() {
   rotateButton?.addEventListener('click', async () => {
     isStreaming = false;
+    resetPreviewPaletteState();
     await cameraController.toggleFacingMode();
   });
 }
@@ -707,6 +726,7 @@ function bindSwatchEvents() {
 
     swatchCount = nextSwatchCount;
     updateSliderTooltip(swatchSlider, swatchCount);
+    resetPreviewPaletteState();
     pulseActiveIndicator();
   });
 }
@@ -795,7 +815,7 @@ function createAlgorithmRangeControl(control, options) {
     options[control.key] = Number(input.value);
     value.textContent = formatAlgorithmControlValue(options[control.key], control);
     persistPaletteAlgorithmState();
-    resetColorSmoothing();
+    resetPreviewPaletteState();
   });
 
   row.append(header, input);
@@ -821,7 +841,7 @@ function createAlgorithmToggleControl(control, options) {
   input.addEventListener('change', () => {
     options[control.key] = input.checked;
     persistPaletteAlgorithmState();
-    resetColorSmoothing();
+    resetPreviewPaletteState();
   });
 
   row.append(text, input, indicator);
@@ -880,7 +900,7 @@ function initializeAlgorithmLab() {
     ensureAlgorithmOptions(activePaletteAlgorithmId);
     persistPaletteAlgorithmState();
     renderAlgorithmControls();
-    resetColorSmoothing();
+    resetPreviewPaletteState();
   });
 
   renderAlgorithmControls();
@@ -896,6 +916,7 @@ function getActivePaletteExtractionConfig() {
 
 async function startCameraStream() {
   isStreaming = false;
+  resetPreviewPaletteState();
   const started = await cameraController.startStream();
 
   if (started) {
@@ -964,30 +985,37 @@ function refreshPreview() {
     shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
   });
 
-  const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+  const now = window.performance?.now() ?? Date.now();
+  const shouldExtractPalette = lastPreviewPaletteColors.length === 0
+    || (now - lastPaletteExtractionAt) >= PREVIEW_EXTRACTION_INTERVAL_MS;
 
-  const paletteColors = extractPaletteColors(
-    frameImageData,
-    frameWidth,
-    frameHeight,
-    swatchCount,
-    getActivePaletteExtractionConfig(),
-  );
+  if (shouldExtractPalette) {
+    const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+    const paletteColors = extractPaletteColors(
+      frameImageData,
+      frameWidth,
+      frameHeight,
+      swatchCount,
+      getActivePaletteExtractionConfig(),
+    );
 
+    lastPreviewPaletteColors = smoothColors(paletteColors, PREVIEW_SMOOTH_LERP);
+    lastPreviewDominantColor = getDominantColor(lastPreviewPaletteColors);
+    lastPaletteExtractionAt = now;
+  }
 
-  const smoothedColors = smoothColors(paletteColors, 0.1);
-  const dominantColor = getDominantColor(smoothedColors);
+  if (lastPreviewPaletteColors.length > 0) {
+    renderPaletteBars(
+      paletteContext,
+      lastPreviewPaletteColors,
+      paletteCanvas.width,
+      paletteCanvas.height
+    );
+  }
 
-  renderPaletteBars(
-    paletteContext,
-    smoothedColors,
-    paletteCanvas.width,
-    paletteCanvas.height
-  );
-
-  if (dominantColor) {
-    setCaptureButtonGlowColor(dominantColor);
-    setNameColor(dominantColor)
+  if (lastPreviewDominantColor) {
+    setCaptureButtonGlowColor(lastPreviewDominantColor);
+    setNameColor(lastPreviewDominantColor)
     setCaptureGlowActive(true);
   } else {
     setCaptureGlowActive(false);
@@ -1069,6 +1097,7 @@ function exportPhotoData(sourceCanvas, sourceWidth, sourceHeight) {
 
 function stopCurrentStream() {
   isStreaming = false;
+  resetPreviewPaletteState();
   setCaptureGlowActive(false);
 
   if (captureFlashTimeout) {

@@ -2,6 +2,8 @@ import { ColorCutQuantizer } from './ColorCutQuantizer.js';
 
 const MIN_SWATCH_COUNT = 1;
 const COLOR_DISTANCE_THRESHOLD = 12;
+const MAX_ADAPTIVE_LERP_FACTOR = 0.42;
+const ADAPTIVE_LERP_DISTANCE_DIVISOR = 220;
 const MAX_KMEANS_SAMPLES = 4000;
 const DEFAULT_ALGORITHM_ID = 'center-strip';
 
@@ -854,7 +856,9 @@ export function smoothColors(rawColors, lerpFactor) {
     return rawColors;
   }
 
-  const smoothed = rawColors.map((rawColor, index) => {
+  const alignedRawColors = alignColorsToPrevious(rawColors, previousColors);
+
+  const smoothed = alignedRawColors.map((rawColor, index) => {
     const previousColor = previousColors[index];
     const distance = Math.hypot(
       rawColor.r - previousColor.r,
@@ -866,14 +870,61 @@ export function smoothColors(rawColors, lerpFactor) {
       return previousColor;
     }
 
+    const adaptiveLerpFactor = Math.min(
+      MAX_ADAPTIVE_LERP_FACTOR,
+      Math.max(lerpFactor, distance / ADAPTIVE_LERP_DISTANCE_DIVISOR),
+    );
+
     return buildRgbColor(
-      previousColor.r + ((rawColor.r - previousColor.r) * lerpFactor),
-      previousColor.g + ((rawColor.g - previousColor.g) * lerpFactor),
-      previousColor.b + ((rawColor.b - previousColor.b) * lerpFactor),
+      previousColor.r + ((rawColor.r - previousColor.r) * adaptiveLerpFactor),
+      previousColor.g + ((rawColor.g - previousColor.g) * adaptiveLerpFactor),
+      previousColor.b + ((rawColor.b - previousColor.b) * adaptiveLerpFactor),
     );
   });
 
   previousColors = smoothed;
 
   return smoothed;
+}
+
+function alignColorsToPrevious(rawColors, previousPalette) {
+  if (!Array.isArray(rawColors) || !Array.isArray(previousPalette)) {
+    return rawColors;
+  }
+
+  if (rawColors.length !== previousPalette.length || rawColors.length === 0) {
+    return rawColors;
+  }
+
+  const alignedColors = new Array(rawColors.length);
+  const usedRawIndices = new Set();
+  const previousLabs = previousPalette.map((color) => rgbToOklab(color));
+  const rawLabs = rawColors.map((color) => rgbToOklab(color));
+
+  for (let previousIndex = 0; previousIndex < previousPalette.length; previousIndex += 1) {
+    let bestRawIndex = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let rawIndex = 0; rawIndex < rawColors.length; rawIndex += 1) {
+      if (usedRawIndices.has(rawIndex)) {
+        continue;
+      }
+
+      const distance = getOklabDistanceSquared(previousLabs[previousIndex], rawLabs[rawIndex]);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestRawIndex = rawIndex;
+      }
+    }
+
+    if (bestRawIndex === -1) {
+      alignedColors[previousIndex] = rawColors[previousIndex];
+      continue;
+    }
+
+    alignedColors[previousIndex] = rawColors[bestRawIndex];
+    usedRawIndices.add(bestRawIndex);
+  }
+
+  return alignedColors;
 }
