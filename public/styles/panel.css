@@ -38,30 +38,6 @@
   gap: 0.45rem;
 }
 
-.collection-copy-mode-toggle {
-  display: none;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(12, 12, 12, 0.48);
-  color: rgba(240, 240, 240, 0.86);
-  border-radius: 3px;
-  font: inherit;
-  font-size: 0.5rem;
-  text-transform: uppercase;
-  line-height: 1;
-  padding: 0.3rem 0.58rem;
-  cursor: pointer;
-  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease;
-}
-
-.collection-copy-mode-toggle:hover {
-  border-color: rgba(255, 200, 0, 0.66);
-  color: var(--accent-color);
-}
-
-.collection-copy-mode-toggle:active {
-  transform: scale(0.96);
-}
-
 .collection-header h2 {
   margin: 0;
   font-size: 1.5rem;
@@ -280,15 +256,9 @@
 }
 
 .palette-card.is-dragging .palette-swipe-handle,
-.palette-card.is-open-left .palette-swipe-handle,
 .palette-card.is-open-right .palette-swipe-handle {
   opacity: 0;
   transform: translateY(-50%) translateX(6px);
-}
-
-.palette-card.is-hinting .palette-track,
-.palette-card.is-hinting .palette-quick-action {
-  pointer-events: none;
 }
 
 .palette-card.is-dragging .palette-track {
@@ -303,14 +273,9 @@
   flex: 1;
   min-width: 0;
   height: 120px;
-  cursor: pointer;
+  cursor: default;
   user-select: none;
   -webkit-user-select: none;
-  transition: filter 0.14s ease;
-}
-
-.color-swatch:active {
-  filter: brightness(0.92);
 }
 
 .palette-action-lane {
@@ -320,11 +285,6 @@
   z-index: 1;
   display: flex;
   align-items: stretch;
-}
-
-.palette-action-lane-left {
-  left: 0;
-  width:144px;
 }
 
 .palette-action-lane-right {
@@ -357,7 +317,6 @@
     background-color 0.16s ease;
 }
 
-.palette-card.is-open-left .palette-action-lane-left .palette-quick-action,
 .palette-card.is-open-right .palette-action-lane-right .palette-quick-action {
   visibility: visible;
   pointer-events: auto;
@@ -383,12 +342,6 @@
 
 .palette-quick-action:active {
   background-color: #070602;
-}
-
-.palette-action-copy {
-  color: var(--accent-color);
-  border-color: rgba(255, 200, 0, 0.75);
-  background: linear-gradient(180deg, rgba(255, 200, 0, 0.16) 0%, rgba(14, 11, 2, 1) 100%);
 }
 
 .palette-action-export {

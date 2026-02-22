@@ -1,37 +1,19 @@
 import { getSavedPalettes } from "./palette-storage.js";
-import { formatHexColor, formatHslColor, toRgbCss } from "./modules/color-format.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import { createPaletteCard } from "./modules/collection/palette-card.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { createSwipeController } from "./modules/collection/swipe-controller.js";
-import {
-  readStoredEnum,
-  readStoredFlag,
-  writeStoredFlag,
-  writeStoredValue,
-} from "./modules/storage.js";
 
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
 const closeCollectionButton = document.querySelector(".btn-close-collection");
-const collectionCopyModeButton = document.querySelector( ".collection-copy-mode-toggle");
 const QUICK_ACTION_WIDTH = 144;
-const LEFT_ACTION_WIDTH = QUICK_ACTION_WIDTH;
+const LEFT_ACTION_WIDTH = 0;
 const RIGHT_ACTION_WIDTH = QUICK_ACTION_WIDTH * 2;
 const SWIPE_START_THRESHOLD = 8;
 const SWIPE_OPEN_RATIO = 0.38;
-const COLLECTION_COPY_MODE_STORAGE_KEY = "paletcam.collectionCopyMode";
-const COLLECTION_COPY_MODES = ["rgb", "hex", "hsl"];
-const COLLECTION_COPY_MODE_LABELS = { rgb: "RGB", hex: "HEX", hsl: "HSL"};
 const DELETE_SWIPE_HAPTIC_MS = 11;
-const SWIPE_HINT_STORAGE_KEY = "paletcam.swipeHintSeen.v2";
-const SWIPE_HINT_START_DELAY_MS = 120;
-const SWIPE_HINT_STAGE_DURATION_MS = 750;
-const SWIPE_HINT_PAUSE_DURATION_MS = 360;
-const SWIPE_HINT_EASING = "cubic-bezier(0.25, 0.85, 0.25, 1)";
-const SWIPE_HINT_COPY_OFFSET = Math.round(LEFT_ACTION_WIDTH * 0.5);
-const SWIPE_HINT_DELETE_OFFSET = -Math.round(RIGHT_ACTION_WIDTH * 0.2);
 const EMPTY_MESSAGE_TEXT = "Aucune palette enregistree pour le moment";
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
@@ -39,57 +21,7 @@ const SESSION_REVEAL_STAGGER_MS = 42;
 const MAGNETIC_SNAP_RESET_MS = 320;
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
-let hasShownSwipeHint = false;
-let isSwipeHintQueued = false;
 let activeSwipeController;
-let collectionCopyMode = readStoredEnum(
-  COLLECTION_COPY_MODE_STORAGE_KEY,
-  COLLECTION_COPY_MODES,
-  "rgb",
-);
-
-hasShownSwipeHint = readStoredFlag(SWIPE_HINT_STORAGE_KEY);
-
-function getCollectionCopyTextForColor(color) {
-  if (collectionCopyMode === "hex") {
-    return formatHexColor(color);
-  }
-
-  if (collectionCopyMode === "hsl") {
-    return formatHslColor(color);
-  }
-
-  return toRgbCss(color);
-}
-
-function getCollectionCopyModeLabel() {
-  return COLLECTION_COPY_MODE_LABELS[collectionCopyMode] ??
-    COLLECTION_COPY_MODE_LABELS.rgb;
-}
-
-function getCollectionCopyModeToggleLabel() {
-  return `Copier ${getCollectionCopyModeLabel()}`;
-}
-
-function cycleCollectionCopyMode() {
-  const currentModeIndex = COLLECTION_COPY_MODES.indexOf(collectionCopyMode);
-  const nextModeIndex = (currentModeIndex + 1) % COLLECTION_COPY_MODES.length;
-  collectionCopyMode = COLLECTION_COPY_MODES[nextModeIndex];
-  writeStoredValue(COLLECTION_COPY_MODE_STORAGE_KEY, collectionCopyMode);
-}
-
-function syncCollectionCopyModeButton() {
-  if (!collectionCopyModeButton) {
-    return;
-  }
-
-  const label = getCollectionCopyModeToggleLabel();
-  collectionCopyModeButton.textContent = label;
-  collectionCopyModeButton.setAttribute(
-    "aria-label",
-    `${label}. Touchez pour changer le format.`,
-  );
-}
 
 function setActiveSwipeController(controller) {
   if (activeSwipeController && activeSwipeController !== controller) {
@@ -121,105 +53,6 @@ function triggerHapticTick(durationMs = DELETE_SWIPE_HAPTIC_MS) {
   }
 
   navigator.vibrate(durationMs);
-}
-
-function maybeRunFirstSwipeHint() {
-  if (!collectionGrid || hasShownSwipeHint || isSwipeHintQueued) {
-    return;
-  }
-
-  const shouldReduceMotion = window.matchMedia?.(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
-  if (shouldReduceMotion) {
-    hasShownSwipeHint = true;
-    writeStoredFlag(SWIPE_HINT_STORAGE_KEY, true);
-    return;
-  }
-
-  const cards = [...collectionGrid.querySelectorAll(".palette-card")];
-  const card = cards.find((candidate) => candidate.offsetParent !== null);
-  if (!card) {
-    return;
-  }
-
-  isSwipeHintQueued = true;
-
-  window.requestAnimationFrame(() => {
-    window.setTimeout(() => {
-      if (
-        !card.isConnected || !collectionPanel?.classList.contains("visible")
-      ) {
-        isSwipeHintQueued = false;
-        return;
-      }
-
-      hasShownSwipeHint = true;
-      isSwipeHintQueued = false;
-      writeStoredFlag(SWIPE_HINT_STORAGE_KEY, true);
-      runSwipeTrackHint(card);
-    }, SWIPE_HINT_START_DELAY_MS);
-  });
-}
-
-function runSwipeTrackHint(card) {
-  const track = card.querySelector(".palette-track");
-  if (!track) {
-    return;
-  }
-
-  const previousTransition = track.style.transition;
-  const previousTransform = track.style.transform;
-  const hintToDeleteAt = SWIPE_HINT_STAGE_DURATION_MS +
-    SWIPE_HINT_PAUSE_DURATION_MS;
-  const hintToCenterAt = (SWIPE_HINT_STAGE_DURATION_MS * 2) +
-    (SWIPE_HINT_PAUSE_DURATION_MS * 2);
-  const hintCleanupAt = hintToCenterAt + SWIPE_HINT_STAGE_DURATION_MS;
-
-  card.classList.add("is-hinting");
-  card.classList.remove("is-open-left", "is-open-right");
-  track.style.transition =
-    `transform ${SWIPE_HINT_STAGE_DURATION_MS}ms ${SWIPE_HINT_EASING}`;
-  track.style.transform = "translateX(0px)";
-
-  window.setTimeout(() => {
-    if (!card.isConnected) {
-      return;
-    }
-
-    card.classList.add("is-open-left");
-    card.classList.remove("is-open-right");
-    track.style.transform = `translateX(${SWIPE_HINT_COPY_OFFSET}px)`;
-  }, 0);
-
-  window.setTimeout(() => {
-    if (!card.isConnected) {
-      return;
-    }
-
-    card.classList.remove("is-open-left");
-    card.classList.add("is-open-right");
-    track.style.transform = `translateX(${SWIPE_HINT_DELETE_OFFSET}px)`;
-  }, hintToDeleteAt);
-
-  window.setTimeout(() => {
-    if (!card.isConnected) {
-      return;
-    }
-
-    card.classList.remove("is-open-left", "is-open-right");
-    track.style.transform = "translateX(0px)";
-  }, hintToCenterAt);
-
-  window.setTimeout(() => {
-    if (!card.isConnected) {
-      return;
-    }
-
-    card.classList.remove("is-hinting");
-    track.style.transition = previousTransition;
-    track.style.transform = previousTransform;
-  }, hintCleanupAt);
 }
 
 function removeEmptyMessage() {
@@ -366,8 +199,6 @@ function createCollectionSwipeController({ card, track }) {
 function createCollectionPaletteCard(palette) {
   return createPaletteCard({
     palette,
-    getCopyTextForColor: getCollectionCopyTextForColor,
-    getCopyModeLabel: getCollectionCopyModeLabel,
     createSwipeController: createCollectionSwipeController,
     pendingDeletionIds,
     deleteUndoDurationMs: DELETE_UNDO_DURATION_MS,
@@ -393,9 +224,6 @@ function createCollectionDayGroup(dayGroup) {
 
       collapsedSessionIds.delete(sessionId);
     },
-    onSessionExpanded: () => {
-      maybeRunFirstSwipeHint();
-    },
     sessionRevealDurationMs: SESSION_REVEAL_DURATION_MS,
     sessionRevealStaggerMs: SESSION_REVEAL_STAGGER_MS,
   });
@@ -407,7 +235,6 @@ async function loadCollectionUi() {
     !pendingDeletionIds.has(palette.id)
   );
   collectionGrid.innerHTML = "";
-  syncCollectionCopyModeButton();
 
   if (palettes.length === 0) {
     collectionGrid.innerHTML =
@@ -433,8 +260,6 @@ async function loadCollectionUi() {
   dayGroups.forEach((dayGroup) => {
     collectionGrid.appendChild(createCollectionDayGroup(dayGroup));
   });
-
-  maybeRunFirstSwipeHint();
 }
 
 function bindCollectionUiEvents() {
@@ -445,21 +270,8 @@ function bindCollectionUiEvents() {
     return;
   }
 
-  syncCollectionCopyModeButton();
-
   viewCollectionButton.addEventListener("click", async () => {
     collectionPanel.classList.add("visible");
-    await loadCollectionUi();
-  });
-
-  collectionCopyModeButton?.addEventListener("click", async () => {
-    cycleCollectionCopyMode();
-    syncCollectionCopyModeButton();
-
-    if (!collectionPanel.classList.contains("visible")) {
-      return;
-    }
-
     await loadCollectionUi();
   });
 

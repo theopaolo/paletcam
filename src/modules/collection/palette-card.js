@@ -3,14 +3,6 @@ import { showToast, showUndoToast } from "../toast-ui.js";
 import { deletePalette } from "../../palette-storage.js";
 
 function getIconMarkup(iconName) {
-  if (iconName === "copy") {
-    return `
-      <svg viewBox="0 0 256 256" aria-hidden="true">
-        <path d="M184,64H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H184a8,8,0,0,0,8-8V72A8,8,0,0,0,184,64Zm-8,144H48V80H176ZM224,40V184a8,8,0,0,1-16,0V48H72a8,8,0,0,1,0-16H216A8,8,0,0,1,224,40Z"></path>
-      </svg>
-    `;
-  }
-
   if (iconName === "export") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
@@ -57,16 +49,6 @@ function createSwipeHandle() {
     </svg>
   `;
   return handle;
-}
-
-async function copyTextToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (error) {
-    console.error("Clipboard write failed:", error);
-    return false;
-  }
 }
 
 async function exportPaletteAsImage(palette) {
@@ -145,93 +127,21 @@ function createPhotoSwatch(palette) {
   photoSwatch.style.backgroundImage = `url(${photoUrl})`;
   photoSwatch.style.backgroundSize = "cover";
   photoSwatch.style.backgroundPosition = "center";
-  photoSwatch.title = "Touchez pour copier la photo";
-
-  photoSwatch.addEventListener("click", async () => {
-    try {
-      const image = new Image();
-      const imageUrl = URL.createObjectURL(palette.photoBlob);
-
-      image.onload = async () => {
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
-
-        if (!context) {
-          URL.revokeObjectURL(imageUrl);
-          return;
-        }
-
-        canvas.width = image.width;
-        canvas.height = image.height;
-        context.drawImage(image, 0, 0);
-
-        canvas.toBlob(async (pngBlob) => {
-          try {
-            if (!pngBlob) {
-              return;
-            }
-
-            await navigator.clipboard.write([
-              new ClipboardItem({
-                "image/png": pngBlob,
-              }),
-            ]);
-            showToast("Photo copiee");
-          } catch (error) {
-            console.error("Failed to copy photo, downloading fallback:", error);
-            if (!pngBlob) {
-              showToast("Copie echouee", { variant: "error", duration: 1800 });
-              return;
-            }
-
-            const link = document.createElement("a");
-            link.download = `photo-${palette.id}.png`;
-            link.href = URL.createObjectURL(pngBlob);
-            link.click();
-            URL.revokeObjectURL(link.href);
-            showToast("Photo telechargee", { duration: 1500 });
-          } finally {
-            URL.revokeObjectURL(imageUrl);
-          }
-        }, "image/png");
-      };
-
-      image.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-      };
-
-      image.src = imageUrl;
-    } catch (error) {
-      console.error("Failed to process photo:", error);
-      showToast("Copie echouee", { variant: "error", duration: 1800 });
-    }
-  });
 
   return photoSwatch;
 }
 
-function createColorSwatch(color, { getCopyTextForColor, getCopyModeLabel }) {
+function createColorSwatch(color) {
   const swatch = document.createElement("div");
 
   swatch.className = "color-swatch";
   swatch.style.backgroundColor = toRgbCss(color);
-  swatch.title = getCopyTextForColor(color);
-
-  swatch.addEventListener("click", async () => {
-    const copied = await copyTextToClipboard(getCopyTextForColor(color));
-    showToast(copied ? `${getCopyModeLabel()} copie` : "Copie echouee", {
-      variant: copied ? "default" : "error",
-      duration: copied ? 1000 : 1800,
-    });
-  });
 
   return swatch;
 }
 
 export function createPaletteCard({
   palette,
-  getCopyTextForColor,
-  getCopyModeLabel,
   createSwipeController,
   pendingDeletionIds,
   deleteUndoDurationMs,
@@ -254,13 +164,8 @@ export function createPaletteCard({
   }
 
   palette.colors.forEach((color) => {
-    swatchesContainer.appendChild(
-      createColorSwatch(color, { getCopyTextForColor, getCopyModeLabel }),
-    );
+    swatchesContainer.appendChild(createColorSwatch(color));
   });
-
-  const leftActions = document.createElement("div");
-  leftActions.className = "palette-action-lane palette-action-lane-left";
 
   const rightActions = document.createElement("div");
   rightActions.className = "palette-action-lane palette-action-lane-right";
@@ -270,12 +175,6 @@ export function createPaletteCard({
   const swipeHandle = createSwipeHandle();
   track.append(swatchesContainer, swipeHandle);
 
-  const copyAllButton = createQuickActionButton({
-    className: "palette-action-copy",
-    label: "Copier la palette",
-    iconName: "copy",
-    visibleLabel: "copier",
-  });
   const exportButton = createQuickActionButton({
     className: "palette-action-export",
     label: "Exporter la palette",
@@ -290,17 +189,6 @@ export function createPaletteCard({
   });
 
   const swipeController = createSwipeController({ card, track });
-
-  copyAllButton.addEventListener("click", async () => {
-    const colorsText = palette.colors.map((color) => getCopyTextForColor(color))
-      .join("\n");
-    const copied = await copyTextToClipboard(colorsText);
-    showToast(copied ? "Palette copiee" : "Copie echouee", {
-      variant: copied ? "default" : "error",
-      duration: copied ? 1300 : 1800,
-    });
-    swipeController.close();
-  });
 
   exportButton.addEventListener("click", async () => {
     const exported = await exportPaletteAsImage(palette);
@@ -347,9 +235,8 @@ export function createPaletteCard({
     });
   });
 
-  leftActions.appendChild(copyAllButton);
   rightActions.append(exportButton, deleteButton);
-  card.append(leftActions, rightActions, track);
+  card.append(rightActions, track);
 
   return card;
 }

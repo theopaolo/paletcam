@@ -103,7 +103,7 @@ export function smoothColors(rawColors, lerpFactor) {
   const smoothed = rawColors.map((rawColor, index) => {
     const prevColor = previousColors[index];
 
-    let distance = Math.hypot(rawColor.r - prevColor.r, rawColor.g - prevColor.g, rawColor.b - prevColor.b)
+    const distance = Math.hypot(rawColor.r - prevColor.r, rawColor.g - prevColor.g, rawColor.b - prevColor.b)
 
     if (distance < COLOR_DISTANCE_THRESHOLD) return prevColor;
 

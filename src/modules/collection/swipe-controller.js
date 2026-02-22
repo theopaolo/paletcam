@@ -73,10 +73,6 @@ export function createSwipeController({
       return;
     }
 
-    if (card.classList.contains("is-hinting")) {
-      return;
-    }
-
     const activeController = getActiveController();
     if (activeController && activeController !== controller) {
       closeActiveController();
