@@ -29,7 +29,7 @@
       <canvas id="canvas"></canvas>
     </div>
     <div class="output">
-      <img class="output-img" id="photo" src="" alt="Derniere capture" />
+      <img class="output-img" id="photo" src="" aria-hidden="true" />
       <div class="output-palette" id="outputPalette"></div>
     </div>
     <div class="sliders-container">
@@ -96,6 +96,8 @@
           aria-label="Apercu camera. Touchez pour agrandir ou reduire."
           tabindex="0"
         ></video>
+        <div class="sample-row-overlay" id="sampleRowOverlay" aria-hidden="true">
+        </div>
       </div>
       <div class="btns-camera">
         <div class="camera-actions">

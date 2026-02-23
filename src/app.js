@@ -9,7 +9,10 @@ import {
 import {
   extractPaletteColors,
   renderPaletteBars,
-  smoothColors
+  SAMPLE_COL_COUNT,
+  SAMPLE_DIAMETER,
+  SAMPLE_ROW_COUNT,
+  smoothColors,
 } from './modules/palette-extraction.js';
 import { savePalette } from './palette-storage.js';
 
@@ -40,6 +43,7 @@ const rotateButton = document.querySelector('.btn-rotate');
 const swatchSlider = document.querySelector('.swatch-slider input[type="range"]');
 const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
+const sampleRowOverlay = document.getElementById('sampleRowOverlay');
 
 const SWATCH_ACTIVE_PULSE_MS = 170;
 const CAPTURE_POP_MS = 170;
@@ -58,8 +62,7 @@ const SWATCH_KEYBOARD_KEYS = new Set([
   'PageDown',
 ]);
 
-const frameContext = frameCanvas?.getContext('2d', { willReadFrequently: true })
-  ?? frameCanvas?.getContext('2d');
+const frameContext = frameCanvas?.getContext('2d', { willReadFrequently: true }) ?? frameCanvas?.getContext('2d');
 const paletteContext = paletteCanvas?.getContext('2d');
 
 let frameWidth = 0;
@@ -72,6 +75,10 @@ let captureFlashTimeout = 0;
 let lastCaptureGlowRgb = '';
 let lastNameColor = '';
 let isPreviewExpanded = false;
+let extractionFrame = 0;
+let lastExtractedColors = null;
+let lastChosenIndices = [];
+const EXTRACTION_INTERVAL = 10;
 
 function toRgbToken(color) {
   return `${color.r}, ${color.g}, ${color.b}`;
@@ -267,12 +274,71 @@ function getPaletteViewportSize() {
   };
 }
 
+let overlayBuilt = false;
+
+function buildSampleGrid() {
+  if (!sampleRowOverlay || overlayBuilt) {
+    return;
+  }
+  overlayBuilt = true;
+
+  for (let row = 0; row < SAMPLE_ROW_COUNT; row++) {
+    const rowPercent = ((row + 1) / (SAMPLE_ROW_COUNT + 1)) * 100;
+
+    const line = document.createElement('div');
+    line.className = 'sample-row-line';
+    line.style.top = `${rowPercent}%`;
+    sampleRowOverlay.appendChild(line);
+
+    for (let col = 0; col < SAMPLE_COL_COUNT; col++) {
+      const square = document.createElement('div');
+      square.className = 'sample-row-point';
+      square.dataset.gridIndex = String(col * SAMPLE_ROW_COUNT + row);
+      square.style.left = `${((col + 0.5) / SAMPLE_COL_COUNT) * 100}%`;
+      square.style.top = `${rowPercent}%`;
+      sampleRowOverlay.appendChild(square);
+    }
+  }
+
+  updateSamplePointSizes();
+}
+
+function markChosenSquares(chosenIndices) {
+  if (!sampleRowOverlay) return;
+
+  const chosenSet = new Set(chosenIndices.map(String));
+  sampleRowOverlay.querySelectorAll('.sample-row-point').forEach((el) => {
+    el.classList.toggle('is-chosen', chosenSet.has(el.dataset.gridIndex));
+  });
+}
+
+function updateSamplePointSizes() {
+  if (!sampleRowOverlay || !cameraFeed) {
+    return;
+  }
+
+  const videoWidth = cameraFeed.videoWidth;
+  if (videoWidth <= 0) {
+    return;
+  }
+
+  const displayWidth = sampleRowOverlay.offsetWidth;
+  const scale = displayWidth / videoWidth;
+  const size = Math.max(2, Math.round(SAMPLE_DIAMETER * scale));
+
+  sampleRowOverlay.style.setProperty('--sample-size', `${size}px`);
+}
+
 function mountCameraFeed(targetElement) {
   if (!cameraFeed || !targetElement || cameraFeed.parentElement === targetElement) {
     return;
   }
 
   targetElement.appendChild(cameraFeed);
+
+  if (sampleRowOverlay) {
+    targetElement.appendChild(sampleRowOverlay);
+  }
 }
 
 function setPreviewExpanded(shouldExpand) {
@@ -613,17 +679,31 @@ function refreshPreview() {
     shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
   });
 
-  const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+  buildSampleGrid();
+  updateSamplePointSizes();
 
-  const paletteColors = extractPaletteColors(
-    frameImageData,
-    frameWidth,
-    frameHeight,
-    swatchCount
-  );
+  extractionFrame += 1;
+  if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
+    const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
 
+    const result = extractPaletteColors(
+      frameImageData,
+      frameWidth,
+      frameHeight,
+      swatchCount
+    );
 
-  const smoothedColors = smoothColors(paletteColors, 0.1);
+    lastExtractedColors = result.colors;
+    lastChosenIndices = result.chosenIndices;
+    markChosenSquares(lastChosenIndices);
+  }
+
+  if (!lastExtractedColors || lastExtractedColors.length === 0) {
+    requestAnimationFrame(refreshPreview);
+    return;
+  }
+
+  const smoothedColors = smoothColors(lastExtractedColors, 0.1);
   const dominantColor = getDominantColor(smoothedColors);
 
   renderPaletteBars(
@@ -664,7 +744,7 @@ async function captureCurrentFrame() {
   });
 
   const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-  const paletteColors = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
+  const { colors: paletteColors } = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
 
   const photoData = exportPhotoData(frameCanvas, frameWidth, frameHeight);
 
@@ -723,3 +803,47 @@ function stopCurrentStream() {
 window.addEventListener('beforeunload', stopCurrentStream);
 
 initializeApp();
+
+// DEV: test palette extraction with a static image instead of the camera feed
+function _loadTestImage(src) {
+  if (!frameContext || !paletteContext || !frameCanvas || !paletteCanvas) {
+    return;
+  }
+
+  const img = new Image();
+  img.src = src;
+
+  img.onload = () => {
+    const { width: paletteWidth, height: paletteHeight } = getPaletteViewportSize();
+
+    frameWidth = img.naturalWidth;
+    frameHeight = img.naturalHeight;
+
+    frameCanvas.width = frameWidth;
+    frameCanvas.height = frameHeight;
+    paletteCanvas.width = paletteWidth;
+    paletteCanvas.height = paletteHeight;
+
+    frameContext.drawImage(img, 0, 0, frameWidth, frameHeight);
+
+    const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+
+    buildSampleGrid();
+    updateSamplePointSizes();
+
+    const { colors, chosenIndices } = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
+
+    markChosenSquares(chosenIndices);
+    renderPaletteBars(paletteContext, colors, paletteCanvas.width, paletteCanvas.height);
+    renderOutputSwatches(outputPalette, colors);
+
+    // Show the test image in the camera preview and output photo
+    cameraFeed.setAttribute('poster', src);
+    cameraFeed.style.objectFit = 'cover';
+    photoOutput.setAttribute('src', exportPhotoData(frameCanvas, frameWidth, frameHeight));
+
+    console.log('Test image palette:', colors);
+  };
+}
+
+// loadTestImage('assets/img/test-img.webp');

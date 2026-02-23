@@ -89,6 +89,7 @@
   }
 
   .camera-preview-dock {
+    position: relative;
     width: 5.75rem;
     aspect-ratio: 4 / 3;
     flex-shrink: 0;

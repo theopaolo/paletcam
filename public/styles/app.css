@@ -38,7 +38,9 @@ body {
 }
 
 .capture.is-preview-expanded {
-  grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  /* grid-template-rows: minmax(0, 2fr) minmax(0, 1fr); */
+  grid-template-rows:1fr;
+
 }
 
 .capture-palette-stage {
@@ -63,6 +65,7 @@ body {
 }
 
 .camera-stage-mount {
+  position: relative;
   width: 100%;
   height: 100%;
 }
@@ -99,6 +102,43 @@ body {
 
 #canvas {
   display: none;
+}
+
+.sample-row-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.sample-row-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  transform: translateY(-0.5px);
+}
+
+.sample-row-point {
+  position: absolute;
+  width: var(--sample-size, 6px);
+  height: var(--sample-size, 6px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translate(-50%, -50%);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sample-row-point.is-chosen {
+  border-color: rgba(255, 200, 0, 0.85);
+  background: rgba(255, 200, 0, 0.18);
+}
+
+.camera-preview-dock .sample-row-line {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 #canvas-palette {
