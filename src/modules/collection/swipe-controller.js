@@ -6,7 +6,6 @@ export function createSwipeController({
   swipeStartThreshold,
   swipeOpenRatio,
   magneticSnapResetMs,
-  triggerHapticTick,
   getActiveController,
   closeActiveController,
   setActiveController,
@@ -117,7 +116,6 @@ export function createSwipeController({
 
     const openRightThreshold = -rightActionWidth * swipeOpenRatio;
     if (currentOffset <= openRightThreshold && !hasTickedDeleteThreshold) {
-      triggerHapticTick();
       hasTickedDeleteThreshold = true;
     }
   });
@@ -147,9 +145,6 @@ export function createSwipeController({
     }
 
     if (currentOffset <= openRightThreshold) {
-      if (!hasTickedDeleteThreshold) {
-        triggerHapticTick();
-      }
       snapTo(-rightActionWidth);
       return;
     }

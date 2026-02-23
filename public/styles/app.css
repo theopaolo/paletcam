@@ -157,31 +157,7 @@ body {
 .output-swatch {
   flex: 1;
   height: 100%;
-  cursor: pointer;
-  transition: transform 0.2s;
   flex-shrink: 0;
-}
-
-.output-copy-mode-toggle {
-  display: none;
-  position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
-  z-index: 3;
-  border: 1px solid rgba(240, 240, 240, 0.34);
-  border-radius: 3px;
-  padding: 0.17rem 0.5rem 0.2rem;
-  font-size: 0.5rem;
-  line-height: 1;
-  text-transform: uppercase;
-  color: rgba(240, 240, 240, 0.86);
-  background: rgba(15, 15, 15, 0.6);
-  backdrop-filter: blur(3px);
-  cursor: pointer;
-}
-
-.output-copy-mode-toggle:active {
-  transform: scale(0.96);
 }
 
 .output-palette.is-empty {

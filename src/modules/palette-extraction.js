@@ -1,3 +1,5 @@
+import { toRgbCss } from "./color-format.js";
+
 const MIN_SWATCH_COUNT = 1;
 const COLOR_DISTANCE_THRESHOLD = 12;
 
@@ -7,10 +9,6 @@ function clampSwatchCount(swatchCount) {
 
 function buildRgbColor(red, green, blue) {
   return { r: red, g: green, b: blue };
-}
-
-export function toRgbCss(color) {
-  return `rgb(${color.r}, ${color.g}, ${color.b})`;
 }
 
 export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount) {

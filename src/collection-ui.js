@@ -1,6 +1,7 @@
 import { getSavedPalettes } from "./palette-storage.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import { createPaletteCard } from "./modules/collection/palette-card.js";
+import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { createSwipeController } from "./modules/collection/swipe-controller.js";
 
@@ -13,7 +14,6 @@ const LEFT_ACTION_WIDTH = 0;
 const RIGHT_ACTION_WIDTH = QUICK_ACTION_WIDTH * 2;
 const SWIPE_START_THRESHOLD = 8;
 const SWIPE_OPEN_RATIO = 0.38;
-const DELETE_SWIPE_HAPTIC_MS = 11;
 const EMPTY_MESSAGE_TEXT = "Aucune palette enregistree pour le moment";
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
@@ -45,140 +45,6 @@ function closeActiveSwipeController() {
   activeSwipeController.close();
 }
 
-function triggerHapticTick(durationMs = DELETE_SWIPE_HAPTIC_MS) {
-  if (
-    typeof navigator === "undefined" || typeof navigator.vibrate !== "function"
-  ) {
-    return;
-  }
-
-  navigator.vibrate(durationMs);
-}
-
-function removeEmptyMessage() {
-  const message = collectionGrid?.querySelector(".empty-message");
-  message?.remove();
-}
-
-function ensureEmptyMessage() {
-  if (!collectionGrid) {
-    return;
-  }
-
-  const hasCard = Boolean(collectionGrid.querySelector(".palette-card"));
-  if (hasCard) {
-    removeEmptyMessage();
-    return;
-  }
-
-  if (collectionGrid.querySelector(".empty-message")) {
-    return;
-  }
-
-  const message = document.createElement("p");
-  message.className = "empty-message";
-  message.textContent = EMPTY_MESSAGE_TEXT;
-  collectionGrid.appendChild(message);
-}
-
-function updateSessionCardCount(sessionElement) {
-  if (!sessionElement) {
-    return 0;
-  }
-
-  const sessionBody = sessionElement.querySelector(".collection-session-body");
-  const countElement = sessionElement.querySelector(
-    ".collection-session-count",
-  );
-
-  if (!sessionBody || !countElement) {
-    return 0;
-  }
-
-  const cardCount = sessionBody.querySelectorAll(".palette-card").length;
-  countElement.textContent = String(cardCount);
-  return cardCount;
-}
-
-function updateDayCardCount(dayElement) {
-  if (!dayElement) {
-    return 0;
-  }
-
-  const countElement = dayElement.querySelector(".collection-day-count");
-  if (!countElement) {
-    return 0;
-  }
-
-  const cardCount = dayElement.querySelectorAll(".palette-card").length;
-  countElement.textContent = String(cardCount);
-  return cardCount;
-}
-
-function syncSessionStateFromCardContainer(cardContainer) {
-  const sessionElement = cardContainer?.closest(".collection-session");
-
-  if (!sessionElement) {
-    ensureEmptyMessage();
-    return;
-  }
-
-  const dayElement = sessionElement.closest(".collection-day");
-  const cardCount = updateSessionCardCount(sessionElement);
-
-  if (cardCount === 0) {
-    const sessionId = sessionElement.dataset.sessionId;
-    if (sessionId) {
-      collapsedSessionIds.delete(sessionId);
-    }
-
-    sessionElement.remove();
-  }
-
-  if (!dayElement) {
-    ensureEmptyMessage();
-    return;
-  }
-
-  const dayCount = updateDayCardCount(dayElement);
-  if (dayCount > 0) {
-    removeEmptyMessage();
-    return;
-  }
-
-  dayElement.remove();
-  ensureEmptyMessage();
-}
-
-function takeCardPositionSnapshot(card) {
-  return {
-    parent: card.parentElement,
-    nextSibling: card.nextSibling,
-  };
-}
-
-function restoreCardFromSnapshot(card, snapshot) {
-  if (!collectionGrid || card.isConnected) {
-    return;
-  }
-
-  removeEmptyMessage();
-
-  const { parent, nextSibling } = snapshot;
-  if (!parent || !parent.isConnected) {
-    void loadCollectionUi();
-    return;
-  }
-
-  if (nextSibling && nextSibling.parentElement === parent) {
-    parent.insertBefore(card, nextSibling);
-  } else {
-    parent.appendChild(card);
-  }
-
-  syncSessionStateFromCardContainer(parent);
-}
-
 function createCollectionSwipeController({ card, track }) {
   return createSwipeController({
     card,
@@ -188,7 +54,6 @@ function createCollectionSwipeController({ card, track }) {
     swipeStartThreshold: SWIPE_START_THRESHOLD,
     swipeOpenRatio: SWIPE_OPEN_RATIO,
     magneticSnapResetMs: MAGNETIC_SNAP_RESET_MS,
-    triggerHapticTick,
     getActiveController: () => activeSwipeController,
     closeActiveController: closeActiveSwipeController,
     setActiveController: setActiveSwipeController,
@@ -196,17 +61,25 @@ function createCollectionSwipeController({ card, track }) {
   });
 }
 
+const cardLifecycle = createCollectionCardLifecycle({
+  collectionGrid,
+  emptyMessageText: EMPTY_MESSAGE_TEXT,
+  collapsedSessionIds,
+  reloadCollectionUi: () => loadCollectionUi(),
+});
+
 function createCollectionPaletteCard(palette) {
   return createPaletteCard({
     palette,
     createSwipeController: createCollectionSwipeController,
     pendingDeletionIds,
     deleteUndoDurationMs: DELETE_UNDO_DURATION_MS,
-    takeCardPositionSnapshot,
-    restoreCardFromSnapshot,
-    syncSessionStateFromCardContainer,
+    takeCardPositionSnapshot: cardLifecycle.takeCardPositionSnapshot,
+    restoreCardFromSnapshot: cardLifecycle.restoreCardFromSnapshot,
+    syncSessionStateFromCardContainer:
+      cardLifecycle.syncSessionStateFromCardContainer,
     clearActiveSwipeController,
-    ensureEmptyMessage,
+    ensureEmptyMessage: cardLifecycle.ensureEmptyMessage,
   });
 }
 
