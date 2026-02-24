@@ -8,6 +8,10 @@ import { PALETTE_EXTRACTION_ALGORITHMS } from './modules/palette-extraction.js';
 const settingsPanel = document.querySelector('.settings-panel');
 const openSettingsButton = document.querySelector('.btn-open-settings');
 const closeSettingsButton = document.querySelector('.btn-close-settings');
+const SETTINGS_PANEL_HIDE_DELAY_MS = 380;
+const integerFormatter = new Intl.NumberFormat('en-US');
+let settingsPanelHideTimeoutId = 0;
+let settingsPanelOpenFrameId = 0;
 const algorithmButtons = Array.from(
   document.querySelectorAll('[data-settings-algorithm]')
 );
@@ -25,7 +29,7 @@ function clampInteger(value, fallbackValue) {
 }
 
 function formatThousands(value) {
-  return new Intl.NumberFormat('en-US').format(clampInteger(value, 0));
+  return integerFormatter.format(clampInteger(value, 0));
 }
 
 function formatCompactThousands(value) {
@@ -261,14 +265,55 @@ function renderSettingsUi(settings) {
   syncAlgorithmPanels(activeAlgorithm);
 }
 
+function clearSettingsPanelHideTimeout() {
+  if (!settingsPanelHideTimeoutId) {
+    return;
+  }
+
+  window.clearTimeout(settingsPanelHideTimeoutId);
+  settingsPanelHideTimeoutId = 0;
+}
+
+function cancelPendingSettingsPanelOpen() {
+  if (!settingsPanelOpenFrameId) {
+    return;
+  }
+
+  window.cancelAnimationFrame(settingsPanelOpenFrameId);
+  settingsPanelOpenFrameId = 0;
+}
+
+function finalizeSettingsPanelHidden() {
+  if (!settingsPanel || settingsPanel.classList.contains('visible')) {
+    return;
+  }
+
+  settingsPanel.hidden = true;
+}
+
+function scheduleSettingsPanelHide() {
+  clearSettingsPanelHideTimeout();
+  settingsPanelHideTimeoutId = window.setTimeout(() => {
+    settingsPanelHideTimeoutId = 0;
+    finalizeSettingsPanelHidden();
+  }, SETTINGS_PANEL_HIDE_DELAY_MS);
+}
+
 function openSettingsPanel() {
   if (!settingsPanel) {
     return;
   }
 
+  clearSettingsPanelHideTimeout();
+  cancelPendingSettingsPanelOpen();
   document.querySelector('.collection-panel')?.classList.remove('visible');
-  settingsPanel.classList.add('visible');
+  settingsPanel.hidden = false;
   settingsPanel.setAttribute('aria-hidden', 'false');
+
+  settingsPanelOpenFrameId = window.requestAnimationFrame(() => {
+    settingsPanelOpenFrameId = 0;
+    settingsPanel.classList.add('visible');
+  });
 }
 
 function closeSettingsPanel() {
@@ -276,8 +321,10 @@ function closeSettingsPanel() {
     return;
   }
 
+  cancelPendingSettingsPanelOpen();
   settingsPanel.classList.remove('visible');
   settingsPanel.setAttribute('aria-hidden', 'true');
+  scheduleSettingsPanelHide();
 }
 
 function bindSettingsPanelEvents() {
@@ -285,8 +332,20 @@ function bindSettingsPanelEvents() {
     return;
   }
 
+  settingsPanel.hidden = true;
+  settingsPanel.setAttribute('aria-hidden', 'true');
+  settingsPanel.classList.remove('visible');
+
   openSettingsButton.addEventListener('click', openSettingsPanel);
   closeSettingsButton.addEventListener('click', closeSettingsPanel);
+
+  settingsPanel.addEventListener('transitionend', (event) => {
+    if (event.target !== settingsPanel || event.propertyName !== 'right') {
+      return;
+    }
+
+    finalizeSettingsPanelHidden();
+  });
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || !settingsPanel.classList.contains('visible')) {

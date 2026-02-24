@@ -312,6 +312,9 @@ function bindCollectionUiEvents() {
     const settingsPanel = document.querySelector(".settings-panel");
     settingsPanel?.classList.remove("visible");
     settingsPanel?.setAttribute("aria-hidden", "true");
+    if (settingsPanel) {
+      settingsPanel.hidden = true;
+    }
     collectionPanel.classList.add("visible");
     await loadCollectionUi();
   });

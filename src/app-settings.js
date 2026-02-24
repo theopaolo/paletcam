@@ -11,6 +11,7 @@ import {
 import { DEFAULT_PALETTE_SCORING_SETTINGS } from './modules/palette-scoring.js';
 
 const SETTINGS_STORAGE_KEY = 'paletcam:settings:v1';
+const GLOBAL_SETTINGS_STORE_KEY = '__paletcamAppSettingsStore__';
 const GRID_ROW_COUNT_RANGE = { min: 2, max: 12 };
 const GRID_COL_COUNT_RANGE = { min: 2, max: 20 };
 const GRID_SAMPLE_RADIUS_RANGE = { min: 1, max: 12 };
@@ -38,8 +39,23 @@ const DEFAULT_SETTINGS = Object.freeze({
   }),
 });
 
-const settingsListeners = new Set();
-let currentSettings = loadSettings();
+function getGlobalSettingsStore() {
+  const host = globalThis;
+
+  if (!host[GLOBAL_SETTINGS_STORE_KEY]) {
+    host[GLOBAL_SETTINGS_STORE_KEY] = {
+      currentSettings: null,
+      listeners: new Set(),
+    };
+  }
+
+  return host[GLOBAL_SETTINGS_STORE_KEY];
+}
+
+const settingsStore = getGlobalSettingsStore();
+if (!settingsStore.currentSettings) {
+  settingsStore.currentSettings = loadSettings();
+}
 
 function clampPhotoExportQuality(value) {
   const numericValue = Number(value);
@@ -202,7 +218,7 @@ function loadSettings() {
 
 function notifySettingsListeners() {
   const snapshot = getAppSettings();
-  settingsListeners.forEach((listener) => {
+  settingsStore.listeners.forEach((listener) => {
     try {
       listener(snapshot);
     } catch (error) {
@@ -222,37 +238,37 @@ export function getDefaultAppSettings() {
 
 export function getAppSettings() {
   return {
-    ...currentSettings,
-    grid: { ...currentSettings.grid },
-    medianCut: { ...currentSettings.medianCut },
-    paletteScoring: { ...currentSettings.paletteScoring },
+    ...settingsStore.currentSettings,
+    grid: { ...settingsStore.currentSettings.grid },
+    medianCut: { ...settingsStore.currentSettings.medianCut },
+    paletteScoring: { ...settingsStore.currentSettings.paletteScoring },
   };
 }
 
 export function updateAppSettings(partialSettings) {
   const nextSettings = normalizeSettings({
-    ...currentSettings,
+    ...settingsStore.currentSettings,
     ...partialSettings,
     grid: {
-      ...currentSettings.grid,
+      ...settingsStore.currentSettings.grid,
       ...(partialSettings?.grid ?? {}),
     },
     medianCut: {
-      ...currentSettings.medianCut,
+      ...settingsStore.currentSettings.medianCut,
       ...(partialSettings?.medianCut ?? {}),
     },
     paletteScoring: {
-      ...currentSettings.paletteScoring,
+      ...settingsStore.currentSettings.paletteScoring,
       ...(partialSettings?.paletteScoring ?? {}),
     },
   });
 
-  if (areSettingsEqual(nextSettings, currentSettings)) {
+  if (areSettingsEqual(nextSettings, settingsStore.currentSettings)) {
     return getAppSettings();
   }
 
-  currentSettings = nextSettings;
-  persistSettings(currentSettings);
+  settingsStore.currentSettings = nextSettings;
+  persistSettings(settingsStore.currentSettings);
   notifySettingsListeners();
 
   return getAppSettings();
@@ -263,9 +279,9 @@ export function subscribeAppSettings(listener) {
     return () => {};
   }
 
-  settingsListeners.add(listener);
+  settingsStore.listeners.add(listener);
   return () => {
-    settingsListeners.delete(listener);
+    settingsStore.listeners.delete(listener);
   };
 }
 
