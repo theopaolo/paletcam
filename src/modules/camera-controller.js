@@ -1,4 +1,6 @@
 const DEFAULT_ZOOM_STEP = 0.1;
+const IDEAL_CAMERA_WIDTH = 1920;
+const IDEAL_CAMERA_HEIGHT = 1080;
 
 export function createCameraController({
   cameraFeed,
@@ -93,7 +95,11 @@ export function createCameraController({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
+        video: {
+          facingMode,
+          width: { ideal: IDEAL_CAMERA_WIDTH },
+          height: { ideal: IDEAL_CAMERA_HEIGHT },
+        },
         audio: false,
       });
 

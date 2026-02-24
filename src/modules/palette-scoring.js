@@ -1,4 +1,59 @@
 const MAX_RGB_DISTANCE = Math.hypot(255, 255, 255);
+export const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
+  chromaWeight: 25,
+  lumaSpreadWeight: 15,
+  rarityWeight: 20,
+  diversityWeight: 40,
+});
+
+function clampNonNegativeNumber(value, fallbackValue) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    return fallbackValue;
+  }
+
+  return numericValue;
+}
+
+export function createPaletteScoringProfile(options = null) {
+  const chromaWeight = clampNonNegativeNumber(
+    options?.chromaWeight,
+    DEFAULT_PALETTE_SCORING_SETTINGS.chromaWeight
+  );
+  const lumaSpreadWeight = clampNonNegativeNumber(
+    options?.lumaSpreadWeight,
+    DEFAULT_PALETTE_SCORING_SETTINGS.lumaSpreadWeight
+  );
+  const rarityWeight = clampNonNegativeNumber(
+    options?.rarityWeight,
+    DEFAULT_PALETTE_SCORING_SETTINGS.rarityWeight
+  );
+  const diversityWeight = clampNonNegativeNumber(
+    options?.diversityWeight,
+    DEFAULT_PALETTE_SCORING_SETTINGS.diversityWeight
+  );
+
+  const totalWeight = chromaWeight + lumaSpreadWeight + rarityWeight + diversityWeight;
+  if (totalWeight <= 0) {
+    return createPaletteScoringProfile(DEFAULT_PALETTE_SCORING_SETTINGS);
+  }
+
+  return {
+    __paletteScoringProfile: true,
+    chromaWeight: chromaWeight / totalWeight,
+    lumaSpreadWeight: lumaSpreadWeight / totalWeight,
+    rarityWeight: rarityWeight / totalWeight,
+    diversityWeight: diversityWeight / totalWeight,
+  };
+}
+
+function getPaletteScoringProfile(profileOrOptions) {
+  if (profileOrOptions?.__paletteScoringProfile) {
+    return profileOrOptions;
+  }
+
+  return createPaletteScoringProfile(profileOrOptions);
+}
 
 export function rgbToHsl(color) {
   let h = 0;
@@ -56,7 +111,8 @@ function getHueRarity(hsl, rarityMap) {
 
 
 // Score a candidate color: higher = more interesting
-export function scoreCandidate(candidate, chosenColors, rarityMap) {
+export function scoreCandidate(candidate, chosenColors, rarityMap, scoringOptions = null) {
+  const scoringProfile = getPaletteScoringProfile(scoringOptions);
   const hsl = rgbToHsl(candidate);
 
   // Saturation: vivid colors score higher
@@ -83,8 +139,8 @@ export function scoreCandidate(candidate, chosenColors, rarityMap) {
     diversityScore = Math.min(1, minDistance / MAX_RGB_DISTANCE);
   }
 
-  return 0.25 * chromaScore
-       + 0.15 * lumaSpreadScore
-       + 0.2 * rarityScore
-       + 0.4 * diversityScore;
+  return (scoringProfile.chromaWeight * chromaScore)
+       + (scoringProfile.lumaSpreadWeight * lumaSpreadScore)
+       + (scoringProfile.rarityWeight * rarityScore)
+       + (scoringProfile.diversityWeight * diversityScore);
 }

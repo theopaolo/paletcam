@@ -63,11 +63,27 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
       frameWidth,
       frameHeight,
       swatchCount,
-      typeof options === "object" && options ? options.medianCut : undefined
+      typeof options === "object" && options
+        ? {
+            ...(options.medianCut ?? {}),
+            scoring: options.scoring,
+          }
+        : undefined
     );
   }
 
-  return extractGridPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
+  return extractGridPaletteColors(
+    imageData,
+    frameWidth,
+    frameHeight,
+    swatchCount,
+    typeof options === "object" && options
+      ? {
+          ...(options.grid ?? {}),
+          scoring: options.scoring,
+        }
+      : undefined
+  );
 }
 
 export { SAMPLE_COL_COUNT, SAMPLE_DIAMETER, SAMPLE_RADIUS, SAMPLE_ROW_COUNT };

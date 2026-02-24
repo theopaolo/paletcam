@@ -128,14 +128,14 @@
   }
 
   .btn-rotate,
-  .btn-view-collection {
+  .btn-view-collection{
     svg {
       transition: transform 0.2s;
     }
   }
 
   .btn-rotate:hover,
-  .btn-view-collection:hover {
+  .btn-view-collection:hover{
     cursor: pointer;
     svg {
       transform: rotate(-16deg);
@@ -283,14 +283,14 @@ body.is-preview-expanded .camera-preview-dock {
 }
 
 .btn-small, .counter {
-  border-color: #9d7b00 !important;
-  color: #5a5336 !important;
+  border-color: #9d7b00;
+  color: #5a5336;
   text-shadow: 0px 1px 0px #ffc800;
 }
 
 .btn-small:hover {
-  background-color: var(--accent-color) !important;
-  color: var(--primary-color) !important;
+  background-color: var(--accent-color);
+  color: var(--primary-color);
 }
 
 .btn-small:active {
@@ -308,4 +308,18 @@ body.is-preview-expanded .camera-preview-dock {
   transition: all 0.2s;
   flex: 1;
   min-height: 44px;
+}
+
+
+.btn-open-settings {
+  background-color: transparent;
+  border: transparent;
+  color: var(--secondary-color);
+  cursor: pointer;
+  width: fit-content;
+
+  & svg {
+    fill: var(--secondary-color);
+    transition: transform 0.2s ease;
+  }
 }

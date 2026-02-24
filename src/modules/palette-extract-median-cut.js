@@ -1,12 +1,16 @@
 import { ColorCutQuantizer } from './color-cut-quantizer.js';
 import { packImageDataToArgb8888 } from './palette-pixel-pack.js';
-import { buildHueRarityMap, scoreCandidate } from './palette-scoring.js';
+import {
+  buildHueRarityMap,
+  createPaletteScoringProfile,
+  scoreCandidate,
+} from './palette-scoring.js';
 
 const MIN_SWATCH_COUNT = 1;
-const DEFAULT_QUANTIZED_POOL_SIZE = 16;
+export const DEFAULT_QUANTIZED_POOL_SIZE = 16;
 const QUANTIZED_POOL_MULTIPLIER = 3;
 const MAX_QUANTIZED_POOL_SIZE = 24;
-const DEFAULT_MAX_QUANTIZER_PIXELS = 12_000;
+export const DEFAULT_MAX_QUANTIZER_PIXELS = 12_000;
 const POPULATION_WEIGHT = 0.15;
 const BASE_SCORE_WEIGHT = 1 - POPULATION_WEIGHT;
 
@@ -50,14 +54,14 @@ function getPopulationScore(population, maxPopulation) {
   return Math.log1p(population) / Math.log1p(maxPopulation);
 }
 
-function scoreMedianCutCandidate(candidate, chosenColors, rarityMap, maxPopulation) {
-  const baseScore = scoreCandidate(candidate, chosenColors, rarityMap);
+function scoreMedianCutCandidate(candidate, chosenColors, rarityMap, maxPopulation, scoringProfile) {
+  const baseScore = scoreCandidate(candidate, chosenColors, rarityMap, scoringProfile);
   const populationScore = getPopulationScore(candidate.population ?? 0, maxPopulation);
 
   return (BASE_SCORE_WEIGHT * baseScore) + (POPULATION_WEIGHT * populationScore);
 }
 
-function rankQuantizedCandidates(candidatePool, swatchCount) {
+function rankQuantizedCandidates(candidatePool, swatchCount, scoringProfile) {
   const chosenColors = [];
   const used = new Set();
   const rarityMap = buildHueRarityMap(candidatePool);
@@ -76,7 +80,13 @@ function rankQuantizedCandidates(candidatePool, swatchCount) {
       }
 
       const candidate = candidatePool[i];
-      const score = scoreMedianCutCandidate(candidate, chosenColors, rarityMap, maxPopulation);
+      const score = scoreMedianCutCandidate(
+        candidate,
+        chosenColors,
+        rarityMap,
+        maxPopulation,
+        scoringProfile
+      );
       if (score > bestScore) {
         bestScore = score;
         bestIndex = i;
@@ -102,6 +112,7 @@ export function extractMedianCutPaletteColors(
   {
     quantizedPoolSize,
     maxQuantizerPixels = DEFAULT_MAX_QUANTIZER_PIXELS,
+    scoring,
   } = {} ) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
 
@@ -147,6 +158,7 @@ export function extractMedianCutPaletteColors(
     candidatePool.push(candidate);
   }
 
-  const colors = rankQuantizedCandidates(candidatePool, normalizedSwatchCount);
+  const scoringProfile = createPaletteScoringProfile(scoring);
+  const colors = rankQuantizedCandidates(candidatePool, normalizedSwatchCount, scoringProfile);
   return { colors, chosenIndices: [] };
 }

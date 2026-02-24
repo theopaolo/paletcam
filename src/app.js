@@ -18,10 +18,10 @@ import { createSampleGridOverlayController } from './modules/sample-grid-overlay
 import { createSwatchSliderUiController } from './modules/swatch-slider-ui.js';
 import { createVisualEffects } from './modules/visual-effects.js';
 import { createZoomUiController } from './modules/zoom-ui.js';
+import { getAppSettings, subscribeAppSettings } from './app-settings.js';
 import { savePalette } from './palette-storage.js';
 
-const PHOTO_EXPORT_WIDTH = 200;
-const PHOTO_PIXEL_DENSITY = 3;
+const PHOTO_EXPORT_MAX_WIDTH = 1440;
 
 const colorscatcher = document.querySelector('.colorscatcher');
 const cameraFeed = document.querySelector('.camera-feed');
@@ -60,6 +60,10 @@ let isPreviewExpanded = false;
 let extractionFrame = 0;
 let lastExtractedColors = null;
 let lastChosenIndices = [];
+let photoExportQuality = getAppSettings().photoExportQuality;
+let gridExtractionSettings = { ...getAppSettings().grid };
+let medianCutExtractionSettings = { ...getAppSettings().medianCut };
+let paletteScoringSettings = { ...getAppSettings().paletteScoring };
 const EXTRACTION_INTERVAL = 10;
 const captureMicroInteractions = createCaptureMicroInteractions({
   captureButton,
@@ -108,6 +112,38 @@ function getPaletteViewportSize() {
 
 function isGridExtractionMode() {
   return getPaletteExtractionAlgorithm() === PALETTE_EXTRACTION_ALGORITHMS.GRID;
+}
+
+function getPaletteExtractionOptions() {
+  return {
+    algorithm: getPaletteExtractionAlgorithm(),
+    grid: { ...gridExtractionSettings },
+    medianCut: { ...medianCutExtractionSettings },
+    scoring: { ...paletteScoringSettings },
+  };
+}
+
+function applyAppSettings({
+  photoExportQuality: nextPhotoExportQuality,
+  paletteExtractionAlgorithm,
+  grid,
+  medianCut,
+  paletteScoring,
+}) {
+  photoExportQuality = nextPhotoExportQuality;
+  gridExtractionSettings = { ...grid };
+  medianCutExtractionSettings = { ...medianCut };
+  paletteScoringSettings = { ...paletteScoring };
+  setPaletteExtractionAlgorithm(paletteExtractionAlgorithm);
+  sampleGridOverlay.configureGrid({
+    sampleColCount: gridExtractionSettings.sampleColCount,
+    sampleRowCount: gridExtractionSettings.sampleRowCount,
+    sampleDiameter: (gridExtractionSettings.sampleRadius * 2) + 1,
+  });
+  sampleGridOverlay.setVisible(isGridExtractionMode());
+  extractionFrame = 0;
+  lastExtractedColors = null;
+  lastChosenIndices = [];
 }
 
 function mountCameraFeed(targetElement) {
@@ -191,8 +227,7 @@ function initializeApp() {
     return;
   }
 
-  setPaletteExtractionAlgorithm(PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT);
-  sampleGridOverlay.setVisible(isGridExtractionMode());
+  applyAppSettings(getAppSettings());
   setPreviewExpanded(false);
   bindCameraPermissionEvents();
   bindCaptureEvents();
@@ -341,7 +376,8 @@ function refreshPreview() {
       frameImageData,
       frameWidth,
       frameHeight,
-      swatchCount
+      swatchCount,
+      getPaletteExtractionOptions()
     );
 
     lastExtractedColors = result.colors;
@@ -397,9 +433,22 @@ async function captureCurrentFrame() {
   });
 
   const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-  const { colors: paletteColors } = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
+  const { colors: paletteColors } = extractPaletteColors(
+    imageData,
+    frameWidth,
+    frameHeight,
+    swatchCount,
+    getPaletteExtractionOptions()
+  );
 
-  const photoData = exportPhotoData(frameCanvas, frameWidth, frameHeight);
+  const photoData = exportPhotoData({
+    fallbackCanvas: frameCanvas,
+    fallbackWidth: frameWidth,
+    fallbackHeight: frameHeight,
+    cameraFeed,
+    facingMode: cameraController.getFacingMode(),
+    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
+  });
 
   photoOutput.setAttribute('src', photoData);
   renderOutputSwatches(outputPalette, paletteColors);
@@ -413,32 +462,65 @@ async function captureCurrentFrame() {
   }
 }
 
-function exportPhotoData(sourceCanvas, sourceWidth, sourceHeight) {
+function exportPhotoData({
+  fallbackCanvas,
+  fallbackWidth,
+  fallbackHeight,
+  cameraFeed,
+  facingMode,
+  shouldMirrorUserFacing,
+}) {
   const photoCanvas = document.createElement('canvas');
   const photoContext = photoCanvas.getContext('2d');
 
   if (!photoContext) {
-    return sourceCanvas.toDataURL('image/webp', 0.9);
+    return fallbackCanvas.toDataURL('image/webp', photoExportQuality);
   }
 
-  const photoHeight = (sourceHeight / sourceWidth) * PHOTO_EXPORT_WIDTH;
-
-  photoCanvas.width = PHOTO_EXPORT_WIDTH * PHOTO_PIXEL_DENSITY;
-  photoCanvas.height = photoHeight * PHOTO_PIXEL_DENSITY;
-
-  photoContext.drawImage(
-    sourceCanvas,
-    0,
-    0,
-    sourceWidth,
-    sourceHeight,
-    0,
-    0,
-    photoCanvas.width,
-    photoCanvas.height
+  const hasNativeVideoFrame = Boolean(
+    cameraFeed &&
+    cameraFeed.videoWidth > 0 &&
+    cameraFeed.videoHeight > 0
   );
+  const sourceWidth = hasNativeVideoFrame ? cameraFeed.videoWidth : fallbackWidth;
+  const sourceHeight = hasNativeVideoFrame ? cameraFeed.videoHeight : fallbackHeight;
 
-  return photoCanvas.toDataURL('image/webp', 0.9);
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    return fallbackCanvas.toDataURL('image/webp', photoExportQuality);
+  }
+
+  const photoWidth = Math.min(sourceWidth, PHOTO_EXPORT_MAX_WIDTH);
+  const photoHeight = Math.max(1, Math.round((sourceHeight / sourceWidth) * photoWidth));
+
+  photoCanvas.width = photoWidth;
+  photoCanvas.height = photoHeight;
+  photoContext.imageSmoothingEnabled = true;
+  photoContext.imageSmoothingQuality = 'high';
+
+  if (hasNativeVideoFrame) {
+    drawFrameToCanvas({
+      context: photoContext,
+      cameraFeed,
+      width: photoWidth,
+      height: photoHeight,
+      facingMode,
+      shouldMirrorUserFacing,
+    });
+  } else {
+    photoContext.drawImage(
+      fallbackCanvas,
+      0,
+      0,
+      fallbackWidth,
+      fallbackHeight,
+      0,
+      0,
+      photoWidth,
+      photoHeight
+    );
+  }
+
+  return photoCanvas.toDataURL('image/webp', photoExportQuality);
 }
 
 function stopCurrentStream() {
@@ -450,6 +532,7 @@ function stopCurrentStream() {
 }
 
 window.addEventListener('beforeunload', stopCurrentStream);
+subscribeAppSettings(applyAppSettings);
 
 initializeApp();
 
@@ -487,7 +570,13 @@ function _loadTestImage(src) {
       sampleGridOverlay.setVisible(false);
     }
 
-    const { colors, chosenIndices } = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
+    const { colors, chosenIndices } = extractPaletteColors(
+      imageData,
+      frameWidth,
+      frameHeight,
+      swatchCount,
+      getPaletteExtractionOptions()
+    );
 
     if (isGridMode) {
       sampleGridOverlay.markChosenSquares(chosenIndices);
@@ -498,7 +587,14 @@ function _loadTestImage(src) {
     // Show the test image in the camera preview and output photo
     cameraFeed.setAttribute('poster', src);
     cameraFeed.style.objectFit = 'cover';
-    photoOutput.setAttribute('src', exportPhotoData(frameCanvas, frameWidth, frameHeight));
+    photoOutput.setAttribute('src', exportPhotoData({
+      fallbackCanvas: frameCanvas,
+      fallbackWidth: frameWidth,
+      fallbackHeight: frameHeight,
+      cameraFeed,
+      facingMode: cameraController.getFacingMode(),
+      shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
+    }));
 
     console.log('Test image palette:', colors);
   };

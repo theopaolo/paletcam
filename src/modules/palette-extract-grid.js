@@ -1,4 +1,8 @@
-import { buildHueRarityMap, scoreCandidate } from './palette-scoring.js';
+import {
+  buildHueRarityMap,
+  createPaletteScoringProfile,
+  scoreCandidate,
+} from './palette-scoring.js';
 
 const MIN_SWATCH_COUNT = 1;
 
@@ -9,6 +13,15 @@ export const SAMPLE_DIAMETER = (SAMPLE_RADIUS * 2) + 1;
 
 function clampSwatchCount(swatchCount) {
   return Math.max(MIN_SWATCH_COUNT, Number(swatchCount) || MIN_SWATCH_COUNT);
+}
+
+function clampPositiveInteger(value, fallbackValue) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return fallbackValue;
+  }
+
+  return Math.floor(numericValue);
 }
 
 function buildRgbColor(red, green, blue) {
@@ -45,8 +58,22 @@ function sampleBlock(imageData, frameWidth, frameHeight, centerX, centerY, radiu
   );
 }
 
-export function extractGridPaletteColors(imageData, frameWidth, frameHeight, swatchCount) {
+export function extractGridPaletteColors(
+  imageData,
+  frameWidth,
+  frameHeight,
+  swatchCount,
+  {
+    sampleRowCount = SAMPLE_ROW_COUNT,
+    sampleColCount = SAMPLE_COL_COUNT,
+    sampleRadius = SAMPLE_RADIUS,
+    scoring,
+  } = {}
+) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
+  const effectiveSampleRowCount = clampPositiveInteger(sampleRowCount, SAMPLE_ROW_COUNT);
+  const effectiveSampleColCount = clampPositiveInteger(sampleColCount, SAMPLE_COL_COUNT);
+  const effectiveSampleRadius = clampPositiveInteger(sampleRadius, SAMPLE_RADIUS);
 
   if (!imageData || frameWidth <= 0 || frameHeight <= 0) {
     return { colors: [], chosenIndices: [] };
@@ -54,27 +81,28 @@ export function extractGridPaletteColors(imageData, frameWidth, frameHeight, swa
 
   // Build evenly-spaced sample rows
   const sampleRows = [];
-  for (let i = 0; i < SAMPLE_ROW_COUNT; i++) {
-    sampleRows.push(Math.floor((frameHeight * (i + 1)) / (SAMPLE_ROW_COUNT + 1)));
+  for (let i = 0; i < effectiveSampleRowCount; i++) {
+    sampleRows.push(Math.floor((frameHeight * (i + 1)) / (effectiveSampleRowCount + 1)));
   }
 
 
-  // Phase 1: Collect all candidates from a fixed grid (SAMPLE_COL_COUNT × SAMPLE_ROW_COUNT)
+  // Phase 1: Collect all candidates from a fixed grid (sampleColCount × sampleRowCount)
   const candidatePool = [];
-  for (let col = 0; col < SAMPLE_COL_COUNT; col++) {
+  for (let col = 0; col < effectiveSampleColCount; col++) {
     const sampleX = Math.floor(
-      (frameWidth / SAMPLE_COL_COUNT) * col +
-        frameWidth / (SAMPLE_COL_COUNT * 2)
+      (frameWidth / effectiveSampleColCount) * col +
+        frameWidth / (effectiveSampleColCount * 2)
     );
 
     for (const rowY of sampleRows) {
       candidatePool.push(
-        sampleBlock(imageData, frameWidth, frameHeight, sampleX, rowY, SAMPLE_RADIUS)
+        sampleBlock(imageData, frameWidth, frameHeight, sampleX, rowY, effectiveSampleRadius)
       );
     }
   }
 
   // Phase 2: Greedy selection from the full pool — pick the best, then repeat
+  const scoringProfile = createPaletteScoringProfile(scoring);
   const rarityMap = buildHueRarityMap(candidatePool);
   const maxPickCount = Math.min(normalizedSwatchCount, candidatePool.length);
   const chosenColors = [];
@@ -87,7 +115,7 @@ export function extractGridPaletteColors(imageData, frameWidth, frameHeight, swa
 
     for (let i = 0; i < candidatePool.length; i++) {
       if (used.has(i)) continue;
-      const score = scoreCandidate(candidatePool[i], chosenColors, rarityMap);
+      const score = scoreCandidate(candidatePool[i], chosenColors, rarityMap, scoringProfile);
       if (score > bestScore) {
         bestScore = score;
         bestIndex = i;

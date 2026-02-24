@@ -93,7 +93,7 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
   const stepValue = Number(sliderElement.step);
   const step = Number.isFinite(stepValue) && stepValue > 0 ? stepValue : 1;
   const clampedCount = Math.min(Math.max(swatchCount, minValue), maxValue);
-  sliderElement.setAttribute('aria-label', `Echantillons: ${formatScaleValue(clampedCount)}`);
+  sliderElement.setAttribute('aria-label', `Nombre de couleurs : ${formatScaleValue(clampedCount)}`);
   const tickCount = Math.max(1, Math.floor(((maxValue - minValue) / step) + Number.EPSILON) + 1);
   const tickIndex = Math.max(0, Math.floor(((clampedCount - minValue) / step) + Number.EPSILON));
   const tickIntervals = Math.max(1, tickCount - 1);
@@ -104,7 +104,7 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
 
   const countIndicator = sliderWrapper.querySelector('.swatch-count-indicator');
   if (countIndicator) {
-    countIndicator.textContent = `${formatScaleValue(clampedCount)} colors`;
+    countIndicator.textContent = `${formatScaleValue(clampedCount)} couleurs`;
   }
 
   const minIndicator = sliderWrapper.querySelector('.swatch-scale-label-min');
