@@ -53,9 +53,7 @@ header {
 }
 
 .capture.is-preview-expanded {
-  /* grid-template-rows: minmax(0, 2fr) minmax(0, 1fr); */
-  grid-template-rows:1fr;
-
+  grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
 }
 
 .capture-palette-stage {
