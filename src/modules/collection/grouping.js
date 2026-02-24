@@ -1,4 +1,3 @@
-const SESSION_GAP_MS = 30 * 60 * 1000;
 const DAY_DURATION_MS = 24 * 60 * 60 * 1000;
 const SESSION_WEEKDAY_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
   weekday: "long",
@@ -14,26 +13,34 @@ function getPaletteTimestampDate(timestamp) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getDayPeriodLabel(date) {
+function getDayPeriodInfo(date) {
+  if (!date) {
+    return { key: "night", label: "Nuit" };
+  }
+
   const hour = date.getHours();
 
   if (hour < 5) {
-    return "Nuit";
+    return { key: "night", label: "Nuit" };
+  }
+
+  if (hour < 8) {
+    return { key: "early-morning", label: "Petit matin" };
   }
 
   if (hour < 12) {
-    return "Matin";
+    return { key: "morning", label: "Matin" };
   }
 
   if (hour < 17) {
-    return "Après-midi";
+    return { key: "afternoon", label: "Après-midi" };
   }
 
   if (hour < 22) {
-    return "Soirée";
+    return { key: "evening", label: "Soirée" };
   }
 
-  return "Nuit";
+  return { key: "night", label: "Nuit" };
 }
 
 function getDayLabel(date) {
@@ -82,19 +89,10 @@ function getDayKey(date) {
   return `${year}-${month}-${day}`;
 }
 
-function getSessionTitle(date) {
-  if (!date) {
-    return "Session";
-  }
-
-  return getDayPeriodLabel(date);
-}
-
 export function groupPalettesByDay(palettes) {
   const dayGroups = [];
   let currentDay;
-  let currentSession;
-  let previousDate;
+  let sessionsByPeriodKey;
 
   palettes.forEach((palette) => {
     const paletteDate = getPaletteTimestampDate(palette.timestamp);
@@ -111,27 +109,24 @@ export function groupPalettesByDay(palettes) {
         sessions: [],
       };
       dayGroups.push(currentDay);
-      currentSession = undefined;
-      previousDate = undefined;
+      sessionsByPeriodKey = new Map();
     }
 
-    const shouldStartNewSession = !currentSession ||
-      !paletteDate ||
-      !previousDate ||
-      previousDate.getTime() - paletteDate.getTime() > SESSION_GAP_MS;
+    const period = getDayPeriodInfo(paletteDate);
+    let currentSession = sessionsByPeriodKey.get(period.key);
 
-    if (shouldStartNewSession) {
+    if (!currentSession) {
       currentSession = {
-        id: `session-${palette.id}`,
-        title: getSessionTitle(paletteDate),
+        id: `session-${currentDay.key}-${period.key}`,
+        title: period.label,
         palettes: [],
       };
       currentDay.sessions.push(currentSession);
+      sessionsByPeriodKey.set(period.key, currentSession);
     }
 
     currentSession.palettes.push(palette);
     currentDay.paletteCount += 1;
-    previousDate = paletteDate;
   });
 
   return dayGroups;

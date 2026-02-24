@@ -4,6 +4,7 @@ import {
   updateAppSettings,
 } from './app-settings.js';
 import { PALETTE_EXTRACTION_ALGORITHMS } from './modules/palette-extraction.js';
+import { closePaletteViewerOverlay } from './modules/collection/palette-card.js';
 
 const settingsPanel = document.querySelector('.settings-panel');
 const openSettingsButton = document.querySelector('.btn-open-settings');
@@ -307,6 +308,7 @@ function openSettingsPanel() {
 
   clearSettingsPanelHideTimeout();
   cancelPendingSettingsPanelOpen();
+  closePaletteViewerOverlay();
   document.querySelector('.collection-panel')?.classList.remove('visible');
   settingsPanel.hidden = false;
   settingsPanel.setAttribute('aria-hidden', 'false');

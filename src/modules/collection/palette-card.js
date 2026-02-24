@@ -4,28 +4,40 @@ import { showToast, showUndoToast } from "../toast-ui.js";
 
 const EXPORT_BRAND_LABEL_FALLBACK = "Colors Catchers";
 const POLAROID_EXPORT_ASPECT_RATIO = 1.22;
-const POLAROID_EXPORT_MAX_WIDTH = 920;
-const POLAROID_EXPORT_SCALE = 0.72;
+const POLAROID_PREVIEW_MAX_WIDTH = 1080;
+const POLAROID_PREVIEW_SCALE = 0.78;
+const POLAROID_PREVIEW_QUALITY = 0.9;
+const POLAROID_EXPORT_MAX_WIDTH = 1600;
+const POLAROID_EXPORT_SCALE = 1;
+const POLAROID_EXPORT_QUALITY = 0.95;
 const POLAROID_FRAME_SHELL_LIGHT = "#ffffff";
 const POLAROID_FRAME_SHELL_DARK = "#101214";
 const POLAROID_FRAME_FOOTER_LIGHT = "#f7f7f7";
 const POLAROID_FRAME_FOOTER_DARK = "#101214";
 const POLAROID_FOOTER_TEXT_LIGHT = "rgba(34, 34, 34, 0.9)";
 const POLAROID_FOOTER_TEXT_DARK = "rgba(255, 255, 255, 0.94)";
+const PREVIEW_OBSERVER_ROOT_MARGIN = "220px 0px";
+
+const previewAssetCache = new Map();
+let previewRenderQueue = Promise.resolve();
+let paletteViewerOverlayController;
 
 function getBrandLabel() {
   return document.querySelector(".colorscatcher")?.textContent?.trim()
     || EXPORT_BRAND_LABEL_FALLBACK;
 }
 
-function getPolaroidCardWidth(sourceImageWidth) {
+function getPolaroidCardWidth(
+  sourceImageWidth,
+  { maxWidth = POLAROID_EXPORT_MAX_WIDTH, scale = POLAROID_EXPORT_SCALE } = {},
+) {
   return Math.max(
     320,
     Math.round(
       Math.min(
         sourceImageWidth,
-        POLAROID_EXPORT_MAX_WIDTH,
-        sourceImageWidth * POLAROID_EXPORT_SCALE,
+        maxWidth,
+        sourceImageWidth * scale,
       ),
     ),
   );
@@ -68,11 +80,6 @@ function traceRoundedRectPath(context, x, y, width, height, radius) {
 function fillRoundedRect(context, x, y, width, height, radius) {
   traceRoundedRectPath(context, x, y, width, height, radius);
   context.fill();
-}
-
-function _strokeRoundedRect(context, x, y, width, height, radius) {
-  traceRoundedRectPath(context, x, y, width, height, radius);
-  context.stroke();
 }
 
 function drawImageCover({ context, image, x, y, width, height, radius }) {
@@ -135,7 +142,6 @@ function drawPaletteGrid({
   traceRoundedRectPath(context, x, y, width, height, panelRadius);
   context.clip();
 
-  // Render swatches as a single row that fills the entire palette panel.
   paletteColors.forEach((color, index) => {
     const tileX = x + ((width * index) / paletteColors.length);
     const nextTileX = x + ((width * (index + 1)) / paletteColors.length);
@@ -178,15 +184,17 @@ function drawBrandCaption({
   context.restore();
 }
 
-function renderPolaroidExportCanvas({
+function renderPolaroidCanvas({
   canvas,
   context,
   image,
   colors,
   brandLabel,
   darkFrameShell = false,
+  maxWidth = POLAROID_EXPORT_MAX_WIDTH,
+  scale = POLAROID_EXPORT_SCALE,
 }) {
-  const cardWidth = getPolaroidCardWidth(image.width);
+  const cardWidth = getPolaroidCardWidth(image.width, { maxWidth, scale });
   const cardHeight = Math.round(cardWidth * POLAROID_EXPORT_ASPECT_RATIO);
 
   canvas.width = cardWidth;
@@ -217,7 +225,6 @@ function renderPolaroidExportCanvas({
     : POLAROID_FRAME_SHELL_LIGHT;
   fillRoundedRect(context, 0, 0, cardWidth, cardHeight, outerRadius);
 
-  // Footer strip (caption area) uses a super-light gray, while the rest stays white.
   context.fillStyle = darkFrameShell
     ? POLAROID_FRAME_FOOTER_DARK
     : POLAROID_FRAME_FOOTER_LIGHT;
@@ -257,11 +264,205 @@ function renderPolaroidExportCanvas({
   return { width: cardWidth, height: cardHeight };
 }
 
+function canvasToBlob(canvas, { type = "image/webp", quality = 0.92 } = {}) {
+  return new Promise((resolve) => {
+    canvas.toBlob(
+      (blob) => resolve(blob || null),
+      type,
+      quality,
+    );
+  });
+}
+
+async function renderPaletteImageBlob(
+  palette,
+  {
+    darkFrameShell = false,
+    maxWidth = POLAROID_EXPORT_MAX_WIDTH,
+    scale = POLAROID_EXPORT_SCALE,
+    quality = POLAROID_EXPORT_QUALITY,
+  } = {},
+) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context || !palette.photoBlob) {
+    return null;
+  }
+
+  const image = await loadImageFromBlob(palette.photoBlob);
+
+  renderPolaroidCanvas({
+    canvas,
+    context,
+    image,
+    colors: palette.colors,
+    brandLabel: getBrandLabel(),
+    darkFrameShell,
+    maxWidth,
+    scale,
+  });
+
+  const blob = await canvasToBlob(canvas, {
+    type: "image/webp",
+    quality,
+  });
+
+  return blob;
+}
+
+function downloadBlob(blob, filename) {
+  if (!blob) {
+    return false;
+  }
+
+  const link = document.createElement("a");
+  const downloadUrl = URL.createObjectURL(blob);
+
+  link.download = filename;
+  link.href = downloadUrl;
+  link.click();
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(downloadUrl);
+  }, 0);
+
+  return true;
+}
+
+function enqueuePreviewRender(task) {
+  const runTask = previewRenderQueue.catch(() => undefined).then(task);
+  previewRenderQueue = runTask.catch(() => undefined);
+  return runTask;
+}
+
+async function getPalettePreviewAsset(palette) {
+  if (!palette?.photoBlob) {
+    throw new Error("Missing palette photo");
+  }
+
+  const cacheKey = String(palette.id);
+  const cached = previewAssetCache.get(cacheKey);
+
+  if (cached?.blob && cached?.objectUrl) {
+    return cached;
+  }
+
+  if (cached?.promise) {
+    return cached.promise;
+  }
+
+  const promise = enqueuePreviewRender(async () => {
+    const blob = await renderPaletteImageBlob(palette, {
+      maxWidth: POLAROID_PREVIEW_MAX_WIDTH,
+      scale: POLAROID_PREVIEW_SCALE,
+      quality: POLAROID_PREVIEW_QUALITY,
+    });
+
+    if (!blob) {
+      throw new Error("Unable to generate palette preview");
+    }
+
+    const asset = {
+      blob,
+      objectUrl: URL.createObjectURL(blob),
+    };
+
+    previewAssetCache.set(cacheKey, asset);
+    return asset;
+  }).catch((error) => {
+    if (previewAssetCache.get(cacheKey)?.promise === promise) {
+      previewAssetCache.delete(cacheKey);
+    }
+    throw error;
+  });
+
+  previewAssetCache.set(cacheKey, { promise });
+  return promise;
+}
+
+function disposePalettePreviewAsset(paletteId) {
+  const cacheKey = String(paletteId);
+  const cached = previewAssetCache.get(cacheKey);
+
+  if (cached?.objectUrl) {
+    URL.revokeObjectURL(cached.objectUrl);
+  }
+
+  previewAssetCache.delete(cacheKey);
+}
+
+async function exportPaletteAsImage(palette) {
+  try {
+    const blob = await renderPaletteImageBlob(palette, {
+      maxWidth: POLAROID_EXPORT_MAX_WIDTH,
+      scale: POLAROID_EXPORT_SCALE,
+      quality: POLAROID_EXPORT_QUALITY,
+    });
+
+    if (!blob) {
+      return false;
+    }
+
+    return downloadBlob(blob, `palette-${palette.id}.webp`);
+  } catch (error) {
+    console.error("Failed to render export image:", error);
+    return false;
+  }
+}
+
+async function sharePaletteImage(palette) {
+  if (!navigator.share || typeof File !== "function") {
+    return { status: "unsupported" };
+  }
+
+  try {
+    const asset = await getPalettePreviewAsset(palette);
+    const file = new File([asset.blob], `palette-${palette.id}.webp`, {
+      type: asset.blob.type || "image/webp",
+      lastModified: Date.now(),
+    });
+
+    const shareData = {
+      files: [file],
+      title: "Palette",
+    };
+
+    if (navigator.canShare) {
+      try {
+        if (!navigator.canShare({ files: [file] })) {
+          return { status: "unsupported" };
+        }
+      } catch (_error) {
+        return { status: "unsupported" };
+      }
+    }
+
+    await navigator.share(shareData);
+    return { status: "shared" };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      return { status: "cancelled" };
+    }
+
+    console.error("Failed to share palette image:", error);
+    return { status: "error" };
+  }
+}
+
 function getIconMarkup(iconName) {
   if (iconName === "export") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
         <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"></path>
+      </svg>
+    `;
+  }
+
+  if (iconName === "share") {
+    return `
+      <svg viewBox="0 0 256 256" aria-hidden="true">
+        <path d="M176,160a35.74,35.74,0,0,0-24.59,9.78L107.4,145.67a39.81,39.81,0,0,0,0-35.34l44-24.11a36,36,0,1,0-7.68-13.95l-44.08,24.15a36,36,0,1,0,0,63.16l44.08,24.15A36,36,0,1,0,176,160Zm0-112a20,20,0,1,1-20,20A20,20,0,0,1,176,48ZM80,148a20,20,0,1,1,20-20A20,20,0,0,1,80,148Zm96,60a20,20,0,1,1,20-20A20,20,0,0,1,176,208Z"></path>
       </svg>
     `;
   }
@@ -289,151 +490,44 @@ function createQuickActionButton({ className, label, iconName, visibleLabel }) {
   return button;
 }
 
-function createSwipeHandle() {
-  const handle = document.createElement("span");
-  handle.className = "palette-swipe-handle";
-  handle.setAttribute("aria-hidden", "true");
-  handle.innerHTML = `
-    <svg viewBox="0 0 14 18" focusable="false">
-      <circle cx="4" cy="4" r="1.1"></circle>
-      <circle cx="10" cy="4" r="1.1"></circle>
-      <circle cx="4" cy="9" r="1.1"></circle>
-      <circle cx="10" cy="9" r="1.1"></circle>
-      <circle cx="4" cy="14" r="1.1"></circle>
-      <circle cx="10" cy="14" r="1.1"></circle>
-    </svg>
-  `;
-  return handle;
-}
+function createPaletteViewerOverlayController() {
+  const overlay = document.createElement("div");
+  overlay.className = "palette-viewer-overlay";
+  overlay.hidden = true;
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
 
-async function exportPaletteAsImage(palette, { darkFrameShell = false } = {}) {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
+  const topbar = document.createElement("div");
+  topbar.className = "palette-viewer-topbar";
 
-  if (!context || !palette.photoBlob) {
-    return false;
-  }
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "palette-viewer-close";
+  closeButton.setAttribute("aria-label", "Fermer l'aperçu");
+  closeButton.textContent = "×";
 
-  try {
-    const image = await loadImageFromBlob(palette.photoBlob);
+  const imageFrame = document.createElement("div");
+  imageFrame.className = "palette-viewer-frame";
 
-    renderPolaroidExportCanvas({
-      canvas,
-      context,
-      image,
-      colors: palette.colors,
-      brandLabel: getBrandLabel(),
-      darkFrameShell,
-    });
-  } catch (error) {
-    console.error("Failed to render export image:", error);
-    return false;
-  }
+  const image = document.createElement("img");
+  image.className = "palette-viewer-image";
+  image.alt = "Aperçu de palette";
+  image.hidden = true;
+  image.decoding = "async";
 
-  return new Promise((resolve) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          resolve(false);
-          return;
-        }
+  const status = document.createElement("p");
+  status.className = "palette-viewer-status";
 
-        const link = document.createElement("a");
-        const downloadUrl = URL.createObjectURL(blob);
-        link.download = `palette-${palette.id}.webp`;
-        link.href = downloadUrl;
-        link.click();
+  const actions = document.createElement("div");
+  actions.className = "palette-viewer-actions";
 
-        window.setTimeout(() => {
-          URL.revokeObjectURL(downloadUrl);
-        }, 0);
-        resolve(true);
-      },
-      "image/webp",
-      0.95,
-    );
+  const shareButton = createQuickActionButton({
+    className: "palette-action-share",
+    label: "Partager la palette",
+    iconName: "share",
+    visibleLabel: "partager",
   });
-}
-
-function createPhotoSwatch(palette) {
-  if (!palette.photoBlob) {
-    return null;
-  }
-
-  const photoSwatch = document.createElement("div");
-  const photoUrl = URL.createObjectURL(palette.photoBlob);
-
-  photoSwatch.className = "color-swatch photo-swatch";
-  photoSwatch.style.backgroundImage = `url(${photoUrl})`;
-  photoSwatch.style.backgroundSize = "cover";
-  photoSwatch.style.backgroundPosition = "center";
-  photoSwatch.setAttribute("role", "button");
-  photoSwatch.setAttribute("tabindex", "0");
-  photoSwatch.setAttribute("aria-label", "Ouvrir l'apercu de l'export");
-  photoSwatch.classList.add("is-preview-trigger");
-
-  return photoSwatch;
-}
-
-function createColorSwatch(color) {
-  const swatch = document.createElement("div");
-
-  swatch.className = "color-swatch";
-  swatch.style.backgroundColor = toRgbCss(color);
-
-  return swatch;
-}
-
-export function createPaletteCard({
-  palette,
-  createSwipeController,
-  pendingDeletionIds,
-  deleteUndoDurationMs,
-  takeCardPositionSnapshot,
-  restoreCardFromSnapshot,
-  syncSessionStateFromCardContainer,
-  clearActiveSwipeController,
-  ensureEmptyMessage,
-}) {
-  const card = document.createElement("div");
-  card.className = "palette-card";
-  card.dataset.paletteId = String(palette.id);
-
-  const swatchesContainer = document.createElement("div");
-  swatchesContainer.className = "palette-swatches";
-
-  const photoSwatch = createPhotoSwatch(palette);
-  if (photoSwatch) {
-    swatchesContainer.appendChild(photoSwatch);
-  }
-
-  palette.colors.forEach((color) => {
-    swatchesContainer.appendChild(createColorSwatch(color));
-  });
-
-  const rightActions = document.createElement("div");
-  rightActions.className = "palette-action-lane palette-action-lane-right";
-
-  const track = document.createElement("div");
-  track.className = "palette-track";
-  const inlinePreview = document.createElement("div");
-  inlinePreview.className = "palette-inline-preview";
-  inlinePreview.hidden = true;
-
-  const inlinePreviewCanvas = document.createElement("canvas");
-  inlinePreviewCanvas.className = "palette-inline-preview-canvas";
-  inlinePreviewCanvas.hidden = true;
-  inlinePreviewCanvas.setAttribute("role", "button");
-  inlinePreviewCanvas.setAttribute("tabindex", "0");
-  inlinePreviewCanvas.setAttribute("aria-label", "Basculer le cadre du polaroid");
-
-  const inlinePreviewStatus = document.createElement("p");
-  inlinePreviewStatus.className = "palette-inline-preview-status";
-
-  const inlinePreviewActions = document.createElement("div");
-  inlinePreviewActions.className = "palette-inline-preview-actions";
-
-  const swipeHandle = createSwipeHandle();
   const exportButton = createQuickActionButton({
     className: "palette-action-export",
     label: "Exporter la palette",
@@ -446,50 +540,290 @@ export function createPaletteCard({
     iconName: "delete",
     visibleLabel: "supprimer",
   });
-  const inlineExportButton = createQuickActionButton({
-    className: "palette-action-export palette-inline-preview-action",
-    label: "Exporter la palette",
-    iconName: "export",
-    visibleLabel: "exporter",
+
+  topbar.append(closeButton);
+  imageFrame.append(image, status);
+  actions.append(shareButton, exportButton, deleteButton);
+  overlay.append(topbar, imageFrame, actions);
+  document.body.append(overlay);
+
+  let activeRequestId = 0;
+  let activeSession;
+  let isBusy = false;
+
+  function setBusy(nextBusy) {
+    isBusy = nextBusy;
+    shareButton.disabled = nextBusy || !activeSession?.canShare;
+    exportButton.disabled = nextBusy || !activeSession?.canExport;
+    deleteButton.disabled = nextBusy || !activeSession?.canDelete;
+    overlay.classList.toggle("is-busy", nextBusy);
+  }
+
+  function close() {
+    activeRequestId += 1;
+    activeSession = undefined;
+    image.hidden = true;
+    image.removeAttribute("src");
+    status.textContent = "";
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    setBusy(false);
+  }
+
+  async function runAction(actionName) {
+    if (isBusy || !activeSession) {
+      return;
+    }
+
+    const action = activeSession[actionName];
+    if (typeof action !== "function") {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await action();
+    } finally {
+      if (activeSession) {
+        setBusy(false);
+      }
+    }
+  }
+
+  closeButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    close();
   });
-  const inlineDeleteButton = createQuickActionButton({
-    className: "palette-action-delete palette-inline-preview-action",
-    label: "Supprimer la palette",
-    iconName: "delete",
-    visibleLabel: "supprimer",
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      close();
+    }
   });
 
-  inlinePreviewActions.append(inlineExportButton, inlineDeleteButton);
-  inlinePreview.append(inlinePreviewCanvas, inlinePreviewStatus, inlinePreviewActions);
-  track.append(swatchesContainer, inlinePreview, swipeHandle);
+  imageFrame.addEventListener("click", (event) => {
+    event.stopPropagation();
+    close();
+  });
 
-  const swipeController = createSwipeController({ card, track });
-  let darkFrameShell = false;
+  [topbar, actions].forEach((element) => {
+    element.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  });
 
-  const handleExportAction = async (event) => {
-    event?.preventDefault();
-    event?.stopPropagation();
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || overlay.hidden) {
+      return;
+    }
 
-    const exported = await exportPaletteAsImage(palette, { darkFrameShell });
+    event.preventDefault();
+    close();
+  });
+
+  shareButton.addEventListener("click", () => {
+    void runAction("onShare");
+  });
+  exportButton.addEventListener("click", () => {
+    void runAction("onExport");
+  });
+  deleteButton.addEventListener("click", () => {
+    void runAction("onDelete");
+  });
+
+  return {
+    close,
+    isOpen() {
+      return !overlay.hidden;
+    },
+    async open({
+      getPreviewAsset,
+      onShare,
+      onExport,
+      onDelete,
+      canShare = true,
+      canExport = true,
+      canDelete = true,
+    }) {
+      activeRequestId += 1;
+      const requestId = activeRequestId;
+
+      activeSession = {
+        onShare,
+        onExport,
+        onDelete,
+        canShare,
+        canExport,
+        canDelete,
+      };
+
+      overlay.hidden = false;
+      overlay.setAttribute("aria-hidden", "false");
+      image.hidden = true;
+      image.removeAttribute("src");
+      status.textContent = canExport ? "Chargement..." : "Aperçu indisponible";
+      setBusy(false);
+
+      if (!canExport || typeof getPreviewAsset !== "function") {
+        return;
+      }
+
+      try {
+        const asset = await getPreviewAsset();
+        if (requestId !== activeRequestId || !activeSession) {
+          return;
+        }
+
+        image.src = asset.objectUrl;
+        image.hidden = false;
+        status.textContent = "";
+      } catch (error) {
+        if (requestId !== activeRequestId || !activeSession) {
+          return;
+        }
+
+        status.textContent = "Aperçu indisponible";
+        console.error("Failed to load palette viewer preview:", error);
+      }
+    },
+  };
+}
+
+function getPaletteViewerOverlayController() {
+  paletteViewerOverlayController ??= createPaletteViewerOverlayController();
+  return paletteViewerOverlayController;
+}
+
+export function closePaletteViewerOverlay() {
+  paletteViewerOverlayController?.close();
+}
+
+export function createPaletteCard({
+  palette,
+  pendingDeletionIds,
+  deleteUndoDurationMs,
+  takeCardPositionSnapshot,
+  restoreCardFromSnapshot,
+  syncSessionStateFromCardContainer,
+  ensureEmptyMessage,
+}) {
+  const card = document.createElement("div");
+  card.className = "palette-card";
+  card.dataset.paletteId = String(palette.id);
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "palette-card-trigger";
+  trigger.setAttribute("aria-label", "Ouvrir la capture");
+
+  const previewImage = document.createElement("img");
+  previewImage.className = "palette-card-image";
+  previewImage.alt = "Aperçu polaroid";
+  previewImage.loading = "lazy";
+  previewImage.decoding = "async";
+  previewImage.hidden = true;
+
+  const previewStatus = document.createElement("p");
+  previewStatus.className = "palette-card-status";
+  previewStatus.textContent = palette.photoBlob ? "Chargement..." : "Aperçu indisponible";
+
+  trigger.append(previewImage, previewStatus);
+  card.append(trigger);
+
+  let previewLoadPromise;
+  let hasStartedPreviewLoad = false;
+  let hasPreviewLoadFailed = false;
+
+  const ensurePreviewAsset = () => {
+    if (!palette.photoBlob) {
+      return Promise.reject(new Error("Missing palette photo"));
+    }
+
+    previewLoadPromise ??= getPalettePreviewAsset(palette);
+    return previewLoadPromise;
+  };
+
+  const loadPreviewIntoCard = async () => {
+    if (hasPreviewLoadFailed || !palette.photoBlob) {
+      return;
+    }
+
+    try {
+      const asset = await ensurePreviewAsset();
+      if (!card.isConnected) {
+        return;
+      }
+
+      previewImage.src = asset.objectUrl;
+      previewImage.hidden = false;
+      previewStatus.textContent = "";
+    } catch (error) {
+      if (!card.isConnected) {
+        return;
+      }
+
+      previewLoadPromise = undefined;
+      hasPreviewLoadFailed = true;
+      previewStatus.textContent = "Aperçu indisponible";
+      console.error(`Failed to render preview for palette ${palette.id}:`, error);
+    }
+  };
+
+  const startPreviewLoad = () => {
+    if (hasStartedPreviewLoad) {
+      return;
+    }
+
+    hasStartedPreviewLoad = true;
+    void loadPreviewIntoCard();
+  };
+
+  const handleExportAction = async () => {
+    const exported = await exportPaletteAsImage(palette);
     showToast(exported ? "Palette exportee" : "Export echoue", {
       variant: exported ? "default" : "error",
       duration: exported ? 1400 : 1800,
     });
-    swipeController.close();
   };
 
-  const handleDeleteAction = (event) => {
-    event?.preventDefault();
-    event?.stopPropagation();
+  const handleShareAction = async () => {
+    const result = await sharePaletteImage(palette);
 
+    if (result.status === "shared") {
+      showToast("Palette partagee", {
+        duration: 1400,
+      });
+      return;
+    }
+
+    if (result.status === "cancelled") {
+      return;
+    }
+
+    if (result.status === "unsupported") {
+      const exported = await exportPaletteAsImage(palette);
+      showToast(exported ? "Partage indisponible, export lance" : "Partage indisponible", {
+        variant: exported ? "default" : "error",
+        duration: exported ? 1800 : 2000,
+      });
+      return;
+    }
+
+    showToast("Partage echoue", {
+      variant: "error",
+      duration: 1800,
+    });
+  };
+
+  const handleDeleteAction = () => {
     if (pendingDeletionIds.has(palette.id)) {
       return;
     }
 
+    closePaletteViewerOverlay();
     pendingDeletionIds.add(palette.id);
     const snapshot = takeCardPositionSnapshot(card);
 
-    clearActiveSwipeController(swipeController);
     card.remove();
     syncSessionStateFromCardContainer(snapshot.parent);
 
@@ -503,6 +837,7 @@ export function createPaletteCard({
         try {
           await deletePalette(palette.id);
           pendingDeletionIds.delete(palette.id);
+          disposePalettePreviewAsset(palette.id);
           ensureEmptyMessage();
         } catch (error) {
           console.error(`Failed to delete palette ${palette.id}:`, error);
@@ -517,144 +852,50 @@ export function createPaletteCard({
     });
   };
 
-  [inlineExportButton, inlineDeleteButton].forEach((button) => {
-    button.addEventListener("pointerdown", (event) => {
-      event.stopPropagation();
+  const openViewer = async () => {
+    if (pendingDeletionIds.has(palette.id)) {
+      return;
+    }
+
+    startPreviewLoad();
+    const viewer = getPaletteViewerOverlayController();
+
+    await viewer.open({
+      getPreviewAsset: palette.photoBlob ? ensurePreviewAsset : undefined,
+      canShare: Boolean(palette.photoBlob),
+      canExport: Boolean(palette.photoBlob),
+      canDelete: true,
+      onShare: handleShareAction,
+      onExport: handleExportAction,
+      onDelete: async () => {
+        handleDeleteAction();
+      },
     });
+  };
+
+  trigger.addEventListener("click", () => {
+    void openViewer();
   });
 
-  if (photoSwatch) {
-    let inlinePreviewRequestId = 0;
-    let previewImagePromise;
-    let previewImage;
+  if (palette.photoBlob) {
+    if (window.IntersectionObserver) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) {
+            return;
+          }
 
-    const renderInlinePreviewPolaroid = (image) => {
-      const previewContext = inlinePreviewCanvas.getContext("2d");
-      if (!previewContext) {
-        throw new Error("Canvas context unavailable");
-      }
+          observer.disconnect();
+          startPreviewLoad();
+        },
+        { rootMargin: PREVIEW_OBSERVER_ROOT_MARGIN },
+      );
 
-      renderPolaroidExportCanvas({
-        canvas: inlinePreviewCanvas,
-        context: previewContext,
-        image,
-        colors: palette.colors,
-        brandLabel: getBrandLabel(),
-        darkFrameShell,
-      });
-    };
-
-    const toggleInlinePreview = async (event) => {
-      if (swipeController.isOpen()) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (!inlinePreview.hidden) {
-        inlinePreviewRequestId += 1;
-        inlinePreview.hidden = true;
-        inlinePreview.classList.remove("is-loading");
-        photoSwatch.classList.remove("is-preview-open");
-        return;
-      }
-
-      inlinePreview.hidden = false;
-      inlinePreview.classList.add("is-loading");
-      inlinePreviewCanvas.hidden = true;
-      inlinePreviewStatus.textContent = "Apercu...";
-      photoSwatch.classList.add("is-preview-open");
-
-      const requestId = ++inlinePreviewRequestId;
-
-      try {
-        previewImagePromise ??= loadImageFromBlob(palette.photoBlob);
-        const image = await previewImagePromise;
-        previewImage = image;
-
-        if (requestId !== inlinePreviewRequestId) {
-          return;
-        }
-
-        renderInlinePreviewPolaroid(image);
-
-        if (document.fonts?.ready) {
-          void document.fonts.ready.then(() => {
-            if (requestId !== inlinePreviewRequestId || inlinePreview.hidden) {
-              return;
-            }
-
-            renderInlinePreviewPolaroid(image);
-          });
-        }
-
-        inlinePreviewCanvas.hidden = false;
-        inlinePreviewStatus.textContent = "";
-        inlinePreview.classList.remove("is-loading");
-      } catch (error) {
-        if (requestId !== inlinePreviewRequestId) {
-          return;
-        }
-
-        inlinePreviewStatus.textContent = "Apercu indisponible";
-        inlinePreview.classList.remove("is-loading");
-        console.error("Failed to render inline palette preview:", error);
-      }
-    };
-
-    photoSwatch.addEventListener("click", (event) => {
-      void toggleInlinePreview(event);
-    });
-    photoSwatch.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") {
-        return;
-      }
-
-      void toggleInlinePreview(event);
-    });
-
-    inlinePreviewCanvas.addEventListener("pointerdown", (event) => {
-      event.stopPropagation();
-    });
-
-    const toggleFrameTone = (event) => {
-      if (inlinePreview.hidden || inlinePreviewCanvas.hidden || !previewImage) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      darkFrameShell = !darkFrameShell;
-      renderInlinePreviewPolaroid(previewImage);
-    };
-
-    inlinePreviewCanvas.addEventListener("click", toggleFrameTone);
-    inlinePreviewCanvas.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") {
-        return;
-      }
-
-      toggleFrameTone(event);
-    });
+      observer.observe(card);
+    } else {
+      startPreviewLoad();
+    }
   }
-
-  exportButton.addEventListener("click", (event) => {
-    void handleExportAction(event);
-  });
-  inlineExportButton.addEventListener("click", (event) => {
-    void handleExportAction(event);
-  });
-
-  deleteButton.addEventListener("click", (event) => {
-    handleDeleteAction(event);
-  });
-  inlineDeleteButton.addEventListener("click", (event) => {
-    handleDeleteAction(event);
-  });
-
-  rightActions.append(exportButton, deleteButton);
-  card.append(rightActions, track);
 
   return card;
 }

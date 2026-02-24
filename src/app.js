@@ -175,10 +175,6 @@ function setPreviewExpanded(shouldExpand) {
   syncCameraFeedOrientation();
 }
 
-function togglePreviewExpanded() {
-  setPreviewExpanded(!isPreviewExpanded);
-}
-
 let zoomUi = null;
 
 const cameraController = createCameraController({
@@ -228,10 +224,9 @@ function initializeApp() {
   }
 
   applyAppSettings(getAppSettings());
-  setPreviewExpanded(false);
+  setPreviewExpanded(true);
   bindCameraPermissionEvents();
   bindCaptureEvents();
-  bindPreviewEvents();
   zoomUi.bindEvents();
   bindRotationEvents();
   swatchSliderUi.bindEvents();
@@ -242,6 +237,10 @@ function initializeApp() {
   setCaptureState({ btnOn, btnShoot, isCameraActive: false });
   photoOutput?.removeAttribute('src');
   renderOutputSwatches(outputPalette, []);
+
+  if (navigator.mediaDevices?.getUserMedia) {
+    void startCameraStream();
+  }
 }
 
 function bindCameraPermissionEvents() {
@@ -267,17 +266,6 @@ function bindCaptureEvents() {
     }
 
     void captureCurrentFrame();
-  });
-}
-
-function bindPreviewEvents() {
-  if (!cameraFeed) {
-    return;
-  }
-
-  cameraFeed.addEventListener('click', (event) => {
-    event.preventDefault();
-    togglePreviewExpanded();
   });
 }
 

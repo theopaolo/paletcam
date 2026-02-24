@@ -213,8 +213,10 @@
 }
 
 body.is-preview-expanded .camera-preview-dock {
+  width: 0;
   opacity: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .camera-actions {
