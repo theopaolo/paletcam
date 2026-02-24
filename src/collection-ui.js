@@ -9,7 +9,6 @@ const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
 const closeCollectionButton = document.querySelector(".btn-close-collection");
-const collectionHeader = collectionPanel?.querySelector(".collection-header");
 const QUICK_ACTION_WIDTH = 144;
 const LEFT_ACTION_WIDTH = 0;
 const RIGHT_ACTION_WIDTH = QUICK_ACTION_WIDTH * 2;
@@ -23,167 +22,6 @@ const MAGNETIC_SNAP_RESET_MS = 320;
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
 let activeSwipeController;
-
-function formatBytes(byteCount) {
-  const bytes = Number(byteCount);
-
-  if (!Number.isFinite(bytes) || bytes <= 0) {
-    return "0 B";
-  }
-
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
-  const precision = value >= 100 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toFixed(precision)} ${units[unitIndex]}`;
-}
-
-function ensureCollectionStorageSummary() {
-  if (!collectionPanel || !collectionHeader) {
-    return null;
-  }
-
-  let summary = collectionPanel.querySelector(".collection-storage-summary");
-
-  if (!summary) {
-    summary = document.createElement("section");
-    summary.className = "collection-storage-summary";
-    summary.setAttribute("aria-live", "polite");
-    summary.innerHTML = `
-      <div class="storage-summary-header">
-        <p class="storage-summary-title">Storage</p>
-        <p class="storage-summary-badge" data-storage-status>Checking...</p>
-      </div>
-      <div class="storage-meter" role="img" aria-label="Storage usage">
-        <span class="storage-meter-fill" data-storage-meter></span>
-      </div>
-      <details class="storage-summary-details">
-        <summary class="storage-summary-disclosure">
-          <span>Details</span>
-          <span class="storage-summary-disclosure-caret" aria-hidden="true">▾</span>
-        </summary>
-        <div class="storage-summary-details-body">
-          <div class="storage-summary-grid">
-            <p class="storage-summary-item">
-              <span class="storage-summary-label">Used</span>
-              <strong data-storage-used>--</strong>
-            </p>
-            <p class="storage-summary-item">
-              <span class="storage-summary-label">Available</span>
-              <strong data-storage-available>--</strong>
-            </p>
-            <p class="storage-summary-item">
-              <span class="storage-summary-label">Quota</span>
-              <strong data-storage-quota>--</strong>
-            </p>
-            <p class="storage-summary-item">
-              <span class="storage-summary-label">Paletcam photos</span>
-              <strong data-storage-app>--</strong>
-            </p>
-          </div>
-          <p class="storage-summary-footnote" data-storage-note>
-            Estimation du navigateur pour ce site (IndexedDB + cache + autres donnees).
-          </p>
-        </div>
-      </details>
-    `;
-
-    collectionHeader.insertAdjacentElement("afterend", summary);
-  }
-
-  return {
-    root: summary,
-    meter: summary.querySelector("[data-storage-meter]"),
-    status: summary.querySelector("[data-storage-status]"),
-    used: summary.querySelector("[data-storage-used]"),
-    available: summary.querySelector("[data-storage-available]"),
-    quota: summary.querySelector("[data-storage-quota]"),
-    app: summary.querySelector("[data-storage-app]"),
-    note: summary.querySelector("[data-storage-note]"),
-  };
-}
-
-function sumPalettePhotoBytes(palettes) {
-  if (!Array.isArray(palettes)) {
-    return 0;
-  }
-
-  return palettes.reduce((total, palette) => {
-    const photoSize = palette?.photoBlob?.size;
-    return total + (Number.isFinite(photoSize) ? photoSize : 0);
-  }, 0);
-}
-
-async function getStorageEstimate() {
-  if (!navigator.storage?.estimate) {
-    return null;
-  }
-
-  try {
-    const estimate = await navigator.storage.estimate();
-    const usage = Number(estimate?.usage);
-    const quota = Number(estimate?.quota);
-
-    return {
-      usage: Number.isFinite(usage) ? usage : 0,
-      quota: Number.isFinite(quota) ? quota : 0,
-    };
-  } catch (error) {
-    console.warn("Storage estimate unavailable:", error);
-    return null;
-  }
-}
-
-async function updateCollectionStorageSummary(palettes) {
-  const storageUi = ensureCollectionStorageSummary();
-
-  if (!storageUi) {
-    return;
-  }
-
-  const appPhotoBytes = sumPalettePhotoBytes(palettes);
-  storageUi.app.textContent = formatBytes(appPhotoBytes);
-
-  storageUi.status.textContent = "Loading";
-  storageUi.root.classList.remove("is-warning");
-  storageUi.meter.style.width = "0%";
-
-  const estimate = await getStorageEstimate();
-
-  if (!estimate || estimate.quota <= 0) {
-    storageUi.status.textContent = "Unavailable";
-    storageUi.used.textContent = "--";
-    storageUi.available.textContent = "--";
-    storageUi.quota.textContent = "--";
-    storageUi.note.textContent =
-      "Quota estimate unavailable in this browser. Paletcam photos shows app image storage only.";
-    return;
-  }
-
-  const usedBytes = estimate.usage;
-  const quotaBytes = estimate.quota;
-  const availableBytes = Math.max(0, quotaBytes - usedBytes);
-  const usageRatio = Math.max(0, Math.min(1, usedBytes / quotaBytes));
-  const usagePercent = Math.round(usageRatio * 100);
-
-  storageUi.used.textContent = formatBytes(usedBytes);
-  storageUi.available.textContent = formatBytes(availableBytes);
-  storageUi.quota.textContent = formatBytes(quotaBytes);
-  storageUi.status.textContent = `${usagePercent}%`;
-  storageUi.meter.style.width = `${usagePercent}%`;
-  storageUi.note.textContent =
-    "Browser estimate for this site (IndexedDB + cache + other origin data). Paletcam photos is app image data only.";
-
-  if (usageRatio >= 0.85) {
-    storageUi.root.classList.add("is-warning");
-  }
-}
 
 function setActiveSwipeController(controller) {
   if (activeSwipeController && activeSwipeController !== controller) {
@@ -266,10 +104,7 @@ function createCollectionDayGroup(dayGroup) {
 
 async function loadCollectionUi() {
   closeActiveSwipeController();
-  const allPalettes = await getSavedPalettes();
-  await updateCollectionStorageSummary(allPalettes);
-
-  const palettes = allPalettes.filter((palette) =>
+  const palettes = (await getSavedPalettes()).filter((palette) =>
     !pendingDeletionIds.has(palette.id)
   );
   collectionGrid.innerHTML = "";

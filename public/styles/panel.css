@@ -529,16 +529,16 @@
 
 .palette-swipe-handle {
   position: absolute;
-  top: 50%;
+  top: 0;
   right: 0;
   width: 16px;
-  height: 100%;
+  height: 120px;
   background: rgba(29, 29, 29, 0.36);
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transform: translateY(-50%) translateX(0);
+  transform: translateX(0);
   pointer-events: none;
   opacity: 0.75;
   transition: opacity 0.18s ease, transform 0.22s ease;
@@ -554,7 +554,7 @@
 .palette-card.is-dragging .palette-swipe-handle,
 .palette-card.is-open-right .palette-swipe-handle {
   opacity: 0;
-  transform: translateY(-50%) translateX(6px);
+  transform: translateX(6px);
 }
 
 .palette-card.is-dragging .palette-track {
@@ -574,10 +574,25 @@
   -webkit-user-select: none;
 }
 
+.photo-swatch.is-preview-trigger {
+  position: relative;
+  cursor: zoom-in;
+  outline: none;
+}
+
+.photo-swatch.is-preview-trigger.is-preview-open {
+  cursor: zoom-out;
+}
+
+.photo-swatch.is-preview-trigger:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(255, 200, 0, 0.8);
+}
+
 .palette-action-lane {
   position: absolute;
   top: 0;
-  bottom: 0;
+  bottom: auto;
+  height: 120px;
   z-index: 1;
   display: flex;
   align-items: stretch;
@@ -628,11 +643,10 @@
 }
 
 .palette-quick-action-label {
-  font-size: 0.54rem;
+  font-size: 0.85rem;
   line-height: 1;
   letter-spacing: 0.09em;
   text-transform: lowercase;
-  opacity: 0.85;
   pointer-events: none;
 }
 
@@ -657,4 +671,56 @@
 
 .palette-action-delete:active {
   color: #ffd6d6;
+}
+
+.palette-inline-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #090703;
+}
+
+.palette-inline-preview[hidden] {
+  display: none;
+}
+
+.palette-inline-preview-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: pointer;
+}
+
+.palette-inline-preview-status {
+  margin: 0;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.72rem;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.palette-inline-preview:not(.is-loading) .palette-inline-preview-status:empty {
+  display: none;
+}
+
+.palette-inline-preview-actions {
+  display: flex;
+  width: 100%;
+}
+
+.palette-inline-preview-actions .palette-quick-action {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  min-height: 86px;
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+  transform: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
 }

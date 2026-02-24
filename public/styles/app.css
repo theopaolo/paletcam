@@ -204,7 +204,7 @@ header {
 .output-palette {
   display: flex;
   height: 100%;
-  width: 82%;
+  flex: 1;
   flex-shrink: 0;
   position: relative;
 }

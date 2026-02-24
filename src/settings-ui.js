@@ -12,6 +12,7 @@ const SETTINGS_PANEL_HIDE_DELAY_MS = 380;
 const integerFormatter = new Intl.NumberFormat('en-US');
 let settingsPanelHideTimeoutId = 0;
 let settingsPanelOpenFrameId = 0;
+let hasBoundSettingsPanelEvents = false;
 const algorithmButtons = Array.from(
   document.querySelectorAll('[data-settings-algorithm]')
 );
@@ -309,11 +310,10 @@ function openSettingsPanel() {
   document.querySelector('.collection-panel')?.classList.remove('visible');
   settingsPanel.hidden = false;
   settingsPanel.setAttribute('aria-hidden', 'false');
-
-  settingsPanelOpenFrameId = window.requestAnimationFrame(() => {
-    settingsPanelOpenFrameId = 0;
-    settingsPanel.classList.add('visible');
-  });
+  // Force layout before toggling the visible class so the slide transition
+  // starts reliably on mobile/PWA shells without depending on rAF timing.
+  void settingsPanel.offsetWidth;
+  settingsPanel.classList.add('visible');
 }
 
 function closeSettingsPanel() {
@@ -328,16 +328,34 @@ function closeSettingsPanel() {
 }
 
 function bindSettingsPanelEvents() {
-  if (!settingsPanel || !openSettingsButton || !closeSettingsButton) {
+  if (!settingsPanel || hasBoundSettingsPanelEvents) {
     return;
   }
+  hasBoundSettingsPanelEvents = true;
 
   settingsPanel.hidden = true;
   settingsPanel.setAttribute('aria-hidden', 'true');
   settingsPanel.classList.remove('visible');
 
-  openSettingsButton.addEventListener('click', openSettingsPanel);
-  closeSettingsButton.addEventListener('click', closeSettingsPanel);
+  openSettingsButton?.addEventListener('click', openSettingsPanel);
+  closeSettingsButton?.addEventListener('click', closeSettingsPanel);
+
+  // Delegated fallback keeps the panel working if buttons are re-rendered
+  // or if one of the direct selectors is temporarily unavailable at init.
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    if (event.target.closest('.btn-open-settings')) {
+      openSettingsPanel();
+      return;
+    }
+
+    if (event.target.closest('.btn-close-settings')) {
+      closeSettingsPanel();
+    }
+  });
 
   settingsPanel.addEventListener('transitionend', (event) => {
     if (event.target !== settingsPanel || event.propertyName !== 'right') {
