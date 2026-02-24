@@ -1,5 +1,4 @@
 const DEFAULT_ZOOM_STEP = 0.1;
-const DEFAULT_ZOOM_INTERVAL_MS = 50;
 
 export function createCameraController({
   cameraFeed,
@@ -8,12 +7,10 @@ export function createCameraController({
   onError,
   initialFacingMode = 'environment',
   zoomStep = DEFAULT_ZOOM_STEP,
-  zoomIntervalMs = DEFAULT_ZOOM_INTERVAL_MS,
 }) {
   let facingMode = initialFacingMode;
   let videoTrack = null;
   let currentZoom = 1;
-  let zoomTimer = null;
 
   function notifyZoomChange() {
     onZoomChange?.(currentZoom);
@@ -48,15 +45,6 @@ export function createCameraController({
     cameraFeed.disablePictureInPicture = true;
   }
 
-  function stopZoom() {
-    if (!zoomTimer) {
-      return;
-    }
-
-    window.clearInterval(zoomTimer);
-    zoomTimer = null;
-  }
-
   function clampZoom(zoomValue, zoomCapabilities) {
     return Math.max(zoomCapabilities.min, Math.min(zoomCapabilities.max, zoomValue));
   }
@@ -81,18 +69,7 @@ export function createCameraController({
     }
   }
 
-  function startZoom(direction) {
-    stopZoom();
-
-    zoomTimer = window.setInterval(() => {
-      const nextZoom = direction === 'in' ? currentZoom + zoomStep : currentZoom - zoomStep;
-      void applyZoom(nextZoom);
-    }, zoomIntervalMs);
-  }
-
   function stopStream() {
-    stopZoom();
-
     const stream = cameraFeed?.srcObject;
     if (!stream) {
       notifyCameraActiveChange(false);
@@ -176,9 +153,7 @@ export function createCameraController({
     getZoomCapabilities,
     getFacingMode,
     startStream,
-    startZoom,
     stopStream,
-    stopZoom,
     toggleFacingMode,
   };
 }

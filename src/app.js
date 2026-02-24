@@ -3,17 +3,21 @@ import {
   drawFrameToCanvas,
   renderOutputSwatches,
   setCaptureState,
-  updateSliderTooltip,
-  updateZoomText,
 } from './modules/camera-ui.js';
+import { createCaptureMicroInteractions } from './modules/micro-interactions.js';
 import {
   extractPaletteColors,
+  getDominantColor,
+  getPaletteExtractionAlgorithm,
+  PALETTE_EXTRACTION_ALGORITHMS,
   renderPaletteBars,
-  SAMPLE_COL_COUNT,
-  SAMPLE_DIAMETER,
-  SAMPLE_ROW_COUNT,
+  setPaletteExtractionAlgorithm,
   smoothColors,
 } from './modules/palette-extraction.js';
+import { createSampleGridOverlayController } from './modules/sample-grid-overlay.js';
+import { createSwatchSliderUiController } from './modules/swatch-slider-ui.js';
+import { createVisualEffects } from './modules/visual-effects.js';
+import { createZoomUiController } from './modules/zoom-ui.js';
 import { savePalette } from './palette-storage.js';
 
 const PHOTO_EXPORT_WIDTH = 200;
@@ -45,23 +49,6 @@ const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
 const sampleRowOverlay = document.getElementById('sampleRowOverlay');
 
-const SWATCH_ACTIVE_PULSE_MS = 170;
-const CAPTURE_POP_MS = 170;
-const CAPTURE_FLASH_MS = 120;
-const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
-const CAPTURE_KEYBOARD_KEYS = new Set(['Enter', ' ', 'Spacebar']);
-const PREVIEW_TOGGLE_KEYS = new Set(['Enter', ' ', 'Spacebar']);
-const SWATCH_KEYBOARD_KEYS = new Set([
-  'ArrowLeft',
-  'ArrowRight',
-  'ArrowUp',
-  'ArrowDown',
-  'Home',
-  'End',
-  'PageUp',
-  'PageDown',
-]);
-
 const frameContext = frameCanvas?.getContext('2d', { willReadFrequently: true }) ?? frameCanvas?.getContext('2d');
 const paletteContext = paletteCanvas?.getContext('2d');
 
@@ -69,184 +56,29 @@ let frameWidth = 0;
 let frameHeight = 0;
 let isStreaming = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
-let captureFlashElement = null;
-let capturePopTimeout = 0;
-let captureFlashTimeout = 0;
-let lastCaptureGlowRgb = '';
-let lastNameColor = '';
 let isPreviewExpanded = false;
 let extractionFrame = 0;
 let lastExtractedColors = null;
 let lastChosenIndices = [];
 const EXTRACTION_INTERVAL = 10;
-
-function toRgbToken(color) {
-  return `${color.r}, ${color.g}, ${color.b}`;
-}
-
-function getColorDistanceSquared(firstColor, secondColor) {
-  const deltaR = firstColor.r - secondColor.r;
-  const deltaG = firstColor.g - secondColor.g;
-  const deltaB = firstColor.b - secondColor.b;
-
-  return (deltaR * deltaR) + (deltaG * deltaG) + (deltaB * deltaB);
-}
-
-function getColorLuma(color) {
-  return (0.2126 * color.r) + (0.7152 * color.g) + (0.0722 * color.b);
-}
-
-function getDominantColor(colors) {
-  if (!Array.isArray(colors) || colors.length === 0) {
-    return null;
-  }
-
-  const clusterDistanceSquared = DOMINANT_COLOR_CLUSTER_DISTANCE ** 2;
-  const colorClusters = [];
-
-  colors.forEach((color) => {
-    let matchingCluster = null;
-
-    for (const cluster of colorClusters) {
-      if (getColorDistanceSquared(color, cluster) <= clusterDistanceSquared) {
-        matchingCluster = cluster;
-        break;
-      }
-    }
-
-    if (!matchingCluster) {
-      colorClusters.push({
-        r: color.r,
-        g: color.g,
-        b: color.b,
-        totalR: color.r,
-        totalG: color.g,
-        totalB: color.b,
-        count: 1,
-      });
-      return;
-    }
-
-    matchingCluster.totalR += color.r;
-    matchingCluster.totalG += color.g;
-    matchingCluster.totalB += color.b;
-    matchingCluster.count += 1;
-    matchingCluster.r = Math.round(matchingCluster.totalR / matchingCluster.count);
-    matchingCluster.g = Math.round(matchingCluster.totalG / matchingCluster.count);
-    matchingCluster.b = Math.round(matchingCluster.totalB / matchingCluster.count);
-  });
-
-  colorClusters.sort((firstCluster, secondCluster) => {
-    if (secondCluster.count !== firstCluster.count) {
-      return secondCluster.count - firstCluster.count;
-    }
-
-    return getColorLuma(secondCluster) - getColorLuma(firstCluster);
-  });
-
-  return colorClusters[0];
-}
-
-function setNameColor(color){
-  if( !colorscatcher || !color) { return; }
-  const rgbToken = toRgbToken(color);
-
-  if (rgbToken === lastNameColor) { return; }
-
-  colorscatcher.style.setProperty('--name-rgba', rgbToken);
-  lastNameColor = rgbToken;
-}
-
-function setCaptureButtonGlowColor(color) {
-  if (!captureButton || !color) {
-    return;
-  }
-
-  const rgbToken = toRgbToken(color);
-  if (rgbToken === lastCaptureGlowRgb) {
-    return;
-  }
-
-  captureButton.style.setProperty('--capture-glow-rgb', rgbToken);
-  lastCaptureGlowRgb = rgbToken;
-}
-
-function setCaptureGlowActive(isActive) {
-  captureButton?.classList.toggle('is-catching', isActive);
-}
-
-function pulseCaptureButton() {
-  if (!captureButton) {
-    return;
-  }
-
-  captureButton.classList.remove('is-pop');
-  void captureButton.offsetWidth;
-  captureButton.classList.add('is-pop');
-
-  if (capturePopTimeout) {
-    window.clearTimeout(capturePopTimeout);
-  }
-
-  capturePopTimeout = window.setTimeout(() => {
-    captureButton.classList.remove('is-pop');
-    capturePopTimeout = 0;
-  }, CAPTURE_POP_MS);
-
-}
-
-function ensureCaptureFlashElement() {
-  if (!captureContainer) {
-    return null;
-  }
-
-  if (captureFlashElement?.isConnected) {
-    return captureFlashElement;
-  }
-
-  const nextFlashElement = document.createElement('div');
-  nextFlashElement.className = 'capture-flash';
-  captureContainer.appendChild(nextFlashElement);
-  captureFlashElement = nextFlashElement;
-  return captureFlashElement;
-}
-
-function triggerCaptureFlash() {
-  const flashElement = ensureCaptureFlashElement();
-  if (!flashElement) {
-    return;
-  }
-
-  flashElement.classList.remove('is-active');
-  void flashElement.offsetWidth;
-  flashElement.classList.add('is-active');
-
-  if (captureFlashTimeout) {
-    window.clearTimeout(captureFlashTimeout);
-  }
-
-  captureFlashTimeout = window.setTimeout(() => {
-    flashElement.classList.remove('is-active');
-    captureFlashTimeout = 0;
-  }, CAPTURE_FLASH_MS);
-}
-
-function formatZoomScaleValue(value) {
-  return `${value.toFixed(1)}x`;
-}
-
-function updateZoomScaleBounds(minValue, maxValue) {
-  const safeMin = Number.isFinite(minValue) ? minValue : 1;
-  const safeMax = Number.isFinite(maxValue) ? maxValue : safeMin;
-
-  if (zoomMinDisplay) {
-    zoomMinDisplay.textContent = formatZoomScaleValue(safeMin);
-  }
-
-  if (zoomMaxDisplay) {
-    zoomMaxDisplay.textContent = formatZoomScaleValue(safeMax);
-  }
-}
+const captureMicroInteractions = createCaptureMicroInteractions({
+  captureButton,
+  captureContainer,
+});
+const visualEffects = createVisualEffects({
+  captureButton,
+  nameElement: colorscatcher,
+});
+const sampleGridOverlay = createSampleGridOverlayController({
+  overlayElement: sampleRowOverlay,
+  cameraFeed,
+});
+const swatchSliderUi = createSwatchSliderUiController({
+  swatchSlider,
+  onSwatchCountChange: (nextSwatchCount) => {
+    swatchCount = nextSwatchCount;
+  },
+});
 
 function shouldMirrorUserFacingCamera() {
   if (cameraController.getFacingMode() !== 'user') {
@@ -274,59 +106,8 @@ function getPaletteViewportSize() {
   };
 }
 
-let overlayBuilt = false;
-
-function buildSampleGrid() {
-  if (!sampleRowOverlay || overlayBuilt) {
-    return;
-  }
-  overlayBuilt = true;
-
-  for (let row = 0; row < SAMPLE_ROW_COUNT; row++) {
-    const rowPercent = ((row + 1) / (SAMPLE_ROW_COUNT + 1)) * 100;
-
-    const line = document.createElement('div');
-    line.className = 'sample-row-line';
-    line.style.top = `${rowPercent}%`;
-    sampleRowOverlay.appendChild(line);
-
-    for (let col = 0; col < SAMPLE_COL_COUNT; col++) {
-      const square = document.createElement('div');
-      square.className = 'sample-row-point';
-      square.dataset.gridIndex = String(col * SAMPLE_ROW_COUNT + row);
-      square.style.left = `${((col + 0.5) / SAMPLE_COL_COUNT) * 100}%`;
-      square.style.top = `${rowPercent}%`;
-      sampleRowOverlay.appendChild(square);
-    }
-  }
-
-  updateSamplePointSizes();
-}
-
-function markChosenSquares(chosenIndices) {
-  if (!sampleRowOverlay) return;
-
-  const chosenSet = new Set(chosenIndices.map(String));
-  sampleRowOverlay.querySelectorAll('.sample-row-point').forEach((el) => {
-    el.classList.toggle('is-chosen', chosenSet.has(el.dataset.gridIndex));
-  });
-}
-
-function updateSamplePointSizes() {
-  if (!sampleRowOverlay || !cameraFeed) {
-    return;
-  }
-
-  const videoWidth = cameraFeed.videoWidth;
-  if (videoWidth <= 0) {
-    return;
-  }
-
-  const displayWidth = sampleRowOverlay.offsetWidth;
-  const scale = displayWidth / videoWidth;
-  const size = Math.max(2, Math.round(SAMPLE_DIAMETER * scale));
-
-  sampleRowOverlay.style.setProperty('--sample-size', `${size}px`);
+function isGridExtractionMode() {
+  return getPaletteExtractionAlgorithm() === PALETTE_EXTRACTION_ALGORITHMS.GRID;
 }
 
 function mountCameraFeed(targetElement) {
@@ -362,6 +143,8 @@ function togglePreviewExpanded() {
   setPreviewExpanded(!isPreviewExpanded);
 }
 
+let zoomUi = null;
+
 const cameraController = createCameraController({
   cameraFeed,
   onCameraActiveChange: (isCameraActive) => {
@@ -369,10 +152,10 @@ const cameraController = createCameraController({
     setCaptureState({ btnOn, btnShoot, isCameraActive });
 
     if (!isCameraActive) {
-      setZoomWheelDisabled();
-      setCaptureGlowActive(false);
+      zoomUi?.setDisabled();
+      visualEffects.setCaptureGlowActive(false);
     } else {
-      syncZoomWheelCapabilities();
+      zoomUi?.syncCapabilities();
     }
 
     if (!isCameraActive) {
@@ -380,12 +163,18 @@ const cameraController = createCameraController({
     }
   },
   onZoomChange: (zoomValue) => {
-    updateZoomText(zoomDisplay, zoomValue);
-
-    if (zoomWheel) {
-      zoomWheel.value = String(zoomValue);
-    }
+    zoomUi?.handleZoomChange(zoomValue);
   },
+});
+
+zoomUi = createZoomUiController({
+  cameraController,
+  zoomWheel,
+  zoomWheelContainer,
+  zoomPanel,
+  zoomDisplay,
+  zoomMinDisplay,
+  zoomMaxDisplay,
 });
 
 function initializeApp() {
@@ -402,19 +191,19 @@ function initializeApp() {
     return;
   }
 
+  setPaletteExtractionAlgorithm(PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT);
+  sampleGridOverlay.setVisible(isGridExtractionMode());
   setPreviewExpanded(false);
   bindCameraPermissionEvents();
   bindCaptureEvents();
   bindPreviewEvents();
-  bindZoomEvents();
+  zoomUi.bindEvents();
   bindRotationEvents();
-  bindSwatchEvents();
+  swatchSliderUi.bindEvents();
   syncCameraFeedOrientation();
 
-  updateZoomText(zoomDisplay, cameraController.getCurrentZoom());
-  updateZoomScaleBounds(Number(zoomWheel?.min), Number(zoomWheel?.max));
-  setZoomWheelDisabled();
-  updateSliderTooltip(swatchSlider, swatchCount);
+  zoomUi.initialize();
+  swatchSliderUi.initialize(swatchCount);
   setCaptureState({ btnOn, btnShoot, isCameraActive: false });
   photoOutput?.removeAttribute('src');
   renderOutputSwatches(outputPalette, []);
@@ -432,12 +221,7 @@ function bindCameraPermissionEvents() {
 function bindCaptureEvents() {
   cameraFeed.addEventListener('canplay', handleCameraCanPlay);
 
-  captureButton.addEventListener('pointerdown', pulseCaptureButton);
-  captureButton.addEventListener('keydown', (event) => {
-    if (CAPTURE_KEYBOARD_KEYS.has(event.key)) {
-      pulseCaptureButton();
-    }
-  });
+  captureButton.addEventListener('pointerdown', captureMicroInteractions.pulseCaptureButton);
 
   captureButton.addEventListener('click', (event) => {
     event.preventDefault();
@@ -460,90 +244,6 @@ function bindPreviewEvents() {
     event.preventDefault();
     togglePreviewExpanded();
   });
-
-  cameraFeed.addEventListener('keydown', (event) => {
-    if (!PREVIEW_TOGGLE_KEYS.has(event.key)) {
-      return;
-    }
-
-    event.preventDefault();
-    togglePreviewExpanded();
-  });
-}
-
-function bindZoomEvents() {
-  if (!zoomWheel) {
-    return;
-  }
-
-  zoomWheel.addEventListener('input', (event) => {
-    const nextZoom = Number(event.target.value);
-    if (!Number.isFinite(nextZoom)) {
-      return;
-    }
-
-    updateZoomText(zoomDisplay, nextZoom);
-    void cameraController.applyZoom(nextZoom);
-  });
-}
-
-function syncZoomTickMarks() {
-  if (!zoomWheel) {
-    return;
-  }
-
-  const min = Number(zoomWheel.min);
-  const max = Number(zoomWheel.max);
-  const step = Number(zoomWheel.step);
-
-  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(step) || step <= 0) {
-    return;
-  }
-
-  const intervals = Math.max(1, Math.floor(((max - min) / step) + Number.EPSILON));
-  zoomWheel.style.setProperty('--zoom-intervals', String(intervals));
-  zoomWheelContainer?.style.setProperty('--zoom-intervals', String(intervals));
-  zoomPanel?.style.setProperty('--zoom-intervals', String(intervals));
-}
-
-function setZoomWheelDisabled() {
-  if (!zoomWheel) {
-    return;
-  }
-
-  zoomWheel.setAttribute('disabled', '');
-  updateZoomScaleBounds(Number(zoomWheel.min), Number(zoomWheel.max));
-}
-
-function syncZoomWheelCapabilities() {
-  if (!zoomWheel) {
-    return;
-  }
-
-  const zoomCapabilities = cameraController.getZoomCapabilities?.();
-  const minZoom = Number(zoomCapabilities?.min);
-  const maxZoom = Number(zoomCapabilities?.max);
-  const stepZoom = Number(zoomCapabilities?.step);
-  const hasZoomCapabilities = Number.isFinite(minZoom)
-    && Number.isFinite(maxZoom)
-    && maxZoom > minZoom;
-
-  if (!hasZoomCapabilities) {
-    setZoomWheelDisabled();
-    return;
-  }
-
-  const safeStep = Number.isFinite(stepZoom) && stepZoom > 0 ? stepZoom : 0.1;
-  const currentZoom = cameraController.getCurrentZoom();
-  const clampedZoom = Math.min(maxZoom, Math.max(minZoom, currentZoom));
-
-  zoomWheel.min = String(minZoom);
-  zoomWheel.max = String(maxZoom);
-  zoomWheel.step = String(safeStep);
-  zoomWheel.value = String(clampedZoom);
-  zoomWheel.removeAttribute('disabled');
-  updateZoomScaleBounds(minZoom, maxZoom);
-  syncZoomTickMarks();
 }
 
 function bindRotationEvents() {
@@ -553,68 +253,12 @@ function bindRotationEvents() {
   });
 }
 
-function bindSwatchEvents() {
-  if (!swatchSlider) {
-    return;
-  }
-
-  const sliderPanel = swatchSlider.closest('.swatch-slider');
-  let activePulseTimeout = 0;
-
-  const setDragState = (isDragging) => {
-    sliderPanel?.classList.toggle('is-dragging', isDragging);
-  };
-
-  const pulseActiveIndicator = () => {
-    if (!sliderPanel) {
-      return;
-    }
-
-    sliderPanel.classList.add('is-active');
-
-    if (activePulseTimeout) {
-      window.clearTimeout(activePulseTimeout);
-    }
-
-    activePulseTimeout = window.setTimeout(() => {
-      sliderPanel.classList.remove('is-active');
-      activePulseTimeout = 0;
-    }, SWATCH_ACTIVE_PULSE_MS);
-  };
-
-  swatchSlider.addEventListener('pointerdown', () => {
-    setDragState(true);
-    pulseActiveIndicator();
-    window.addEventListener('pointerup', () => setDragState(false), { once: true });
-  });
-
-  swatchSlider.addEventListener('pointercancel', () => setDragState(false));
-  swatchSlider.addEventListener('blur', () => setDragState(false));
-  swatchSlider.addEventListener('keydown', (event) => {
-    if (SWATCH_KEYBOARD_KEYS.has(event.key)) {
-      pulseActiveIndicator();
-    }
-  });
-
-  swatchSlider.addEventListener('input', (event) => {
-    const nextSwatchCount = Number(event.target.value);
-
-    if (!Number.isFinite(nextSwatchCount) || nextSwatchCount < 1) {
-      return;
-    }
-
-    swatchCount = nextSwatchCount;
-    updateSliderTooltip(swatchSlider, swatchCount);
-    pulseActiveIndicator();
-  });
-}
-
 async function startCameraStream() {
   isStreaming = false;
   const started = await cameraController.startStream();
 
   if (started) {
-    syncZoomWheelCapabilities();
+    zoomUi.syncCapabilities();
   }
 }
 
@@ -679,8 +323,15 @@ function refreshPreview() {
     shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
   });
 
-  buildSampleGrid();
-  updateSamplePointSizes();
+  const isGridMode = isGridExtractionMode();
+
+  if (isGridMode) {
+    sampleGridOverlay.setVisible(true);
+    sampleGridOverlay.ensureBuilt();
+    sampleGridOverlay.updatePointSizes();
+  } else {
+    sampleGridOverlay.setVisible(false);
+  }
 
   extractionFrame += 1;
   if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
@@ -695,7 +346,9 @@ function refreshPreview() {
 
     lastExtractedColors = result.colors;
     lastChosenIndices = result.chosenIndices;
-    markChosenSquares(lastChosenIndices);
+    if (isGridMode) {
+      sampleGridOverlay.markChosenSquares(lastChosenIndices);
+    }
   }
 
   if (!lastExtractedColors || lastExtractedColors.length === 0) {
@@ -714,11 +367,11 @@ function refreshPreview() {
   );
 
   if (dominantColor) {
-    setCaptureButtonGlowColor(dominantColor);
-    setNameColor(dominantColor)
-    setCaptureGlowActive(true);
+    visualEffects.setCaptureButtonGlowColor(dominantColor);
+    visualEffects.setNameColor(dominantColor);
+    visualEffects.setCaptureGlowActive(true);
   } else {
-    setCaptureGlowActive(false);
+    visualEffects.setCaptureGlowActive(false);
   }
 
   requestAnimationFrame(refreshPreview);
@@ -729,7 +382,7 @@ async function captureCurrentFrame() {
     return;
   }
 
-  triggerCaptureFlash();
+  captureMicroInteractions.triggerCaptureFlash();
 
   frameCanvas.width = frameWidth;
   frameCanvas.height = frameHeight;
@@ -790,12 +443,8 @@ function exportPhotoData(sourceCanvas, sourceWidth, sourceHeight) {
 
 function stopCurrentStream() {
   isStreaming = false;
-  setCaptureGlowActive(false);
-
-  if (captureFlashTimeout) {
-    window.clearTimeout(captureFlashTimeout);
-    captureFlashTimeout = 0;
-  }
+  visualEffects.setCaptureGlowActive(false);
+  captureMicroInteractions.cleanup();
 
   cameraController.stopStream();
 }
@@ -828,12 +477,21 @@ function _loadTestImage(src) {
 
     const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
 
-    buildSampleGrid();
-    updateSamplePointSizes();
+    const isGridMode = isGridExtractionMode();
+
+    if (isGridMode) {
+      sampleGridOverlay.setVisible(true);
+      sampleGridOverlay.ensureBuilt();
+      sampleGridOverlay.updatePointSizes();
+    } else {
+      sampleGridOverlay.setVisible(false);
+    }
 
     const { colors, chosenIndices } = extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount);
 
-    markChosenSquares(chosenIndices);
+    if (isGridMode) {
+      sampleGridOverlay.markChosenSquares(chosenIndices);
+    }
     renderPaletteBars(paletteContext, colors, paletteCanvas.width, paletteCanvas.height);
     renderOutputSwatches(outputPalette, colors);
 
@@ -846,4 +504,4 @@ function _loadTestImage(src) {
   };
 }
 
-// loadTestImage('assets/img/test-img.webp');
+//loadTestImage('assets/img/test-img.webp');

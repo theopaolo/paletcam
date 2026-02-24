@@ -1,11 +1,6 @@
 .zoom-btns {
   color: var(--accent-color);
   font-family: monospace;
-
-  button {
-    width: 2rem;
-    height: 2rem;
-  }
 }
 
 .swatch-count-btns {
