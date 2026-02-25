@@ -3,7 +3,6 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
   padding: 1rem .5rem;
   flex-shrink: 0;
   background-color: #1b1b1b;
@@ -88,6 +87,7 @@
     justify-content: flex-end;
   }
 
+  .mini-output,
   .camera-preview-dock {
     position: relative;
     width: 5.75rem;
@@ -98,6 +98,12 @@
     box-shadow: inset 0px 2px 5px #5757578a, 0px 2px 4px #303030;
     background: linear-gradient(#181818, #141414 8%, #131313 20%, #0c0c0c 50%, #131313bd 80%, #161616);
     transition: width 0.2s ease, opacity 0.2s ease, border-width 0.2s ease;
+  }
+
+  .mini-output {
+    border-radius: 100vw;
+    height: 4rem;
+    width: 4rem;
   }
 
   .btn-view-collection,
@@ -150,7 +156,6 @@
     flex-direction: column;
     align-items: center;
     overflow: hidden;
-    margin-left: auto;
     width: 4rem;
     height: 4rem;
     border-radius: 100vw;
@@ -248,9 +253,11 @@ body.is-preview-expanded .camera-preview-dock {
 }
 
 .btns-actions {
-  margin-left: auto;
   display: flex;
   gap: .25rem;
+
+  margin-left: auto;
+  padding-left: 4rem;
 }
 
 .zoom-btns {

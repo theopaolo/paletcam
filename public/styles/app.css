@@ -200,13 +200,14 @@ header {
 .output-img{
   height: 100%;
   width: auto;
+  flex: 1;
   object-fit: cover;
 }
 
 .output-palette {
   display: flex;
   height: 100%;
-  flex: 1;
+  flex: 4;
   flex-shrink: 0;
   position: relative;
 }

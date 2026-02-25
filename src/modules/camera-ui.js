@@ -1,6 +1,6 @@
 import { toRgbCss } from './color-format.js';
 
-const EMPTY_OUTPUT_HINT_TEXT = 'Votre premiere capture apparaitra ici.';
+const EMPTY_OUTPUT_HINT_TEXT = 'Aperçus.';
 
 function setClassVisibility(element, shouldShow) {
   if (!element) {

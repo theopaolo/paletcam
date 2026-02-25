@@ -89,6 +89,51 @@ async function loadCollectionUi() {
   });
 }
 
+export async function openCollectionPanel({
+  paletteId,
+  openPaletteViewer = false,
+} = {}) {
+  if (!collectionPanel || !collectionGrid) {
+    return false;
+  }
+
+  closePaletteViewerOverlay();
+  const settingsPanel = document.querySelector(".settings-panel");
+  settingsPanel?.classList.remove("visible");
+  settingsPanel?.setAttribute("aria-hidden", "true");
+  if (settingsPanel) {
+    settingsPanel.hidden = true;
+  }
+  collectionPanel.classList.add("visible");
+  await loadCollectionUi();
+
+  if (paletteId === undefined || paletteId === null) {
+    return true;
+  }
+
+  const paletteIdString = String(paletteId);
+  const targetCard = [...collectionGrid.querySelectorAll(".palette-card")]
+    .find((card) => card.dataset.paletteId === paletteIdString);
+
+  if (!targetCard) {
+    return false;
+  }
+
+  targetCard.scrollIntoView({
+    block: "center",
+    behavior: "smooth",
+  });
+
+  if (openPaletteViewer) {
+    const trigger = targetCard.querySelector(".palette-card-trigger");
+    if (trigger instanceof HTMLButtonElement) {
+      trigger.click();
+    }
+  }
+
+  return true;
+}
+
 function bindCollectionUiEvents() {
   if (
     !collectionPanel || !collectionGrid || !viewCollectionButton ||
@@ -98,15 +143,7 @@ function bindCollectionUiEvents() {
   }
 
   viewCollectionButton.addEventListener("click", async () => {
-    closePaletteViewerOverlay();
-    const settingsPanel = document.querySelector(".settings-panel");
-    settingsPanel?.classList.remove("visible");
-    settingsPanel?.setAttribute("aria-hidden", "true");
-    if (settingsPanel) {
-      settingsPanel.hidden = true;
-    }
-    collectionPanel.classList.add("visible");
-    await loadCollectionUi();
+    await openCollectionPanel();
   });
 
   closeCollectionButton.addEventListener("click", () => {

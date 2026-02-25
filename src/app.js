@@ -1,3 +1,4 @@
+import { getAppSettings, subscribeAppSettings } from './app-settings.js';
 import { createCameraController } from './modules/camera-controller.js';
 import {
   drawFrameToCanvas,
@@ -18,7 +19,7 @@ import { createSampleGridOverlayController } from './modules/sample-grid-overlay
 import { createSwatchSliderUiController } from './modules/swatch-slider-ui.js';
 import { createVisualEffects } from './modules/visual-effects.js';
 import { createZoomUiController } from './modules/zoom-ui.js';
-import { getAppSettings, subscribeAppSettings } from './app-settings.js';
+import { openCollectionPanel } from './collection-ui.js';
 import { savePalette } from './palette-storage.js';
 
 const PHOTO_EXPORT_MAX_WIDTH = 1440;
@@ -55,8 +56,9 @@ const paletteContext = paletteCanvas?.getContext('2d');
 let frameWidth = 0;
 let frameHeight = 0;
 let isStreaming = false;
+let _testImageMode = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
-let isPreviewExpanded = false;
+let _isPreviewExpanded = false;
 let extractionFrame = 0;
 let lastExtractedColors = null;
 let lastChosenIndices = [];
@@ -164,7 +166,7 @@ function setPreviewExpanded(shouldExpand) {
   }
 
   const nextExpandedState = Boolean(shouldExpand);
-  isPreviewExpanded = nextExpandedState;
+  _isPreviewExpanded = nextExpandedState;
 
   captureContainer.classList.toggle('is-preview-expanded', nextExpandedState);
   document.body.classList.toggle('is-preview-expanded', nextExpandedState);
@@ -227,6 +229,7 @@ function initializeApp() {
   setPreviewExpanded(true);
   bindCameraPermissionEvents();
   bindCaptureEvents();
+  bindMiniOutputEvents();
   zoomUi.bindEvents();
   bindRotationEvents();
   swatchSliderUi.bindEvents();
@@ -237,6 +240,7 @@ function initializeApp() {
   setCaptureState({ btnOn, btnShoot, isCameraActive: false });
   photoOutput?.removeAttribute('src');
   renderOutputSwatches(outputPalette, []);
+  photoOutput?.removeAttribute('data-palette-id');
 
   if (navigator.mediaDevices?.getUserMedia) {
     void startCameraStream();
@@ -269,6 +273,28 @@ function bindCaptureEvents() {
   });
 }
 
+function getMiniOutputPaletteId() {
+  const paletteId = Number(photoOutput?.dataset.paletteId);
+  return Number.isFinite(paletteId) ? paletteId : null;
+}
+
+function bindMiniOutputEvents() {
+  if (!photoOutput) {
+    return;
+  }
+
+  photoOutput.addEventListener('click', () => {
+    if (!photoOutput.getAttribute('src')) {
+      return;
+    }
+
+    void openCollectionPanel({
+      paletteId: getMiniOutputPaletteId(),
+      openPaletteViewer: Boolean(getMiniOutputPaletteId()),
+    });
+  });
+}
+
 function bindRotationEvents() {
   rotateButton?.addEventListener('click', async () => {
     isStreaming = false;
@@ -277,8 +303,18 @@ function bindRotationEvents() {
 }
 
 async function startCameraStream() {
+  if (_testImageMode) {
+    return;
+  }
+
   isStreaming = false;
   const started = await cameraController.startStream();
+
+  // loadTestImage may have activated test mode while we were awaiting the stream
+  if (_testImageMode) {
+    cameraController.stopStream();
+    return;
+  }
 
   if (started) {
     zoomUi.syncCapabilities();
@@ -286,6 +322,10 @@ async function startCameraStream() {
 }
 
 function handleCameraCanPlay() {
+  if (_testImageMode) {
+    return;
+  }
+
   const { width: nextFrameWidth } = getPaletteViewportSize();
   if (nextFrameWidth <= 0 || cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
     return;
@@ -443,8 +483,14 @@ async function captureCurrentFrame() {
 
   if (paletteColors.length > 0) {
     try {
-      await savePalette(paletteColors, photoData);
+      const savedPalette = await savePalette(paletteColors, photoData);
+      if (savedPalette?.id !== undefined && savedPalette?.id !== null) {
+        photoOutput.dataset.paletteId = String(savedPalette.id);
+      } else {
+        photoOutput.removeAttribute('data-palette-id');
+      }
     } catch (error) {
+      photoOutput.removeAttribute('data-palette-id');
       console.error('Failed to save palette:', error);
     }
   }
@@ -530,6 +576,11 @@ function _loadTestImage(src) {
     return;
   }
 
+  // Prevent the camera from starting (or restarting) while testing with a static image
+  _testImageMode = true;
+  stopCurrentStream();
+  cameraFeed?.removeEventListener('canplay', handleCameraCanPlay);
+
   const img = new Image();
   img.src = src;
 
@@ -588,4 +639,4 @@ function _loadTestImage(src) {
   };
 }
 
-//loadTestImage('assets/img/test-img.webp');
+// loadTestImage('assets/img/test-img.webp');

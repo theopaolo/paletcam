@@ -50,16 +50,13 @@
       </div>
       <canvas id="canvas"></canvas>
     </div>
-    <div class="output">
-      <img class="output-img" id="photo" src="" aria-hidden="true" />
-      <div class="output-palette" id="outputPalette"></div>
-    </div>
+
     <div class="sliders-container">
       <div class="swatch-slider">
         <input
           type="range"
-          min="1"
-          max="24"
+          min="3"
+          max="7"
           value="4"
           step="1"
           aria-label="Nombre de couleurs : 4"
@@ -658,22 +655,29 @@
           aria-hidden="true"
         ></div>
       </div>
-      <button class="btn-rotate" type="button">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          fill="#000000"
-          viewBox="0 0 256 256"
-          aria-hidden="true"
-        >
-          <path
-            d="M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56ZM156.81,166.4A48.21,48.21,0,0,1,96,163.77V168a8,8,0,0,1-16,0V144a8,8,0,0,1,8-8h24a8,8,0,0,1,0,16h-5.15a32.12,32.12,0,0,0,40.34,1.61,8,8,0,0,1,9.62,12.79ZM176,120a8,8,0,0,1-8,8H144a8,8,0,0,1,0-16h5.15a32.12,32.12,0,0,0-40.34-1.61A8,8,0,0,1,99.19,97.6,48.21,48.21,0,0,1,160,100.23V96a8,8,0,0,1,16,0Z"
-          ></path>
-        </svg>
-      </button>
+
+      <div class="mini-output">
+        <img class="output-img" id="photo" src="" aria-hidden="true" />
+        <!-- <div class="output-palette" id="outputPalette"></div> -->
+      </div>
+
       <div class="btns-camera">
         <div class="camera-actions">
+          <button class="btn-rotate ml-auto" type="button">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              fill="#000000"
+              viewBox="0 0 256 256"
+              aria-hidden="true"
+            >
+              <path
+                d="M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56ZM156.81,166.4A48.21,48.21,0,0,1,96,163.77V168a8,8,0,0,1-16,0V144a8,8,0,0,1,8-8h24a8,8,0,0,1,0,16h-5.15a32.12,32.12,0,0,0,40.34,1.61,8,8,0,0,1,9.62,12.79ZM176,120a8,8,0,0,1-8,8H144a8,8,0,0,1,0-16h5.15a32.12,32.12,0,0,0-40.34-1.61A8,8,0,0,1,99.19,97.6,48.21,48.21,0,0,1,160,100.23V96a8,8,0,0,1,16,0Z"
+              ></path>
+            </svg>
+          </button>
+
           <button class="btn-capture" type="button">
             <img src="logo/colorcatchers.svg" alt="" class="btn-shoot hidden" />
             <svg
