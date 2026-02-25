@@ -34,18 +34,46 @@ export async function getSavedPalettes() {
   }
 }
 
-export async function savePalette(colors, photoDataUrl) {
+export async function savePalette(
+  colors,
+  {
+    photoDataUrl,
+    captureAspectRatio = '4:3',
+    captureCropRect = null,
+  } = {},
+) {
   const timestamp = new Date().toISOString();
+  if (typeof photoDataUrl !== 'string' || photoDataUrl.length === 0) {
+    throw new Error('Missing photo data.');
+  }
+
   const photoBlob = dataUrlToBlob(photoDataUrl);
+  const safeCaptureCropRect = captureCropRect
+    ? {
+        x: Number(captureCropRect.x) || 0,
+        y: Number(captureCropRect.y) || 0,
+        width: Number(captureCropRect.width) || 0,
+        height: Number(captureCropRect.height) || 0,
+      }
+    : null;
 
   try {
     const id = await db.palettes.add({
       timestamp,
       colors: [...colors],
       photoBlob,
+      captureAspectRatio,
+      captureCropRect: safeCaptureCropRect,
     });
 
-    return { id, timestamp, colors: [...colors], photoBlob };
+    return {
+      id,
+      timestamp,
+      colors: [...colors],
+      photoBlob,
+      captureAspectRatio,
+      captureCropRect: safeCaptureCropRect,
+    };
   } catch (error) {
     console.error('Failed to save palette:', error);
     throw new Error('Unable to save palette.');

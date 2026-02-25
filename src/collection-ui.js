@@ -3,6 +3,7 @@ import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import {
   closePaletteViewerOverlay,
   createPaletteCard,
+  subscribePaletteViewerOverlayClose,
 } from "./modules/collection/palette-card.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
@@ -17,6 +18,7 @@ const SESSION_REVEAL_DURATION_MS = 280;
 const SESSION_REVEAL_STAGGER_MS = 42;
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
+let shouldCloseCollectionOnViewerClose = false;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -92,11 +94,13 @@ async function loadCollectionUi() {
 export async function openCollectionPanel({
   paletteId,
   openPaletteViewer = false,
+  closeCollectionOnViewerClose = false,
 } = {}) {
   if (!collectionPanel || !collectionGrid) {
     return false;
   }
 
+  shouldCloseCollectionOnViewerClose = false;
   closePaletteViewerOverlay();
   const settingsPanel = document.querySelector(".settings-panel");
   settingsPanel?.classList.remove("visible");
@@ -127,6 +131,7 @@ export async function openCollectionPanel({
   if (openPaletteViewer) {
     const trigger = targetCard.querySelector(".palette-card-trigger");
     if (trigger instanceof HTMLButtonElement) {
+      shouldCloseCollectionOnViewerClose = Boolean(closeCollectionOnViewerClose);
       trigger.click();
     }
   }
@@ -146,7 +151,17 @@ function bindCollectionUiEvents() {
     await openCollectionPanel();
   });
 
+  subscribePaletteViewerOverlayClose(() => {
+    if (!shouldCloseCollectionOnViewerClose) {
+      return;
+    }
+
+    shouldCloseCollectionOnViewerClose = false;
+    collectionPanel.classList.remove("visible");
+  });
+
   closeCollectionButton.addEventListener("click", () => {
+    shouldCloseCollectionOnViewerClose = false;
     closePaletteViewerOverlay();
     collectionPanel.classList.remove("visible");
   });

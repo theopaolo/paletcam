@@ -24,6 +24,7 @@ import { savePalette } from './palette-storage.js';
 
 const PHOTO_EXPORT_MAX_WIDTH = 1440;
 const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
+const CAMERA_FRAME_ASPECT_RATIO_LABEL = '4:3';
 
 const colorscatcher = document.querySelector('.colorscatcher');
 const cameraFeed = document.querySelector('.camera-feed');
@@ -187,6 +188,36 @@ function getCameraFrameSourceRect() {
     cameraFeed?.videoWidth ?? 0,
     cameraFeed?.videoHeight ?? 0
   );
+}
+
+function roundNormalizedCropValue(value) {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function toNormalizedCropRect(sourceRect, sourceWidth, sourceHeight) {
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    return null;
+  }
+
+  const safeRect = (
+    sourceRect &&
+    sourceRect.width > 0 &&
+    sourceRect.height > 0
+  )
+    ? sourceRect
+    : { x: 0, y: 0, width: sourceWidth, height: sourceHeight };
+
+  const clampedX = Math.max(0, Math.min(Math.round(safeRect.x), Math.max(0, sourceWidth - 1)));
+  const clampedY = Math.max(0, Math.min(Math.round(safeRect.y), Math.max(0, sourceHeight - 1)));
+  const clampedWidth = Math.max(1, Math.min(Math.round(safeRect.width), sourceWidth - clampedX));
+  const clampedHeight = Math.max(1, Math.min(Math.round(safeRect.height), sourceHeight - clampedY));
+
+  return {
+    x: roundNormalizedCropValue(clampedX / sourceWidth),
+    y: roundNormalizedCropValue(clampedY / sourceHeight),
+    width: roundNormalizedCropValue(clampedWidth / sourceWidth),
+    height: roundNormalizedCropValue(clampedHeight / sourceHeight),
+  };
 }
 
 function syncCameraViewportLayout() {
@@ -406,6 +437,7 @@ function bindMiniOutputEvents() {
     void openCollectionPanel({
       paletteId: getMiniOutputPaletteId(),
       openPaletteViewer: Boolean(getMiniOutputPaletteId()),
+      closeCollectionOnViewerClose: Boolean(getMiniOutputPaletteId()),
     });
   });
 }
@@ -563,6 +595,20 @@ async function captureCurrentFrame() {
 
   captureMicroInteractions.triggerCaptureFlash();
 
+  const facingMode = cameraController.getFacingMode();
+  const shouldMirrorUserFacing = shouldMirrorUserFacingCamera();
+  const captureSourceWidth = cameraFeed.videoWidth || frameWidth;
+  const captureSourceHeight = cameraFeed.videoHeight || frameHeight;
+  const captureSourceRect = getCenteredAspectCropRect(
+    captureSourceWidth,
+    captureSourceHeight
+  );
+  const captureCropRect = toNormalizedCropRect(
+    captureSourceRect,
+    captureSourceWidth,
+    captureSourceHeight
+  );
+
   frameCanvas.width = frameWidth;
   frameCanvas.height = frameHeight;
 
@@ -571,9 +617,9 @@ async function captureCurrentFrame() {
     cameraFeed,
     width: frameWidth,
     height: frameHeight,
-    facingMode: cameraController.getFacingMode(),
-    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
-    sourceRect: getCameraFrameSourceRect(),
+    facingMode,
+    shouldMirrorUserFacing,
+    sourceRect: captureSourceRect,
   });
 
   const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
@@ -590,8 +636,9 @@ async function captureCurrentFrame() {
     fallbackWidth: frameWidth,
     fallbackHeight: frameHeight,
     cameraFeed,
-    facingMode: cameraController.getFacingMode(),
-    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
+    facingMode,
+    shouldMirrorUserFacing,
+    sourceRect: captureSourceRect,
   });
 
   photoOutput.setAttribute('src', photoData);
@@ -599,7 +646,21 @@ async function captureCurrentFrame() {
 
   if (paletteColors.length > 0) {
     try {
-      const savedPalette = await savePalette(paletteColors, photoData);
+      const masterPhotoData = exportPhotoData({
+        fallbackCanvas: frameCanvas,
+        fallbackWidth: frameWidth,
+        fallbackHeight: frameHeight,
+        cameraFeed,
+        facingMode,
+        shouldMirrorUserFacing,
+        sourceRect: null,
+      });
+
+      const savedPalette = await savePalette(paletteColors, {
+        photoDataUrl: masterPhotoData,
+        captureAspectRatio: CAMERA_FRAME_ASPECT_RATIO_LABEL,
+        captureCropRect,
+      });
       if (savedPalette?.id !== undefined && savedPalette?.id !== null) {
         photoOutput.dataset.paletteId = String(savedPalette.id);
       } else {
@@ -619,6 +680,7 @@ function exportPhotoData({
   cameraFeed,
   facingMode,
   shouldMirrorUserFacing,
+  sourceRect = undefined,
 }) {
   const photoCanvas = document.createElement('canvas');
   const photoContext = photoCanvas.getContext('2d');
@@ -634,11 +696,12 @@ function exportPhotoData({
   );
   const sourceWidth = hasNativeVideoFrame ? cameraFeed.videoWidth : fallbackWidth;
   const sourceHeight = hasNativeVideoFrame ? cameraFeed.videoHeight : fallbackHeight;
-  const sourceRect = hasNativeVideoFrame
+  const defaultSourceRect = hasNativeVideoFrame
     ? getCenteredAspectCropRect(sourceWidth, sourceHeight)
     : null;
-  const exportSourceWidth = sourceRect?.width ?? sourceWidth;
-  const exportSourceHeight = sourceRect?.height ?? sourceHeight;
+  const effectiveSourceRect = sourceRect === undefined ? defaultSourceRect : sourceRect;
+  const exportSourceWidth = effectiveSourceRect?.width ?? sourceWidth;
+  const exportSourceHeight = effectiveSourceRect?.height ?? sourceHeight;
 
   if (exportSourceWidth <= 0 || exportSourceHeight <= 0) {
     return fallbackCanvas.toDataURL('image/webp', photoExportQuality);
@@ -660,7 +723,7 @@ function exportPhotoData({
       height: photoHeight,
       facingMode,
       shouldMirrorUserFacing,
-      sourceRect,
+      sourceRect: effectiveSourceRect,
     });
   } else {
     photoContext.drawImage(
