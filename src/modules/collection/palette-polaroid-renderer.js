@@ -59,8 +59,44 @@ function loadImageFromBlob(blob) {
   });
 }
 
+function dataUrlToBlob(dataUrl) {
+  if (typeof dataUrl !== "string" || !dataUrl.includes(",")) {
+    return null;
+  }
+
+  const [header, content] = dataUrl.split(",", 2);
+  const mimeMatch = header.match(/:(.*?);/);
+  if (!mimeMatch) {
+    return null;
+  }
+
+  try {
+    const binaryContent = atob(content);
+    const bytes = new Uint8Array(binaryContent.length);
+    for (let index = 0; index < binaryContent.length; index += 1) {
+      bytes[index] = binaryContent.charCodeAt(index);
+    }
+    return new Blob([bytes], { type: mimeMatch[1] });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function resolvePalettePhotoBlob(palette) {
+  const candidateBlob = palette?.photoBlob ?? palette?.masterPhotoBlob;
+  if (candidateBlob instanceof Blob) {
+    return candidateBlob;
+  }
+
+  if (typeof palette?.photoDataUrl === "string") {
+    return dataUrlToBlob(palette.photoDataUrl);
+  }
+
+  return null;
+}
+
 export function hasPaletteMasterPhoto(palette) {
-  return Boolean(palette?.photoBlob);
+  return resolvePalettePhotoBlob(palette) instanceof Blob;
 }
 
 export function getPalettePhotoAspectRatioValue(palette) {
@@ -387,7 +423,12 @@ export async function renderPalettePolaroidBlob(
     return null;
   }
 
-  const image = await loadImageFromBlob(palette.photoBlob);
+  const photoBlob = resolvePalettePhotoBlob(palette);
+  if (!photoBlob) {
+    return null;
+  }
+
+  const image = await loadImageFromBlob(photoBlob);
 
   renderPolaroidCanvas({
     canvas,

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   getPalettePhotoAspectRatioValue,
+  hasPaletteMasterPhoto,
   resolveNormalizedCropRectToPixelRect,
 } from "./palette-polaroid-renderer.js";
 
@@ -43,5 +44,18 @@ describe("getPalettePhotoAspectRatioValue", () => {
     expect(getPalettePhotoAspectRatioValue({ captureAspectRatio: "4:3" })).toBeCloseTo(4 / 3);
     expect(getPalettePhotoAspectRatioValue({ captureAspectRatio: "weird" })).toBeNull();
     expect(getPalettePhotoAspectRatioValue({})).toBeNull();
+  });
+});
+
+
+describe("hasPaletteMasterPhoto", () => {
+  test("returns true for blob fields and legacy data url photos", () => {
+    const blob = new Blob(["test"], { type: "text/plain" });
+
+    expect(hasPaletteMasterPhoto({ photoBlob: blob })).toBe(true);
+    expect(hasPaletteMasterPhoto({ masterPhotoBlob: blob })).toBe(true);
+    expect(hasPaletteMasterPhoto({ photoDataUrl: "data:text/plain;base64,dGVzdA==" })).toBe(true);
+    expect(hasPaletteMasterPhoto({ photoDataUrl: "broken-data-url" })).toBe(false);
+    expect(hasPaletteMasterPhoto({})).toBe(false);
   });
 });
