@@ -22,6 +22,7 @@ export function drawFrameToCanvas({
   height,
   facingMode,
   shouldMirrorUserFacing = true,
+  sourceRect = null,
 }) {
   if (!context || !cameraFeed || width <= 0 || height <= 0) {
     return;
@@ -29,11 +30,36 @@ export function drawFrameToCanvas({
 
   context.save();
 
+  const hasSourceRect = Boolean(
+    sourceRect &&
+    sourceRect.width > 0 &&
+    sourceRect.height > 0
+  );
+
+  const drawFrame = (x, y, drawWidth, drawHeight) => {
+    if (!hasSourceRect) {
+      context.drawImage(cameraFeed, x, y, drawWidth, drawHeight);
+      return;
+    }
+
+    context.drawImage(
+      cameraFeed,
+      sourceRect.x,
+      sourceRect.y,
+      sourceRect.width,
+      sourceRect.height,
+      x,
+      y,
+      drawWidth,
+      drawHeight
+    );
+  };
+
   if (facingMode === 'user' && shouldMirrorUserFacing) {
     context.scale(-1, 1);
-    context.drawImage(cameraFeed, -width, 0, width, height);
+    drawFrame(-width, 0, width, height);
   } else {
-    context.drawImage(cameraFeed, 0, 0, width, height);
+    drawFrame(0, 0, width, height);
   }
 
   context.restore();

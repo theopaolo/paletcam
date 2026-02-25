@@ -23,6 +23,7 @@ import { openCollectionPanel } from './collection-ui.js';
 import { savePalette } from './palette-storage.js';
 
 const PHOTO_EXPORT_MAX_WIDTH = 1440;
+const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
 
 const colorscatcher = document.querySelector('.colorscatcher');
 const cameraFeed = document.querySelector('.camera-feed');
@@ -49,6 +50,7 @@ const swatchSlider = document.querySelector('.swatch-slider input[type="range"]'
 const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
 const sampleRowOverlay = document.getElementById('sampleRowOverlay');
+const cameraViewportFrame = document.createElement('div');
 
 const frameContext = frameCanvas?.getContext('2d', { willReadFrequently: true }) ?? frameCanvas?.getContext('2d');
 const paletteContext = paletteCanvas?.getContext('2d');
@@ -67,6 +69,9 @@ let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let paletteScoringSettings = { ...getAppSettings().paletteScoring };
 const EXTRACTION_INTERVAL = 10;
+let lastCameraViewportLayout = null;
+
+cameraViewportFrame.className = 'camera-feed-frame';
 const captureMicroInteractions = createCaptureMicroInteractions({
   captureButton,
   captureContainer,
@@ -112,6 +117,106 @@ function getPaletteViewportSize() {
   };
 }
 
+function getContainedSize(width, height, aspectRatio) {
+  if (width <= 0 || height <= 0 || aspectRatio <= 0) {
+    return { width: 0, height: 0 };
+  }
+
+  const containerAspectRatio = width / height;
+
+  if (containerAspectRatio > aspectRatio) {
+    const nextHeight = Math.max(1, Math.floor(height));
+    const nextWidth = Math.max(1, Math.floor(nextHeight * aspectRatio));
+    return { width: nextWidth, height: nextHeight };
+  }
+
+  const nextWidth = Math.max(1, Math.floor(width));
+  const nextHeight = Math.max(1, Math.floor(nextWidth / aspectRatio));
+  return { width: nextWidth, height: nextHeight };
+}
+
+function getTargetFrameHeight(width) {
+  if (width <= 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.floor(width / CAMERA_FRAME_ASPECT_RATIO));
+}
+
+function getCenteredAspectCropRect(sourceWidth, sourceHeight, targetAspectRatio = CAMERA_FRAME_ASPECT_RATIO) {
+  if (sourceWidth <= 0 || sourceHeight <= 0 || targetAspectRatio <= 0) {
+    return null;
+  }
+
+  const sourceAspectRatio = sourceWidth / sourceHeight;
+
+  if (Math.abs(sourceAspectRatio - targetAspectRatio) < 0.0001) {
+    return {
+      x: 0,
+      y: 0,
+      width: sourceWidth,
+      height: sourceHeight,
+    };
+  }
+
+  if (sourceAspectRatio > targetAspectRatio) {
+    const width = Math.max(1, Math.round(sourceHeight * targetAspectRatio));
+    const x = Math.max(0, Math.floor((sourceWidth - width) / 2));
+
+    return {
+      x,
+      y: 0,
+      width: Math.min(width, sourceWidth),
+      height: sourceHeight,
+    };
+  }
+
+  const height = Math.max(1, Math.round(sourceWidth / targetAspectRatio));
+  const y = Math.max(0, Math.floor((sourceHeight - height) / 2));
+
+  return {
+    x: 0,
+    y,
+    width: sourceWidth,
+    height: Math.min(height, sourceHeight),
+  };
+}
+
+function getCameraFrameSourceRect() {
+  return getCenteredAspectCropRect(
+    cameraFeed?.videoWidth ?? 0,
+    cameraFeed?.videoHeight ?? 0
+  );
+}
+
+function syncCameraViewportLayout() {
+  const hostElement = cameraViewportFrame.parentElement;
+  if (!hostElement) {
+    lastCameraViewportLayout = null;
+    return;
+  }
+
+  const { width, height } = getContainedSize(
+    hostElement.clientWidth,
+    hostElement.clientHeight,
+    CAMERA_FRAME_ASPECT_RATIO
+  );
+
+  if (width <= 0 || height <= 0) {
+    lastCameraViewportLayout = null;
+    return;
+  }
+
+  const nextLayoutKey = `${width}x${height}`;
+  if (lastCameraViewportLayout === nextLayoutKey) {
+    return;
+  }
+
+  cameraViewportFrame.style.width = `${width}px`;
+  cameraViewportFrame.style.height = `${height}px`;
+  lastCameraViewportLayout = nextLayoutKey;
+}
+
 function isGridExtractionMode() {
   return getPaletteExtractionAlgorithm() === PALETTE_EXTRACTION_ALGORITHMS.GRID;
 }
@@ -149,15 +254,24 @@ function applyAppSettings({
 }
 
 function mountCameraFeed(targetElement) {
-  if (!cameraFeed || !targetElement || cameraFeed.parentElement === targetElement) {
+  if (!cameraFeed || !targetElement) {
     return;
   }
 
-  targetElement.appendChild(cameraFeed);
-
-  if (sampleRowOverlay) {
-    targetElement.appendChild(sampleRowOverlay);
+  if (cameraViewportFrame.parentElement !== targetElement) {
+    targetElement.appendChild(cameraViewportFrame);
+    lastCameraViewportLayout = null;
   }
+
+  if (cameraFeed.parentElement !== cameraViewportFrame) {
+    cameraViewportFrame.appendChild(cameraFeed);
+  }
+
+  if (sampleRowOverlay && sampleRowOverlay.parentElement !== cameraViewportFrame) {
+    cameraViewportFrame.appendChild(sampleRowOverlay);
+  }
+
+  syncCameraViewportLayout();
 }
 
 function setPreviewExpanded(shouldExpand) {
@@ -175,6 +289,7 @@ function setPreviewExpanded(shouldExpand) {
 
   mountCameraFeed(nextExpandedState ? cameraStageMount : cameraPreviewDock);
   syncCameraFeedOrientation();
+  syncCameraViewportLayout();
 }
 
 let zoomUi = null;
@@ -332,8 +447,7 @@ function handleCameraCanPlay() {
   }
 
   frameWidth = nextFrameWidth;
-  const aspectRatio = cameraFeed.videoHeight / cameraFeed.videoWidth;
-  frameHeight = Math.floor(frameWidth * aspectRatio);
+  frameHeight = getTargetFrameHeight(frameWidth);
 
   cameraFeed.setAttribute('width', String(frameWidth));
   cameraFeed.setAttribute('height', String(frameHeight));
@@ -358,8 +472,8 @@ function refreshPreview() {
   }
 
   frameWidth = paletteWidth;
-  const aspectRatio = cameraFeed.videoHeight / cameraFeed.videoWidth;
-  frameHeight = Math.floor(frameWidth * aspectRatio);
+  frameHeight = getTargetFrameHeight(frameWidth);
+  syncCameraViewportLayout();
 
   const nextCanvasWidth = frameWidth;
   const nextCanvasHeight = frameHeight;
@@ -384,6 +498,7 @@ function refreshPreview() {
     height: frameHeight,
     facingMode: cameraController.getFacingMode(),
     shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
+    sourceRect: getCameraFrameSourceRect(),
   });
 
   const isGridMode = isGridExtractionMode();
@@ -458,6 +573,7 @@ async function captureCurrentFrame() {
     height: frameHeight,
     facingMode: cameraController.getFacingMode(),
     shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
+    sourceRect: getCameraFrameSourceRect(),
   });
 
   const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
@@ -518,13 +634,18 @@ function exportPhotoData({
   );
   const sourceWidth = hasNativeVideoFrame ? cameraFeed.videoWidth : fallbackWidth;
   const sourceHeight = hasNativeVideoFrame ? cameraFeed.videoHeight : fallbackHeight;
+  const sourceRect = hasNativeVideoFrame
+    ? getCenteredAspectCropRect(sourceWidth, sourceHeight)
+    : null;
+  const exportSourceWidth = sourceRect?.width ?? sourceWidth;
+  const exportSourceHeight = sourceRect?.height ?? sourceHeight;
 
-  if (sourceWidth <= 0 || sourceHeight <= 0) {
+  if (exportSourceWidth <= 0 || exportSourceHeight <= 0) {
     return fallbackCanvas.toDataURL('image/webp', photoExportQuality);
   }
 
-  const photoWidth = Math.min(sourceWidth, PHOTO_EXPORT_MAX_WIDTH);
-  const photoHeight = Math.max(1, Math.round((sourceHeight / sourceWidth) * photoWidth));
+  const photoWidth = Math.min(exportSourceWidth, PHOTO_EXPORT_MAX_WIDTH);
+  const photoHeight = Math.max(1, Math.round((exportSourceHeight / exportSourceWidth) * photoWidth));
 
   photoCanvas.width = photoWidth;
   photoCanvas.height = photoHeight;
@@ -539,6 +660,7 @@ function exportPhotoData({
       height: photoHeight,
       facingMode,
       shouldMirrorUserFacing,
+      sourceRect,
     });
   } else {
     photoContext.drawImage(
@@ -566,6 +688,7 @@ function stopCurrentStream() {
 }
 
 window.addEventListener('beforeunload', stopCurrentStream);
+window.addEventListener('resize', syncCameraViewportLayout);
 subscribeAppSettings(applyAppSettings);
 
 initializeApp();

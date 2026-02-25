@@ -40,7 +40,7 @@ header {
 
 .capture {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 0fr;
+  /* grid-template-rows: minmax(0, 1fr) 0fr; */
   position: relative;
   width: 100%;
   border-radius: 2px;
@@ -52,9 +52,9 @@ header {
   transition: grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.capture.is-preview-expanded {
+/* .capture.is-preview-expanded {
   grid-template-rows: minmax(0, 2fr) minmax(0, 2fr);
-}
+} */
 
 .capture-palette-stage {
   position: relative;
@@ -63,6 +63,8 @@ header {
 }
 
 .capture-camera-stage {
+  display: grid;
+  place-items: center;
   min-height: 0;
   overflow: hidden;
   opacity: 0;
@@ -81,6 +83,17 @@ header {
   position: relative;
   width: 100%;
   height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.camera-feed-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .capture-flash {
@@ -166,7 +179,8 @@ header {
 .camera-feed {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
   cursor: default;
   opacity: 1;
   border: 2px solid #0f0f0f;

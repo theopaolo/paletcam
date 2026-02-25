@@ -4,6 +4,7 @@ import { showToast, showUndoToast } from "../toast-ui.js";
 
 const EXPORT_BRAND_LABEL_FALLBACK = "Colors Catchers";
 const POLAROID_EXPORT_ASPECT_RATIO = 1.22;
+const POLAROID_PHOTO_ASPECT_RATIO = 4 / 3;
 const POLAROID_PREVIEW_MAX_WIDTH = 1080;
 const POLAROID_PREVIEW_SCALE = 0.78;
 const POLAROID_PREVIEW_QUALITY = 0.9;
@@ -212,7 +213,7 @@ function renderPolaroidCanvas({
   const innerHeight = cardHeight - frameTop - frameBottom;
 
   const panelGap = 0;
-  const photoPanelHeight = Math.floor((innerHeight - panelGap) * 0.5);
+  const photoPanelHeight = Math.round(innerWidth / POLAROID_PHOTO_ASPECT_RATIO);
   const palettePanelHeight = Math.max(1, innerHeight - panelGap - photoPanelHeight);
   const photoPanelX = innerX;
   const photoPanelY = innerY;
