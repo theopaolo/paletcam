@@ -14,6 +14,38 @@ import {
 } from "./palette-viewer-overlay.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "220px 0px";
+let nextPreviewLoadOrder = 0;
+const pendingPreviewStarts = [];
+let hasScheduledPreviewFlush = false;
+
+function flushPendingPreviewStarts() {
+  hasScheduledPreviewFlush = false;
+
+  pendingPreviewStarts
+    .sort((first, second) => first.order - second.order)
+    .splice(0)
+    .forEach(({ start }) => {
+      start();
+    });
+}
+
+function schedulePreviewStart(start, order) {
+  pendingPreviewStarts.push({ start, order });
+
+  if (hasScheduledPreviewFlush) {
+    return;
+  }
+
+  hasScheduledPreviewFlush = true;
+
+  const schedule = typeof window.requestAnimationFrame === "function"
+    ? window.requestAnimationFrame.bind(window)
+    : (callback) => window.setTimeout(callback, 0);
+
+  schedule(() => {
+    flushPendingPreviewStarts();
+  });
+}
 
 export { closePaletteViewerOverlay, subscribePaletteViewerOverlayClose };
 
@@ -29,6 +61,7 @@ export function createPaletteCard({
   const card = document.createElement("div");
   card.className = "palette-card";
   card.dataset.paletteId = String(palette.id);
+  const previewLoadOrder = nextPreviewLoadOrder++;
 
   const trigger = document.createElement("button");
   trigger.type = "button";
@@ -42,18 +75,24 @@ export function createPaletteCard({
   previewImage.decoding = "async";
   previewImage.hidden = true;
 
+  const previewLoader = document.createElement("div");
+  previewLoader.className = "palette-card-loader";
+  previewLoader.setAttribute("aria-hidden", "true");
+
   const previewStatus = document.createElement("p");
   previewStatus.className = "palette-card-status";
   previewStatus.textContent = hasPaletteMasterPhoto(palette)
-    ? "Chargement..."
+    ? ""
     : "Aperçu indisponible";
 
-  trigger.append(previewImage, previewStatus);
+  previewLoader.hidden = !hasPaletteMasterPhoto(palette);
+  trigger.append(previewImage, previewLoader, previewStatus);
   card.append(trigger);
 
   let previewAssetPromise;
   let hasStartedPreviewLoad = false;
   let hasPreviewLoadFailed = false;
+  let hasQueuedPreviewLoad = false;
 
   const ensurePreviewImageAsset = () => {
     if (!hasPaletteMasterPhoto(palette)) {
@@ -63,6 +102,39 @@ export function createPaletteCard({
     previewAssetPromise ??= getPalettePreviewPolaroidAsset(palette);
     return previewAssetPromise;
   };
+
+  const loadPreviewImageElement = (src) =>
+    new Promise((resolve, reject) => {
+      const cleanup = () => {
+        previewImage.removeEventListener("load", handleLoad);
+        previewImage.removeEventListener("error", handleError);
+      };
+
+      const handleLoad = () => {
+        cleanup();
+        resolve();
+      };
+
+      const handleError = () => {
+        cleanup();
+        reject(new Error("Unable to load preview image element"));
+      };
+
+      previewImage.addEventListener("load", handleLoad);
+      previewImage.addEventListener("error", handleError);
+      previewImage.src = src;
+
+      if (previewImage.complete) {
+        if (previewImage.naturalWidth > 0) {
+          cleanup();
+          resolve();
+          return;
+        }
+
+        cleanup();
+        reject(new Error("Unable to load preview image element"));
+      }
+    });
 
   const loadPreviewIntoCard = async () => {
     if (hasPreviewLoadFailed || !hasPaletteMasterPhoto(palette)) {
@@ -75,8 +147,15 @@ export function createPaletteCard({
         return;
       }
 
-      previewImage.src = asset.objectUrl;
+      previewLoader.hidden = false;
+      previewStatus.textContent = "";
+      await loadPreviewImageElement(asset.objectUrl);
+      if (!card.isConnected) {
+        return;
+      }
+
       previewImage.hidden = false;
+      previewLoader.hidden = true;
       previewStatus.textContent = "";
     } catch (error) {
       if (!card.isConnected) {
@@ -85,6 +164,9 @@ export function createPaletteCard({
 
       previewAssetPromise = undefined;
       hasPreviewLoadFailed = true;
+      previewImage.hidden = true;
+      previewImage.removeAttribute("src");
+      previewLoader.hidden = true;
       previewStatus.textContent = "Aperçu indisponible";
       console.error(`Failed to render preview for palette ${palette.id}:`, error);
     }
@@ -95,8 +177,18 @@ export function createPaletteCard({
       return;
     }
 
+    hasQueuedPreviewLoad = false;
     hasStartedPreviewLoad = true;
     void loadPreviewIntoCard();
+  };
+
+  const queuePreviewLoad = () => {
+    if (hasStartedPreviewLoad || hasQueuedPreviewLoad) {
+      return;
+    }
+
+    hasQueuedPreviewLoad = true;
+    schedulePreviewStart(startPreviewLoad, previewLoadOrder);
   };
 
   const handleExportAction = async () => {
@@ -206,14 +298,14 @@ export function createPaletteCard({
           }
 
           observer.disconnect();
-          startPreviewLoad();
+          queuePreviewLoad();
         },
         { rootMargin: PREVIEW_OBSERVER_ROOT_MARGIN },
       );
 
       observer.observe(card);
     } else {
-      startPreviewLoad();
+      queuePreviewLoad();
     }
   }
 

@@ -542,6 +542,50 @@
   background: #050505;
 }
 
+.palette-card-loader {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.22;
+  background: #050505;
+  overflow: hidden;
+}
+
+.palette-card-loader::before {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 0.9rem;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.palette-card-loader::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  bottom: 0.9rem;
+  width: 34%;
+  height: 2px;
+  background: rgba(255, 200, 0, 0.9);
+  box-shadow: 0 0 8px rgba(255, 200, 0, 0.35);
+  animation: palette-card-loader-slide 1s linear infinite;
+}
+
+.palette-card-loader[hidden] {
+  display: none;
+}
+
+@keyframes palette-card-loader-slide {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(245%);
+  }
+}
+
 .palette-card-status {
   margin: 0;
   min-height: 2.2rem;
