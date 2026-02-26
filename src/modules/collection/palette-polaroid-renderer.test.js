@@ -43,5 +43,10 @@ describe("getPalettePhotoAspectRatioValue", () => {
     expect(getPalettePhotoAspectRatioValue({ captureAspectRatio: "4:3" })).toBeCloseTo(4 / 3);
     expect(getPalettePhotoAspectRatioValue({ captureAspectRatio: "weird" })).toBeNull();
     expect(getPalettePhotoAspectRatioValue({})).toBeNull();
+    expect(
+      getPalettePhotoAspectRatioValue({
+        captureCropRect: { x: 0, y: 0, width: 1, height: 0.75 },
+      }),
+    ).toBeNull();
   });
 });

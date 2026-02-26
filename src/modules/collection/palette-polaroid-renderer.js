@@ -6,6 +6,7 @@ const DEFAULT_POLAROID_PHOTO_ASPECT_RATIO = 4 / 3;
 const POLAROID_RENDER_MAX_WIDTH = 1600;
 const POLAROID_RENDER_SCALE = 1;
 const POLAROID_RENDER_QUALITY = 0.95;
+const LEGACY_MIN_PALETTE_PANEL_HEIGHT = 40;
 const POLAROID_FRAME_SHELL_LIGHT = "#ffffff";
 const POLAROID_FRAME_SHELL_DARK = "#101214";
 const POLAROID_FRAME_FOOTER_LIGHT = "#f7f7f7";
@@ -275,18 +276,14 @@ function renderPolaroidCanvas({
   brandLabel,
   photoAspectRatio = DEFAULT_POLAROID_PHOTO_ASPECT_RATIO,
   photoSourceRect = null,
+  expandCardForLegacyRawAspect = false,
   darkFrameShell = false,
   maxWidth = POLAROID_RENDER_MAX_WIDTH,
   scale = POLAROID_RENDER_SCALE,
 }) {
   const photoSourceWidth = photoSourceRect?.width ?? image.width;
   const cardWidth = getPolaroidCardWidth(photoSourceWidth, { maxWidth, scale });
-  const cardHeight = Math.round(cardWidth * POLAROID_CARD_ASPECT_RATIO);
-
-  canvas.width = cardWidth;
-  canvas.height = cardHeight;
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "high";
+  const baseCardHeight = Math.round(cardWidth * POLAROID_CARD_ASPECT_RATIO);
 
   const outerRadius = 0;
   const frameSide = Math.max(16, Math.round(cardWidth * 0.055));
@@ -295,7 +292,6 @@ function renderPolaroidCanvas({
   const innerX = frameSide;
   const innerY = frameTop;
   const innerWidth = cardWidth - (frameSide * 2);
-  const innerHeight = cardHeight - frameTop - frameBottom;
 
   const panelGap = 0;
   const fallbackPhotoAspectRatio = (
@@ -305,8 +301,26 @@ function renderPolaroidCanvas({
   const safePhotoAspectRatio = Number.isFinite(photoAspectRatio) && photoAspectRatio > 0
     ? photoAspectRatio
     : fallbackPhotoAspectRatio;
-  const availablePanelsHeight = Math.max(2, innerHeight - panelGap);
   const preferredPhotoPanelHeight = Math.round(innerWidth / safePhotoAspectRatio);
+  const baseInnerHeight = baseCardHeight - frameTop - frameBottom;
+  const legacyMinPalettePanelHeight = expandCardForLegacyRawAspect
+    ? Math.max(
+        LEGACY_MIN_PALETTE_PANEL_HEIGHT,
+        Math.round(cardWidth * 0.1),
+      )
+    : 1;
+  const innerHeight = Math.max(
+    baseInnerHeight,
+    preferredPhotoPanelHeight + panelGap + legacyMinPalettePanelHeight,
+  );
+  const cardHeight = innerHeight + frameTop + frameBottom;
+
+  canvas.width = cardWidth;
+  canvas.height = cardHeight;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  const availablePanelsHeight = Math.max(2, innerHeight - panelGap);
   const photoPanelHeight = Math.max(
     1,
     Math.min(availablePanelsHeight - 1, preferredPhotoPanelHeight)
@@ -397,6 +411,7 @@ export async function renderPalettePolaroidBlob(
     brandLabel: getBrandLabel(),
     photoAspectRatio: getPalettePhotoAspectRatioValue(palette),
     photoSourceRect: resolvePalettePhotoSourceRect(image, palette),
+    expandCardForLegacyRawAspect: !palette?.captureAspectRatio && !palette?.captureCropRect,
     darkFrameShell,
     maxWidth,
     scale,
