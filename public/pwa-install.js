@@ -1,3 +1,13 @@
+// Platform detection
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+if (isIOS) {
+  document.documentElement.classList.add('is-ios');
+}
+
 // Register Service Worker
 if ('serviceWorker' in navigator) {
   let refreshing = false;
@@ -102,6 +112,42 @@ installToast.addEventListener('click', (e) => {
     }, 300);
   }
 });
+
+// iOS PWA install prompt (Safari doesn't support beforeinstallprompt)
+if (isIOS && !isInStandaloneMode) {
+  const iosInstallToast = document.createElement('div');
+  iosInstallToast.className = 'install-toast ios-install-toast';
+  iosInstallToast.innerHTML = `
+    <div class="install-toast-content">
+      <img src="logo/colorcatchers.svg" alt="ColorCatcher" class="install-icon">
+      <div class="install-text">
+        <strong>Installer ColorCatcher</strong>
+        <p>Appuyez sur <svg class="ios-share-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> puis <em>Sur l'écran d'accueil</em></p>
+      </div>
+      <button class="install-close">×</button>
+    </div>
+  `;
+
+  const hasDismissedIos = localStorage.getItem('pwa-ios-install-dismissed');
+  if (!hasDismissedIos) {
+    setTimeout(() => {
+      document.body.appendChild(iosInstallToast);
+      iosInstallToast.classList.add('show');
+    }, 3000);
+  }
+
+  iosInstallToast.addEventListener('click', (e) => {
+    if (e.target.closest('.install-close')) {
+      iosInstallToast.classList.remove('show');
+      localStorage.setItem('pwa-ios-install-dismissed', 'true');
+      setTimeout(() => {
+        if (iosInstallToast.parentNode) {
+          iosInstallToast.parentNode.removeChild(iosInstallToast);
+        }
+      }, 300);
+    }
+  });
+}
 
 // Listen for app installed event
 window.addEventListener('appinstalled', () => {

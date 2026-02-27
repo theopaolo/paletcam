@@ -1,3 +1,8 @@
+/* Hide zoom controls on iOS (zoom API not supported) */
+html.is-ios .zoom-btns {
+  display: none;
+}
+
 /* PWA Install Toast Styles */
 .install-toast {
   position: fixed;
@@ -81,6 +86,21 @@
 .install-close:hover {
   background: var(--dark-color);
   color: var(--accent-color);
+}
+
+.ios-install-toast .install-text p {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.ios-share-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 @media (max-width: 480px) {
