@@ -1,4 +1,5 @@
 import { getAppSettings, subscribeAppSettings } from './app-settings.js';
+import { openCollectionPanel } from './collection-ui.js';
 import { createCameraController } from './modules/camera-controller.js';
 import {
   drawFrameToCanvas,
@@ -19,7 +20,6 @@ import { createSampleGridOverlayController } from './modules/sample-grid-overlay
 import { createSwatchSliderUiController } from './modules/swatch-slider-ui.js';
 import { createVisualEffects } from './modules/visual-effects.js';
 import { createZoomUiController } from './modules/zoom-ui.js';
-import { openCollectionPanel } from './collection-ui.js';
 import { savePalette } from './palette-storage.js';
 
 const PHOTO_EXPORT_MAX_WIDTH = 1440;

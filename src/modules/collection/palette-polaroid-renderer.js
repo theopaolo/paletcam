@@ -135,23 +135,6 @@ function resolvePalettePhotoSourceRect(image, palette) {
   });
 }
 
-function traceRoundedRectPath(context, x, y, width, height, radius) {
-  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
-
-  context.beginPath();
-  context.moveTo(x + safeRadius, y);
-  context.arcTo(x + width, y, x + width, y + height, safeRadius);
-  context.arcTo(x + width, y + height, x, y + height, safeRadius);
-  context.arcTo(x, y + height, x, y, safeRadius);
-  context.arcTo(x, y, x + width, y, safeRadius);
-  context.closePath();
-}
-
-function fillRoundedRect(context, x, y, width, height, radius) {
-  traceRoundedRectPath(context, x, y, width, height, radius);
-  context.fill();
-}
-
 function drawImageCover({
   context,
   image,
@@ -159,7 +142,6 @@ function drawImageCover({
   y,
   width,
   height,
-  radius,
   sourceRect = null,
 }) {
   if (width <= 0 || height <= 0) {
@@ -188,9 +170,6 @@ function drawImageCover({
     sourceY += (availableHeight - sourceHeight) * 0.45;
   }
 
-  context.save();
-  traceRoundedRectPath(context, x, y, width, height, radius);
-  context.clip();
   context.drawImage(
     image,
     sourceX,
@@ -202,7 +181,6 @@ function drawImageCover({
     width,
     height,
   );
-  context.restore();
 }
 
 function drawPaletteStrip({
@@ -212,7 +190,6 @@ function drawPaletteStrip({
   y,
   width,
   height,
-  panelRadius,
 }) {
   const paletteColors = Array.isArray(colors) && colors.length > 0
     ? colors
@@ -222,10 +199,6 @@ function drawPaletteStrip({
     return;
   }
 
-  context.save();
-  traceRoundedRectPath(context, x, y, width, height, panelRadius);
-  context.clip();
-
   paletteColors.forEach((color, index) => {
     const tileX = x + ((width * index) / paletteColors.length);
     const nextTileX = x + ((width * (index + 1)) / paletteColors.length);
@@ -233,8 +206,6 @@ function drawPaletteStrip({
     context.fillStyle = toRgbCss(color);
     context.fillRect(tileX, y, nextTileX - tileX, height);
   });
-
-  context.restore();
 }
 
 function drawBrandCaption({
@@ -285,7 +256,6 @@ function renderPolaroidCanvas({
   const cardWidth = getPolaroidCardWidth(photoSourceWidth, { maxWidth, scale });
   const baseCardHeight = Math.round(cardWidth * POLAROID_CARD_ASPECT_RATIO);
 
-  const outerRadius = 0;
   const frameSide = Math.max(16, Math.round(cardWidth * 0.055));
   const frameTop = Math.max(16, Math.round(cardWidth * 0.055));
   const frameBottom = Math.max(46, Math.round(cardWidth * 0.16));
@@ -293,7 +263,6 @@ function renderPolaroidCanvas({
   const innerY = frameTop;
   const innerWidth = cardWidth - (frameSide * 2);
 
-  const panelGap = 0;
   const fallbackPhotoAspectRatio = (
     (photoSourceRect?.width ?? image.width) /
     (photoSourceRect?.height ?? image.height)
@@ -311,7 +280,7 @@ function renderPolaroidCanvas({
     : 1;
   const innerHeight = Math.max(
     baseInnerHeight,
-    preferredPhotoPanelHeight + panelGap + legacyMinPalettePanelHeight,
+    preferredPhotoPanelHeight + legacyMinPalettePanelHeight,
   );
   const cardHeight = innerHeight + frameTop + frameBottom;
 
@@ -320,7 +289,7 @@ function renderPolaroidCanvas({
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
 
-  const availablePanelsHeight = Math.max(2, innerHeight - panelGap);
+  const availablePanelsHeight = Math.max(2, innerHeight);
   const photoPanelHeight = Math.max(
     1,
     Math.min(availablePanelsHeight - 1, preferredPhotoPanelHeight)
@@ -329,13 +298,11 @@ function renderPolaroidCanvas({
   const photoPanelX = innerX;
   const photoPanelY = innerY;
   const palettePanelX = innerX;
-  const palettePanelY = innerY + photoPanelHeight + panelGap;
-  const panelRadius = 0;
-
+  const palettePanelY = innerY + photoPanelHeight;
   context.fillStyle = darkFrameShell
     ? POLAROID_FRAME_SHELL_DARK
     : POLAROID_FRAME_SHELL_LIGHT;
-  fillRoundedRect(context, 0, 0, cardWidth, cardHeight, outerRadius);
+  context.fillRect(0, 0, cardWidth, cardHeight);
 
   context.fillStyle = darkFrameShell
     ? POLAROID_FRAME_FOOTER_DARK
@@ -349,7 +316,6 @@ function renderPolaroidCanvas({
     y: photoPanelY,
     width: innerWidth,
     height: photoPanelHeight,
-    radius: panelRadius,
     sourceRect: photoSourceRect,
   });
 
@@ -360,7 +326,6 @@ function renderPolaroidCanvas({
     y: palettePanelY,
     width: innerWidth,
     height: palettePanelHeight,
-    panelRadius,
   });
 
   drawBrandCaption({

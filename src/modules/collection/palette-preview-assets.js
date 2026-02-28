@@ -60,6 +60,14 @@ function enqueuePreviewRender(task) {
   return runTask;
 }
 
+function disposePreviewAssetCacheEntry(cacheKey) {
+  const cached = previewAssetCache.get(cacheKey);
+  if (cached?.objectUrl) {
+    URL.revokeObjectURL(cached.objectUrl);
+  }
+  previewAssetCache.delete(cacheKey);
+}
+
 export async function getPalettePreviewPolaroidAsset(palette) {
   if (!hasPaletteMasterPhoto(palette)) {
     throw new Error("Missing palette photo");
@@ -109,14 +117,7 @@ export function disposePalettePreviewPolaroidAsset(paletteOrId) {
   const cacheKey = typeof paletteOrId === "object" && paletteOrId !== null
     ? buildPreviewAssetCacheKey(paletteOrId)
     : JSON.stringify([String(paletteOrId ?? ""), "", "", "", "", ""]);
-
-  const cached = previewAssetCache.get(cacheKey);
-
-  if (cached?.objectUrl) {
-    URL.revokeObjectURL(cached.objectUrl);
-  }
-
-  previewAssetCache.delete(cacheKey);
+  disposePreviewAssetCacheEntry(cacheKey);
 
   // Backward cleanup: remove any cache entries for the same id if the key schema changes.
   const paletteId = typeof paletteOrId === "object" && paletteOrId !== null
@@ -131,12 +132,7 @@ export function disposePalettePreviewPolaroidAsset(paletteOrId) {
     if (getPaletteIdFromCacheKey(key) !== paletteId) {
       return;
     }
-
-    const entry = previewAssetCache.get(key);
-    if (entry?.objectUrl) {
-      URL.revokeObjectURL(entry.objectUrl);
-    }
-    previewAssetCache.delete(key);
+    disposePreviewAssetCacheEntry(key);
   });
 }
 

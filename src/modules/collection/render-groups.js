@@ -115,9 +115,7 @@ function createSessionGroup({
   session,
   createPaletteCard,
   isSessionCollapsed,
-  onBeforeSessionToggle,
   onSessionCollapsedChange,
-  onSessionExpanded,
   sessionRevealDurationMs,
   sessionRevealStaggerMs,
 }) {
@@ -149,8 +147,6 @@ function createSessionGroup({
   });
 
   headerButton.addEventListener("click", () => {
-    onBeforeSessionToggle?.(session.id);
-
     const currentlyCollapsed = section.classList.contains("is-collapsed");
     const nextCollapsedState = !currentlyCollapsed;
     setSessionCollapsed(section, nextCollapsedState);
@@ -164,7 +160,6 @@ function createSessionGroup({
       sessionRevealDurationMs,
       sessionRevealStaggerMs,
     });
-    onSessionExpanded?.(session.id);
   });
 
   section.append(cover, headerButton, body);
@@ -177,9 +172,7 @@ export function createDayGroup({
   dayGroup,
   createPaletteCard,
   isSessionCollapsed,
-  onBeforeSessionToggle,
   onSessionCollapsedChange,
-  onSessionExpanded,
   sessionRevealDurationMs,
   sessionRevealStaggerMs,
 }) {
@@ -209,9 +202,7 @@ export function createDayGroup({
         session,
         createPaletteCard,
         isSessionCollapsed,
-        onBeforeSessionToggle,
         onSessionCollapsedChange,
-        onSessionExpanded,
         sessionRevealDurationMs,
         sessionRevealStaggerMs,
       }),

@@ -62,6 +62,7 @@ export function createPaletteCard({
   card.className = "palette-card";
   card.dataset.paletteId = String(palette.id);
   const previewLoadOrder = nextPreviewLoadOrder++;
+  const hasMasterPhoto = hasPaletteMasterPhoto(palette);
 
   const trigger = document.createElement("button");
   trigger.type = "button";
@@ -81,11 +82,11 @@ export function createPaletteCard({
 
   const previewStatus = document.createElement("p");
   previewStatus.className = "palette-card-status";
-  previewStatus.textContent = hasPaletteMasterPhoto(palette)
+  previewStatus.textContent = hasMasterPhoto
     ? ""
     : "Aperçu indisponible";
 
-  previewLoader.hidden = !hasPaletteMasterPhoto(palette);
+  previewLoader.hidden = !hasMasterPhoto;
   trigger.append(previewImage, previewLoader, previewStatus);
   card.append(trigger);
 
@@ -95,7 +96,7 @@ export function createPaletteCard({
   let hasQueuedPreviewLoad = false;
 
   const ensurePreviewImageAsset = () => {
-    if (!hasPaletteMasterPhoto(palette)) {
+    if (!hasMasterPhoto) {
       return Promise.reject(new Error("Missing palette photo"));
     }
 
@@ -137,7 +138,7 @@ export function createPaletteCard({
     });
 
   const loadPreviewIntoCard = async () => {
-    if (hasPreviewLoadFailed || !hasPaletteMasterPhoto(palette)) {
+    if (hasPreviewLoadFailed || !hasMasterPhoto) {
       return;
     }
 
@@ -273,15 +274,13 @@ export function createPaletteCard({
     startPreviewLoad();
 
     await openPaletteViewerOverlay({
-      getPreviewAsset: hasPaletteMasterPhoto(palette) ? ensurePreviewImageAsset : undefined,
-      canShare: hasPaletteMasterPhoto(palette),
-      canExport: hasPaletteMasterPhoto(palette),
+      getPreviewAsset: hasMasterPhoto ? ensurePreviewImageAsset : undefined,
+      canShare: hasMasterPhoto,
+      canExport: hasMasterPhoto,
       canDelete: true,
       onShare: handleShareAction,
       onExport: handleExportAction,
-      onDelete: async () => {
-        handleDeleteAction();
-      },
+      onDelete: handleDeleteAction,
     });
   };
 
@@ -289,7 +288,7 @@ export function createPaletteCard({
     void openViewer();
   });
 
-  if (hasPaletteMasterPhoto(palette)) {
+  if (hasMasterPhoto) {
     if (window.IntersectionObserver) {
       const observer = new IntersectionObserver(
         (entries) => {
