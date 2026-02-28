@@ -1,4 +1,5 @@
 import { deletePalette } from "../../palette-storage.js";
+import { getPalettePublicationMeta } from "../../community-service.js";
 import { showToast, showUndoToast } from "../toast-ui.js";
 import {
   disposePalettePreviewPolaroidAsset,
@@ -57,6 +58,7 @@ export function createPaletteCard({
   restoreCardFromSnapshot,
   syncSessionStateFromCardContainer,
   ensureEmptyMessage,
+  onPublish,
 }) {
   const card = document.createElement("div");
   card.className = "palette-card";
@@ -86,9 +88,20 @@ export function createPaletteCard({
     ? ""
     : "Aperçu indisponible";
 
+  const publicationBadge = document.createElement("span");
+  publicationBadge.className = "palette-card-publication-badge";
+  const publicationMeta = getPalettePublicationMeta(palette);
+  if (publicationMeta) {
+    publicationBadge.hidden = false;
+    publicationBadge.dataset.tone = publicationMeta.tone;
+    publicationBadge.textContent = publicationMeta.label;
+  } else {
+    publicationBadge.hidden = true;
+  }
+
   previewLoader.hidden = !hasMasterPhoto;
   trigger.append(previewImage, previewLoader, previewStatus);
-  card.append(trigger);
+  card.append(trigger, publicationBadge);
 
   let previewAssetPromise;
   let hasStartedPreviewLoad = false;
@@ -266,6 +279,14 @@ export function createPaletteCard({
     });
   };
 
+  const handlePublishAction = async () => {
+    if (typeof onPublish !== "function") {
+      return;
+    }
+
+    await onPublish(palette);
+  };
+
   const openViewer = async () => {
     if (pendingDeletionIds.has(palette.id)) {
       return;
@@ -277,9 +298,11 @@ export function createPaletteCard({
       getPreviewAsset: hasMasterPhoto ? ensurePreviewImageAsset : undefined,
       canShare: hasMasterPhoto,
       canExport: hasMasterPhoto,
+      canPublish: hasMasterPhoto && typeof onPublish === "function",
       canDelete: true,
       onShare: handleShareAction,
       onExport: handleExportAction,
+      onPublish: handlePublishAction,
       onDelete: handleDeleteAction,
     });
   };

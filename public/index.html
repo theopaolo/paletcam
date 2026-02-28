@@ -120,6 +120,73 @@
       <div class="settings-content">
         <section
           class="settings-section"
+          aria-labelledby="settingsAccountTitle"
+        >
+          <div class="settings-section-header">
+            <h3 id="settingsAccountTitle">Compte</h3>
+            <p id="communityAccountState">
+              Non connecte au compte de publication.
+            </p>
+          </div>
+
+          <div class="settings-field">
+            <div class="settings-field-header">
+              <label class="settings-label" for="communityEmailInput"
+                >Email</label
+              >
+            </div>
+            <input
+              class="settings-text-input"
+              id="communityEmailInput"
+              type="email"
+              autocomplete="email"
+              placeholder="alexis@example.com"
+            />
+            <button
+              class="settings-action-button"
+              id="communityRequestCodeButton"
+              type="button"
+            >
+              Recevoir un code
+            </button>
+            <p class="settings-hint" id="communityAuthHint" hidden></p>
+          </div>
+
+          <div class="settings-field" id="communityCodeField" hidden>
+            <div class="settings-field-header">
+              <label class="settings-label" for="communityCodeInput"
+                >Code recu par email</label
+              >
+            </div>
+            <input
+              class="settings-text-input"
+              id="communityCodeInput"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              placeholder="123456"
+            />
+            <button
+              class="settings-action-button"
+              id="communityVerifyCodeButton"
+              type="button"
+            >
+              Se connecter
+            </button>
+          </div>
+
+          <button
+            class="settings-secondary-button"
+            id="communityLogoutButton"
+            type="button"
+            hidden
+          >
+            Se deconnecter
+          </button>
+        </section>
+
+        <section
+          class="settings-section"
           aria-labelledby="settingsCaptureTitle"
         >
           <div class="settings-section-header">

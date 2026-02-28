@@ -1,4 +1,8 @@
 import { getSavedPalettes } from "./palette-storage.js";
+import {
+  publishPaletteToCommunityFeed,
+  syncPublishedPalettesModerationStatus,
+} from "./community-service.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import {
   closePaletteViewerOverlay,
@@ -7,6 +11,7 @@ import {
 } from "./modules/collection/palette-card.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
+import { showToast } from "./modules/toast-ui.js";
 
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
@@ -16,9 +21,12 @@ const EMPTY_MESSAGE_TEXT = "Aucune palette enregistree pour le moment";
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
 const SESSION_REVEAL_STAGGER_MS = 42;
+const MODERATION_SYNC_DELAY_MS = 12000;
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
 let shouldCloseCollectionOnViewerClose = false;
+let moderationSyncTimeoutId = 0;
+let isModerationSyncInProgress = false;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -37,6 +45,7 @@ function createCollectionPaletteCard(palette) {
     syncSessionStateFromCardContainer:
       cardLifecycle.syncSessionStateFromCardContainer,
     ensureEmptyMessage: cardLifecycle.ensureEmptyMessage,
+    onPublish: handlePublishPalette,
   });
 }
 
@@ -91,6 +100,108 @@ async function loadCollectionUi() {
   });
 }
 
+function clearModerationSyncLoop() {
+  if (!moderationSyncTimeoutId) {
+    return;
+  }
+
+  window.clearTimeout(moderationSyncTimeoutId);
+  moderationSyncTimeoutId = 0;
+}
+
+function scheduleModerationSync() {
+  clearModerationSyncLoop();
+
+  if (!collectionPanel?.classList.contains("visible")) {
+    return;
+  }
+
+  moderationSyncTimeoutId = window.setTimeout(() => {
+    moderationSyncTimeoutId = 0;
+    void syncModerationStatuses();
+  }, MODERATION_SYNC_DELAY_MS);
+}
+
+function getPublishErrorMessage(error) {
+  const apiMessage = error?.cause?.payload?.message;
+  if (typeof apiMessage === "string" && apiMessage.trim()) {
+    return apiMessage.trim();
+  }
+
+  if (typeof error?.message === "string" && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return "Publication echouee.";
+}
+
+function openAccountSettingsPanel() {
+  document.querySelector(".btn-open-settings")?.dispatchEvent(new MouseEvent("click", {
+    bubbles: true,
+  }));
+}
+
+async function handlePublishPalette(palette) {
+  try {
+    await publishPaletteToCommunityFeed(palette);
+    showToast("Capture publiee. Moderation en cours.", {
+      duration: 1800,
+    });
+    await loadCollectionUi();
+    scheduleModerationSync();
+  } catch (error) {
+    if (error?.code === "ALREADY_PUBLISHED") {
+      showToast("Capture deja publiee.", {
+        duration: 1500,
+      });
+      return;
+    }
+
+    if (error?.code === "NOT_AUTHENTICATED" || error?.code === "AUTH_EXPIRED") {
+      showToast("Connecte ton email dans Reglages > Compte.", {
+        variant: "error",
+        duration: 2000,
+      });
+      openAccountSettingsPanel();
+      return;
+    }
+
+    showToast(getPublishErrorMessage(error), {
+      variant: "error",
+      duration: 2000,
+    });
+    console.error("Failed to publish palette:", error);
+  }
+}
+
+async function syncModerationStatuses() {
+  if (isModerationSyncInProgress) {
+    return;
+  }
+
+  if (!collectionPanel?.classList.contains("visible")) {
+    return;
+  }
+
+  isModerationSyncInProgress = true;
+
+  try {
+    const { updatedCount, pendingCount } = await syncPublishedPalettesModerationStatus();
+
+    if (updatedCount > 0) {
+      await loadCollectionUi();
+    }
+
+    if (pendingCount > 0) {
+      scheduleModerationSync();
+    }
+  } catch (error) {
+    console.error("Failed to sync moderation statuses:", error);
+  } finally {
+    isModerationSyncInProgress = false;
+  }
+}
+
 export async function openCollectionPanel({
   paletteId,
   openPaletteViewer = false,
@@ -110,6 +221,7 @@ export async function openCollectionPanel({
   }
   collectionPanel.classList.add("visible");
   await loadCollectionUi();
+  void syncModerationStatuses();
 
   if (paletteId === undefined || paletteId === null) {
     return true;
@@ -157,11 +269,13 @@ function bindCollectionUiEvents() {
     }
 
     shouldCloseCollectionOnViewerClose = false;
+    clearModerationSyncLoop();
     collectionPanel.classList.remove("visible");
   });
 
   closeCollectionButton.addEventListener("click", () => {
     shouldCloseCollectionOnViewerClose = false;
+    clearModerationSyncLoop();
     closePaletteViewerOverlay();
     collectionPanel.classList.remove("visible");
   });

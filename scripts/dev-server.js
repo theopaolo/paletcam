@@ -4,6 +4,11 @@ const projectRoot = process.cwd();
 const publicRoot = join(projectRoot, 'public');
 const sourceRoot = join(projectRoot, 'src');
 const initialPort = Number(process.env.PORT ?? 3000);
+const communityApiProxyPrefix = '/api/v1';
+const communityApiProxyTarget = (
+  process.env.COMMUNITY_API_PROXY_TARGET
+  ?? 'https://ccs.preview.name'
+).replace(/\/+$/, '');
 const fallbackPorts = [
   ...Array.from({ length: 120 }, (_, index) => initialPort + index),
   5173,
@@ -39,6 +44,92 @@ function resolveRequestCandidates(urlPathname) {
   ];
 }
 
+function shouldProxyCommunityApi(urlPathname) {
+  return (
+    urlPathname === communityApiProxyPrefix ||
+    urlPathname.startsWith(`${communityApiProxyPrefix}/`)
+  );
+}
+
+function stripProxyPrefix(urlPathname) {
+  if (urlPathname === communityApiProxyPrefix) {
+    return '/';
+  }
+
+  if (urlPathname.startsWith(`${communityApiProxyPrefix}/`)) {
+    const stripped = urlPathname.slice(communityApiProxyPrefix.length);
+    return stripped || '/';
+  }
+
+  return urlPathname;
+}
+
+async function proxyCommunityApiRequest(request, urlPathname, searchParams) {
+  const proxyPathCandidates = [
+    urlPathname,
+    stripProxyPrefix(urlPathname),
+  ].filter((value, index, values) => values.indexOf(value) === index);
+  const headers = new Headers(request.headers);
+
+  headers.delete('connection');
+  headers.delete('accept-encoding');
+  headers.delete('content-length');
+  headers.delete('host');
+  headers.delete('origin');
+
+  const requestInit = {
+    method: request.method,
+    headers,
+    redirect: 'manual',
+  };
+
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    requestInit.body = request.body;
+  }
+
+  let response = null;
+  let lastProxyError = null;
+
+  for (const proxyPath of proxyPathCandidates) {
+    const targetUrl = `${communityApiProxyTarget}${proxyPath}${searchParams}`;
+
+    try {
+      response = await fetch(targetUrl, requestInit);
+      if (
+        response.status !== 404 &&
+        response.status !== 405 &&
+        response.status !== 419
+      ) {
+        break;
+      }
+    } catch (error) {
+      lastProxyError = error;
+      response = null;
+    }
+  }
+
+  if (!response) {
+    return new Response(
+      `Community API proxy failed: ${lastProxyError?.message || 'unknown error'}`,
+      { status: 502 }
+    );
+  }
+
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.delete('connection');
+  responseHeaders.delete('content-encoding');
+  responseHeaders.delete('content-length');
+  responseHeaders.delete('keep-alive');
+  responseHeaders.delete('transfer-encoding');
+  responseHeaders.set('Cache-Control', 'no-store');
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+  });
+}
+
 async function serveFile(filePath) {
   const file = Bun.file(filePath);
 
@@ -59,6 +150,11 @@ async function serveFile(filePath) {
 async function handleRequest(request) {
   const url = new URL(request.url);
   const decodedPathname = decodeURIComponent(url.pathname);
+
+  if (shouldProxyCommunityApi(decodedPathname)) {
+    return proxyCommunityApiRequest(request, decodedPathname, url.search);
+  }
+
   const candidatePaths = resolveRequestCandidates(decodedPathname);
 
   for (const candidatePath of candidatePaths) {
@@ -99,3 +195,7 @@ if (usedFallback) {
 } else {
   console.log(`Dev server running at http://localhost:${server.port}`);
 }
+
+console.log(
+  `Proxying ${communityApiProxyPrefix}/* to ${communityApiProxyTarget} (tries stripped and original paths)`
+);

@@ -3,8 +3,16 @@ import {
   subscribeAppSettings,
   updateAppSettings,
 } from './app-settings.js';
+import {
+  getCurrentCommunitySession,
+  logoutCommunity,
+  sendCommunityLoginOtp,
+  subscribeCommunitySession,
+  verifyCommunityLoginOtp,
+} from './community-service.js';
 import { PALETTE_EXTRACTION_ALGORITHMS } from './modules/palette-extraction.js';
 import { closePaletteViewerOverlay } from './modules/collection/palette-card.js';
+import { showToast } from './modules/toast-ui.js';
 
 const settingsPanel = document.querySelector('.settings-panel');
 const openSettingsButton = document.querySelector('.btn-open-settings');
@@ -20,6 +28,16 @@ const algorithmButtons = Array.from(
 const algorithmPanels = Array.from(
   document.querySelectorAll('[data-settings-algorithm-panel]')
 );
+const communityAccountState = document.getElementById('communityAccountState');
+const communityEmailInput = document.getElementById('communityEmailInput');
+const communityRequestCodeButton = document.getElementById('communityRequestCodeButton');
+const communityAuthHint = document.getElementById('communityAuthHint');
+const communityCodeField = document.getElementById('communityCodeField');
+const communityCodeInput = document.getElementById('communityCodeInput');
+const communityVerifyCodeButton = document.getElementById('communityVerifyCodeButton');
+const communityLogoutButton = document.getElementById('communityLogoutButton');
+let pendingCommunityEmail = '';
+let isCommunityAuthBusy = false;
 
 function clampInteger(value, fallbackValue) {
   const numericValue = Number(value);
@@ -267,6 +285,198 @@ function renderSettingsUi(settings) {
   syncAlgorithmPanels(activeAlgorithm);
 }
 
+function resolveCommunityAuthErrorMessage(error, fallbackMessage) {
+  const apiPayloadMessage = error?.cause?.payload?.message;
+  if (typeof apiPayloadMessage === 'string' && apiPayloadMessage.trim()) {
+    return apiPayloadMessage.trim();
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return fallbackMessage;
+}
+
+function setCommunityAuthHintMessage(message, { isError = false } = {}) {
+  if (!communityAuthHint) {
+    return;
+  }
+
+  if (!message) {
+    communityAuthHint.hidden = true;
+    communityAuthHint.textContent = '';
+    communityAuthHint.classList.remove('is-error');
+    return;
+  }
+
+  communityAuthHint.hidden = false;
+  communityAuthHint.textContent = message;
+  communityAuthHint.classList.toggle('is-error', isError);
+}
+
+function setCommunityCodeFieldVisible(shouldShow) {
+  if (!communityCodeField) {
+    return;
+  }
+
+  communityCodeField.hidden = !shouldShow;
+}
+
+function setCommunityAuthBusy(nextBusy) {
+  isCommunityAuthBusy = Boolean(nextBusy);
+
+  if (communityRequestCodeButton) {
+    communityRequestCodeButton.disabled = isCommunityAuthBusy;
+  }
+
+  if (communityVerifyCodeButton) {
+    communityVerifyCodeButton.disabled = isCommunityAuthBusy;
+  }
+
+  if (communityLogoutButton) {
+    communityLogoutButton.disabled = isCommunityAuthBusy;
+  }
+}
+
+function syncCommunitySessionUi(session = getCurrentCommunitySession()) {
+  if (!communityAccountState) {
+    return;
+  }
+
+  const isConnected = Boolean(session?.token);
+  const sessionEmail = session?.email || session?.user?.email || '';
+
+  if (isConnected) {
+    pendingCommunityEmail = '';
+    if (communityEmailInput && sessionEmail) {
+      communityEmailInput.value = sessionEmail;
+    }
+    if (communityCodeInput) {
+      communityCodeInput.value = '';
+    }
+    setCommunityCodeFieldVisible(false);
+    setCommunityAuthHintMessage('');
+    communityAccountState.textContent = sessionEmail
+      ? `Connecte en tant que ${sessionEmail}`
+      : 'Connecte';
+  } else {
+    communityAccountState.textContent = 'Non connecte au compte de publication.';
+  }
+
+  if (communityLogoutButton) {
+    communityLogoutButton.hidden = !isConnected;
+  }
+}
+
+async function requestCommunityCode() {
+  if (isCommunityAuthBusy) {
+    return;
+  }
+
+  const rawEmail = communityEmailInput?.value?.trim() || pendingCommunityEmail;
+  if (!rawEmail) {
+    setCommunityAuthHintMessage('Entre ton email pour recevoir un code.', {
+      isError: true,
+    });
+    return;
+  }
+
+  setCommunityAuthBusy(true);
+
+  try {
+    pendingCommunityEmail = await sendCommunityLoginOtp(rawEmail);
+    if (communityEmailInput) {
+      communityEmailInput.value = pendingCommunityEmail;
+    }
+
+    setCommunityCodeFieldVisible(true);
+    setCommunityAuthHintMessage(
+      'Tu devrais recevoir un code de connexion par email, saisis-le dans ce champ.',
+    );
+    communityCodeInput?.focus();
+    showToast('Code envoye par email.', {
+      duration: 1400,
+    });
+  } catch (error) {
+    setCommunityAuthHintMessage(
+      resolveCommunityAuthErrorMessage(error, 'Impossible d\'envoyer le code.'),
+      { isError: true },
+    );
+    showToast('Envoi du code echoue.', {
+      variant: 'error',
+      duration: 1800,
+    });
+  } finally {
+    setCommunityAuthBusy(false);
+  }
+}
+
+async function verifyCommunityCode() {
+  if (isCommunityAuthBusy) {
+    return;
+  }
+
+  const rawEmail = communityEmailInput?.value?.trim() || pendingCommunityEmail;
+  const code = communityCodeInput?.value?.trim() || '';
+
+  if (!rawEmail) {
+    setCommunityAuthHintMessage('Entre ton email avant de valider le code.', {
+      isError: true,
+    });
+    return;
+  }
+
+  if (!code) {
+    setCommunityAuthHintMessage('Entre le code recu par email.', {
+      isError: true,
+    });
+    return;
+  }
+
+  setCommunityAuthBusy(true);
+
+  try {
+    await verifyCommunityLoginOtp({
+      email: rawEmail,
+      code,
+    });
+    if (communityCodeInput) {
+      communityCodeInput.value = '';
+    }
+    setCommunityAuthHintMessage('Connexion reussie.');
+    showToast('Compte connecte.', {
+      duration: 1400,
+    });
+    syncCommunitySessionUi();
+  } catch (error) {
+    setCommunityAuthHintMessage(
+      resolveCommunityAuthErrorMessage(error, 'Verification du code echouee.'),
+      { isError: true },
+    );
+    showToast('Code invalide ou expire.', {
+      variant: 'error',
+      duration: 1800,
+    });
+  } finally {
+    setCommunityAuthBusy(false);
+  }
+}
+
+function disconnectCommunityAccount() {
+  logoutCommunity();
+  pendingCommunityEmail = '';
+  if (communityCodeInput) {
+    communityCodeInput.value = '';
+  }
+  setCommunityCodeFieldVisible(false);
+  setCommunityAuthHintMessage('Compte deconnecte.');
+  showToast('Compte deconnecte.', {
+    duration: 1400,
+  });
+  syncCommunitySessionUi();
+}
+
 function clearSettingsPanelHideTimeout() {
   if (!settingsPanelHideTimeoutId) {
     return;
@@ -404,8 +614,53 @@ function bindRangeControls() {
   });
 }
 
+function bindCommunityAuthControls() {
+  if (
+    !communityEmailInput ||
+    !communityRequestCodeButton ||
+    !communityCodeInput ||
+    !communityVerifyCodeButton
+  ) {
+    return;
+  }
+
+  communityRequestCodeButton.addEventListener('click', () => {
+    void requestCommunityCode();
+  });
+
+  communityVerifyCodeButton.addEventListener('click', () => {
+    void verifyCommunityCode();
+  });
+
+  communityLogoutButton?.addEventListener('click', () => {
+    disconnectCommunityAccount();
+  });
+
+  communityEmailInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    void requestCommunityCode();
+  });
+
+  communityCodeInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    void verifyCommunityCode();
+  });
+
+  subscribeCommunitySession(syncCommunitySessionUi);
+  syncCommunitySessionUi();
+}
+
 bindSettingsPanelEvents();
 bindAlgorithmControls();
 bindRangeControls();
+bindCommunityAuthControls();
 renderSettingsUi(getAppSettings());
 subscribeAppSettings(renderSettingsUi);

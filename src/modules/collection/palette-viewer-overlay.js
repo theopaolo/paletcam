@@ -26,6 +26,14 @@ function getActionIconMarkup(iconName) {
     `;
   }
 
+  if (iconName === "publish") {
+    return `
+      <svg viewBox="0 0 256 256" aria-hidden="true">
+        <path d="M48,216a8,8,0,0,1-8-8V152a8,8,0,0,1,16,0v48H200V152a8,8,0,0,1,16,0v56a8,8,0,0,1-8,8ZM88,96a8,8,0,0,1,5.66-13.66H120V40a8,8,0,0,1,16,0V82.34h26.34A8,8,0,0,1,168,96l-40,40a8,8,0,0,1-11.32,0Z"></path>
+      </svg>
+    `;
+  }
+
   return `
     <svg viewBox="0 0 256 256" aria-hidden="true">
       <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"></path>
@@ -93,6 +101,12 @@ function createPaletteViewerOverlayController() {
     iconName: "export",
     visibleLabel: "exporter",
   });
+  const publishButton = createViewerActionButton({
+    className: "palette-action-publish",
+    label: "Publier la palette",
+    iconName: "publish",
+    visibleLabel: "publier",
+  });
   const deleteButton = createViewerActionButton({
     className: "palette-action-delete",
     label: "Supprimer la palette",
@@ -102,7 +116,7 @@ function createPaletteViewerOverlayController() {
 
   topbar.append(closeButton);
   imageFrame.append(image, status);
-  actions.append(shareButton, exportButton, deleteButton);
+  actions.append(shareButton, exportButton, publishButton, deleteButton);
   overlay.append(topbar, imageFrame, actions);
   document.body.append(overlay);
 
@@ -114,6 +128,7 @@ function createPaletteViewerOverlayController() {
     isBusy = nextBusy;
     shareButton.disabled = nextBusy || !activeSession?.canShare;
     exportButton.disabled = nextBusy || !activeSession?.canExport;
+    publishButton.disabled = nextBusy || !activeSession?.canPublish;
     deleteButton.disabled = nextBusy || !activeSession?.canDelete;
     overlay.classList.toggle("is-busy", nextBusy);
   }
@@ -191,6 +206,9 @@ function createPaletteViewerOverlayController() {
   exportButton.addEventListener("click", () => {
     void runAction("onExport");
   });
+  publishButton.addEventListener("click", () => {
+    void runAction("onPublish");
+  });
   deleteButton.addEventListener("click", () => {
     void runAction("onDelete");
   });
@@ -201,9 +219,11 @@ function createPaletteViewerOverlayController() {
       getPreviewAsset,
       onShare,
       onExport,
+      onPublish,
       onDelete,
       canShare = true,
       canExport = true,
+      canPublish = true,
       canDelete = true,
     }) {
       activeRequestId += 1;
@@ -212,9 +232,11 @@ function createPaletteViewerOverlayController() {
       activeSession = {
         onShare,
         onExport,
+        onPublish,
         onDelete,
         canShare,
         canExport,
+        canPublish,
         canDelete,
       };
 
