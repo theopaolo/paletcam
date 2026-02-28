@@ -15,6 +15,8 @@ export function createZoomUiController({
   zoomMinDisplay,
   zoomMaxDisplay,
 } = {}) {
+  let isBound = false;
+
   function updateZoomScaleBounds(minValue, maxValue) {
     const safeMin = Number.isFinite(minValue) ? minValue : 1;
     const safeMax = Number.isFinite(maxValue) ? maxValue : safeMin;
@@ -57,20 +59,32 @@ export function createZoomUiController({
     }
   }
 
-  function bindEvents() {
-    if (!zoomWheel) {
+  function handleZoomWheelInput(event) {
+    const nextZoom = Number(event.target.value);
+    if (!Number.isFinite(nextZoom)) {
       return;
     }
 
-    zoomWheel.addEventListener('input', (event) => {
-      const nextZoom = Number(event.target.value);
-      if (!Number.isFinite(nextZoom)) {
-        return;
-      }
+    updateZoomText(zoomDisplay, nextZoom);
+    void cameraController?.applyZoom?.(nextZoom);
+  }
 
-      updateZoomText(zoomDisplay, nextZoom);
-      void cameraController?.applyZoom?.(nextZoom);
-    });
+  function bindEvents() {
+    if (!zoomWheel || isBound) {
+      return;
+    }
+
+    zoomWheel.addEventListener('input', handleZoomWheelInput);
+    isBound = true;
+  }
+
+  function destroy() {
+    if (!zoomWheel || !isBound) {
+      return;
+    }
+
+    zoomWheel.removeEventListener('input', handleZoomWheelInput);
+    isBound = false;
   }
 
   function setDisabled() {
@@ -120,10 +134,10 @@ export function createZoomUiController({
 
   return {
     bindEvents,
+    destroy,
     handleZoomChange,
     initialize,
     setDisabled,
     syncCapabilities,
   };
 }
-

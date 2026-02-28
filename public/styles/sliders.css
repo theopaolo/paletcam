@@ -3,6 +3,10 @@
   align-items: stretch;
 }
 
+html.hide-zoom-ui .zoom-btns {
+  display: none;
+}
+
 
 /* ── Skeuomorphic Swatch Slider ── */
 

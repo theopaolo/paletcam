@@ -130,6 +130,10 @@ header {
   display: none;
 }
 
+#canvas.camera-feed-canvas {
+  display: block;
+}
+
 .sample-row-overlay {
   position: absolute;
   inset: 0;
@@ -176,7 +180,8 @@ header {
   height: 100%;
 }
 
-.camera-feed {
+.camera-feed,
+.camera-feed-canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -190,7 +195,8 @@ header {
   transition: border-radius 0.2s ease, box-shadow 0.2s ease, border-width 0.2s ease;
 }
 
-.capture-camera-stage .camera-feed {
+.capture-camera-stage .camera-feed,
+.capture-camera-stage .camera-feed-canvas {
   border-radius: 0;
   border-width: 0;
   box-shadow: none;
@@ -199,6 +205,23 @@ header {
 .camera-feed:focus-visible {
   outline: 2px solid rgba(255, 200, 0, 0.8);
   outline-offset: 2px;
+}
+
+.camera-feed-canvas {
+  -webkit-touch-callout: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.camera-source-mount {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  left: -9999px;
+  top: -9999px;
 }
 
 .output {

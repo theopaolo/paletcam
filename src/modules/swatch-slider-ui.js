@@ -8,6 +8,8 @@ export function createSwatchSliderUiController({
   activePulseMs = DEFAULT_SWATCH_ACTIVE_PULSE_MS,
 } = {}) {
   let activePulseTimeout = 0;
+  let pendingPointerUpHandler = null;
+  let isBound = false;
 
   function getSliderPanel() {
     return swatchSlider?.closest('.swatch-slider') ?? null;
@@ -35,30 +37,60 @@ export function createSwatchSliderUiController({
     }, activePulseMs);
   }
 
-  function bindEvents() {
-    if (!swatchSlider) {
+  function clearPendingPointerUpHandler() {
+    if (!pendingPointerUpHandler) {
       return;
     }
 
-    swatchSlider.addEventListener('pointerdown', () => {
-      setDragState(true);
-      pulseActiveIndicator();
-      window.addEventListener('pointerup', () => setDragState(false), { once: true });
-    });
+    window.removeEventListener('pointerup', pendingPointerUpHandler);
+    pendingPointerUpHandler = null;
+  }
 
-    swatchSlider.addEventListener('pointercancel', () => setDragState(false));
-    swatchSlider.addEventListener('blur', () => setDragState(false));
-    swatchSlider.addEventListener('input', (event) => {
-      const nextSwatchCount = Number(event.target.value);
+  function handlePointerUp() {
+    setDragState(false);
+    clearPendingPointerUpHandler();
+  }
 
-      if (!Number.isFinite(nextSwatchCount) || nextSwatchCount < 1) {
-        return;
-      }
+  function handlePointerDown() {
+    setDragState(true);
+    pulseActiveIndicator();
+    clearPendingPointerUpHandler();
+    pendingPointerUpHandler = handlePointerUp;
+    window.addEventListener('pointerup', pendingPointerUpHandler, { once: true });
+  }
 
-      onSwatchCountChange?.(nextSwatchCount);
-      updateSliderTooltip(swatchSlider, nextSwatchCount);
-      pulseActiveIndicator();
-    });
+  function handlePointerCancel() {
+    setDragState(false);
+    clearPendingPointerUpHandler();
+  }
+
+  function handleBlur() {
+    setDragState(false);
+    clearPendingPointerUpHandler();
+  }
+
+  function handleInput(event) {
+    const nextSwatchCount = Number(event.target.value);
+
+    if (!Number.isFinite(nextSwatchCount) || nextSwatchCount < 1) {
+      return;
+    }
+
+    onSwatchCountChange?.(nextSwatchCount);
+    updateSliderTooltip(swatchSlider, nextSwatchCount);
+    pulseActiveIndicator();
+  }
+
+  function bindEvents() {
+    if (!swatchSlider || isBound) {
+      return;
+    }
+
+    swatchSlider.addEventListener('pointerdown', handlePointerDown);
+    swatchSlider.addEventListener('pointercancel', handlePointerCancel);
+    swatchSlider.addEventListener('blur', handleBlur);
+    swatchSlider.addEventListener('input', handleInput);
+    isBound = true;
   }
 
   function initialize(swatchCount) {
@@ -76,10 +108,23 @@ export function createSwatchSliderUiController({
     sliderPanel?.classList.remove('is-dragging');
   }
 
+  function destroy() {
+    if (swatchSlider && isBound) {
+      swatchSlider.removeEventListener('pointerdown', handlePointerDown);
+      swatchSlider.removeEventListener('pointercancel', handlePointerCancel);
+      swatchSlider.removeEventListener('blur', handleBlur);
+      swatchSlider.removeEventListener('input', handleInput);
+      isBound = false;
+    }
+
+    clearPendingPointerUpHandler();
+    cleanup();
+  }
+
   return {
     bindEvents,
     cleanup,
+    destroy,
     initialize,
   };
 }
-

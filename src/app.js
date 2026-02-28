@@ -26,6 +26,15 @@ const PHOTO_EXPORT_MAX_WIDTH = 1440;
 const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
 const CAMERA_FRAME_ASPECT_RATIO_LABEL = '4:3';
 
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function supportsCameraTrackZoomConstraint() {
+  return Boolean(navigator.mediaDevices?.getSupportedConstraints?.().zoom);
+}
+
 const colorscatcher = document.querySelector('.colorscatcher');
 const cameraFeed = document.querySelector('.camera-feed');
 const captureButton = document.querySelector('.btn-capture');
@@ -52,6 +61,28 @@ const btnOn = document.querySelector('.btn-on');
 const btnShoot = document.querySelector('.btn-shoot');
 const sampleRowOverlay = document.getElementById('sampleRowOverlay');
 const cameraViewportFrame = document.createElement('div');
+const cameraSourceMount = document.createElement('div');
+const isIOS = isIOSDevice();
+const shouldUseCanvasPreview = isIOS;
+const cameraPreviewSurface = shouldUseCanvasPreview ? frameCanvas : cameraFeed;
+const shouldHideZoomUi = isIOS || !supportsCameraTrackZoomConstraint();
+
+if (shouldHideZoomUi) {
+  document.documentElement.classList.add('hide-zoom-ui');
+}
+
+if (shouldUseCanvasPreview) {
+  document.documentElement.classList.add('use-canvas-camera-preview');
+  cameraSourceMount.className = 'camera-source-mount';
+  cameraPreviewSurface?.classList.add('camera-feed-canvas');
+  cameraPreviewSurface?.setAttribute('aria-label', 'Aperçu caméra');
+  cameraPreviewSurface?.setAttribute('role', 'img');
+  cameraFeed?.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(cameraSourceMount);
+  if (cameraFeed) {
+    cameraSourceMount.appendChild(cameraFeed);
+  }
+}
 
 const frameContext = frameCanvas?.getContext('2d', { willReadFrequently: true }) ?? frameCanvas?.getContext('2d');
 const paletteContext = paletteCanvas?.getContext('2d');
@@ -71,6 +102,12 @@ let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let paletteScoringSettings = { ...getAppSettings().paletteScoring };
 const EXTRACTION_INTERVAL = 10;
 let lastCameraViewportLayout = null;
+let cachedPaletteWidth = 0;
+let cachedPaletteHeight = 0;
+let previewFrameRequestId = 0;
+let unsubscribeFromAppSettings = () => {};
+const appEventCleanups = [];
+let isAppDestroyed = false;
 
 cameraViewportFrame.className = 'camera-feed-frame';
 const captureMicroInteractions = createCaptureMicroInteractions({
@@ -102,7 +139,7 @@ function shouldMirrorUserFacingCamera() {
 }
 
 function syncCameraFeedOrientation() {
-  if (!cameraFeed) {
+  if (shouldUseCanvasPreview || !cameraFeed) {
     return;
   }
 
@@ -116,6 +153,80 @@ function getPaletteViewportSize() {
     width: paletteViewport?.clientWidth ?? 0,
     height: paletteViewport?.clientHeight ?? 0,
   };
+}
+
+function bindManagedEventListener(target, eventName, listener, options) {
+  if (!target || typeof target.addEventListener !== 'function') {
+    return;
+  }
+
+  target.addEventListener(eventName, listener, options);
+  appEventCleanups.push(() => {
+    target.removeEventListener(eventName, listener, options);
+  });
+}
+
+function clearManagedEventListeners() {
+  while (appEventCleanups.length > 0) {
+    const cleanup = appEventCleanups.pop();
+    cleanup?.();
+  }
+}
+
+function cancelPreviewRefresh() {
+  if (!previewFrameRequestId) {
+    return;
+  }
+
+  window.cancelAnimationFrame(previewFrameRequestId);
+  previewFrameRequestId = 0;
+}
+
+function schedulePreviewRefresh() {
+  if (!isStreaming || previewFrameRequestId) {
+    return;
+  }
+
+  previewFrameRequestId = window.requestAnimationFrame(() => {
+    previewFrameRequestId = 0;
+    refreshPreview();
+  });
+}
+
+function updateCachedPreviewDimensions() {
+  const { width: nextPaletteWidth, height: nextPaletteHeight } = getPaletteViewportSize();
+  if (nextPaletteWidth <= 0 || nextPaletteHeight <= 0) {
+    cachedPaletteWidth = 0;
+    cachedPaletteHeight = 0;
+    frameWidth = 0;
+    frameHeight = 0;
+    return false;
+  }
+
+  cachedPaletteWidth = nextPaletteWidth;
+  cachedPaletteHeight = nextPaletteHeight;
+  frameWidth = nextPaletteWidth;
+  frameHeight = getTargetFrameHeight(frameWidth);
+
+  if (!cameraFeed || !frameCanvas || !paletteCanvas || frameWidth <= 0 || frameHeight <= 0) {
+    return false;
+  }
+
+  cameraFeed.setAttribute('width', String(frameWidth));
+  cameraFeed.setAttribute('height', String(frameHeight));
+
+  if (frameCanvas.width !== frameWidth || frameCanvas.height !== frameHeight) {
+    frameCanvas.width = frameWidth;
+    frameCanvas.height = frameHeight;
+  }
+
+  if (paletteCanvas.width !== frameWidth || paletteCanvas.height !== cachedPaletteHeight) {
+    paletteCanvas.width = frameWidth;
+    paletteCanvas.height = cachedPaletteHeight;
+  }
+
+  sampleGridOverlay.updatePointSizes();
+  return true;
 }
 
 function getContainedSize(width, height, aspectRatio) {
@@ -285,7 +396,7 @@ function applyAppSettings({
 }
 
 function mountCameraFeed(targetElement) {
-  if (!cameraFeed || !targetElement) {
+  if (!cameraPreviewSurface || !targetElement) {
     return;
   }
 
@@ -294,8 +405,12 @@ function mountCameraFeed(targetElement) {
     lastCameraViewportLayout = null;
   }
 
-  if (cameraFeed.parentElement !== cameraViewportFrame) {
-    cameraViewportFrame.appendChild(cameraFeed);
+  if (cameraPreviewSurface.parentElement !== cameraViewportFrame) {
+    cameraViewportFrame.appendChild(cameraPreviewSurface);
+  }
+
+  if (shouldUseCanvasPreview && cameraFeed && cameraFeed.parentElement !== cameraSourceMount) {
+    cameraSourceMount.appendChild(cameraFeed);
   }
 
   if (sampleRowOverlay && sampleRowOverlay.parentElement !== cameraViewportFrame) {
@@ -316,11 +431,12 @@ function setPreviewExpanded(shouldExpand) {
   captureContainer.classList.toggle('is-preview-expanded', nextExpandedState);
   document.body.classList.toggle('is-preview-expanded', nextExpandedState);
   captureCameraStage?.setAttribute('aria-hidden', String(!nextExpandedState));
-  cameraFeed?.setAttribute('aria-expanded', String(nextExpandedState));
+  cameraPreviewSurface?.setAttribute('aria-expanded', String(nextExpandedState));
 
   mountCameraFeed(nextExpandedState ? cameraStageMount : cameraPreviewDock);
   syncCameraFeedOrientation();
   syncCameraViewportLayout();
+  updateCachedPreviewDimensions();
 }
 
 let zoomUi = null;
@@ -357,6 +473,47 @@ zoomUi = createZoomUiController({
   zoomMaxDisplay,
 });
 
+function handleCaptureButtonClick(event) {
+  event.preventDefault();
+
+  if (!isStreaming || frameWidth <= 0 || frameHeight <= 0) {
+    void startCameraStream();
+    return;
+  }
+
+  void captureCurrentFrame();
+}
+
+function handleMiniOutputClick() {
+  if (!photoOutput?.getAttribute('src')) {
+    return;
+  }
+
+  void openCollectionPanel({
+    paletteId: getMiniOutputPaletteId(),
+    openPaletteViewer: Boolean(getMiniOutputPaletteId()),
+    closeCollectionOnViewerClose: Boolean(getMiniOutputPaletteId()),
+  });
+}
+
+async function handleRotateButtonClick() {
+  if (_testImageMode) {
+    return;
+  }
+
+  stopCurrentStream();
+  await cameraController.toggleFacingMode();
+}
+
+function handleWindowResize() {
+  syncCameraViewportLayout();
+  updateCachedPreviewDimensions();
+}
+
+function handleWindowBeforeUnload() {
+  destroyApp();
+}
+
 function initializeApp() {
   if (
     !cameraFeed ||
@@ -371,6 +528,7 @@ function initializeApp() {
     return;
   }
 
+  isAppDestroyed = false;
   applyAppSettings(getAppSettings());
   setPreviewExpanded(true);
   bindCameraPermissionEvents();
@@ -379,6 +537,9 @@ function initializeApp() {
   zoomUi.bindEvents();
   bindRotationEvents();
   swatchSliderUi.bindEvents();
+  bindManagedEventListener(window, 'beforeunload', handleWindowBeforeUnload);
+  bindManagedEventListener(window, 'resize', handleWindowResize);
+  unsubscribeFromAppSettings = subscribeAppSettings(applyAppSettings);
   syncCameraFeedOrientation();
 
   zoomUi.initialize();
@@ -398,25 +559,14 @@ function bindCameraPermissionEvents() {
     return;
   }
 
-  allowButton?.addEventListener('click', startCameraStream);
-  allowText?.addEventListener('click', startCameraStream);
+  bindManagedEventListener(allowButton, 'click', startCameraStream);
+  bindManagedEventListener(allowText, 'click', startCameraStream);
 }
 
 function bindCaptureEvents() {
-  cameraFeed.addEventListener('canplay', handleCameraCanPlay);
-
-  captureButton.addEventListener('pointerdown', captureMicroInteractions.pulseCaptureButton);
-
-  captureButton.addEventListener('click', (event) => {
-    event.preventDefault();
-
-    if (!isStreaming || frameWidth <= 0 || frameHeight <= 0) {
-      void startCameraStream();
-      return;
-    }
-
-    void captureCurrentFrame();
-  });
+  bindManagedEventListener(cameraFeed, 'canplay', handleCameraCanPlay);
+  bindManagedEventListener(captureButton, 'pointerdown', captureMicroInteractions.pulseCaptureButton);
+  bindManagedEventListener(captureButton, 'click', handleCaptureButtonClick);
 }
 
 function getMiniOutputPaletteId() {
@@ -429,24 +579,11 @@ function bindMiniOutputEvents() {
     return;
   }
 
-  photoOutput.addEventListener('click', () => {
-    if (!photoOutput.getAttribute('src')) {
-      return;
-    }
-
-    void openCollectionPanel({
-      paletteId: getMiniOutputPaletteId(),
-      openPaletteViewer: Boolean(getMiniOutputPaletteId()),
-      closeCollectionOnViewerClose: Boolean(getMiniOutputPaletteId()),
-    });
-  });
+  bindManagedEventListener(photoOutput, 'click', handleMiniOutputClick);
 }
 
 function bindRotationEvents() {
-  rotateButton?.addEventListener('click', async () => {
-    isStreaming = false;
-    await cameraController.toggleFacingMode();
-  });
+  bindManagedEventListener(rotateButton, 'click', handleRotateButtonClick);
 }
 
 async function startCameraStream() {
@@ -455,15 +592,18 @@ async function startCameraStream() {
   }
 
   isStreaming = false;
+  cancelPreviewRefresh();
   const started = await cameraController.startStream();
 
   // loadTestImage may have activated test mode while we were awaiting the stream
   if (_testImageMode) {
-    cameraController.stopStream();
+    stopCurrentStream();
     return;
   }
 
   if (started) {
+    syncCameraViewportLayout();
+    updateCachedPreviewDimensions();
     zoomUi.syncCapabilities();
   }
 }
@@ -473,22 +613,18 @@ function handleCameraCanPlay() {
     return;
   }
 
-  const { width: nextFrameWidth } = getPaletteViewportSize();
-  if (nextFrameWidth <= 0 || cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
+  if (cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
     return;
   }
 
-  frameWidth = nextFrameWidth;
-  frameHeight = getTargetFrameHeight(frameWidth);
-
-  cameraFeed.setAttribute('width', String(frameWidth));
-  cameraFeed.setAttribute('height', String(frameHeight));
-  frameCanvas.setAttribute('width', String(frameWidth));
-  frameCanvas.setAttribute('height', String(frameHeight));
+  syncCameraViewportLayout();
+  if (!updateCachedPreviewDimensions()) {
+    return;
+  }
 
   if (!isStreaming) {
     isStreaming = true;
-    requestAnimationFrame(refreshPreview);
+    schedulePreviewRefresh();
   }
 }
 
@@ -497,15 +633,17 @@ function refreshPreview() {
     return;
   }
 
-  const { width: paletteWidth, height: paletteHeight } = getPaletteViewportSize();
-  if (paletteWidth <= 0 || paletteHeight <= 0 || cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
-    requestAnimationFrame(refreshPreview);
+  if (
+    cachedPaletteWidth <= 0 ||
+    cachedPaletteHeight <= 0 ||
+    frameWidth <= 0 ||
+    frameHeight <= 0 ||
+    cameraFeed.videoWidth <= 0 ||
+    cameraFeed.videoHeight <= 0
+  ) {
+    schedulePreviewRefresh();
     return;
   }
-
-  frameWidth = paletteWidth;
-  frameHeight = getTargetFrameHeight(frameWidth);
-  syncCameraViewportLayout();
 
   const nextCanvasWidth = frameWidth;
   const nextCanvasHeight = frameHeight;
@@ -517,10 +655,10 @@ function refreshPreview() {
 
   if (
     paletteCanvas.width !== nextCanvasWidth ||
-    paletteCanvas.height !== paletteHeight
+    paletteCanvas.height !== cachedPaletteHeight
   ) {
     paletteCanvas.width = nextCanvasWidth;
-    paletteCanvas.height = paletteHeight;
+    paletteCanvas.height = cachedPaletteHeight;
   }
 
   drawFrameToCanvas({
@@ -538,7 +676,6 @@ function refreshPreview() {
   if (isGridMode) {
     sampleGridOverlay.setVisible(true);
     sampleGridOverlay.ensureBuilt();
-    sampleGridOverlay.updatePointSizes();
   } else {
     sampleGridOverlay.setVisible(false);
   }
@@ -563,7 +700,7 @@ function refreshPreview() {
   }
 
   if (!lastExtractedColors || lastExtractedColors.length === 0) {
-    requestAnimationFrame(refreshPreview);
+    schedulePreviewRefresh();
     return;
   }
 
@@ -585,7 +722,7 @@ function refreshPreview() {
     visualEffects.setCaptureGlowActive(false);
   }
 
-  requestAnimationFrame(refreshPreview);
+  schedulePreviewRefresh();
 }
 
 async function captureCurrentFrame() {
@@ -744,15 +881,27 @@ function exportPhotoData({
 
 function stopCurrentStream() {
   isStreaming = false;
+  cancelPreviewRefresh();
   visualEffects.setCaptureGlowActive(false);
   captureMicroInteractions.cleanup();
 
   cameraController.stopStream();
 }
 
-window.addEventListener('beforeunload', stopCurrentStream);
-window.addEventListener('resize', syncCameraViewportLayout);
-subscribeAppSettings(applyAppSettings);
+function destroyApp() {
+  if (isAppDestroyed) {
+    return;
+  }
+
+  isAppDestroyed = true;
+  stopCurrentStream();
+  swatchSliderUi.destroy?.();
+  zoomUi?.destroy?.();
+  cameraController.destroy?.();
+  unsubscribeFromAppSettings();
+  unsubscribeFromAppSettings = () => {};
+  clearManagedEventListeners();
+}
 
 initializeApp();
 

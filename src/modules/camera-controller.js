@@ -79,7 +79,9 @@ export function createCameraController({
       return;
     }
 
-    stream.getTracks().forEach((track) => track.stop());
+    stream.getTracks().forEach((track) => {
+      track.stop();
+    });
     cameraFeed.srcObject = null;
     videoTrack = null;
     notifyCameraActiveChange(false);
@@ -153,7 +155,12 @@ export function createCameraController({
     };
   }
 
+  function destroy() {
+    stopStream();
+  }
+
   return {
+    destroy,
     applyZoom,
     getCurrentZoom,
     getZoomCapabilities,
