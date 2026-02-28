@@ -1,0 +1,11 @@
+/service-worker.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/precache-manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache

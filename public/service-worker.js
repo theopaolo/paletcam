@@ -1,4 +1,4 @@
-const CACHE_NAME = 'colorcatcher-v13';
+const CACHE_NAME = 'colorcatcher-__BUILD_ID__';
 const SW_BASE_URL = new URL('./', self.location.href);
 
 function toScopedPath(pathname = '') {
@@ -49,6 +49,10 @@ function shouldCacheResponse(response) {
   return Boolean(response?.ok && response.type === 'basic');
 }
 
+function isApiRequest(requestUrl) {
+  return requestUrl.pathname.startsWith(toScopedPath('api/'));
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(cacheAppShell());
   self.skipWaiting();
@@ -71,6 +75,10 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(request.url);
 
   if (request.method !== 'GET' || !isSameOriginRequest(requestUrl)) {
+    return;
+  }
+
+  if (isApiRequest(requestUrl)) {
     return;
   }
 
@@ -102,12 +110,12 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     (async () => {
-      const cachedResponse = await caches.match(request);
+      const cache = await caches.open(CACHE_NAME);
+      const cachedResponse = await cache.match(request);
 
       const networkResponsePromise = fetch(request)
         .then(async (networkResponse) => {
           if (shouldCacheResponse(networkResponse)) {
-            const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
           }
 

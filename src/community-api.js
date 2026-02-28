@@ -2,8 +2,9 @@ const LOCAL_PROXY_COMMUNITY_API_BASE_URL = "/api/v1";
 const LIVE_COMMUNITY_API_BASE_URL = "https://ccs.preview.name/api/v1";
 const LEGACY_DEFAULT_COMMUNITY_API_BASE_URLS = new Set([
   "http://ccs.test/api/v1",
-  "https://ccs.preview.name/api/v1",
+  LIVE_COMMUNITY_API_BASE_URL,
   "http://ccs.preview.name/api/v1",
+  "http://localhost:3000/api/v1",
 ]);
 const COMMUNITY_API_BASE_URL_STORAGE_KEY = "paletcam:community:api-base-url:v1";
 const COMMUNITY_API_REQUEST_TIMEOUT_MS = 15000;
@@ -20,8 +21,7 @@ function getRuntimeHostname() {
   return String(globalThis.location?.hostname || "").toLowerCase();
 }
 
-function isLocalDevHost() {
-  const hostname = getRuntimeHostname();
+function isLoopbackHostname(hostname) {
   return (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
@@ -30,10 +30,12 @@ function isLocalDevHost() {
   );
 }
 
+function isLocalDevHost() {
+  return isLoopbackHostname(getRuntimeHostname());
+}
+
 function getDefaultCommunityApiBaseUrl() {
-  return isLocalDevHost()
-    ? LOCAL_PROXY_COMMUNITY_API_BASE_URL
-    : LIVE_COMMUNITY_API_BASE_URL;
+  return LOCAL_PROXY_COMMUNITY_API_BASE_URL;
 }
 
 function normalizeApiBaseUrl(candidateUrl) {
@@ -52,13 +54,29 @@ function normalizeApiBaseUrl(candidateUrl) {
     try {
       const parsed = new URL(trimmedUrl);
       const normalizedCandidatePath = parsed.pathname.replace(/\/+$/, "") || "/";
+      const runtimeProtocol = String(globalThis.location?.protocol || "").toLowerCase();
       const isKnownCommunityHost = (
         parsed.hostname === "ccs.test" ||
         parsed.hostname === "ccs.preview.name"
       );
 
+      if (runtimeProtocol === "https:" && parsed.protocol !== "https:") {
+        return defaultApiBaseUrl;
+      }
+
+      if (!isLocalDevHost() && isLoopbackHostname(parsed.hostname.toLowerCase())) {
+        return defaultApiBaseUrl;
+      }
+
       if (isKnownCommunityHost && normalizedCandidatePath === "/api/v1") {
         return defaultApiBaseUrl;
+      }
+
+      if (
+        parsed.origin === String(globalThis.location?.origin || "")
+        && normalizedCandidatePath === "/api/v1"
+      ) {
+        return LOCAL_PROXY_COMMUNITY_API_BASE_URL;
       }
 
       parsed.pathname = normalizedCandidatePath;
@@ -75,10 +93,6 @@ function normalizeApiBaseUrl(candidateUrl) {
 
   if (!normalizedRelativePath) {
     return defaultApiBaseUrl;
-  }
-
-  if (!isLocalDevHost()) {
-    return LIVE_COMMUNITY_API_BASE_URL;
   }
 
   return `/${normalizedRelativePath}`;
@@ -256,6 +270,7 @@ async function requestCommunityApi(
     throw createApiError("Network error while calling community API.", {
       status: 0,
       payload: {
+        requestUrl: requestUrl.toString(),
         originalError: isAbortError
           ? `Request timed out after ${COMMUNITY_API_REQUEST_TIMEOUT_MS}ms.`
           : (error?.message || String(error)),

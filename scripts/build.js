@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 
 const projectRoot = process.cwd();
@@ -6,6 +6,8 @@ const sourceRoot = join(projectRoot, 'src');
 const publicRoot = join(projectRoot, 'public');
 const outDir = join(projectRoot, 'dist');
 const precacheManifestFilename = 'precache-manifest.json';
+const serviceWorkerFilename = 'service-worker.js';
+const serviceWorkerBuildIdPlaceholder = '__BUILD_ID__';
 const precacheExcludedFiles = new Set([
   'service-worker.js',
   precacheManifestFilename,
@@ -70,6 +72,24 @@ async function writePrecacheManifest() {
   );
 }
 
+function createBuildId() {
+  return Date.now().toString(36);
+}
+
+async function stampServiceWorkerBuildId(buildId) {
+  const serviceWorkerPath = join(outDir, serviceWorkerFilename);
+  const source = await readFile(serviceWorkerPath, 'utf8');
+
+  if (!source.includes(serviceWorkerBuildIdPlaceholder)) {
+    throw new Error(
+      `Missing ${serviceWorkerBuildIdPlaceholder} placeholder in ${serviceWorkerFilename}.`
+    );
+  }
+
+  const stampedSource = source.replaceAll(serviceWorkerBuildIdPlaceholder, buildId);
+  await writeFile(serviceWorkerPath, stampedSource, 'utf8');
+}
+
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 
@@ -92,6 +112,7 @@ if (!buildResult.success) {
 }
 
 await copyPublicAssets();
+await stampServiceWorkerBuildId(createBuildId());
 await writePrecacheManifest();
 
 console.log(`Build completed in ${outDir}`);
