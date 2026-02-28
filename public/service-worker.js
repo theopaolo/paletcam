@@ -9,7 +9,14 @@ function toScopedPath(pathname = '') {
 const INDEX_FALLBACK_URL = toScopedPath('index.html');
 const OFFLINE_FALLBACK_URL = toScopedPath('offline.html');
 const PRECACHE_MANIFEST_URL = toScopedPath('precache-manifest.json');
+const SERVICE_WORKER_SCRIPT_URL = toScopedPath('service-worker.js');
+const WEB_MANIFEST_URL = toScopedPath('manifest.json');
 const CORE_APP_SHELL_URLS = [INDEX_FALLBACK_URL, OFFLINE_FALLBACK_URL];
+const BYPASS_CACHE_PATHS = new Set([
+  SERVICE_WORKER_SCRIPT_URL,
+  PRECACHE_MANIFEST_URL,
+  WEB_MANIFEST_URL,
+]);
 
 async function readPrecacheManifest() {
   try {
@@ -53,6 +60,26 @@ function isApiRequest(requestUrl) {
   return requestUrl.pathname.startsWith(toScopedPath('api/'));
 }
 
+function shouldBypassRequest(request, requestUrl) {
+  return (
+    isApiRequest(requestUrl) ||
+    BYPASS_CACHE_PATHS.has(requestUrl.pathname) ||
+    request.cache === 'no-store'
+  );
+}
+
+function isNetworkFirstAssetRequest(request) {
+  return (
+    request.destination === 'script' ||
+    request.destination === 'style' ||
+    request.destination === 'worker'
+  );
+}
+
+function createFreshRequest(request) {
+  return new Request(request, { cache: 'no-store' });
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(cacheAppShell());
   self.skipWaiting();
@@ -78,16 +105,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (isApiRequest(requestUrl)) {
+  if (shouldBypassRequest(request, requestUrl)) {
     return;
   }
 
   if (request.mode === 'navigate') {
     event.respondWith(
       (async () => {
+        const cache = await caches.open(CACHE_NAME);
         try {
-          const networkResponse = await fetch(request);
-          const cache = await caches.open(CACHE_NAME);
+          const networkResponse = await fetch(createFreshRequest(request));
           cache.put(INDEX_FALLBACK_URL, networkResponse.clone());
           return networkResponse;
         } catch (error) {
@@ -102,6 +129,31 @@ self.addEventListener('fetch', (event) => {
           }
 
           throw error;
+        }
+      })()
+    );
+    return;
+  }
+
+  if (isNetworkFirstAssetRequest(request)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+
+        try {
+          const networkResponse = await fetch(createFreshRequest(request));
+          if (shouldCacheResponse(networkResponse)) {
+            cache.put(request, networkResponse.clone());
+          }
+
+          return networkResponse;
+        } catch {
+          const cachedResponse = await cache.match(request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+
+          return new Response('Offline', { status: 503, statusText: 'Offline' });
         }
       })()
     );
