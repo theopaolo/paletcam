@@ -1,4 +1,5 @@
-const DEFAULT_COMMUNITY_API_BASE_URL = "/api/v1";
+const LOCAL_PROXY_COMMUNITY_API_BASE_URL = "/api/v1";
+const LIVE_COMMUNITY_API_BASE_URL = "https://ccs.preview.name/api/v1";
 const LEGACY_DEFAULT_COMMUNITY_API_BASE_URLS = new Set([
   "http://ccs.test/api/v1",
   "https://ccs.preview.name/api/v1",
@@ -15,43 +16,72 @@ export const CATCH_MODERATION_STATUSES = Object.freeze({
 
 const KNOWN_CATCH_STATUSES = new Set(Object.values(CATCH_MODERATION_STATUSES));
 
+function getRuntimeHostname() {
+  return String(globalThis.location?.hostname || "").toLowerCase();
+}
+
+function isLocalDevHost() {
+  const hostname = getRuntimeHostname();
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
+}
+
+function getDefaultCommunityApiBaseUrl() {
+  return isLocalDevHost()
+    ? LOCAL_PROXY_COMMUNITY_API_BASE_URL
+    : LIVE_COMMUNITY_API_BASE_URL;
+}
+
 function normalizeApiBaseUrl(candidateUrl) {
+  const defaultApiBaseUrl = getDefaultCommunityApiBaseUrl();
+
   if (typeof candidateUrl !== "string" || !candidateUrl.trim()) {
-    return DEFAULT_COMMUNITY_API_BASE_URL;
+    return defaultApiBaseUrl;
   }
 
   const trimmedUrl = candidateUrl.trim();
   if (LEGACY_DEFAULT_COMMUNITY_API_BASE_URLS.has(trimmedUrl)) {
-    return DEFAULT_COMMUNITY_API_BASE_URL;
+    return defaultApiBaseUrl;
   }
 
   if (/^https?:\/\//i.test(trimmedUrl)) {
     try {
       const parsed = new URL(trimmedUrl);
+      const normalizedCandidatePath = parsed.pathname.replace(/\/+$/, "") || "/";
       const isKnownCommunityHost = (
         parsed.hostname === "ccs.test" ||
         parsed.hostname === "ccs.preview.name"
       );
 
-      if (isKnownCommunityHost) {
-        return DEFAULT_COMMUNITY_API_BASE_URL;
+      if (isKnownCommunityHost && normalizedCandidatePath === "/api/v1") {
+        return defaultApiBaseUrl;
       }
 
-      const normalizedPath = parsed.pathname.replace(/\/+$/, "");
-      parsed.pathname = normalizedPath || "/";
+      parsed.pathname = normalizedCandidatePath;
       parsed.hash = "";
       return parsed.toString().replace(/\/$/, "");
     } catch (_error) {
-      return DEFAULT_COMMUNITY_API_BASE_URL;
+      return defaultApiBaseUrl;
     }
   }
 
   const normalizedRelativePath = trimmedUrl
     .replace(/^\/+/, "")
     .replace(/\/+$/, "");
-  return normalizedRelativePath
-    ? `/${normalizedRelativePath}`
-    : DEFAULT_COMMUNITY_API_BASE_URL;
+
+  if (!normalizedRelativePath) {
+    return defaultApiBaseUrl;
+  }
+
+  if (!isLocalDevHost()) {
+    return LIVE_COMMUNITY_API_BASE_URL;
+  }
+
+  return `/${normalizedRelativePath}`;
 }
 
 function getStoredApiBaseUrl() {
