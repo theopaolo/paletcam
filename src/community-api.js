@@ -35,7 +35,9 @@ function isLocalDevHost() {
 }
 
 function getDefaultCommunityApiBaseUrl() {
-  return LOCAL_PROXY_COMMUNITY_API_BASE_URL;
+  return isLocalDevHost()
+    ? LOCAL_PROXY_COMMUNITY_API_BASE_URL
+    : LIVE_COMMUNITY_API_BASE_URL;
 }
 
 function normalizeApiBaseUrl(candidateUrl) {
@@ -76,7 +78,9 @@ function normalizeApiBaseUrl(candidateUrl) {
         parsed.origin === String(globalThis.location?.origin || "")
         && normalizedCandidatePath === "/api/v1"
       ) {
-        return LOCAL_PROXY_COMMUNITY_API_BASE_URL;
+        return isLocalDevHost()
+          ? LOCAL_PROXY_COMMUNITY_API_BASE_URL
+          : LIVE_COMMUNITY_API_BASE_URL;
       }
 
       parsed.pathname = normalizedCandidatePath;
@@ -93,6 +97,10 @@ function normalizeApiBaseUrl(candidateUrl) {
 
   if (!normalizedRelativePath) {
     return defaultApiBaseUrl;
+  }
+
+  if (!isLocalDevHost()) {
+    return LIVE_COMMUNITY_API_BASE_URL;
   }
 
   return `/${normalizedRelativePath}`;
@@ -377,15 +385,43 @@ export function postCatchToCommunity({
   timestamp,
   colors,
 }) {
-  return requestCommunityApi("/publish", {
-    method: "POST",
-    token,
-    body: {
-      photoBlob: photoBase64,
-      timestamp,
-      colors,
-    },
-  });
+  const attempts = ["/publish", "/catches"];
+  const body = {
+    photoBlob: photoBase64,
+    timestamp,
+    colors,
+  };
+
+  let lastError = null;
+
+  return (async () => {
+    for (const path of attempts) {
+      try {
+        return await requestCommunityApi(path, {
+          method: "POST",
+          token,
+          body,
+        });
+      } catch (error) {
+        lastError = error;
+
+        if (isEndpointMissingError(error)) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    throw createApiError("No publish endpoint is available.", {
+      status: 404,
+      path: "/publish",
+    });
+  })();
 }
 
 export async function fetchCatchModerationStatuses({
