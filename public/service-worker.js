@@ -1,4 +1,4 @@
-const CACHE_NAME = 'colorcatcher-v12';
+const CACHE_NAME = 'colorcatcher-v13';
 const SW_BASE_URL = new URL('./', self.location.href);
 
 function toScopedPath(pathname = '') {

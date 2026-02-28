@@ -68,7 +68,7 @@ Variante de verification (meme resultat attendu) avec `email` et `code` en query
 
 ---
 
-### POST /catches
+### POST /publish
 
 > **Authentification requise** — `Authorization: Bearer {token}`
 

@@ -362,7 +362,7 @@ export function postCatchToCommunity({
   timestamp,
   colors,
 }) {
-  return requestCommunityApi("/catches", {
+  return requestCommunityApi("/publish", {
     method: "POST",
     token,
     body: {
