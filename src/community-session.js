@@ -1,5 +1,4 @@
-const COMMUNITY_SESSION_STORAGE_KEY = "paletcam:community:session:v1";
-const COMMUNITY_SESSION_GLOBAL_STORE_KEY = "__paletcamCommunitySessionStore__";
+const SESSION_STORAGE_KEY = "paletcam:community:session:v1";
 
 function normalizeEmail(value) {
   if (typeof value !== "string") {
@@ -9,47 +8,28 @@ function normalizeEmail(value) {
   return value.trim().toLowerCase();
 }
 
-function normalizeToken(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function normalizeUser(candidate) {
-  if (!candidate || typeof candidate !== "object") {
-    return null;
-  }
-
-  const email = normalizeEmail(candidate.email);
-
-  return {
-    id: String(candidate.id ?? ""),
-    name: typeof candidate.name === "string" ? candidate.name.trim() : "",
-    email,
-  };
-}
-
 function normalizeSession(candidate) {
-  const token = normalizeToken(candidate?.token);
+  const token = typeof candidate?.token === "string" ? candidate.token.trim() : "";
   if (!token) {
     return null;
   }
 
-  const user = normalizeUser(candidate?.user);
+  const user = candidate?.user && typeof candidate.user === "object"
+    ? {
+        id: String(candidate.user.id ?? ""),
+        name: typeof candidate.user.name === "string" ? candidate.user.name.trim() : "",
+        email: normalizeEmail(candidate.user.email),
+      }
+    : null;
+
   const email = normalizeEmail(candidate?.email || user?.email);
 
-  return {
-    token,
-    email,
-    user,
-  };
+  return { token, email, user };
 }
 
 function readStoredSession() {
   try {
-    const rawValue = localStorage.getItem(COMMUNITY_SESSION_STORAGE_KEY);
+    const rawValue = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!rawValue) {
       return null;
     }
@@ -64,37 +44,22 @@ function readStoredSession() {
 function persistSession(session) {
   try {
     if (!session) {
-      localStorage.removeItem(COMMUNITY_SESSION_STORAGE_KEY);
+      localStorage.removeItem(SESSION_STORAGE_KEY);
       return;
     }
 
-    localStorage.setItem(COMMUNITY_SESSION_STORAGE_KEY, JSON.stringify(session));
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch (error) {
     console.warn("Unable to persist community session:", error);
   }
 }
 
-function getGlobalSessionStore() {
-  const host = globalThis;
+let session = readStoredSession();
+const listeners = new Set();
 
-  if (!host[COMMUNITY_SESSION_GLOBAL_STORE_KEY]) {
-    host[COMMUNITY_SESSION_GLOBAL_STORE_KEY] = {
-      session: null,
-      listeners: new Set(),
-    };
-  }
-
-  return host[COMMUNITY_SESSION_GLOBAL_STORE_KEY];
-}
-
-const sessionStore = getGlobalSessionStore();
-if (sessionStore.session === null) {
-  sessionStore.session = readStoredSession();
-}
-
-function notifySessionListeners() {
+function notifyListeners() {
   const snapshot = getCommunitySession();
-  sessionStore.listeners.forEach((listener) => {
+  listeners.forEach((listener) => {
     try {
       listener(snapshot);
     } catch (error) {
@@ -104,44 +69,37 @@ function notifySessionListeners() {
 }
 
 export function getCommunitySession() {
-  if (!sessionStore.session) {
+  if (!session) {
     return null;
   }
 
   return {
-    token: sessionStore.session.token,
-    email: sessionStore.session.email,
-    user: sessionStore.session.user
-      ? { ...sessionStore.session.user }
-      : null,
+    token: session.token,
+    email: session.email,
+    user: session.user ? { ...session.user } : null,
   };
 }
 
 export function getCommunityAccessToken() {
-  return sessionStore.session?.token ?? "";
-}
-
-export function isCommunityAuthenticated() {
-  return Boolean(getCommunityAccessToken());
+  return session?.token ?? "";
 }
 
 export function setCommunitySession(nextSession) {
-  const normalizedSession = normalizeSession(nextSession);
-  sessionStore.session = normalizedSession;
-  persistSession(normalizedSession);
-  notifySessionListeners();
+  session = normalizeSession(nextSession);
+  persistSession(session);
+  notifyListeners();
   return getCommunitySession();
 }
 
 export function clearCommunitySession() {
-  if (!sessionStore.session) {
+  if (!session) {
     persistSession(null);
     return;
   }
 
-  sessionStore.session = null;
+  session = null;
   persistSession(null);
-  notifySessionListeners();
+  notifyListeners();
 }
 
 export function subscribeCommunitySession(listener) {
@@ -149,8 +107,8 @@ export function subscribeCommunitySession(listener) {
     return () => {};
   }
 
-  sessionStore.listeners.add(listener);
+  listeners.add(listener);
   return () => {
-    sessionStore.listeners.delete(listener);
+    listeners.delete(listener);
   };
 }

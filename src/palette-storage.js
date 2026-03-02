@@ -3,8 +3,9 @@ import Dexie from './vendor/dexie.mjs';
 const db = new Dexie('PaletcamDB');
 const KNOWN_MODERATION_STATUSES = new Set([
   'TO_MODERATE',
-  'VALID',
+  'PUBLIC',
   'REJECTED',
+  'PRIVATE',
 ]);
 
 db.version(1).stores({

@@ -1,7 +1,6 @@
 import {
   CATCH_MODERATION_STATUSES,
   fetchCatchModerationStatuses,
-  isEndpointMissingError,
   normalizeCatchStatus,
   postCatchToCommunity,
   requestCommunityLoginCode,
@@ -68,42 +67,17 @@ function normalizeColorsForApi(colors) {
     );
   }
 
-  const normalized = paletteColors.slice(0, 4);
-
-  while (normalized.length < 4) {
-    normalized.push({ ...normalized[normalized.length - 1] });
-  }
-
-  return normalized;
+  return paletteColors;
 }
 
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onerror = () => {
-      reject(new Error("Unable to read image blob."));
-    };
-
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      resolve(result);
-    };
-
-    reader.readAsDataURL(blob);
-  });
-}
-
-function extractBase64Payload(dataUrl) {
-  if (typeof dataUrl !== "string") {
-    return "";
+async function blobToBase64(blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
   }
-
-  const payload = dataUrl.includes(",")
-    ? dataUrl.slice(dataUrl.indexOf(",") + 1)
-    : dataUrl;
-
-  return payload.trim();
+  return btoa(binary);
 }
 
 function getPaletteTimestamp(palette) {
@@ -142,22 +116,6 @@ function mapApiError(error) {
   );
 }
 
-function getRemoteCatchIdFromPostResponse(payload) {
-  return String(
-    payload?.catch?.id || payload?.catchId || payload?.id || "",
-  ).trim();
-}
-
-function getModerationStatusFromPostResponse(payload) {
-  return normalizeCatchStatus(
-    payload?.catch?.moderationStatus
-      || payload?.catch?.status
-      || payload?.moderationStatus
-      || payload?.status
-      || null,
-  );
-}
-
 function getPaletteRemoteCatchId(palette) {
   return String(palette?.remoteCatchId || "").trim();
 }
@@ -170,9 +128,9 @@ export function getPalettePublicationMeta(palette) {
 
   const moderationStatus = normalizeCatchStatus(palette?.moderationStatus);
 
-  if (moderationStatus === CATCH_MODERATION_STATUSES.VALID) {
+  if (moderationStatus === CATCH_MODERATION_STATUSES.PUBLIC) {
     return {
-      tone: "valid",
+      tone: "public",
       label: "publie",
       status: moderationStatus,
     };
@@ -182,6 +140,14 @@ export function getPalettePublicationMeta(palette) {
     return {
       tone: "rejected",
       label: "refuse",
+      status: moderationStatus,
+    };
+  }
+
+  if (moderationStatus === CATCH_MODERATION_STATUSES.PRIVATE) {
+    return {
+      tone: "private",
+      label: "prive",
       status: moderationStatus,
     };
   }
@@ -277,7 +243,8 @@ export async function publishPaletteToCommunityFeed(palette) {
 
   const remoteCatchId = getPaletteRemoteCatchId(palette);
   const currentModerationStatus = normalizeCatchStatus(palette?.moderationStatus);
-  const canRepublish = currentModerationStatus === CATCH_MODERATION_STATUSES.REJECTED;
+  const canRepublish = currentModerationStatus === CATCH_MODERATION_STATUSES.REJECTED
+    || currentModerationStatus === CATCH_MODERATION_STATUSES.PRIVATE;
 
   if (remoteCatchId && !canRepublish) {
     throw createCommunityServiceError(
@@ -294,8 +261,7 @@ export async function publishPaletteToCommunityFeed(palette) {
   }
 
   const token = getAuthTokenOrThrow();
-  const photoDataUrl = await blobToDataUrl(palette.photoBlob);
-  const photoBase64 = extractBase64Payload(photoDataUrl);
+  const photoBase64 = await blobToBase64(palette.photoBlob);
 
   if (!photoBase64) {
     throw createCommunityServiceError(
@@ -313,9 +279,11 @@ export async function publishPaletteToCommunityFeed(palette) {
       photoBase64,
       timestamp,
       colors,
+      captureAspectRatio: palette.captureAspectRatio || null,
+      captureCropRect: palette.captureCropRect || null,
     });
 
-    const nextRemoteCatchId = getRemoteCatchIdFromPostResponse(payload);
+    const nextRemoteCatchId = String(payload?.catch?.id || "").trim();
     if (!nextRemoteCatchId) {
       throw createCommunityServiceError(
         "Missing remote catch id in response.",
@@ -324,7 +292,7 @@ export async function publishPaletteToCommunityFeed(palette) {
     }
 
     const nextModerationStatus = (
-      getModerationStatusFromPostResponse(payload)
+      normalizeCatchStatus(payload?.catch?.status)
       || CATCH_MODERATION_STATUSES.TO_MODERATE
     );
     const nowIso = new Date().toISOString();
@@ -387,13 +355,6 @@ export async function syncPublishedPalettesModerationStatus() {
       remoteCatchIds,
     });
   } catch (error) {
-    if (isEndpointMissingError(error)) {
-      return {
-        pendingCount: pendingPalettes.length,
-        updatedCount: 0,
-      };
-    }
-
     throw mapApiError(error);
   }
 

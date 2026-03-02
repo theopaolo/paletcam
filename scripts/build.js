@@ -7,6 +7,7 @@ const publicRoot = join(projectRoot, 'public');
 const outDir = join(projectRoot, 'dist');
 const precacheManifestFilename = 'precache-manifest.json';
 const serviceWorkerFilename = 'service-worker.js';
+const appVersionPlaceholder = '__APP_VERSION__';
 const serviceWorkerBuildIdPlaceholder = '__BUILD_ID__';
 const precacheExcludedFiles = new Set([
   'service-worker.js',
@@ -76,6 +77,14 @@ function createBuildId() {
   return Date.now().toString(36);
 }
 
+async function stampAppVersion() {
+  const packageJson = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'));
+  const indexPath = join(outDir, 'index.html');
+  const source = await readFile(indexPath, 'utf8');
+  const stamped = source.replaceAll(appVersionPlaceholder, packageJson.version);
+  await writeFile(indexPath, stamped, 'utf8');
+}
+
 async function stampServiceWorkerBuildId(buildId) {
   const serviceWorkerPath = join(outDir, serviceWorkerFilename);
   const source = await readFile(serviceWorkerPath, 'utf8');
@@ -112,6 +121,7 @@ if (!buildResult.success) {
 }
 
 await copyPublicAssets();
+await stampAppVersion();
 await stampServiceWorkerBuildId(createBuildId());
 await writePrecacheManifest();
 

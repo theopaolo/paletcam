@@ -1,5 +1,6 @@
 import {
   getAppSettings,
+  getDefaultAppSettings,
   subscribeAppSettings,
   updateAppSettings,
 } from './app-settings.js';
@@ -29,6 +30,7 @@ const algorithmPanels = Array.from(
   document.querySelectorAll('[data-settings-algorithm-panel]')
 );
 const communityAccountState = document.getElementById('communityAccountState');
+const communityEmailField = document.getElementById('communityEmailField');
 const communityEmailInput = document.getElementById('communityEmailInput');
 const communityRequestCodeButton = document.getElementById('communityRequestCodeButton');
 const communityAuthHint = document.getElementById('communityAuthHint');
@@ -364,6 +366,10 @@ function syncCommunitySessionUi(session = getCurrentCommunitySession()) {
     communityAccountState.textContent = 'Non connecte au compte de publication.';
   }
 
+  if (communityEmailField) {
+    communityEmailField.hidden = isConnected;
+  }
+
   if (communityLogoutButton) {
     communityLogoutButton.hidden = !isConnected;
   }
@@ -658,9 +664,28 @@ function bindCommunityAuthControls() {
   syncCommunitySessionUi();
 }
 
+function bindResetButton() {
+  const resetButton = document.getElementById('settingsResetButton');
+  if (!resetButton) {
+    return;
+  }
+
+  resetButton.addEventListener('click', () => {
+    const defaults = getDefaultAppSettings();
+    updateAppSettings({
+      paletteExtractionAlgorithm: defaults.paletteExtractionAlgorithm,
+      grid: defaults.grid,
+      medianCut: defaults.medianCut,
+      paletteScoring: defaults.paletteScoring,
+    });
+    showToast('Réglages réinitialisés.', { duration: 1400 });
+  });
+}
+
 bindSettingsPanelEvents();
 bindAlgorithmControls();
 bindRangeControls();
+bindResetButton();
 bindCommunityAuthControls();
 renderSettingsUi(getAppSettings());
 subscribeAppSettings(renderSettingsUi);

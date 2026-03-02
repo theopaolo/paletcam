@@ -129,5 +129,6 @@ Retourne le statut de moderation pour une liste d'IDs distants.
 **Statuts possibles**
 
 - `TO_MODERATE`
-- `VALID`
+- `PUBLIC`
 - `REJECTED`
+- `PRIVATE`
