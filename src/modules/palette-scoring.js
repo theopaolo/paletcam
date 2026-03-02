@@ -32,7 +32,6 @@ export function createPaletteScoringProfile(options = null) {
     options?.diversityWeight,
     DEFAULT_PALETTE_SCORING_SETTINGS.diversityWeight
   );
-
   const totalWeight = chromaWeight + lumaSpreadWeight + rarityWeight + diversityWeight;
   if (totalWeight <= 0) {
     return createPaletteScoringProfile(DEFAULT_PALETTE_SCORING_SETTINGS);

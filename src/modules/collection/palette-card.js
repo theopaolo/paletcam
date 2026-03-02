@@ -207,7 +207,7 @@ export function createPaletteCard({
 
   const handleExportAction = async () => {
     const exported = await exportPalettePolaroidImage(palette);
-    showToast(exported ? "Palette exportee" : "Export echoue", {
+    showToast(exported ? "Palette exportée" : "Export échoué", {
       variant: exported ? "default" : "error",
       duration: exported ? 1400 : 1800,
     });
@@ -236,7 +236,7 @@ export function createPaletteCard({
       return;
     }
 
-    showToast("Partage echoue", {
+    showToast("Partage échoué", {
       variant: "error",
       duration: 1800,
     });
@@ -270,7 +270,7 @@ export function createPaletteCard({
           console.error(`Failed to delete palette ${palette.id}:`, error);
           pendingDeletionIds.delete(palette.id);
           restoreCardFromSnapshot(card, snapshot);
-          showToast("Suppression echouee", {
+          showToast("Suppression échouée", {
             variant: "error",
             duration: 1800,
           });

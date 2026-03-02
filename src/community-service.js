@@ -131,7 +131,7 @@ export function getPalettePublicationMeta(palette) {
   if (moderationStatus === CATCH_MODERATION_STATUSES.PUBLIC) {
     return {
       tone: "public",
-      label: "publie",
+      label: "publié",
       status: moderationStatus,
     };
   }
@@ -154,7 +154,7 @@ export function getPalettePublicationMeta(palette) {
 
   return {
     tone: "pending",
-    label: "en moderation",
+    label: "en modération",
     status: CATCH_MODERATION_STATUSES.TO_MODERATE,
   };
 }

@@ -4,25 +4,8 @@ function toRgbToken(color) {
 
 export function createVisualEffects({
   captureButton,
-  nameElement,
 } = {}) {
   let lastCaptureGlowRgb = '';
-  let lastNameColor = '';
-
-  function setNameColor(color) {
-    if (!nameElement || !color) {
-      return;
-    }
-
-    const rgbToken = toRgbToken(color);
-    if (rgbToken === lastNameColor) {
-      return;
-    }
-
-    nameElement.style.setProperty('--name-rgba', rgbToken);
-    lastNameColor = rgbToken;
-  }
-
   function setCaptureButtonGlowColor(color) {
     if (!captureButton || !color) {
       return;
@@ -44,7 +27,6 @@ export function createVisualEffects({
   return {
     setCaptureButtonGlowColor,
     setCaptureGlowActive,
-    setNameColor,
   };
 }
 

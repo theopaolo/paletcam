@@ -1,3 +1,5 @@
+import { clientLog } from "./modules/client-log.js";
+
 const LOCAL_API_BASE_URL = "/api/v1";
 const LIVE_API_BASE_URL = "https://ccs.preview.name/api/v1";
 const REQUEST_TIMEOUT_MS = 15000;
@@ -83,14 +85,20 @@ async function requestCommunityApi(
   try {
     response = await fetch(requestUrl, requestInit);
   } catch (error) {
+    const originalError = error?.name === "TimeoutError"
+      ? `Request timed out after ${REQUEST_TIMEOUT_MS}ms.`
+      : (error?.message || String(error));
+
+    clientLog("Network error while calling community API.", {
+      requestUrl,
+      method,
+      path,
+      originalError,
+    });
+
     throw createApiError("Network error while calling community API.", {
       status: 0,
-      payload: {
-        requestUrl,
-        originalError: error?.name === "TimeoutError"
-          ? `Request timed out after ${REQUEST_TIMEOUT_MS}ms.`
-          : (error?.message || String(error)),
-      },
+      payload: { requestUrl, originalError },
       path,
     });
   }
@@ -108,6 +116,15 @@ async function requestCommunityApi(
 
   if (!response.ok) {
     const payloadMessage = typeof payload?.message === "string" ? payload.message : "";
+
+    clientLog(`API request failed (${response.status}).`, {
+      requestUrl,
+      method,
+      path,
+      status: response.status,
+      payloadMessage,
+    });
+
     throw createApiError(
       payloadMessage || `API request failed (${response.status}).`,
       {

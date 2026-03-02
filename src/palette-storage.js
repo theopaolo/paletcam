@@ -92,7 +92,7 @@ export async function getSavedPalettes() {
     return await db.palettes.reverse().toArray();
   } catch (error) {
     console.error('Failed to read saved palettes:', error);
-    return [];
+    throw error;
   }
 }
 

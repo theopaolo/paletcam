@@ -76,7 +76,21 @@ function createToastEntry(toast) {
   const message = document.createElement('p');
   message.className = 'toast-message';
   message.textContent = toast.message;
-  element.appendChild(message);
+
+  if (toast.details) {
+    const body = document.createElement('div');
+    body.className = 'toast-body';
+    body.appendChild(message);
+
+    const details = document.createElement('p');
+    details.className = 'toast-details';
+    details.textContent = toast.details;
+    body.appendChild(details);
+
+    element.appendChild(body);
+  } else {
+    element.appendChild(message);
+  }
 
   if (toast.actionLabel) {
     const actionButton = document.createElement('button');
@@ -194,6 +208,7 @@ export function showToast(message, options = {}) {
   const toast = {
     type: 'standard',
     message,
+    details: typeof options.details === 'string' ? options.details : '',
     duration: options.duration ?? DEFAULT_TOAST_DURATION,
     variant: options.variant === 'error' ? 'error' : 'default',
     actionLabel: options.actionLabel || undefined,

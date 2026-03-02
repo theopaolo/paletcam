@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -l \"settings\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/*.css)",
-      "Bash(grep -n \"app-version\\\\|APP_VERSION\\\\|version\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/*.js)"
-    ]
-  }
-}

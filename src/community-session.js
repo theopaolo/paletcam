@@ -37,7 +37,7 @@ function readStoredSession() {
     return normalizeSession(JSON.parse(rawValue));
   } catch (error) {
     console.warn("Unable to read community session:", error);
-    return null;
+    return undefined;
   }
 }
 
@@ -54,7 +54,8 @@ function persistSession(session) {
   }
 }
 
-let session = readStoredSession();
+const initialStoredSession = readStoredSession();
+let session = initialStoredSession === undefined ? null : initialStoredSession;
 const listeners = new Set();
 
 function notifyListeners() {
@@ -68,7 +69,16 @@ function notifyListeners() {
   });
 }
 
+function refreshSessionFromStorage() {
+  const storedSession = readStoredSession();
+  if (storedSession !== undefined) {
+    session = storedSession;
+  }
+}
+
 export function getCommunitySession() {
+  refreshSessionFromStorage();
+
   if (!session) {
     return null;
   }
@@ -81,6 +91,7 @@ export function getCommunitySession() {
 }
 
 export function getCommunityAccessToken() {
+  refreshSessionFromStorage();
   return session?.token ?? "";
 }
 

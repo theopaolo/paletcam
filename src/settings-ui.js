@@ -13,6 +13,8 @@ import {
 } from './community-service.js';
 import { PALETTE_EXTRACTION_ALGORITHMS } from './modules/palette-extraction.js';
 import { closePaletteViewerOverlay } from './modules/collection/palette-card.js';
+import { clientLog } from './modules/client-log.js';
+import { formatErrorDetails } from './modules/error-format.js';
 import { showToast } from './modules/toast-ui.js';
 
 const settingsPanel = document.querySelector('.settings-panel');
@@ -360,10 +362,12 @@ function syncCommunitySessionUi(session = getCurrentCommunitySession()) {
     setCommunityCodeFieldVisible(false);
     setCommunityAuthHintMessage('');
     communityAccountState.textContent = sessionEmail
-      ? `Connecte en tant que ${sessionEmail}`
-      : 'Connecte';
+      ? `Connecté en tant que ${sessionEmail}`
+      : 'Connecté';
+    communityAccountState.classList.add('is-connected');
   } else {
-    communityAccountState.textContent = 'Non connecte au compte de publication.';
+    communityAccountState.textContent = 'Non connecté au compte de publication.';
+    communityAccountState.classList.remove('is-connected');
   }
 
   if (communityEmailField) {
@@ -405,13 +409,19 @@ async function requestCommunityCode() {
       duration: 1400,
     });
   } catch (error) {
+    clientLog("Failed to send login code.", {
+      code: error?.code,
+      message: error?.message,
+      status: error?.status,
+    });
     setCommunityAuthHintMessage(
       resolveCommunityAuthErrorMessage(error, 'Impossible d\'envoyer le code.'),
       { isError: true },
     );
-    showToast('Envoi du code echoue.', {
+    showToast('Envoi du code échoué.', {
       variant: 'error',
-      duration: 1800,
+      duration: 3000,
+      details: formatErrorDetails(error),
     });
   } finally {
     setCommunityAuthBusy(false);
@@ -434,7 +444,7 @@ async function verifyCommunityCode() {
   }
 
   if (!code) {
-    setCommunityAuthHintMessage('Entre le code recu par email.', {
+    setCommunityAuthHintMessage('Entre le code reçu par email.', {
       isError: true,
     });
     return;
@@ -450,19 +460,25 @@ async function verifyCommunityCode() {
     if (communityCodeInput) {
       communityCodeInput.value = '';
     }
-    setCommunityAuthHintMessage('Connexion reussie.');
-    showToast('Compte connecte.', {
+    setCommunityAuthHintMessage('Connexion réussie.');
+    showToast('Compte connecté.', {
       duration: 1400,
     });
     syncCommunitySessionUi();
   } catch (error) {
+    clientLog("Failed to verify login code.", {
+      code: error?.code,
+      message: error?.message,
+      status: error?.status,
+    });
     setCommunityAuthHintMessage(
-      resolveCommunityAuthErrorMessage(error, 'Verification du code echouee.'),
+      resolveCommunityAuthErrorMessage(error, 'Vérification du code échouée.'),
       { isError: true },
     );
-    showToast('Code invalide ou expire.', {
+    showToast('Code invalide ou expiré.', {
       variant: 'error',
-      duration: 1800,
+      duration: 3000,
+      details: formatErrorDetails(error),
     });
   } finally {
     setCommunityAuthBusy(false);
@@ -476,8 +492,8 @@ function disconnectCommunityAccount() {
     communityCodeInput.value = '';
   }
   setCommunityCodeFieldVisible(false);
-  setCommunityAuthHintMessage('Compte deconnecte.');
-  showToast('Compte deconnecte.', {
+  setCommunityAuthHintMessage('Compte déconnecté.');
+  showToast('Compte déconnecté.', {
     duration: 1400,
   });
   syncCommunitySessionUi();

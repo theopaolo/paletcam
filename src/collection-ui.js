@@ -12,6 +12,8 @@ import {
 } from "./modules/collection/palette-card.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
+import { clientLog } from "./modules/client-log.js";
+import { formatErrorDetails } from "./modules/error-format.js";
 import { showToast } from "./modules/toast-ui.js";
 
 const collectionPanel = document.querySelector(".collection-panel");
@@ -70,9 +72,27 @@ function createCollectionDayGroup(dayGroup) {
 
 async function loadCollectionUi() {
   closePaletteViewerOverlay();
-  const palettes = (await getSavedPalettes()).filter((palette) =>
-    !pendingDeletionIds.has(palette.id)
-  );
+
+  let palettes;
+  try {
+    palettes = (await getSavedPalettes()).filter((palette) =>
+      !pendingDeletionIds.has(palette.id)
+    );
+  } catch (error) {
+    clientLog("Failed to load palette collection.", {
+      error: error?.name,
+      message: error?.message,
+    });
+    collectionGrid.innerHTML =
+      `<p class="empty-message">Erreur de chargement des palettes.</p>`;
+    showToast("Impossible de charger la collection.", {
+      variant: "error",
+      duration: 3000,
+      details: formatErrorDetails(error),
+    });
+    return;
+  }
+
   collectionGrid.innerHTML = "";
 
   if (palettes.length === 0) {
@@ -133,7 +153,7 @@ function getPublishErrorMessage(error) {
     return error.message.trim();
   }
 
-  return "Publication echouee.";
+  return "Publication échouée.";
 }
 
 function openAccountSettingsPanel() {
@@ -147,7 +167,7 @@ async function handlePublishPalette(palette) {
     showToast("Connecte ton email pour publier.", {
       variant: "error",
       duration: 3500,
-      actionLabel: "Reglages",
+      actionLabel: "Réglages",
       onAction: () => {
         closePaletteViewerOverlay();
         openAccountSettingsPanel();
@@ -158,21 +178,21 @@ async function handlePublishPalette(palette) {
 
   try {
     await publishPaletteToCommunityFeed(palette);
-    showToast("Capture publiee. Moderation en cours.", {
+    showToast("Capture publiée. Modération en cours.", {
       duration: 1800,
     });
     await loadCollectionUi();
     scheduleModerationSync();
   } catch (error) {
     if (error?.code === "ALREADY_PUBLISHED") {
-      showToast("Capture deja publiee.", {
+      showToast("Capture déjà publiée.", {
         duration: 1500,
       });
       return;
     }
 
     if (error?.code === "NOT_AUTHENTICATED" || error?.code === "AUTH_EXPIRED") {
-      showToast("Connecte ton email dans Reglages > Compte.", {
+      showToast("Connecte ton email dans Réglages > Compte.", {
         variant: "error",
         duration: 2000,
       });
@@ -180,9 +200,15 @@ async function handlePublishPalette(palette) {
       return;
     }
 
+    clientLog("Failed to publish palette.", {
+      code: error?.code,
+      message: error?.message,
+      status: error?.status,
+    });
     showToast(getPublishErrorMessage(error), {
       variant: "error",
-      duration: 2000,
+      duration: 4000,
+      details: formatErrorDetails(error),
     });
     console.error("Failed to publish palette:", error);
   }

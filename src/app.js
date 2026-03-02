@@ -20,6 +20,9 @@ import { createSampleGridOverlayController } from './modules/sample-grid-overlay
 import { createSwatchSliderUiController } from './modules/swatch-slider-ui.js';
 import { createVisualEffects } from './modules/visual-effects.js';
 import { createZoomUiController } from './modules/zoom-ui.js';
+import { clientLog } from './modules/client-log.js';
+import { formatErrorDetails } from './modules/error-format.js';
+import { showToast } from './modules/toast-ui.js';
 import { savePalette } from './palette-storage.js';
 
 const PHOTO_EXPORT_MAX_WIDTH = 1440;
@@ -35,7 +38,6 @@ function supportsCameraTrackZoomConstraint() {
   return Boolean(navigator.mediaDevices?.getSupportedConstraints?.().zoom);
 }
 
-const colorscatcher = document.querySelector('.colorscatcher');
 const cameraFeed = document.querySelector('.camera-feed');
 const captureButton = document.querySelector('.btn-capture');
 const allowButton = document.querySelector('.btn-allow-media');
@@ -116,7 +118,6 @@ const captureMicroInteractions = createCaptureMicroInteractions({
 });
 const visualEffects = createVisualEffects({
   captureButton,
-  nameElement: colorscatcher,
 });
 const sampleGridOverlay = createSampleGridOverlayController({
   overlayElement: sampleRowOverlay,
@@ -443,6 +444,17 @@ let zoomUi = null;
 
 const cameraController = createCameraController({
   cameraFeed,
+  onError: (error) => {
+    clientLog("Camera unavailable.", {
+      error: error?.name,
+      message: error?.message,
+    });
+    showToast("Caméra indisponible.", {
+      variant: "error",
+      duration: 3500,
+      details: formatErrorDetails(error),
+    });
+  },
   onCameraActiveChange: (isCameraActive) => {
     syncCameraFeedOrientation();
     setCaptureState({ btnOn, btnShoot, isCameraActive });
@@ -716,7 +728,6 @@ function refreshPreview() {
 
   if (dominantColor) {
     visualEffects.setCaptureButtonGlowColor(dominantColor);
-    visualEffects.setNameColor(dominantColor);
     visualEffects.setCaptureGlowActive(true);
   } else {
     visualEffects.setCaptureGlowActive(false);
@@ -806,6 +817,15 @@ async function captureCurrentFrame() {
     } catch (error) {
       photoOutput.removeAttribute('data-palette-id');
       console.error('Failed to save palette:', error);
+      clientLog("Failed to save palette.", {
+        error: error?.name,
+        message: error?.message,
+      });
+      showToast("Sauvegarde échouée.", {
+        variant: "error",
+        duration: 2500,
+        details: formatErrorDetails(error),
+      });
     }
   }
 }
