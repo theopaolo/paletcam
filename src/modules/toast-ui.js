@@ -196,6 +196,8 @@ export function showToast(message, options = {}) {
     message,
     duration: options.duration ?? DEFAULT_TOAST_DURATION,
     variant: options.variant === 'error' ? 'error' : 'default',
+    actionLabel: options.actionLabel || undefined,
+    onAction: typeof options.onAction === 'function' ? options.onAction : undefined,
   };
 
   if (activeUndoToasts.length > 0 || activeStandardToast) {

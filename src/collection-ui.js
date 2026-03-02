@@ -1,5 +1,6 @@
 import { getSavedPalettes } from "./palette-storage.js";
 import {
+  getCurrentCommunitySession,
   publishPaletteToCommunityFeed,
   syncPublishedPalettesModerationStatus,
 } from "./community-service.js";
@@ -142,6 +143,19 @@ function openAccountSettingsPanel() {
 }
 
 async function handlePublishPalette(palette) {
+  if (!getCurrentCommunitySession()?.token) {
+    showToast("Connecte ton email pour publier.", {
+      variant: "error",
+      duration: 3500,
+      actionLabel: "Reglages",
+      onAction: () => {
+        closePaletteViewerOverlay();
+        openAccountSettingsPanel();
+      },
+    });
+    return;
+  }
+
   try {
     await publishPaletteToCommunityFeed(palette);
     showToast("Capture publiee. Moderation en cours.", {
