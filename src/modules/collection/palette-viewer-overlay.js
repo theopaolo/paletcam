@@ -277,6 +277,7 @@ function getPaletteViewerOverlayController() {
   return viewerOverlayController;
 }
 
+/** @param {PaletteViewerOpenOptions} options */
 export function openPaletteViewerOverlay(options) {
   return getPaletteViewerOverlayController().open(options);
 }

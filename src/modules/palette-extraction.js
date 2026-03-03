@@ -14,6 +14,7 @@ export const PALETTE_EXTRACTION_ALGORITHMS = Object.freeze({
   GRID: "grid",
   MEDIAN_CUT: "median-cut",
 });
+/** @type {PaletteExtractionAlgorithm} */
 let activePaletteExtractionAlgorithm = PALETTE_EXTRACTION_ALGORITHMS.GRID;
 
 function buildRgbColor(red, green, blue) {
@@ -49,6 +50,14 @@ export function setPaletteExtractionAlgorithm(nextAlgorithm) {
   return activePaletteExtractionAlgorithm;
 }
 
+/**
+ * @param {Uint8ClampedArray} imageData
+ * @param {number} frameWidth
+ * @param {number} frameHeight
+ * @param {number} swatchCount
+ * @param {PaletteExtractionOptions | string | null} [options]
+ * @returns {PaletteExtractionResult}
+ */
 export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount, options = null) {
   const requestedAlgorithm = typeof options === "string"
     ? options

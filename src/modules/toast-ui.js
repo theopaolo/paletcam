@@ -200,6 +200,10 @@ function interruptStandardToastIfNeeded() {
   dismissToast(activeStandardToast, 'interrupted');
 }
 
+/**
+ * @param {string} message
+ * @param {StandardToastOptions} [options]
+ */
 export function showToast(message, options = {}) {
   if (!message) {
     return;
@@ -223,6 +227,10 @@ export function showToast(message, options = {}) {
   createToastEntry(toast);
 }
 
+/**
+ * @param {string} message
+ * @param {UndoToastOptions} [options]
+ */
 export function showUndoToast(message, options = {}) {
   if (!message) {
     return;

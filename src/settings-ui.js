@@ -17,7 +17,7 @@ import { clientLog } from './modules/client-log.js';
 import { formatErrorDetails } from './modules/error-format.js';
 import { showToast } from './modules/toast-ui.js';
 
-const settingsPanel = document.querySelector('.settings-panel');
+const settingsPanel = /** @type {HTMLElement | null} */ (document.querySelector('.settings-panel'));
 const openSettingsButton = document.querySelector('.btn-open-settings');
 const closeSettingsButton = document.querySelector('.btn-close-settings');
 const SETTINGS_PANEL_HIDE_DELAY_MS = 380;
@@ -28,18 +28,18 @@ let hasBoundSettingsPanelEvents = false;
 const algorithmButtons = Array.from(
   document.querySelectorAll('[data-settings-algorithm]')
 );
-const algorithmPanels = Array.from(
+const algorithmPanels = /** @type {HTMLElement[]} */ (Array.from(
   document.querySelectorAll('[data-settings-algorithm-panel]')
-);
+));
 const communityAccountState = document.getElementById('communityAccountState');
 const communityEmailField = document.getElementById('communityEmailField');
-const communityEmailInput = document.getElementById('communityEmailInput');
-const communityRequestCodeButton = document.getElementById('communityRequestCodeButton');
+const communityEmailInput = /** @type {HTMLInputElement | null} */ (document.getElementById('communityEmailInput'));
+const communityRequestCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityRequestCodeButton'));
 const communityAuthHint = document.getElementById('communityAuthHint');
 const communityCodeField = document.getElementById('communityCodeField');
-const communityCodeInput = document.getElementById('communityCodeInput');
-const communityVerifyCodeButton = document.getElementById('communityVerifyCodeButton');
-const communityLogoutButton = document.getElementById('communityLogoutButton');
+const communityCodeInput = /** @type {HTMLInputElement | null} */ (document.getElementById('communityCodeInput'));
+const communityVerifyCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityVerifyCodeButton'));
+const communityLogoutButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityLogoutButton'));
 let pendingCommunityEmail = '';
 let isCommunityAuthBusy = false;
 
@@ -100,7 +100,7 @@ function createRangeControl({
   formatDisplayValue = formatInlineValue,
 }) {
   const shell = document.getElementById(shellId);
-  const input = document.getElementById(inputId);
+  const input = /** @type {HTMLInputElement | null} */ (document.getElementById(inputId));
   const inlineValue = document.getElementById(inlineValueId);
   const displayValue = document.querySelector(displaySelector);
 
@@ -591,7 +591,7 @@ function bindSettingsPanelEvents() {
     }
   });
 
-  settingsPanel.addEventListener('transitionend', (event) => {
+  settingsPanel.addEventListener('transitionend', (/** @type {TransitionEvent} */ event) => {
     if (event.target !== settingsPanel || event.propertyName !== 'right') {
       return;
     }

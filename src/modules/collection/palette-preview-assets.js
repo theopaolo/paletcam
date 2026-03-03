@@ -68,6 +68,10 @@ function disposePreviewAssetCacheEntry(cacheKey) {
   previewAssetCache.delete(cacheKey);
 }
 
+/**
+ * @param {Palette} palette
+ * @returns {Promise<PreviewAsset>}
+ */
 export async function getPalettePreviewPolaroidAsset(palette) {
   if (!hasPaletteMasterPhoto(palette)) {
     throw new Error("Missing palette photo");
@@ -155,6 +159,10 @@ export async function exportPalettePolaroidImage(palette) {
   }
 }
 
+/**
+ * @param {Palette} palette
+ * @returns {Promise<ShareResult>}
+ */
 export async function sharePalettePolaroidImage(palette) {
   if (!navigator.share || typeof File !== "function") {
     return { status: "unsupported" };

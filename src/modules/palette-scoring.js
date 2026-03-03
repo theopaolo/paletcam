@@ -15,6 +15,10 @@ function clampNonNegativeNumber(value, fallbackValue) {
   return numericValue;
 }
 
+/**
+ * @param {Partial<PaletteScoringWeights> | null} [options]
+ * @returns {ScoringProfile}
+ */
 export function createPaletteScoringProfile(options = null) {
   const chromaWeight = clampNonNegativeNumber(
     options?.chromaWeight,
@@ -54,6 +58,10 @@ function getPaletteScoringProfile(profileOrOptions) {
   return createPaletteScoringProfile(profileOrOptions);
 }
 
+/**
+ * @param {RgbColor} color
+ * @returns {HslColor}
+ */
 export function rgbToHsl(color) {
   let h = 0;
   let s = 0;
@@ -87,6 +95,10 @@ export function rgbToHsl(color) {
 
 // Bucket each candidate's hue into 12 segments (30° each) and return a rarity
 // score: rare hues in the pool get a higher value (0–1).
+/**
+ * @param {RgbColor[]} pool
+ * @returns {HueRarityMap}
+ */
 export function buildHueRarityMap(pool) {
   const BUCKET_COUNT = 12;
   const buckets = new Array(BUCKET_COUNT).fill(0);
@@ -110,6 +122,13 @@ function getHueRarity(hsl, rarityMap) {
 
 
 // Score a candidate color: higher = more interesting
+/**
+ * @param {RgbColor} candidate
+ * @param {RgbColor[]} chosenColors
+ * @param {HueRarityMap} rarityMap
+ * @param {Partial<PaletteScoringWeights> | ScoringProfile | null} [scoringOptions]
+ * @returns {number}
+ */
 export function scoreCandidate(candidate, chosenColors, rarityMap, scoringOptions = null) {
   const scoringProfile = getPaletteScoringProfile(scoringOptions);
   const hsl = rgbToHsl(candidate);

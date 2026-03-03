@@ -2,6 +2,10 @@ const DEFAULT_ZOOM_STEP = 0.1;
 const IDEAL_CAMERA_WIDTH = 1920;
 const IDEAL_CAMERA_HEIGHT = 1080;
 
+/**
+ * @param {CameraControllerOptions} options
+ * @returns {CameraController}
+ */
 export function createCameraController({
   cameraFeed,
   onCameraActiveChange,
@@ -56,7 +60,7 @@ export function createCameraController({
       return;
     }
 
-    const zoomCapabilities = videoTrack.getCapabilities().zoom;
+    const zoomCapabilities = /** @type {any} */ (videoTrack.getCapabilities()).zoom;
     if (!zoomCapabilities) {
       return;
     }
@@ -72,7 +76,7 @@ export function createCameraController({
   }
 
   function stopStream() {
-    const stream = cameraFeed?.srcObject;
+    const stream = /** @type {MediaStream | null} */ (cameraFeed?.srcObject);
     if (!stream) {
       notifyCameraActiveChange(false);
       videoTrack = null;
@@ -110,7 +114,7 @@ export function createCameraController({
 
       videoTrack = stream.getVideoTracks()[0] ?? null;
 
-      const minimumZoom = videoTrack?.getCapabilities?.().zoom?.min;
+      const minimumZoom = /** @type {any} */ (videoTrack?.getCapabilities?.())?.zoom?.min;
       if (typeof minimumZoom === 'number') {
         currentZoom = minimumZoom;
       }
@@ -143,7 +147,7 @@ export function createCameraController({
   }
 
   function getZoomCapabilities() {
-    const zoomCapabilities = videoTrack?.getCapabilities?.().zoom;
+    const zoomCapabilities = /** @type {any} */ (videoTrack?.getCapabilities?.())?.zoom;
     if (!zoomCapabilities) {
       return null;
     }

@@ -168,6 +168,15 @@ function createSessionGroup({
   return section;
 }
 
+/**
+ * @param {object} config
+ * @param {DayGroup} config.dayGroup
+ * @param {(palette: Palette) => HTMLElement} config.createPaletteCard
+ * @param {(sessionId: string) => boolean} config.isSessionCollapsed
+ * @param {(sessionId: string, collapsed: boolean) => void} config.onSessionCollapsedChange
+ * @param {number} config.sessionRevealDurationMs
+ * @param {number} config.sessionRevealStaggerMs
+ */
 export function createDayGroup({
   dayGroup,
   createPaletteCard,

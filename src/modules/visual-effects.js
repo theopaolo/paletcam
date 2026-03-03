@@ -2,6 +2,11 @@ function toRgbToken(color) {
   return `${color.r}, ${color.g}, ${color.b}`;
 }
 
+/**
+ * @param {object} [options]
+ * @param {HTMLElement | null} [options.captureButton]
+ * @returns {VisualEffects}
+ */
 export function createVisualEffects({
   captureButton,
 } = {}) {

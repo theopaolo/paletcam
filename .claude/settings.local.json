@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bunx tsc --noEmit)",
+      "Bash(xargs -I{} sed -i '' '1{/^\\\\/\\\\/ @ts-check$/d;}' {})",
+      "Bash(bun test)",
+      "Bash(bunx biome check src/)",
+      "Bash(git stash)",
+      "Bash(git stash pop)"
+    ]
+  }
+}

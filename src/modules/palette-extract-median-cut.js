@@ -104,6 +104,17 @@ function rankQuantizedCandidates(candidatePool, swatchCount, scoringProfile) {
   return chosenColors.map(({ r, g, b }) => ({ r, g, b }));
 }
 
+/**
+ * @param {Uint8ClampedArray} imageData
+ * @param {number} frameWidth
+ * @param {number} frameHeight
+ * @param {number} swatchCount
+ * @param {object} [options]
+ * @param {number} [options.quantizedPoolSize]
+ * @param {number} [options.maxQuantizerPixels]
+ * @param {Partial<PaletteScoringWeights> | ScoringProfile} [options.scoring]
+ * @returns {PaletteExtractionResult}
+ */
 export function extractMedianCutPaletteColors(
   imageData,
   frameWidth,

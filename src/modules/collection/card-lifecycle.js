@@ -1,3 +1,11 @@
+/**
+ * @param {object} config
+ * @param {HTMLElement | null} config.collectionGrid
+ * @param {string} config.emptyMessageText
+ * @param {Set<string>} config.collapsedSessionIds
+ * @param {() => Promise<void>} config.reloadCollectionUi
+ * @returns {CollectionCardLifecycle}
+ */
 export function createCollectionCardLifecycle({
   collectionGrid,
   emptyMessageText,

@@ -1,6 +1,7 @@
 import Dexie from './vendor/dexie.mjs';
 
-const db = new Dexie('PaletcamDB');
+/** @type {PaletcamDb} */
+const db = /** @type {any} */ (new Dexie('PaletcamDB'));
 const KNOWN_MODERATION_STATUSES = new Set([
   'TO_MODERATE',
   'PUBLIC',
@@ -87,6 +88,7 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mimeType });
 }
 
+/** @returns {Promise<Palette[]>} */
 export async function getSavedPalettes() {
   try {
     return await db.palettes.reverse().toArray();
@@ -96,6 +98,14 @@ export async function getSavedPalettes() {
   }
 }
 
+/**
+ * @param {RgbColor[]} colors
+ * @param {object} [options]
+ * @param {string} [options.photoDataUrl]
+ * @param {string} [options.captureAspectRatio]
+ * @param {CropRect | null} [options.captureCropRect]
+ * @returns {Promise<Palette>}
+ */
 export async function savePalette(
   colors,
   {
@@ -152,6 +162,11 @@ export async function savePalette(
   }
 }
 
+/**
+ * @param {number} id
+ * @param {Partial<Pick<Palette, 'remoteCatchId' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>} [patch]
+ * @returns {Promise<Palette | undefined>}
+ */
 export async function updatePaletteRemoteState(id, patch = {}) {
   const paletteId = Number(id);
   if (!Number.isFinite(paletteId)) {

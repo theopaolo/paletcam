@@ -6,6 +6,17 @@ function formatZoomScaleValue(value) {
   return `${value.toFixed(1)}x`;
 }
 
+/**
+ * @param {object} [options]
+ * @param {CameraController | null} [options.cameraController]
+ * @param {HTMLInputElement | null} [options.zoomWheel]
+ * @param {HTMLElement | null} [options.zoomWheelContainer]
+ * @param {HTMLElement | null} [options.zoomPanel]
+ * @param {HTMLElement | null} [options.zoomDisplay]
+ * @param {HTMLElement | null} [options.zoomMinDisplay]
+ * @param {HTMLElement | null} [options.zoomMaxDisplay]
+ * @returns {ZoomUiController}
+ */
 export function createZoomUiController({
   cameraController,
   zoomWheel,

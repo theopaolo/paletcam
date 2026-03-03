@@ -1,6 +1,14 @@
 const DEFAULT_CAPTURE_POP_MS = 170;
 const DEFAULT_CAPTURE_FLASH_MS = 120;
 
+/**
+ * @param {object} [options]
+ * @param {HTMLElement | null} [options.captureButton]
+ * @param {HTMLElement | null} [options.captureContainer]
+ * @param {number} [options.capturePopMs]
+ * @param {number} [options.captureFlashMs]
+ * @returns {CaptureMicroInteractions}
+ */
 export function createCaptureMicroInteractions({
   captureButton,
   captureContainer,

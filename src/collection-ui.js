@@ -242,6 +242,12 @@ async function syncModerationStatuses() {
   }
 }
 
+/**
+ * @param {object} [options]
+ * @param {number | string | null} [options.paletteId]
+ * @param {boolean} [options.openPaletteViewer]
+ * @param {boolean} [options.closeCollectionOnViewerClose]
+ */
 export async function openCollectionPanel({
   paletteId,
   openPaletteViewer = false,
@@ -253,7 +259,7 @@ export async function openCollectionPanel({
 
   shouldCloseCollectionOnViewerClose = false;
   closePaletteViewerOverlay();
-  const settingsPanel = document.querySelector(".settings-panel");
+  const settingsPanel = /** @type {HTMLElement | null} */ (document.querySelector(".settings-panel"));
   settingsPanel?.classList.remove("visible");
   settingsPanel?.setAttribute("aria-hidden", "true");
   if (settingsPanel) {
@@ -268,7 +274,7 @@ export async function openCollectionPanel({
   }
 
   const paletteIdString = String(paletteId);
-  const targetCard = [...collectionGrid.querySelectorAll(".palette-card")]
+  const targetCard = /** @type {HTMLElement[]} */ ([...collectionGrid.querySelectorAll(".palette-card")])
     .find((card) => card.dataset.paletteId === paletteIdString);
 
   if (!targetCard) {

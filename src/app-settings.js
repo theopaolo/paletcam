@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 
 function getGlobalSettingsStore() {
-  const host = globalThis;
+  const host = /** @type {any} */ (globalThis);
 
   if (!host[GLOBAL_SETTINGS_STORE_KEY]) {
     host[GLOBAL_SETTINGS_STORE_KEY] = {
@@ -227,6 +227,7 @@ function notifySettingsListeners() {
   });
 }
 
+/** @returns {AppSettings} */
 export function getDefaultAppSettings() {
   return {
     ...DEFAULT_SETTINGS,
@@ -236,6 +237,7 @@ export function getDefaultAppSettings() {
   };
 }
 
+/** @returns {AppSettings} */
 export function getAppSettings() {
   return {
     ...settingsStore.currentSettings,
@@ -245,6 +247,10 @@ export function getAppSettings() {
   };
 }
 
+/**
+ * @param {AppSettingsPatch} partialSettings
+ * @returns {AppSettings}
+ */
 export function updateAppSettings(partialSettings) {
   const nextSettings = normalizeSettings({
     ...settingsStore.currentSettings,
@@ -274,6 +280,10 @@ export function updateAppSettings(partialSettings) {
   return getAppSettings();
 }
 
+/**
+ * @param {(settings: AppSettings) => void} listener
+ * @returns {() => void}
+ */
 export function subscribeAppSettings(listener) {
   if (typeof listener !== 'function') {
     return () => {};

@@ -2,6 +2,13 @@ import { updateSliderTooltip } from './camera-ui.js';
 
 const DEFAULT_SWATCH_ACTIVE_PULSE_MS = 170;
 
+/**
+ * @param {object} [options]
+ * @param {HTMLInputElement | null} [options.swatchSlider]
+ * @param {((count: number) => void) | null} [options.onSwatchCountChange]
+ * @param {number} [options.activePulseMs]
+ * @returns {SwatchSliderUiController}
+ */
 export function createSwatchSliderUiController({
   swatchSlider,
   onSwatchCountChange,

@@ -89,6 +89,10 @@ function getDayKey(date) {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * @param {Palette[]} palettes
+ * @returns {DayGroup[]}
+ */
 export function groupPalettesByDay(palettes) {
   const dayGroups = [];
   let currentDay;

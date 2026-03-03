@@ -11,6 +11,7 @@ export const CATCH_MODERATION_STATUSES = Object.freeze({
   PRIVATE: "PRIVATE",
 });
 
+/** @type {Set<string>} */
 const KNOWN_CATCH_STATUSES = new Set(Object.values(CATCH_MODERATION_STATUSES));
 
 function isLocalDevHost() {
@@ -34,7 +35,7 @@ function buildApiUrl(pathname) {
 }
 
 function createApiError(message, { status = 0, payload = null, path = "" } = {}) {
-  const error = new Error(message);
+  const error = /** @type {Error & CommunityApiError} */ (new Error(message));
   error.name = "CommunityApiError";
   error.status = status;
   error.payload = payload;
@@ -42,13 +43,17 @@ function createApiError(message, { status = 0, payload = null, path = "" } = {})
   return error;
 }
 
+/**
+ * @param {string | null | undefined} status
+ * @returns {ModerationStatus | null}
+ */
 export function normalizeCatchStatus(status) {
   if (typeof status !== "string") {
     return null;
   }
 
   const normalized = status.trim().toUpperCase();
-  return KNOWN_CATCH_STATUSES.has(normalized) ? normalized : null;
+  return KNOWN_CATCH_STATUSES.has(normalized) ? /** @type {ModerationStatus} */ (normalized) : null;
 }
 
 async function requestCommunityApi(
@@ -173,6 +178,12 @@ export function postCatchToCommunity({
   });
 }
 
+/**
+ * @param {object} options
+ * @param {string} options.token
+ * @param {string[]} options.remoteCatchIds
+ * @returns {Promise<ModerationEntry[]>}
+ */
 export async function fetchCatchModerationStatuses({
   token,
   remoteCatchIds,

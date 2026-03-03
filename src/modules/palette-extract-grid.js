@@ -58,6 +58,18 @@ function sampleBlock(imageData, frameWidth, frameHeight, centerX, centerY, radiu
   );
 }
 
+/**
+ * @param {Uint8ClampedArray} imageData
+ * @param {number} frameWidth
+ * @param {number} frameHeight
+ * @param {number} swatchCount
+ * @param {object} [options]
+ * @param {number} [options.sampleRowCount]
+ * @param {number} [options.sampleColCount]
+ * @param {number} [options.sampleRadius]
+ * @param {Partial<PaletteScoringWeights> | ScoringProfile} [options.scoring]
+ * @returns {PaletteExtractionResult}
+ */
 export function extractGridPaletteColors(
   imageData,
   frameWidth,

@@ -35,32 +35,32 @@ function isIOSDevice() {
 }
 
 function supportsCameraTrackZoomConstraint() {
-  return Boolean(navigator.mediaDevices?.getSupportedConstraints?.().zoom);
+  return Boolean(/** @type {any} */ (navigator.mediaDevices?.getSupportedConstraints?.())?.zoom);
 }
 
-const cameraFeed = document.querySelector('.camera-feed');
-const captureButton = document.querySelector('.btn-capture');
-const allowButton = document.querySelector('.btn-allow-media');
-const allowText = document.querySelector('.allow-container span');
-const captureContainer = document.querySelector('.capture');
-const capturePaletteStage = document.querySelector('.capture-palette-stage');
-const captureCameraStage = document.querySelector('.capture-camera-stage');
+const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector('.camera-feed'));
+const captureButton = /** @type {HTMLElement | null} */ (document.querySelector('.btn-capture'));
+const allowButton = /** @type {HTMLElement | null} */ (document.querySelector('.btn-allow-media'));
+const allowText = /** @type {HTMLElement | null} */ (document.querySelector('.allow-container span'));
+const captureContainer = /** @type {HTMLElement | null} */ (document.querySelector('.capture'));
+const capturePaletteStage = /** @type {HTMLElement | null} */ (document.querySelector('.capture-palette-stage'));
+const captureCameraStage = /** @type {HTMLElement | null} */ (document.querySelector('.capture-camera-stage'));
 const cameraStageMount = document.getElementById('cameraStageMount');
 const cameraPreviewDock = document.getElementById('cameraPreviewDock');
-const photoOutput = document.getElementById('photo');
+const photoOutput = /** @type {HTMLImageElement | null} */ (document.getElementById('photo'));
 const outputPalette = document.getElementById('outputPalette');
-const frameCanvas = document.getElementById('canvas');
-const paletteCanvas = document.getElementById('canvas-palette');
-const zoomWheel = document.querySelector('.zoom-wheel');
-const zoomWheelContainer = document.querySelector('.wheel-range');
-const zoomPanel = document.querySelector('.zoom-btns');
-const zoomDisplay = document.querySelector('.zoom-display');
-const zoomMinDisplay = document.querySelector('.zoom-scale-min');
-const zoomMaxDisplay = document.querySelector('.zoom-scale-max');
-const rotateButton = document.querySelector('.btn-rotate');
-const swatchSlider = document.querySelector('.swatch-slider input[type="range"]');
-const btnOn = document.querySelector('.btn-on');
-const btnShoot = document.querySelector('.btn-shoot');
+const frameCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('canvas'));
+const paletteCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('canvas-palette'));
+const zoomWheel = /** @type {HTMLInputElement | null} */ (document.querySelector('.zoom-wheel'));
+const zoomWheelContainer = /** @type {HTMLElement | null} */ (document.querySelector('.wheel-range'));
+const zoomPanel = /** @type {HTMLElement | null} */ (document.querySelector('.zoom-btns'));
+const zoomDisplay = /** @type {HTMLElement | null} */ (document.querySelector('.zoom-display'));
+const zoomMinDisplay = /** @type {HTMLElement | null} */ (document.querySelector('.zoom-scale-min'));
+const zoomMaxDisplay = /** @type {HTMLElement | null} */ (document.querySelector('.zoom-scale-max'));
+const rotateButton = /** @type {HTMLElement | null} */ (document.querySelector('.btn-rotate'));
+const swatchSlider = /** @type {HTMLInputElement | null} */ (document.querySelector('.swatch-slider input[type="range"]'));
+const btnOn = /** @type {HTMLElement | null} */ (document.querySelector('.btn-on'));
+const btnShoot = /** @type {HTMLElement | null} */ (document.querySelector('.btn-shoot'));
 const sampleRowOverlay = document.getElementById('sampleRowOverlay');
 const cameraViewportFrame = document.createElement('div');
 const cameraSourceMount = document.createElement('div');
@@ -444,7 +444,7 @@ let zoomUi = null;
 
 const cameraController = createCameraController({
   cameraFeed,
-  onError: (error) => {
+  onError: (/** @type {any} */ error) => {
     clientLog("Camera unavailable.", {
       error: error?.name,
       message: error?.message,
@@ -896,7 +896,15 @@ function exportPhotoData({
     );
   }
 
-  return photoCanvas.toDataURL('image/webp', photoExportQuality);
+  const dataUrl = photoCanvas.toDataURL('image/webp', photoExportQuality);
+
+  if (!dataUrl.startsWith('data:image/webp')) {
+    clientLog("WebP canvas encoding not supported, browser returned fallback format.", {
+      actualType: dataUrl.substring(0, dataUrl.indexOf(';')),
+    });
+  }
+
+  return dataUrl;
 }
 
 function stopCurrentStream() {

@@ -76,6 +76,13 @@ export function getPalettePhotoAspectRatioValue(palette) {
   return null;
 }
 
+/**
+ * @param {object} options
+ * @param {CropRect | null} options.cropRect
+ * @param {number} options.imageWidth
+ * @param {number} options.imageHeight
+ * @returns {PixelRect | null}
+ */
 export function resolveNormalizedCropRectToPixelRect({
   cropRect,
   imageWidth,
@@ -350,6 +357,15 @@ function canvasToBlob(canvas, { type = "image/webp", quality = POLAROID_RENDER_Q
   });
 }
 
+/**
+ * @param {Palette} palette
+ * @param {object} [options]
+ * @param {boolean} [options.darkFrameShell]
+ * @param {number} [options.maxWidth]
+ * @param {number} [options.scale]
+ * @param {number} [options.quality]
+ * @returns {Promise<Blob | null>}
+ */
 export async function renderPalettePolaroidBlob(
   palette,
   {

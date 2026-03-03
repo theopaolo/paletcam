@@ -4,6 +4,15 @@ import {
   SAMPLE_ROW_COUNT,
 } from './palette-extract-grid.js';
 
+/**
+ * @param {object} [options]
+ * @param {HTMLElement | null} [options.overlayElement]
+ * @param {HTMLVideoElement | null} [options.cameraFeed]
+ * @param {number} [options.sampleColCount]
+ * @param {number} [options.sampleDiameter]
+ * @param {number} [options.sampleRowCount]
+ * @returns {SampleGridOverlayController}
+ */
 export function createSampleGridOverlayController({
   overlayElement,
   cameraFeed,
@@ -34,7 +43,7 @@ export function createSampleGridOverlayController({
     const safeChosenIndices = Array.isArray(chosenIndices) ? chosenIndices : [];
     const chosenSet = new Set(safeChosenIndices.map(String));
 
-    overlayElement.querySelectorAll('.sample-row-point').forEach((element) => {
+    overlayElement.querySelectorAll('.sample-row-point').forEach((/** @type {HTMLElement} */ element) => {
       element.classList.toggle('is-chosen', chosenSet.has(element.dataset.gridIndex));
     });
   }

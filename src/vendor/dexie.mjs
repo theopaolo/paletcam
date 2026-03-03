@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 /*
  * Dexie.js - a minimalistic wrapper for IndexedDB
  * ===============================================

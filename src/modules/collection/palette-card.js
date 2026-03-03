@@ -50,6 +50,17 @@ function schedulePreviewStart(start, order) {
 
 export { closePaletteViewerOverlay, subscribePaletteViewerOverlayClose };
 
+/**
+ * @param {object} config
+ * @param {Palette} config.palette
+ * @param {Set<number>} config.pendingDeletionIds
+ * @param {number} config.deleteUndoDurationMs
+ * @param {(card: HTMLElement) => CardPositionSnapshot} config.takeCardPositionSnapshot
+ * @param {(card: HTMLElement, snapshot: CardPositionSnapshot) => void} config.restoreCardFromSnapshot
+ * @param {(container: HTMLElement | null) => void} config.syncSessionStateFromCardContainer
+ * @param {() => void} config.ensureEmptyMessage
+ * @param {((palette: Palette) => Promise<void>) | null} [config.onPublish]
+ */
 export function createPaletteCard({
   palette,
   pendingDeletionIds,

@@ -18,10 +18,10 @@ import {
   updatePaletteRemoteState,
 } from "./palette-storage.js";
 
-function createCommunityServiceError(message, { code, cause } = {}) {
-  const error = new Error(message);
+function createCommunityServiceError(message, { code = "UNKNOWN", cause = /** @type {any} */ (undefined) } = {}) {
+  const error = /** @type {Error & CommunityServiceError} */ (new Error(message));
   error.name = "CommunityServiceError";
-  error.code = code || "UNKNOWN";
+  error.code = code;
   error.cause = cause;
   error.status = Number(cause?.status || 0);
   return error;
@@ -80,6 +80,44 @@ async function blobToBase64(blob) {
   return btoa(binary);
 }
 
+async function ensureWebpBlob(blob) {
+  try {
+    if (blob.type === "image/webp") {
+      return blob;
+    }
+
+    if (typeof createImageBitmap !== "function") {
+      return null;
+    }
+
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      bitmap.close();
+      return null;
+    }
+
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+
+    const webpBlob = await new Promise((resolve) => {
+      canvas.toBlob((result) => resolve(result), "image/webp", 0.88);
+    });
+
+    if (webpBlob && webpBlob.type === "image/webp") {
+      return webpBlob;
+    }
+  } catch (_error) {
+    return null;
+  }
+
+  return null;
+}
+
 function getPaletteTimestamp(palette) {
   const parsedDate = new Date(palette?.timestamp);
   if (Number.isNaN(parsedDate.getTime())) {
@@ -120,6 +158,10 @@ function getPaletteRemoteCatchId(palette) {
   return String(palette?.remoteCatchId || "").trim();
 }
 
+/**
+ * @param {Palette} palette
+ * @returns {PublicationMeta | null}
+ */
 export function getPalettePublicationMeta(palette) {
   const remoteCatchId = getPaletteRemoteCatchId(palette);
   if (!remoteCatchId) {
@@ -233,6 +275,10 @@ export function getCurrentCommunitySession() {
 
 export { subscribeCommunitySession };
 
+/**
+ * @param {Palette} palette
+ * @returns {Promise<{ remoteCatchId: string, moderationStatus: ModerationStatus }>}
+ */
 export async function publishPaletteToCommunityFeed(palette) {
   if (!palette || typeof palette !== "object") {
     throw createCommunityServiceError(
@@ -261,7 +307,16 @@ export async function publishPaletteToCommunityFeed(palette) {
   }
 
   const token = getAuthTokenOrThrow();
-  const photoBase64 = await blobToBase64(palette.photoBlob);
+  const webpBlob = await ensureWebpBlob(palette.photoBlob);
+
+  if (!webpBlob) {
+    throw createCommunityServiceError(
+      "Format WebP non supporté par cet appareil.",
+      { code: "WEBP_UNSUPPORTED" },
+    );
+  }
+
+  const photoBase64 = await blobToBase64(webpBlob);
 
   if (!photoBase64) {
     throw createCommunityServiceError(
@@ -318,6 +373,7 @@ export async function publishPaletteToCommunityFeed(palette) {
   }
 }
 
+/** @returns {Promise<ModerationSyncResult>} */
 export async function syncPublishedPalettesModerationStatus() {
   const token = getCommunityAccessToken();
   if (!token) {

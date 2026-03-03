@@ -76,6 +76,7 @@ function refreshSessionFromStorage() {
   }
 }
 
+/** @returns {CommunitySession | null} */
 export function getCommunitySession() {
   refreshSessionFromStorage();
 
@@ -95,6 +96,10 @@ export function getCommunityAccessToken() {
   return session?.token ?? "";
 }
 
+/**
+ * @param {Partial<CommunitySession> & { token: string }} nextSession
+ * @returns {CommunitySession | null}
+ */
 export function setCommunitySession(nextSession) {
   session = normalizeSession(nextSession);
   persistSession(session);
@@ -113,6 +118,10 @@ export function clearCommunitySession() {
   notifyListeners();
 }
 
+/**
+ * @param {(session: CommunitySession | null) => void} listener
+ * @returns {() => void}
+ */
 export function subscribeCommunitySession(listener) {
   if (typeof listener !== "function") {
     return () => {};
