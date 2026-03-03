@@ -350,7 +350,21 @@ function renderPolaroidCanvas({
 function canvasToBlob(canvas, { type = "image/webp", quality = POLAROID_RENDER_QUALITY } = {}) {
   return new Promise((resolve) => {
     canvas.toBlob(
-      (blob) => resolve(blob || null),
+      (blob) => {
+        if (blob && blob.type === type) {
+          resolve(blob);
+          return;
+        }
+        if (type !== "image/jpeg") {
+          canvas.toBlob(
+            (jpegBlob) => resolve(jpegBlob || null),
+            "image/jpeg",
+            quality,
+          );
+          return;
+        }
+        resolve(blob || null);
+      },
       type,
       quality,
     );

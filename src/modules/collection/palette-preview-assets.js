@@ -170,8 +170,9 @@ export async function sharePalettePolaroidImage(palette) {
 
   try {
     const asset = await getPalettePreviewPolaroidAsset(palette);
-    const file = new File([asset.blob], `palette-${palette.id}.webp`, {
-      type: asset.blob.type || "image/webp",
+    const ext = asset.blob.type === "image/webp" ? "webp" : "jpg";
+    const file = new File([asset.blob], `palette-${palette.id}.${ext}`, {
+      type: asset.blob.type || "image/jpeg",
       lastModified: Date.now(),
     });
 

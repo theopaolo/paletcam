@@ -843,7 +843,7 @@ function exportPhotoData({
   const photoContext = photoCanvas.getContext('2d');
 
   if (!photoContext) {
-    return fallbackCanvas.toDataURL('image/webp', photoExportQuality);
+    return fallbackCanvas.toDataURL('image/jpeg', photoExportQuality);
   }
 
   const hasNativeVideoFrame = Boolean(
@@ -861,7 +861,7 @@ function exportPhotoData({
   const exportSourceHeight = effectiveSourceRect?.height ?? sourceHeight;
 
   if (exportSourceWidth <= 0 || exportSourceHeight <= 0) {
-    return fallbackCanvas.toDataURL('image/webp', photoExportQuality);
+    return fallbackCanvas.toDataURL('image/jpeg', photoExportQuality);
   }
 
   const photoWidth = Math.min(exportSourceWidth, PHOTO_EXPORT_MAX_WIDTH);
@@ -898,13 +898,11 @@ function exportPhotoData({
 
   const dataUrl = photoCanvas.toDataURL('image/webp', photoExportQuality);
 
-  if (!dataUrl.startsWith('data:image/webp')) {
-    clientLog("WebP canvas encoding not supported, browser returned fallback format.", {
-      actualType: dataUrl.substring(0, dataUrl.indexOf(';')),
-    });
+  if (dataUrl.startsWith('data:image/webp')) {
+    return dataUrl;
   }
 
-  return dataUrl;
+  return photoCanvas.toDataURL('image/jpeg', photoExportQuality);
 }
 
 function stopCurrentStream() {

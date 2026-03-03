@@ -80,43 +80,6 @@ async function blobToBase64(blob) {
   return btoa(binary);
 }
 
-async function ensureWebpBlob(blob) {
-  try {
-    if (blob.type === "image/webp") {
-      return blob;
-    }
-
-    if (typeof createImageBitmap !== "function") {
-      return null;
-    }
-
-    const bitmap = await createImageBitmap(blob);
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) {
-      bitmap.close();
-      return null;
-    }
-
-    ctx.drawImage(bitmap, 0, 0);
-    bitmap.close();
-
-    const webpBlob = await new Promise((resolve) => {
-      canvas.toBlob((result) => resolve(result), "image/webp", 0.88);
-    });
-
-    if (webpBlob && webpBlob.type === "image/webp") {
-      return webpBlob;
-    }
-  } catch (_error) {
-    return null;
-  }
-
-  return null;
-}
 
 function getPaletteTimestamp(palette) {
   const parsedDate = new Date(palette?.timestamp);
@@ -307,16 +270,7 @@ export async function publishPaletteToCommunityFeed(palette) {
   }
 
   const token = getAuthTokenOrThrow();
-  const webpBlob = await ensureWebpBlob(palette.photoBlob);
-
-  if (!webpBlob) {
-    throw createCommunityServiceError(
-      "Format WebP non supporté par cet appareil.",
-      { code: "WEBP_UNSUPPORTED" },
-    );
-  }
-
-  const photoBase64 = await blobToBase64(webpBlob);
+  const photoBase64 = await blobToBase64(palette.photoBlob);
 
   if (!photoBase64) {
     throw createCommunityServiceError(
