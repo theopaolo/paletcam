@@ -165,7 +165,7 @@ export function postCatchToCommunity({
   captureAspectRatio = null,
   captureCropRect = null,
 }) {
-  return requestCommunityApi("/publish", {
+  return requestCommunityApi("/catch/publish", {
     method: "POST",
     token,
     body: {
