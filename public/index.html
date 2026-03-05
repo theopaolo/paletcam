@@ -21,24 +21,45 @@
     <header>
       <h1 class="colorscatcher">Colors Catcher</h1>
 
-      <button
-        class="btn-open-settings"
-        type="button"
-        aria-label="Ouvrir les réglages"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          fill="#000000"
-          viewBox="0 0 256 256"
-          aria-hidden="true"
+      <div class="header-actions">
+        <button
+          class="btn-open-login"
+          type="button"
+          aria-label="Ouvrir le panneau compte"
         >
-          <path
-            d="M40,88H73a32,32,0,0,0,62,0h81a8,8,0,0,0,0-16H135a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16Zm64-24A16,16,0,1,1,88,80,16,16,0,0,1,104,64ZM216,168H199a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16h97a32,32,0,0,0,62,0h17a8,8,0,0,0,0-16Zm-48,24a16,16,0,1,1,16-16A16,16,0,0,1,168,192Z"
-          ></path>
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            fill="#000000"
+            viewBox="0 0 256 256"
+            aria-hidden="true"
+          >
+            <path
+              d="M172,120a44,44,0,1,1-44-44A44,44,0,0,1,172,120Zm60-64V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM216,200V56H40V200H54.68a80,80,0,0,1,29.41-34.84,4,4,0,0,1,4.83.31,59.82,59.82,0,0,0,78.16,0,4,4,0,0,1,4.83-.31A80,80,0,0,1,201.32,200H216Z"
+            ></path>
+          </svg>
+        </button>
+
+        <button
+          class="btn-open-settings"
+          type="button"
+          aria-label="Ouvrir les réglages"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            fill="#000000"
+            viewBox="0 0 256 256"
+            aria-hidden="true"
+          >
+            <path
+              d="M40,88H73a32,32,0,0,0,62,0h81a8,8,0,0,0,0-16H135a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16Zm64-24A16,16,0,1,1,88,80,16,16,0,0,1,104,64ZM216,168H199a32,32,0,0,0-62,0H40a8,8,0,0,0,0,16h97a32,32,0,0,0,62,0h17a8,8,0,0,0,0-16Zm-48,24a16,16,0,1,1,16-16A16,16,0,0,1,168,192Z"
+            ></path>
+          </svg>
+        </button>
+      </div>
     </header>
 
     <div class="capture">
@@ -118,73 +139,6 @@
       </div>
 
       <div class="settings-content">
-        <section
-          class="settings-section"
-          aria-labelledby="settingsAccountTitle"
-        >
-          <div class="settings-section-header">
-            <h3 id="settingsAccountTitle">Compte</h3>
-            <p id="communityAccountState">
-              Non connecté au compte de publication.
-            </p>
-          </div>
-
-          <div class="settings-field" id="communityEmailField">
-            <div class="settings-field-header">
-              <label class="settings-label" for="communityEmailInput"
-                >Email</label
-              >
-            </div>
-            <input
-              class="settings-text-input"
-              id="communityEmailInput"
-              type="email"
-              autocomplete="email"
-              placeholder="alexis@example.com"
-            />
-            <button
-              class="settings-action-button"
-              id="communityRequestCodeButton"
-              type="button"
-            >
-              Recevoir un code
-            </button>
-            <p class="settings-hint" id="communityAuthHint" hidden></p>
-          </div>
-
-          <div class="settings-field" id="communityCodeField" hidden>
-            <div class="settings-field-header">
-              <label class="settings-label" for="communityCodeInput"
-                >Code reçu par email</label
-              >
-            </div>
-            <input
-              class="settings-text-input"
-              id="communityCodeInput"
-              type="text"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              placeholder="123456"
-            />
-            <button
-              class="settings-action-button"
-              id="communityVerifyCodeButton"
-              type="button"
-            >
-              Se connecter
-            </button>
-          </div>
-
-          <button
-            class="settings-secondary-button"
-            id="communityLogoutButton"
-            type="button"
-            hidden
-          >
-            Se déconnecter
-          </button>
-        </section>
-
         <section
           class="settings-section"
           aria-labelledby="settingsCaptureTitle"
@@ -714,6 +668,91 @@
       <p class="settings-version">v__APP_VERSION__ · __COMMIT_HASH__</p>
     </div>
 
+    <!-- Login Panel -->
+    <div class="login-panel" aria-hidden="true" hidden>
+      <div class="login-header">
+        <h2>Compte</h2>
+        <div class="login-header-actions">
+          <button
+            class="btn-close-login"
+            type="button"
+            aria-label="Fermer le panneau compte"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <div class="login-content">
+        <section
+          class="settings-section"
+          aria-labelledby="loginAccountTitle"
+        >
+          <div class="settings-section-header">
+            <h3 id="loginAccountTitle">Connexion</h3>
+            <p id="communityAccountState">
+              Non connecté au compte de publication.
+            </p>
+          </div>
+
+          <div class="settings-field" id="communityEmailField">
+            <div class="settings-field-header">
+              <label class="settings-label" for="communityEmailInput"
+                >Email</label
+              >
+            </div>
+            <input
+              class="settings-text-input"
+              id="communityEmailInput"
+              type="email"
+              autocomplete="email"
+              placeholder="alexis@example.com"
+            />
+            <button
+              class="settings-action-button"
+              id="communityRequestCodeButton"
+              type="button"
+            >
+              Recevoir un code
+            </button>
+            <p class="settings-hint" id="communityAuthHint" hidden></p>
+          </div>
+
+          <div class="settings-field" id="communityCodeField" hidden>
+            <div class="settings-field-header">
+              <label class="settings-label" for="communityCodeInput"
+                >Code reçu par email</label
+              >
+            </div>
+            <input
+              class="settings-text-input"
+              id="communityCodeInput"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              placeholder="123456"
+            />
+            <button
+              class="settings-action-button"
+              id="communityVerifyCodeButton"
+              type="button"
+            >
+              Se connecter
+            </button>
+          </div>
+
+          <button
+            class="settings-secondary-button"
+            id="communityLogoutButton"
+            type="button"
+            hidden
+          >
+            Se déconnecter
+          </button>
+        </section>
+      </div>
+    </div>
+
     <div class="btn-containers">
       <div class="camera-preview-dock" id="cameraPreviewDock">
         <video
@@ -794,6 +833,7 @@
     <script type="module" src="app.js"></script>
     <script type="module" src="collection-ui.js"></script>
     <script type="module" src="settings-ui.js"></script>
+    <script type="module" src="login-ui.js"></script>
     <script src="pwa-install.js"></script>
     <!-- <script src="filters.js"></script> -->
   </body>

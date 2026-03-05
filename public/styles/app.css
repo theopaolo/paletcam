@@ -23,6 +23,12 @@ body {
   overflow: hidden;
 }
 
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 header {
   display: flex;
   justify-content: space-between;

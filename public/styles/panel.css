@@ -1,6 +1,7 @@
 /* Slide Panels */
 .collection-panel,
-.settings-panel {
+.settings-panel,
+.login-panel {
   position: fixed;
   top: 0;
   right: -100%;
@@ -22,7 +23,8 @@
 }
 
 .collection-panel.visible,
-.settings-panel.visible {
+.settings-panel.visible,
+.login-panel.visible {
   right: 0;
 }
 
@@ -30,8 +32,13 @@
   z-index: 1001;
 }
 
+.login-panel {
+  z-index: 1002;
+}
+
 .collection-header,
-.settings-header {
+.settings-header,
+.login-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -40,14 +47,16 @@
 }
 
 .collection-header-actions,
-.settings-header-actions {
+.settings-header-actions,
+.login-header-actions {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
 }
 
 .collection-header h2,
-.settings-header h2 {
+.settings-header h2,
+.login-header h2 {
   margin: 0;
   font-size: 1.5rem;
   text-transform: uppercase;
@@ -189,7 +198,8 @@
 }
 
 .btn-close-collection,
-.btn-close-settings {
+.btn-close-settings,
+.btn-close-login {
   background: none;
   border: none;
   color: var(--secondary-color);
@@ -206,11 +216,13 @@
 }
 
 .btn-close-collection:hover,
-.btn-close-settings:hover {
+.btn-close-settings:hover,
+.btn-close-login:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.settings-content {
+.settings-content,
+.login-content {
   display: grid;
   gap: 2rem;
   padding-bottom: 1rem;

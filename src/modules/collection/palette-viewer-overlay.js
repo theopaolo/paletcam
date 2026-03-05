@@ -15,7 +15,7 @@ function getActionIconMarkup(iconName) {
   if (iconName === "export") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
-        <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"></path>
+        <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,114.34a8,8,0,0,1,11.32,0L120,132.69V72a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32A8,8,0,0,1,90.34,114.34ZM208,208H48V168H76.69L96,187.32A15.89,15.89,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
       </svg>
     `;
   }
@@ -29,7 +29,7 @@ function getActionIconMarkup(iconName) {
   if (iconName === "publish") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
-        <path d="M48,216a8,8,0,0,1-8-8V152a8,8,0,0,1,16,0v48H200V152a8,8,0,0,1,16,0v56a8,8,0,0,1-8,8ZM88,96a8,8,0,0,1,5.66-13.66H120V40a8,8,0,0,1,16,0V82.34h26.34A8,8,0,0,1,168,96l-40,40a8,8,0,0,1-11.32,0Z"></path>
+        <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,98.34l32-32a8,8,0,0,1,11.32,0l32,32a8,8,0,0,1-11.32,11.32L136,91.31V152a8,8,0,0,1-16,0V91.31l-18.34,18.35A8,8,0,0,1,90.34,98.34ZM208,208H48V168H76.69L96,187.31A15.86,15.86,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
       </svg>
     `;
   }
@@ -99,7 +99,7 @@ function createPaletteViewerOverlayController() {
     className: "palette-action-export",
     label: "Exporter la palette",
     iconName: "export",
-    visibleLabel: "exporter",
+    visibleLabel: "télécharger",
   });
   const publishButton = createViewerActionButton({
     className: "palette-action-publish",

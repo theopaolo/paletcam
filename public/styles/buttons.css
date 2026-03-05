@@ -320,7 +320,8 @@ body.is-preview-expanded .camera-preview-dock {
 }
 
 
-.btn-open-settings {
+.btn-open-settings,
+.btn-open-login {
   background-color: transparent;
   border: transparent;
   color: var(--secondary-color);

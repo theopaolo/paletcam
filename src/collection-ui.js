@@ -15,6 +15,7 @@ import { createDayGroup as renderDayGroup } from "./modules/collection/render-gr
 import { clientLog } from "./modules/client-log.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import { showToast } from "./modules/toast-ui.js";
+import { openLoginPanel } from "./login-ui.js";
 
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
@@ -156,21 +157,15 @@ function getPublishErrorMessage(error) {
   return "Publication échouée.";
 }
 
-function openAccountSettingsPanel() {
-  document.querySelector(".btn-open-settings")?.dispatchEvent(new MouseEvent("click", {
-    bubbles: true,
-  }));
-}
-
 async function handlePublishPalette(palette) {
   if (!getCurrentCommunitySession()?.token) {
     showToast("Connecte ton email pour publier.", {
       variant: "error",
       duration: 3500,
-      actionLabel: "Réglages",
+      actionLabel: "Connexion",
       onAction: () => {
         closePaletteViewerOverlay();
-        openAccountSettingsPanel();
+        openLoginPanel();
       },
     });
     return;
@@ -192,11 +187,11 @@ async function handlePublishPalette(palette) {
     }
 
     if (error?.code === "NOT_AUTHENTICATED" || error?.code === "AUTH_EXPIRED") {
-      showToast("Connecte ton email dans Réglages > Compte.", {
+      showToast("Connecte ton email pour publier.", {
         variant: "error",
         duration: 2000,
       });
-      openAccountSettingsPanel();
+      openLoginPanel();
       return;
     }
 
@@ -264,6 +259,12 @@ export async function openCollectionPanel({
   settingsPanel?.setAttribute("aria-hidden", "true");
   if (settingsPanel) {
     settingsPanel.hidden = true;
+  }
+  const loginPanelEl = /** @type {HTMLElement | null} */ (document.querySelector(".login-panel"));
+  loginPanelEl?.classList.remove("visible");
+  loginPanelEl?.setAttribute("aria-hidden", "true");
+  if (loginPanelEl) {
+    loginPanelEl.hidden = true;
   }
   collectionPanel.classList.add("visible");
   await loadCollectionUi();
