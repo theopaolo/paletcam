@@ -6,10 +6,11 @@
   top: 0;
   right: -100%;
   width: 100%;
-  height: 100vh;
+  height: 100dvh;
   transition: right 0.3s cubic-bezier(0.65,0.05,0.36,1);
   z-index: 1000;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: .5rem;
   box-sizing: border-box;
   background-color: #1b1b1b;
@@ -320,6 +321,47 @@
 
 .settings-hint.is-error {
   color: #ff9f9f;
+}
+
+.settings-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.settings-file-label {
+  display: block;
+  cursor: pointer;
+}
+
+.settings-file-label-text {
+  display: block;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, #1f1f1f 0%, #111111 100%);
+  color: #f0f0f0;
+  min-height: 2.45rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+  pointer-events: none;
+}
+
+.settings-file-input:focus-visible + .settings-file-label-text {
+  outline: 2px solid rgba(255, 200, 0, 0.75);
+  outline-offset: 2px;
+}
+
+.settings-file-input:disabled + .settings-file-label-text {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .settings-version {

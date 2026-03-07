@@ -216,3 +216,61 @@ export async function deletePalette(id) {
     throw new Error('Unable to delete palette.');
   }
 }
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** @returns {Promise<string>} JSON string of all palettes */
+export async function exportAllPalettes() {
+  const palettes = await db.palettes.toArray();
+  const serialized = [];
+
+  for (const palette of palettes) {
+    const entry = { ...palette };
+    if (entry.photoBlob instanceof Blob) {
+      entry.photoBlob = await blobToBase64(entry.photoBlob);
+    }
+    delete entry.id;
+    serialized.push(entry);
+  }
+
+  return JSON.stringify({ version: 2, palettes: serialized });
+}
+
+/**
+ * @param {string} jsonString
+ * @returns {Promise<number>} number of palettes imported
+ */
+export async function importAllPalettes(jsonString) {
+  const data = JSON.parse(jsonString);
+  if (!data || !Array.isArray(data.palettes)) {
+    throw new Error('Format de fichier invalide.');
+  }
+
+  let importedCount = 0;
+
+  for (const entry of data.palettes) {
+    const palette = { ...entry };
+    if (typeof palette.photoBlob === 'string' && palette.photoBlob.startsWith('data:')) {
+      palette.photoBlob = dataUrlToBlob(palette.photoBlob);
+    }
+    delete palette.id;
+
+    palette.remoteCatchId = palette.remoteCatchId ?? null;
+    palette.moderationStatus = palette.moderationStatus ?? null;
+    palette.postedAt = palette.postedAt ?? null;
+    palette.moderationUpdatedAt = palette.moderationUpdatedAt ?? null;
+    palette.lastModerationCheckAt = palette.lastModerationCheckAt ?? null;
+
+    await db.palettes.add(palette);
+    importedCount += 1;
+  }
+
+  return importedCount;
+}

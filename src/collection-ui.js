@@ -318,6 +318,7 @@ function bindCollectionUiEvents() {
     shouldCloseCollectionOnViewerClose = false;
     clearModerationSyncLoop();
     collectionPanel.classList.remove("visible");
+    collectionPanel.scrollTop = 0;
   });
 
   closeCollectionButton.addEventListener("click", () => {
@@ -325,6 +326,7 @@ function bindCollectionUiEvents() {
     clearModerationSyncLoop();
     closePaletteViewerOverlay();
     collectionPanel.classList.remove("visible");
+    collectionPanel.scrollTop = 0;
   });
 }
 

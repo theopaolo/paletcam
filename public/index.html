@@ -657,6 +657,47 @@
           </div>
         </section>
 
+        <section
+          class="settings-section"
+          aria-labelledby="settingsDataTitle"
+        >
+          <div class="settings-section-header">
+            <h3 id="settingsDataTitle">Données</h3>
+            <p>
+              Exportez vos palettes pour les sauvegarder ou les transférer
+              sur un autre appareil.
+            </p>
+          </div>
+
+          <div class="settings-field">
+            <button
+              class="settings-action-button"
+              id="settingsExportButton"
+              type="button"
+            >
+              Exporter mes palettes
+            </button>
+          </div>
+
+          <div class="settings-field">
+            <label class="settings-label settings-label-static"
+              >Importer des palettes</label
+            >
+            <label class="settings-file-label" id="settingsImportLabel">
+              <input
+                class="settings-file-input"
+                id="settingsImportInput"
+                type="file"
+                accept=".json"
+              />
+              <span class="settings-file-label-text">Choisir un fichier .json</span>
+            </label>
+            <p class="settings-hint">
+              Les palettes importées s'ajoutent à votre collection existante.
+            </p>
+          </div>
+        </section>
+
         <button
           class="settings-secondary-button"
           id="settingsResetButton"
@@ -833,7 +874,6 @@
     <script type="module" src="app.js"></script>
     <script type="module" src="collection-ui.js"></script>
     <script type="module" src="settings-ui.js"></script>
-    <script type="module" src="login-ui.js"></script>
     <script src="pwa-install.js"></script>
     <!-- <script src="filters.js"></script> -->
   </body>

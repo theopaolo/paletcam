@@ -286,6 +286,7 @@ function closeLoginPanel() {
 
   loginPanel.classList.remove('visible');
   loginPanel.setAttribute('aria-hidden', 'true');
+  loginPanel.scrollTop = 0;
   scheduleLoginPanelHide();
 }
 

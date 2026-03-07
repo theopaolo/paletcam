@@ -7,6 +7,7 @@ import {
 import { PALETTE_EXTRACTION_ALGORITHMS } from './modules/palette-extraction.js';
 import { closePaletteViewerOverlay } from './modules/collection/palette-card.js';
 import { showToast } from './modules/toast-ui.js';
+import { exportAllPalettes, importAllPalettes } from './palette-storage.js';
 
 const settingsPanel = /** @type {HTMLElement | null} */ (document.querySelector('.settings-panel'));
 const openSettingsButton = document.querySelector('.btn-open-settings');
@@ -329,6 +330,7 @@ function closeSettingsPanel() {
   cancelPendingSettingsPanelOpen();
   settingsPanel.classList.remove('visible');
   settingsPanel.setAttribute('aria-hidden', 'true');
+  settingsPanel.scrollTop = 0;
   scheduleSettingsPanelHide();
 }
 
@@ -425,9 +427,69 @@ function bindResetButton() {
   });
 }
 
+function bindExportButton() {
+  const exportButton = /** @type {HTMLButtonElement | null} */ (
+    document.getElementById('settingsExportButton')
+  );
+  if (!exportButton) {
+    return;
+  }
+
+  exportButton.addEventListener('click', async () => {
+    exportButton.disabled = true;
+    try {
+      const json = await exportAllPalettes();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      showToast('Export terminé.', { duration: 1400 });
+    } catch (error) {
+      console.error('Export failed:', error);
+      showToast('Erreur lors de l\'export.', { duration: 2000 });
+    } finally {
+      exportButton.disabled = false;
+    }
+  });
+}
+
+function bindImportInput() {
+  const importInput = /** @type {HTMLInputElement | null} */ (
+    document.getElementById('settingsImportInput')
+  );
+  if (!importInput) {
+    return;
+  }
+
+  importInput.addEventListener('change', async () => {
+    const file = importInput.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    importInput.disabled = true;
+    try {
+      const text = await file.text();
+      const count = await importAllPalettes(text);
+      showToast(`${count} palette${count > 1 ? 's' : ''} importée${count > 1 ? 's' : ''}.`, { duration: 2000 });
+    } catch (error) {
+      console.error('Import failed:', error);
+      showToast('Erreur lors de l\'import. Vérifiez le fichier.', { duration: 2500 });
+    } finally {
+      importInput.value = '';
+      importInput.disabled = false;
+    }
+  });
+}
+
 bindSettingsPanelEvents();
 bindAlgorithmControls();
 bindRangeControls();
 bindResetButton();
+bindExportButton();
+bindImportInput();
 renderSettingsUi(getAppSettings());
 subscribeAppSettings(renderSettingsUi);
