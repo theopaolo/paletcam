@@ -182,14 +182,16 @@ export function postCatchToCommunity({
  * @param {object} options
  * @param {string} options.token
  * @param {string[]} options.remoteCatchIds
- * @returns {Promise<ModerationEntry[]>}
+ * @returns {Promise<{ statuses: ModerationEntry[], deletedIds: string[] }>}
  */
 export async function fetchCatchModerationStatuses({
   token,
   remoteCatchIds,
 }) {
+  const empty = { statuses: [], deletedIds: [] };
+
   if (!Array.isArray(remoteCatchIds) || remoteCatchIds.length === 0) {
-    return [];
+    return empty;
   }
 
   const uniqueIds = [...new Set(
@@ -199,7 +201,7 @@ export async function fetchCatchModerationStatuses({
   )];
 
   if (uniqueIds.length === 0) {
-    return [];
+    return empty;
   }
 
   const payload = await requestCommunityApi("/catches/statuses", {
@@ -210,7 +212,7 @@ export async function fetchCatchModerationStatuses({
 
   const entries = Array.isArray(payload?.catches) ? payload.catches : [];
 
-  return entries
+  const statuses = entries
     .filter((entry) => entry && typeof entry === "object")
     .map((entry) => {
       const remoteCatchId = String(entry.id || "").trim();
@@ -218,4 +220,10 @@ export async function fetchCatchModerationStatuses({
       return remoteCatchId && status ? { remoteCatchId, status } : null;
     })
     .filter(Boolean);
+
+  const deletedIds = Array.isArray(payload?.deletedIds)
+    ? payload.deletedIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+
+  return { statuses, deletedIds };
 }
