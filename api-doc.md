@@ -30,6 +30,38 @@
                                                                            
                                                                            
 
+
+ ________  ________  ___       ________  ________                          
+|\   ____\|\   __  \|\  \     |\   __  \|\   __  \                         
+\ \  \___|\ \  \|\  \ \  \    \ \  \|\  \ \  \|\  \                        
+ \ \  \    \ \  \\\  \ \  \    \ \  \\\  \ \   _  _\                       
+  \ \  \____\ \  \\\  \ \  \____\ \  \\\  \ \  \\  \|                      
+   \ \_______\ \_______\ \_______\ \_______\ \__\\ _\                      
+    \|_______|\|_______|\|_______|\|_______|\|__|\|__|                     
+                                                                           
+                                                                           
+                                                                           
+ ________  ________  _________  ________  ___  ___  _______   ________     
+|\   ____\|\   __  \|\___   ___\\   ____\|\  \|\  \|\  ___ \ |\   __  \    
+\ \  \___|\ \  \|\  \|___ \  \_\ \  \___|\ \  \\\  \ \   __/|\ \  \|\  \   
+ \ \  \    \ \   __  \   \ \  \ \ \  \    \ \   __  \ \  \_|/_\ \   _  _\  
+  \ \  \____\ \  \ \  \   \ \  \ \ \  \____\ \  \ \  \ \  \_|\ \ \  \\  \| 
+   \ \_______\ \__\ \__\   \ \__\ \ \_______\ \__\ \__\ \_______\ \__\\ _\ 
+    \|_______|\|__|\|__|    \|__|  \|_______|\|__|\|__|\|_______|\|__|\|__|
+                                                                           
+                                                                           
+                                                                           
+ ________  _______   ________  ___      ___ _______   ________             
+|\   ____\|\  ___ \ |\   __  \|\  \    /  /|\  ___ \ |\   __  \            
+\ \  \___|\ \   __/|\ \  \|\  \ \  \  /  / | \   __/|\ \  \|\  \           
+ \ \_____  \ \  \_|/_\ \   _  _\ \  \/  / / \ \  \_|/_\ \   _  _\          
+  \|____|\  \ \  \_|\ \ \  \\  \\ \    / /   \ \  \_|\ \ \  \\  \|         
+    ____\_\  \ \_______\ \__\\ _\\ \__/ /     \ \_______\ \__\\ _\         
+   |\_________\|_______|\|__|\|__|\|__|/       \|_______|\|__|\|__|        
+   \|_________|                                                            
+                                                                           
+                                                                           
+
 # API ColorCatcherServer
 
 Base URL : `http://ccs.test/api/v1`
@@ -146,7 +178,7 @@ Vérifie le code OTP et retourne un token Sanctum.
 
 ---
 
-### POST /publish
+### POST /catch/publish
 
 > **Authentification requise** — `Authorization: Bearer {token}`
 
@@ -254,25 +286,11 @@ Valeurs possibles de `status` : `to_moderate`, `valid`, `rejected`.
 
 ---
 
-### POST /catch/delete
+### DELETE /catch/{id}
 
 > **Authentification requise** — `Authorization: Bearer {token}`
 
 Supprime un catch appartenant à l'utilisateur authentifié.
-
-**Body**
-
-| Champ | Type   | Requis | Description        |
-|-------|--------|--------|--------------------|
-| `id`  | string | ✓      | ID du catch (ULID) |
-
-```js
-await fetch('/api/v1/catch/delete', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-  body: JSON.stringify({ id: '01jnx4...' }),
-});
-```
 
 **Réponse `200`**
 
@@ -282,8 +300,30 @@ await fetch('/api/v1/catch/delete', {
 
 **Erreurs**
 
-| Code  | Cause                                    |
-|-------|------------------------------------------|
-| `401` | Token manquant ou invalide               |
+| Code  | Cause                                      |
+|-------|--------------------------------------------|
+| `401` | Token manquant ou invalide                 |
 | `403` | Le catch appartient à un autre utilisateur |
-| `422` | `id` absent ou inexistant               |
+| `404` | ID inconnu                                 |
+
+---
+
+### POST /catch/{id}/unpublish
+
+> **Authentification requise** — `Authorization: Bearer {token}`
+
+Passe un catch au statut `private`, le retirant de la grille publique sans le supprimer.
+
+**Réponse `200`**
+
+```json
+{ "message": "Catch unpublished." }
+```
+
+**Erreurs**
+
+| Code  | Cause                                      |
+|-------|--------------------------------------------|
+| `401` | Token manquant ou invalide                 |
+| `403` | Le catch appartient à un autre utilisateur |
+| `404` | ID inconnu                                 |
