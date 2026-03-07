@@ -38,8 +38,6 @@ class SampleGridOverlayElement extends LitElement {
     this.videoWidth = 0;
     this.visible = false;
     this._resizeObserver = null;
-    this.classList.add('sample-row-overlay');
-    this.setAttribute('aria-hidden', 'true');
   }
 
   createRenderRoot() {

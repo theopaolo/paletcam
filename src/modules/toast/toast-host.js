@@ -28,7 +28,6 @@ class ToastHostElement extends LitElement {
     this._standardQueue = [];
     this._undoEntries = [];
     this._visibilityFrames = new Map();
-    this.classList.add('toast-host');
   }
 
   createRenderRoot() {
@@ -52,7 +51,7 @@ class ToastHostElement extends LitElement {
     super.disconnectedCallback();
   }
 
-  showToast(message, options = {}) {
+  ['showToast'](message, options = {}) {
     if (!message) {
       return;
     }
@@ -76,7 +75,7 @@ class ToastHostElement extends LitElement {
     this._mountStandardToast(toast);
   }
 
-  showUndoToast(message, options = {}) {
+  ['showUndoToast'](message, options = {}) {
     if (!message) {
       return;
     }

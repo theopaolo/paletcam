@@ -258,7 +258,6 @@ export function createPaletteCard({
       return;
     }
 
-    closePaletteViewerOverlay();
     pendingDeletionIds.add(palette.id);
     const snapshot = takeCardPositionSnapshot(card);
 
@@ -287,6 +286,10 @@ export function createPaletteCard({
           });
         }
       },
+    });
+
+    window.requestAnimationFrame(() => {
+      closePaletteViewerOverlay();
     });
   };
 

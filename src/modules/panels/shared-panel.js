@@ -1,4 +1,4 @@
-import { LitElement, css, html } from 'lit';
+import { css, html, LitElement } from 'lit';
 
 const PANEL_HIDE_DELAY_MS = 380;
 
@@ -54,6 +54,7 @@ class SharedPanelElement extends LitElement {
       align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
+      padding: 0 1rem;
       color: inherit;
     }
 

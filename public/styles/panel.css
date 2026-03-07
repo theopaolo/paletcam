@@ -234,7 +234,7 @@
   color: #f0f0f0;
   font-family: monospace;
   font-size: 0.92rem;
-  text-shadow: 0 1px 0 #000;
+  text-shadow: 0 1px 0 #1b1b1b;
 }
 
 .settings-quality-slider {
@@ -773,22 +773,23 @@
 .catch-details-content {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  min-height: calc(100dvh - 4rem);
-  background: #000;
+  min-height: calc(100vh - 4rem);
+  padding: 0.5rem;
+  background: #1b1b1b;
 }
 
 .palette-viewer-frame {
   display: grid;
   place-content: center;
   width: 100%;
-  background: #000;
+  background: #1b1b1b;
 }
 
 .palette-viewer-image {
   display: block;
   width: 100%;
   height: auto;
-  background: #000;
+  background: #1b1b1b;
 }
 
 .palette-viewer-status {
@@ -813,7 +814,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
-  background: #000;
+  background: #1b1b1b;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
