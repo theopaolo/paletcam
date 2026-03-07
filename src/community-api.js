@@ -178,6 +178,17 @@ export function postCatchToCommunity({
   });
 }
 
+export function unpublishCatchFromCommunity({
+  token,
+  remoteCatchId,
+}) {
+  const safeRemoteCatchId = encodeURIComponent(String(remoteCatchId || "").trim());
+  return requestCommunityApi(`/catch/${safeRemoteCatchId}/unpublish`, {
+    method: "POST",
+    token,
+  });
+}
+
 /**
  * @param {object} options
  * @param {string} options.token

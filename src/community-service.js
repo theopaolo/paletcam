@@ -4,6 +4,7 @@ import {
   normalizeCatchStatus,
   postCatchToCommunity,
   requestCommunityLoginCode,
+  unpublishCatchFromCommunity,
   verifyCommunityLoginCode,
 } from "./community-api.js";
 import {
@@ -119,6 +120,50 @@ function mapApiError(error) {
 
 function getPaletteRemoteCatchId(palette) {
   return String(palette?.remoteCatchId || "").trim();
+}
+
+function applyPaletteRemoteState(palette, patch) {
+  if (!palette || typeof palette !== "object" || !patch || typeof patch !== "object") {
+    return;
+  }
+
+  if (Object.hasOwn(patch, "remoteCatchId")) {
+    palette.remoteCatchId = patch.remoteCatchId || null;
+  }
+
+  if (Object.hasOwn(patch, "moderationStatus")) {
+    palette.moderationStatus = patch.moderationStatus || null;
+  }
+
+  if (Object.hasOwn(patch, "postedAt")) {
+    palette.postedAt = patch.postedAt || null;
+  }
+
+  if (Object.hasOwn(patch, "moderationUpdatedAt")) {
+    palette.moderationUpdatedAt = patch.moderationUpdatedAt || null;
+  }
+
+  if (Object.hasOwn(patch, "lastModerationCheckAt")) {
+    palette.lastModerationCheckAt = patch.lastModerationCheckAt || null;
+  }
+}
+
+/**
+ * @param {Palette} palette
+ * @returns {PublicationAction}
+ */
+export function getPalettePublicationAction(palette) {
+  const remoteCatchId = getPaletteRemoteCatchId(palette);
+  const moderationStatus = normalizeCatchStatus(palette?.moderationStatus);
+
+  if (
+    remoteCatchId
+    && moderationStatus === CATCH_MODERATION_STATUSES.PUBLIC
+  ) {
+    return "unpublish";
+  }
+
+  return "publish";
 }
 
 /**
@@ -305,17 +350,79 @@ export async function publishPaletteToCommunityFeed(palette) {
       || CATCH_MODERATION_STATUSES.TO_MODERATE
     );
     const nowIso = new Date().toISOString();
-
-    await updatePaletteRemoteState(palette.id, {
+    const nextRemoteState = {
       remoteCatchId: nextRemoteCatchId,
       moderationStatus: nextModerationStatus,
       postedAt: nowIso,
       moderationUpdatedAt: nowIso,
       lastModerationCheckAt: nowIso,
-    });
+    };
+
+    await updatePaletteRemoteState(palette.id, nextRemoteState);
+    applyPaletteRemoteState(palette, nextRemoteState);
 
     return {
       remoteCatchId: nextRemoteCatchId,
+      moderationStatus: nextModerationStatus,
+    };
+  } catch (error) {
+    if (error?.name === "CommunityServiceError") {
+      throw error;
+    }
+
+    throw mapApiError(error);
+  }
+}
+
+/**
+ * @param {Palette} palette
+ * @returns {Promise<{ remoteCatchId: string, moderationStatus: ModerationStatus }>}
+ */
+export async function unpublishPaletteFromCommunityFeed(palette) {
+  if (!palette || typeof palette !== "object") {
+    throw createCommunityServiceError(
+      "Palette is required.",
+      { code: "MISSING_PALETTE" },
+    );
+  }
+
+  const remoteCatchId = getPaletteRemoteCatchId(palette);
+  if (!remoteCatchId) {
+    throw createCommunityServiceError(
+      "Palette has not been published yet.",
+      { code: "NOT_PUBLISHED" },
+    );
+  }
+
+  const currentModerationStatus = normalizeCatchStatus(palette?.moderationStatus);
+  if (currentModerationStatus !== CATCH_MODERATION_STATUSES.PUBLIC) {
+    throw createCommunityServiceError(
+      "Palette is not public.",
+      { code: "NOT_PUBLIC" },
+    );
+  }
+
+  const token = getAuthTokenOrThrow();
+
+  try {
+    await unpublishCatchFromCommunity({
+      token,
+      remoteCatchId,
+    });
+
+    const nowIso = new Date().toISOString();
+    const nextModerationStatus = CATCH_MODERATION_STATUSES.PRIVATE;
+    const nextRemoteState = {
+      moderationStatus: nextModerationStatus,
+      moderationUpdatedAt: nowIso,
+      lastModerationCheckAt: nowIso,
+    };
+
+    await updatePaletteRemoteState(palette.id, nextRemoteState);
+    applyPaletteRemoteState(palette, nextRemoteState);
+
+    return {
+      remoteCatchId,
       moderationStatus: nextModerationStatus,
     };
   } catch (error) {

@@ -1,5 +1,8 @@
 import { deletePalette } from "../../palette-storage.js";
-import { getPalettePublicationMeta } from "../../community-service.js";
+import {
+  getPalettePublicationAction,
+  getPalettePublicationMeta,
+} from "../../community-service.js";
 import { showToast, showUndoToast } from "../toast-ui.js";
 import {
   disposePalettePreviewPolaroidAsset,
@@ -59,7 +62,7 @@ export { closePaletteViewerOverlay, subscribePaletteViewerOverlayClose };
  * @param {(card: HTMLElement, snapshot: CardPositionSnapshot) => void} config.restoreCardFromSnapshot
  * @param {(container: HTMLElement | null) => void} config.syncSessionStateFromCardContainer
  * @param {() => void} config.ensureEmptyMessage
- * @param {((palette: Palette) => Promise<void>) | null} [config.onPublish]
+ * @param {((palette: Palette, action: PublicationAction) => Promise<void>) | null} [config.onPublish]
  */
 export function createPaletteCard({
   palette,
@@ -102,6 +105,7 @@ export function createPaletteCard({
   const publicationBadge = document.createElement("span");
   publicationBadge.className = "palette-card-publication-badge";
   const publicationMeta = getPalettePublicationMeta(palette);
+  const publicationAction = getPalettePublicationAction(palette);
   if (publicationMeta) {
     publicationBadge.hidden = false;
     publicationBadge.dataset.tone = publicationMeta.tone;
@@ -298,7 +302,7 @@ export function createPaletteCard({
       return;
     }
 
-    await onPublish(palette);
+    await onPublish(palette, publicationAction);
   };
 
   const openViewer = async () => {
@@ -312,7 +316,12 @@ export function createPaletteCard({
       getPreviewAsset: hasMasterPhoto ? ensurePreviewImageAsset : undefined,
       canShare: hasMasterPhoto,
       canExport: hasMasterPhoto,
-      canPublish: hasMasterPhoto && typeof onPublish === "function",
+      canPublish: (
+        publicationAction === "unpublish"
+          ? typeof onPublish === "function"
+          : hasMasterPhoto && typeof onPublish === "function"
+      ),
+      publishAction: publicationAction,
       canDelete: true,
       onShare: handleShareAction,
       onExport: handleExportAction,

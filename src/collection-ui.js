@@ -3,6 +3,7 @@ import {
   getCurrentCommunitySession,
   publishPaletteToCommunityFeed,
   syncPublishedPalettesModerationStatus,
+  unpublishPaletteFromCommunityFeed,
 } from "./community-service.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import {
@@ -148,7 +149,7 @@ function scheduleModerationSync() {
   }, MODERATION_SYNC_DELAY_MS);
 }
 
-function getPublishErrorMessage(error) {
+function getPublicationErrorMessage(error, fallbackMessage) {
   const apiMessage = error?.cause?.payload?.message;
   if (typeof apiMessage === "string" && apiMessage.trim()) {
     return apiMessage.trim();
@@ -158,12 +159,20 @@ function getPublishErrorMessage(error) {
     return error.message.trim();
   }
 
-  return "Publication échouée.";
+  return fallbackMessage;
 }
 
-async function handlePublishPalette(palette) {
+function getPublicationAuthMessage(action) {
+  return action === "unpublish"
+    ? "Connecte ton email pour dépublier."
+    : "Connecte ton email pour publier.";
+}
+
+async function handlePublishPalette(palette, action = "publish") {
+  const authMessage = getPublicationAuthMessage(action);
+
   if (!getCurrentCommunitySession()?.token) {
-    showToast("Connecte ton email pour publier.", {
+    showToast(authMessage, {
       variant: "error",
       duration: 3500,
       actionLabel: "Connexion",
@@ -176,22 +185,41 @@ async function handlePublishPalette(palette) {
   }
 
   try {
-    await publishPaletteToCommunityFeed(palette);
-    showToast("Capture publiée. Modération en cours.", {
-      duration: 1800,
-    });
+    if (action === "unpublish") {
+      await unpublishPaletteFromCommunityFeed(palette);
+      showToast("Capture retirée de la grille publique.", {
+        duration: 1800,
+      });
+    } else {
+      await publishPaletteToCommunityFeed(palette);
+      showToast("Capture publiée. Modération en cours.", {
+        duration: 1800,
+      });
+    }
+
     await loadCollectionUi();
-    scheduleModerationSync();
+
+    if (action === "publish") {
+      scheduleModerationSync();
+    }
   } catch (error) {
-    if (error?.code === "ALREADY_PUBLISHED") {
+    if (action === "publish" && error?.code === "ALREADY_PUBLISHED") {
       showToast("Capture déjà publiée.", {
         duration: 1500,
       });
       return;
     }
 
+    if (action === "unpublish" && error?.code === "NOT_PUBLIC") {
+      showToast("Capture déjà retirée de la grille publique.", {
+        duration: 1500,
+      });
+      await loadCollectionUi();
+      return;
+    }
+
     if (error?.code === "NOT_AUTHENTICATED" || error?.code === "AUTH_EXPIRED") {
-      showToast("Connecte ton email pour publier.", {
+      showToast(authMessage, {
         variant: "error",
         duration: 2000,
       });
@@ -199,17 +227,21 @@ async function handlePublishPalette(palette) {
       return;
     }
 
-    clientLog("Failed to publish palette.", {
+    clientLog("Failed to update palette publication.", {
+      action,
       code: error?.code,
       message: error?.message,
       status: error?.status,
     });
-    showToast(getPublishErrorMessage(error), {
+    showToast(getPublicationErrorMessage(
+      error,
+      action === "unpublish" ? "Dépublication échouée." : "Publication échouée.",
+    ), {
       variant: "error",
       duration: 4000,
       details: formatErrorDetails(error),
     });
-    console.error("Failed to publish palette:", error);
+    console.error("Failed to update palette publication:", error);
   }
 }
 

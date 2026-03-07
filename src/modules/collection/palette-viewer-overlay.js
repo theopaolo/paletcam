@@ -16,6 +16,19 @@ let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
 
+const PUBLISH_BUTTON_COPY = Object.freeze({
+  publish: {
+    label: 'Publier la palette',
+    iconName: 'publish',
+    visibleLabel: 'publier',
+  },
+  unpublish: {
+    label: 'Dépublier la palette',
+    iconName: 'unpublish',
+    visibleLabel: 'dépublier',
+  },
+});
+
 function getActionIconMarkup(iconName) {
   if (iconName === 'export') {
     return `
@@ -39,6 +52,14 @@ function getActionIconMarkup(iconName) {
     `;
   }
 
+  if (iconName === 'unpublish') {
+    return `
+      <svg viewBox="0 0 256 256" aria-hidden="true">
+        <path d="M216,40H40A16,16,0,0,0,24,56V208a8,8,0,0,0,11.58,7.15L64,200.94l28.42,14.21a8,8,0,0,0,7.16,0L128,200.94l28.42,14.21a8,8,0,0,0,7.16,0L192,200.94l28.42,14.21A8,8,0,0,0,232,208V56A16,16,0,0,0,216,40Zm-58.34,98.34a8,8,0,0,1-11.32,11.32L128,131.31l-18.34,18.35a8,8,0,0,1-11.32-11.32L116.69,120,98.34,101.66a8,8,0,0,1,11.32-11.32L128,108.69l18.34-18.35a8,8,0,0,1,11.32,11.32L139.31,120Z"></path>
+      </svg>
+    `;
+  }
+
   return `
     <svg viewBox="0 0 256 256" aria-hidden="true">
       <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"></path>
@@ -56,6 +77,14 @@ function hydrateViewerActionButton(button, { label, iconName, visibleLabel }) {
     ${getActionIconMarkup(iconName)}
     <span class="palette-quick-action-label">${visibleLabel}</span>
   `;
+}
+
+function syncPublishButtonCopy() {
+  const publishAction = activeSession?.publishAction === 'unpublish'
+    ? 'unpublish'
+    : 'publish';
+
+  hydrateViewerActionButton(publishButton, PUBLISH_BUTTON_COPY[publishAction]);
 }
 
 function resetViewerFrame() {
@@ -135,11 +164,7 @@ function bindViewerPanelEvents() {
     iconName: 'export',
     visibleLabel: 'télécharger',
   });
-  hydrateViewerActionButton(publishButton, {
-    label: 'Publier la palette',
-    iconName: 'publish',
-    visibleLabel: 'publier',
-  });
+  syncPublishButtonCopy();
   hydrateViewerActionButton(deleteButton, {
     label: 'Supprimer la palette',
     iconName: 'delete',
@@ -167,6 +192,7 @@ export async function openPaletteViewerOverlay({
   onShare,
   onExport,
   onPublish,
+  publishAction = 'publish',
   onDelete,
   canShare = true,
   canExport = true,
@@ -181,12 +207,14 @@ export async function openPaletteViewerOverlay({
     onShare,
     onExport,
     onPublish,
+    publishAction,
     onDelete,
     canShare,
     canExport,
     canPublish,
     canDelete,
   };
+  syncPublishButtonCopy();
 
   resetViewerFrame();
   if (viewerStatus) {

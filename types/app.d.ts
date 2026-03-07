@@ -121,6 +121,8 @@ interface PublicationMeta {
   status: ModerationStatus;
 }
 
+type PublicationAction = "publish" | "unpublish";
+
 interface ModerationEntry {
   remoteCatchId: string;
   status: ModerationStatus;
@@ -312,6 +314,7 @@ interface PaletteViewerOpenOptions {
   onShare?: () => void | Promise<void>;
   onExport?: () => void | Promise<void>;
   onPublish?: () => void | Promise<void>;
+  publishAction?: PublicationAction;
   onDelete?: () => void | Promise<void>;
   canShare?: boolean;
   canExport?: boolean;
