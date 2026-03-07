@@ -32,4 +32,9 @@
   letter-spacing: -1px;
   font-weight: 400;
   font-size: clamp(1rem, 4vw, 2rem);
+
+  & a {
+    color: inherit;
+    text-decoration: none;
+  }
 }

@@ -19,7 +19,11 @@
   </head>
   <body>
     <header>
-      <h1 class="ColorCatchers">Color Catchers</h1>
+      <h1 class="ColorCatchers">
+        <a href="https://colorcatchers.co/" target="_blank" rel="noreferrer">
+          Color Catchers
+        </a>
+      </h1>
 
       <div class="header-actions">
         <button
@@ -63,11 +67,11 @@
     </header>
 
     <div class="capture">
-      <div class="capture-palette-stage">
-        <canvas id="canvas-palette"></canvas>
-      </div>
       <div class="capture-camera-stage" aria-hidden="true">
         <div class="camera-stage-mount" id="cameraStageMount"></div>
+      </div>
+      <div class="capture-palette-stage">
+        <canvas id="canvas-palette"></canvas>
       </div>
       <canvas id="canvas"></canvas>
     </div>
@@ -729,7 +733,7 @@
               id="communityEmailInput"
               type="email"
               autocomplete="email"
-              placeholder="alexis@example.com"
+              placeholder="votre email"
             />
             <button
               class="settings-action-button"
@@ -764,14 +768,25 @@
             </button>
           </div>
 
-          <button
-            class="settings-secondary-button"
-            id="communityLogoutButton"
-            type="button"
-            hidden
-          >
-            Se déconnecter
-          </button>
+          <div>
+            <button
+              class="settings-secondary-button"
+              id="communityLogoutButton"
+              type="button"
+              hidden
+            >
+              Se déconnecter
+            </button>
+
+            <a
+              class="settings-secondary-button settings-link-button"
+              id="communityMyCatchesLink"
+              href="https://colorcatchers.co/my/catches"
+              hidden
+            >
+              Mon espace personnel
+            </a>
+          </div>
         </section>
       </div>
     </shared-panel>
