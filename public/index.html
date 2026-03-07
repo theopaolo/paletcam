@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Colors Catcher</title>
+    <title>Color Catchers</title>
     <meta name="description" content="Capturer des couleurs 📸🌈 !" />
     <meta name="theme-color" content="#2d2d2d" />
     <link rel="manifest" href="manifest.json" />
@@ -19,7 +19,7 @@
   </head>
   <body>
     <header>
-      <h1 class="colorscatcher">Colors Catcher</h1>
+      <h1 class="ColorCatchers">Color Catchers</h1>
 
       <div class="header-actions">
         <button
@@ -112,32 +112,25 @@
     </div>
 
     <!-- Palette Collection Panel -->
-    <div class="collection-panel">
-      <div class="collection-header">
-        <h2>Captures</h2>
-        <div class="collection-header-actions">
-          <button class="btn-close-collection" type="button">×</button>
-        </div>
-      </div>
+    <shared-panel
+      class="collection-panel"
+      data-panel-name="collection"
+      panel-title="Captures"
+      close-label="Fermer les captures"
+      hidden
+    >
       <div class="collection-grid" id="collectionGrid">
         <!-- Palettes will be dynamically added here -->
       </div>
-    </div>
+    </shared-panel>
 
-    <div class="settings-panel" aria-hidden="true" hidden>
-      <div class="settings-header">
-        <h2>Réglages</h2>
-        <div class="settings-header-actions">
-          <button
-            class="btn-close-settings"
-            type="button"
-            aria-label="Fermer les réglages"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-
+    <shared-panel
+      class="settings-panel"
+      data-panel-name="settings"
+      panel-title="Réglages"
+      close-label="Fermer les réglages"
+      hidden
+    >
       <div class="settings-content">
         <section
           class="settings-section"
@@ -657,15 +650,12 @@
           </div>
         </section>
 
-        <section
-          class="settings-section"
-          aria-labelledby="settingsDataTitle"
-        >
+        <section class="settings-section" aria-labelledby="settingsDataTitle">
           <div class="settings-section-header">
             <h3 id="settingsDataTitle">Données</h3>
             <p>
-              Exportez vos palettes pour les sauvegarder ou les transférer
-              sur un autre appareil.
+              Exportez vos palettes pour les sauvegarder ou les transférer sur
+              un autre appareil.
             </p>
           </div>
 
@@ -690,7 +680,9 @@
                 type="file"
                 accept=".json"
               />
-              <span class="settings-file-label-text">Choisir un fichier .json</span>
+              <span class="settings-file-label-text"
+                >Choisir un fichier .json</span
+              >
             </label>
             <p class="settings-hint">
               Les palettes importées s'ajoutent à votre collection existante.
@@ -707,28 +699,18 @@
         </button>
       </div>
       <p class="settings-version">v__APP_VERSION__ · __COMMIT_HASH__</p>
-    </div>
+    </shared-panel>
 
     <!-- Login Panel -->
-    <div class="login-panel" aria-hidden="true" hidden>
-      <div class="login-header">
-        <h2>Compte</h2>
-        <div class="login-header-actions">
-          <button
-            class="btn-close-login"
-            type="button"
-            aria-label="Fermer le panneau compte"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-
+    <shared-panel
+      class="login-panel"
+      data-panel-name="login"
+      panel-title="Compte"
+      close-label="Fermer le panneau compte"
+      hidden
+    >
       <div class="login-content">
-        <section
-          class="settings-section"
-          aria-labelledby="loginAccountTitle"
-        >
+        <section class="settings-section" aria-labelledby="loginAccountTitle">
           <div class="settings-section-header">
             <h3 id="loginAccountTitle">Connexion</h3>
             <p id="communityAccountState">
@@ -792,7 +774,54 @@
           </button>
         </section>
       </div>
-    </div>
+    </shared-panel>
+
+    <shared-panel
+      class="catch-details-panel"
+      data-panel-name="catch-details"
+      panel-title="Capture"
+      close-label="Fermer la capture"
+      hidden
+    >
+      <div class="catch-details-content">
+        <div class="palette-viewer-frame">
+          <img
+            class="palette-viewer-image"
+            id="catchDetailsImage"
+            alt="Aperçu de palette"
+            decoding="async"
+            hidden
+          />
+          <p class="palette-viewer-status" id="catchDetailsStatus"></p>
+        </div>
+        <div class="palette-viewer-actions">
+          <button
+            class="palette-quick-action palette-action-share"
+            id="catchDetailsShareButton"
+            type="button"
+            aria-label="Partager la palette"
+          ></button>
+          <button
+            class="palette-quick-action palette-action-export"
+            id="catchDetailsExportButton"
+            type="button"
+            aria-label="Exporter la palette"
+          ></button>
+          <button
+            class="palette-quick-action palette-action-publish"
+            id="catchDetailsPublishButton"
+            type="button"
+            aria-label="Publier la palette"
+          ></button>
+          <button
+            class="palette-quick-action palette-action-delete"
+            id="catchDetailsDeleteButton"
+            type="button"
+            aria-label="Supprimer la palette"
+          ></button>
+        </div>
+      </div>
+    </shared-panel>
 
     <div class="btn-containers">
       <div class="camera-preview-dock" id="cameraPreviewDock">
@@ -805,11 +834,11 @@
           disablepictureinpicture
           aria-label="Aperçu caméra"
         ></video>
-        <div
+        <sample-grid-overlay
           class="sample-row-overlay"
           id="sampleRowOverlay"
           aria-hidden="true"
-        ></div>
+        ></sample-grid-overlay>
       </div>
 
       <div class="mini-output">
@@ -872,8 +901,6 @@
     </div>
 
     <script type="module" src="app.js"></script>
-    <script type="module" src="collection-ui.js"></script>
-    <script type="module" src="settings-ui.js"></script>
     <script src="pwa-install.js"></script>
     <!-- <script src="filters.js"></script> -->
   </body>

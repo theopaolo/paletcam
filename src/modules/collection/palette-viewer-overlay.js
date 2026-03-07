@@ -1,18 +1,23 @@
-let viewerOverlayController;
-const viewerOverlayCloseListeners = new Set();
+import {
+  closeSharedPanel,
+  openSharedPanel,
+  subscribeSharedPanelClosed,
+  subscribeSharedPanelClosing,
+} from '../panels/panel-manager.js';
 
-function notifyViewerOverlayClosed() {
-  viewerOverlayCloseListeners.forEach((listener) => {
-    try {
-      listener();
-    } catch (error) {
-      console.error("Palette viewer close listener failed:", error);
-    }
-  });
-}
+const viewerImage = /** @type {HTMLImageElement | null} */ (document.getElementById('catchDetailsImage'));
+const viewerStatus = document.getElementById('catchDetailsStatus');
+const shareButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsShareButton'));
+const exportButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsExportButton'));
+const publishButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsPublishButton'));
+const deleteButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsDeleteButton'));
+let activeRequestId = 0;
+let activeSession;
+let hasBoundViewerPanelEvents = false;
+let isBusy = false;
 
 function getActionIconMarkup(iconName) {
-  if (iconName === "export") {
+  if (iconName === 'export') {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
         <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,114.34a8,8,0,0,1,11.32,0L120,132.69V72a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32A8,8,0,0,1,90.34,114.34ZM208,208H48V168H76.69L96,187.32A15.89,15.89,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
@@ -20,13 +25,13 @@ function getActionIconMarkup(iconName) {
     `;
   }
 
-  if (iconName === "share") {
+  if (iconName === 'share') {
     return `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#000000" viewBox="0 0 256 256"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
     `;
   }
 
-  if (iconName === "publish") {
+  if (iconName === 'publish') {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
         <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,98.34l32-32a8,8,0,0,1,11.32,0l32,32a8,8,0,0,1-11.32,11.32L136,91.31V152a8,8,0,0,1-16,0V91.31l-18.34,18.35A8,8,0,0,1,90.34,98.34ZM208,208H48V168H76.69L96,187.31A15.86,15.86,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
@@ -41,259 +46,188 @@ function getActionIconMarkup(iconName) {
   `;
 }
 
-function createViewerActionButton({ className, label, iconName, visibleLabel }) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `palette-quick-action ${className}`;
-  button.setAttribute("aria-label", label);
+function hydrateViewerActionButton(button, { label, iconName, visibleLabel }) {
+  if (!button) {
+    return;
+  }
+
+  button.setAttribute('aria-label', label);
   button.innerHTML = `
     ${getActionIconMarkup(iconName)}
-    ${
-    visibleLabel
-      ? `<span class="palette-quick-action-label">${visibleLabel}</span>`
-      : ""
-  }
+    <span class="palette-quick-action-label">${visibleLabel}</span>
   `;
-  return button;
 }
 
-function createPaletteViewerOverlayController() {
-  const overlay = document.createElement("div");
-  overlay.className = "palette-viewer-overlay";
-  overlay.hidden = true;
-  overlay.setAttribute("aria-hidden", "true");
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
+function resetViewerFrame() {
+  if (viewerImage) {
+    viewerImage.hidden = true;
+    viewerImage.removeAttribute('src');
+  }
 
-  const topbar = document.createElement("div");
-  topbar.className = "palette-viewer-topbar";
+  if (viewerStatus) {
+    viewerStatus.textContent = '';
+  }
+}
 
-  const closeButton = document.createElement("button");
-  closeButton.type = "button";
-  closeButton.className = "palette-viewer-close";
-  closeButton.setAttribute("aria-label", "Fermer l'aperçu");
-  closeButton.textContent = "×";
+function setBusy(nextBusy) {
+  isBusy = nextBusy;
 
-  const imageFrame = document.createElement("div");
-  imageFrame.className = "palette-viewer-frame";
-
-  const image = document.createElement("img");
-  image.className = "palette-viewer-image";
-  image.alt = "Aperçu de palette";
-  image.hidden = true;
-  image.decoding = "async";
-
-  const status = document.createElement("p");
-  status.className = "palette-viewer-status";
-
-  const actions = document.createElement("div");
-  actions.className = "palette-viewer-actions";
-
-  const shareButton = createViewerActionButton({
-    className: "palette-action-share",
-    label: "Partager la palette",
-    iconName: "share",
-    visibleLabel: "partager",
-  });
-  const exportButton = createViewerActionButton({
-    className: "palette-action-export",
-    label: "Exporter la palette",
-    iconName: "export",
-    visibleLabel: "télécharger",
-  });
-  const publishButton = createViewerActionButton({
-    className: "palette-action-publish",
-    label: "Publier la palette",
-    iconName: "publish",
-    visibleLabel: "publier",
-  });
-  const deleteButton = createViewerActionButton({
-    className: "palette-action-delete",
-    label: "Supprimer la palette",
-    iconName: "delete",
-    visibleLabel: "supprimer",
-  });
-
-  topbar.append(closeButton);
-  imageFrame.append(image, status);
-  actions.append(shareButton, exportButton, publishButton, deleteButton);
-  overlay.append(topbar, imageFrame, actions);
-  document.body.append(overlay);
-
-  let activeRequestId = 0;
-  let activeSession;
-  let isBusy = false;
-
-  function setBusy(nextBusy) {
-    isBusy = nextBusy;
+  if (shareButton) {
     shareButton.disabled = nextBusy || !activeSession?.canShare;
+  }
+
+  if (exportButton) {
     exportButton.disabled = nextBusy || !activeSession?.canExport;
+  }
+
+  if (publishButton) {
     publishButton.disabled = nextBusy || !activeSession?.canPublish;
+  }
+
+  if (deleteButton) {
     deleteButton.disabled = nextBusy || !activeSession?.canDelete;
-    overlay.classList.toggle("is-busy", nextBusy);
   }
-
-  function close() {
-    const wasOpen = !overlay.hidden;
-    activeRequestId += 1;
-    activeSession = undefined;
-    image.hidden = true;
-    image.removeAttribute("src");
-    status.textContent = "";
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
-    setBusy(false);
-
-    if (wasOpen) {
-      notifyViewerOverlayClosed();
-    }
-  }
-
-  async function runAction(actionName) {
-    if (isBusy || !activeSession) {
-      return;
-    }
-
-    const action = activeSession[actionName];
-    if (typeof action !== "function") {
-      return;
-    }
-
-    setBusy(true);
-    try {
-      await action();
-    } finally {
-      if (activeSession) {
-        setBusy(false);
-      }
-    }
-  }
-
-  closeButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    close();
-  });
-
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      close();
-    }
-  });
-
-  imageFrame.addEventListener("click", (event) => {
-    event.stopPropagation();
-    close();
-  });
-
-  [topbar, actions].forEach((element) => {
-    element.addEventListener("click", (event) => {
-      event.stopPropagation();
-    });
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || overlay.hidden) {
-      return;
-    }
-
-    event.preventDefault();
-    close();
-  });
-
-  shareButton.addEventListener("click", () => {
-    void runAction("onShare");
-  });
-  exportButton.addEventListener("click", () => {
-    void runAction("onExport");
-  });
-  publishButton.addEventListener("click", () => {
-    void runAction("onPublish");
-  });
-  deleteButton.addEventListener("click", () => {
-    void runAction("onDelete");
-  });
-
-  return {
-    close,
-    async open({
-      getPreviewAsset,
-      onShare,
-      onExport,
-      onPublish,
-      onDelete,
-      canShare = true,
-      canExport = true,
-      canPublish = true,
-      canDelete = true,
-    }) {
-      activeRequestId += 1;
-      const requestId = activeRequestId;
-
-      activeSession = {
-        onShare,
-        onExport,
-        onPublish,
-        onDelete,
-        canShare,
-        canExport,
-        canPublish,
-        canDelete,
-      };
-
-      overlay.hidden = false;
-      overlay.setAttribute("aria-hidden", "false");
-      image.hidden = true;
-      image.removeAttribute("src");
-      status.textContent = canExport ? "Chargement..." : "Aperçu indisponible";
-      setBusy(false);
-
-      if (!canExport || typeof getPreviewAsset !== "function") {
-        return;
-      }
-
-      try {
-        const asset = await getPreviewAsset();
-        if (requestId !== activeRequestId || !activeSession) {
-          return;
-        }
-
-        image.src = asset.objectUrl;
-        image.hidden = false;
-        status.textContent = "";
-      } catch (error) {
-        if (requestId !== activeRequestId || !activeSession) {
-          return;
-        }
-
-        status.textContent = "Aperçu indisponible";
-        console.error("Failed to load palette viewer preview:", error);
-      }
-    },
-  };
 }
 
-function getPaletteViewerOverlayController() {
-  viewerOverlayController ??= createPaletteViewerOverlayController();
-  return viewerOverlayController;
+async function runAction(actionName) {
+  if (isBusy || !activeSession) {
+    return;
+  }
+
+  const action = activeSession[actionName];
+  if (typeof action !== 'function') {
+    return;
+  }
+
+  setBusy(true);
+  try {
+    await action();
+  } finally {
+    if (activeSession) {
+      setBusy(false);
+    }
+  }
+}
+
+function handleViewerPanelClosing() {
+  activeRequestId += 1;
+  activeSession = undefined;
+  setBusy(false);
+}
+
+function handleViewerPanelClosed() {
+  resetViewerFrame();
+}
+
+function bindViewerPanelEvents() {
+  if (hasBoundViewerPanelEvents) {
+    return;
+  }
+
+  hasBoundViewerPanelEvents = true;
+  hydrateViewerActionButton(shareButton, {
+    label: 'Partager la palette',
+    iconName: 'share',
+    visibleLabel: 'partager',
+  });
+  hydrateViewerActionButton(exportButton, {
+    label: 'Exporter la palette',
+    iconName: 'export',
+    visibleLabel: 'télécharger',
+  });
+  hydrateViewerActionButton(publishButton, {
+    label: 'Publier la palette',
+    iconName: 'publish',
+    visibleLabel: 'publier',
+  });
+  hydrateViewerActionButton(deleteButton, {
+    label: 'Supprimer la palette',
+    iconName: 'delete',
+    visibleLabel: 'supprimer',
+  });
+  shareButton?.addEventListener('click', () => {
+    void runAction('onShare');
+  });
+  exportButton?.addEventListener('click', () => {
+    void runAction('onExport');
+  });
+  publishButton?.addEventListener('click', () => {
+    void runAction('onPublish');
+  });
+  deleteButton?.addEventListener('click', () => {
+    void runAction('onDelete');
+  });
+  subscribeSharedPanelClosing('catch-details', handleViewerPanelClosing);
+  subscribeSharedPanelClosed('catch-details', handleViewerPanelClosed);
 }
 
 /** @param {PaletteViewerOpenOptions} options */
-export function openPaletteViewerOverlay(options) {
-  return getPaletteViewerOverlayController().open(options);
+export async function openPaletteViewerOverlay({
+  getPreviewAsset,
+  onShare,
+  onExport,
+  onPublish,
+  onDelete,
+  canShare = true,
+  canExport = true,
+  canPublish = true,
+  canDelete = true,
+}) {
+  bindViewerPanelEvents();
+  activeRequestId += 1;
+  const requestId = activeRequestId;
+
+  activeSession = {
+    onShare,
+    onExport,
+    onPublish,
+    onDelete,
+    canShare,
+    canExport,
+    canPublish,
+    canDelete,
+  };
+
+  resetViewerFrame();
+  if (viewerStatus) {
+    viewerStatus.textContent = canExport ? 'Chargement...' : 'Aperçu indisponible';
+  }
+  setBusy(false);
+  openSharedPanel('catch-details', { closeOtherPanels: false });
+
+  if (!canExport || typeof getPreviewAsset !== 'function') {
+    return;
+  }
+
+  try {
+    const asset = await getPreviewAsset();
+    if (requestId !== activeRequestId || !activeSession) {
+      return;
+    }
+
+    if (viewerImage) {
+      viewerImage.src = asset.objectUrl;
+      viewerImage.hidden = false;
+    }
+    if (viewerStatus) {
+      viewerStatus.textContent = '';
+    }
+  } catch (error) {
+    if (requestId !== activeRequestId || !activeSession) {
+      return;
+    }
+
+    if (viewerStatus) {
+      viewerStatus.textContent = 'Aperçu indisponible';
+    }
+    console.error('Failed to load palette viewer preview:', error);
+  }
 }
 
 export function closePaletteViewerOverlay() {
-  viewerOverlayController?.close();
+  closeSharedPanel('catch-details');
 }
 
 export function subscribePaletteViewerOverlayClose(listener) {
-  if (typeof listener !== "function") {
-    return () => {};
-  }
-
-  viewerOverlayCloseListeners.add(listener);
-
-  return () => {
-    viewerOverlayCloseListeners.delete(listener);
-  };
+  return subscribeSharedPanelClosing('catch-details', listener);
 }

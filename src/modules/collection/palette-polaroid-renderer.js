@@ -1,6 +1,6 @@
 import { toRgbCss } from "../color-format.js";
 
-const EXPORT_BRAND_LABEL_FALLBACK = "Colors Catchers";
+const EXPORT_BRAND_LABEL_FALLBACK = "colorcatchers.co";
 const POLAROID_CARD_ASPECT_RATIO = 1.22;
 const DEFAULT_POLAROID_PHOTO_ASPECT_RATIO = 4 / 3;
 const POLAROID_RENDER_MAX_WIDTH = 1600;
@@ -15,7 +15,7 @@ const POLAROID_FOOTER_TEXT_LIGHT = "rgba(34, 34, 34, 0.9)";
 const POLAROID_FOOTER_TEXT_DARK = "rgba(255, 255, 255, 0.94)";
 
 function getBrandLabel() {
-  return document.querySelector(".colorscatcher")?.textContent?.trim()
+  return document.querySelector(".ColorCatchers")?.textContent?.trim()
     || EXPORT_BRAND_LABEL_FALLBACK;
 }
 
@@ -233,12 +233,13 @@ function drawBrandCaption({
   context.textBaseline = "middle";
 
   for (; fontSize >= 16; fontSize -= 1) {
-    context.font = `italic 700 ${fontSize}px Air, Arial, sans-serif`;
+    context.font = `400 ${fontSize}px Museum, Arial, sans-serif`;
     if (context.measureText(safeLabel).width <= width * 0.92) {
       break;
     }
   }
 
+  context.letterSpacing = "-1px";
   context.fillStyle = darkFooter
     ? POLAROID_FOOTER_TEXT_DARK
     : POLAROID_FOOTER_TEXT_LIGHT;
@@ -397,6 +398,7 @@ export async function renderPalettePolaroidBlob(
   }
 
   const image = await loadImageFromBlob(palette.photoBlob);
+  await document.fonts.load('400 16px Museum');
 
   renderPolaroidCanvas({
     canvas,

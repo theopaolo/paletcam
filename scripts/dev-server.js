@@ -147,6 +147,51 @@ async function serveFile(filePath) {
   return new Response(file, { headers });
 }
 
+function isSourceJavaScriptFile(filePath) {
+  return (
+    filePath.startsWith(sourceRoot) &&
+    extname(filePath).toLowerCase() === '.js'
+  );
+}
+
+async function bundleSourceModule(filePath) {
+  const file = Bun.file(filePath);
+
+  if (!(await file.exists())) {
+    return null;
+  }
+
+  const buildResult = await Bun.build({
+    entrypoints: [filePath],
+    target: 'browser',
+    format: 'esm',
+    splitting: false,
+    minify: false,
+    sourcemap: 'inline',
+    write: false,
+  });
+
+  if (!buildResult.success || buildResult.outputs.length === 0) {
+    const errorLogs = buildResult.logs
+      .map((log) => log.message)
+      .join('\n');
+
+    return new Response(
+      errorLogs || `Failed to bundle ${filePath}`,
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+
+  const bundledCode = await buildResult.outputs[0].text();
+
+  return new Response(bundledCode, {
+    headers: {
+      'Cache-Control': 'no-store',
+      'Content-Type': 'text/javascript; charset=utf-8',
+    },
+  });
+}
+
 async function handleRequest(request) {
   const url = new URL(request.url);
   const decodedPathname = decodeURIComponent(url.pathname);
@@ -158,6 +203,13 @@ async function handleRequest(request) {
   const candidatePaths = resolveRequestCandidates(decodedPathname);
 
   for (const candidatePath of candidatePaths) {
+    if (isSourceJavaScriptFile(candidatePath)) {
+      const bundledResponse = await bundleSourceModule(candidatePath);
+      if (bundledResponse) {
+        return bundledResponse;
+      }
+    }
+
     const response = await serveFile(candidatePath);
     if (response) {
       return response;

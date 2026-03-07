@@ -5,17 +5,12 @@ import {
   subscribeCommunitySession,
   verifyCommunityLoginOtp,
 } from './community-service.js';
-import { closePaletteViewerOverlay } from './modules/collection/palette-card.js';
 import { clientLog } from './modules/client-log.js';
 import { formatErrorDetails } from './modules/error-format.js';
+import { openSharedPanel } from './modules/panels/panel-manager.js';
 import { showToast } from './modules/toast-ui.js';
 
-const loginPanel = /** @type {HTMLElement | null} */ (document.querySelector('.login-panel'));
 const openLoginButton = document.querySelector('.btn-open-login');
-const closeLoginButton = document.querySelector('.btn-close-login');
-const LOGIN_PANEL_HIDE_DELAY_MS = 380;
-let loginPanelHideTimeoutId = 0;
-let hasBoundLoginPanelEvents = false;
 
 const communityAccountState = document.getElementById('communityAccountState');
 const communityEmailField = document.getElementById('communityEmailField');
@@ -239,100 +234,12 @@ function disconnectCommunityAccount() {
   syncCommunitySessionUi();
 }
 
-function clearLoginPanelHideTimeout() {
-  if (!loginPanelHideTimeoutId) {
-    return;
-  }
-
-  window.clearTimeout(loginPanelHideTimeoutId);
-  loginPanelHideTimeoutId = 0;
-}
-
-function finalizeLoginPanelHidden() {
-  if (!loginPanel || loginPanel.classList.contains('visible')) {
-    return;
-  }
-
-  loginPanel.hidden = true;
-}
-
-function scheduleLoginPanelHide() {
-  clearLoginPanelHideTimeout();
-  loginPanelHideTimeoutId = window.setTimeout(() => {
-    loginPanelHideTimeoutId = 0;
-    finalizeLoginPanelHidden();
-  }, LOGIN_PANEL_HIDE_DELAY_MS);
-}
-
 export function openLoginPanel() {
-  if (!loginPanel) {
-    return;
-  }
-
-  clearLoginPanelHideTimeout();
-  closePaletteViewerOverlay();
-  document.querySelector('.collection-panel')?.classList.remove('visible');
-  document.querySelector('.settings-panel')?.classList.remove('visible');
-  loginPanel.hidden = false;
-  loginPanel.setAttribute('aria-hidden', 'false');
-  void loginPanel.offsetWidth;
-  loginPanel.classList.add('visible');
-}
-
-function closeLoginPanel() {
-  if (!loginPanel) {
-    return;
-  }
-
-  loginPanel.classList.remove('visible');
-  loginPanel.setAttribute('aria-hidden', 'true');
-  loginPanel.scrollTop = 0;
-  scheduleLoginPanelHide();
+  openSharedPanel('login');
 }
 
 function bindLoginPanelEvents() {
-  if (!loginPanel || hasBoundLoginPanelEvents) {
-    return;
-  }
-  hasBoundLoginPanelEvents = true;
-
-  loginPanel.hidden = true;
-  loginPanel.setAttribute('aria-hidden', 'true');
-  loginPanel.classList.remove('visible');
-
   openLoginButton?.addEventListener('click', openLoginPanel);
-  closeLoginButton?.addEventListener('click', closeLoginPanel);
-
-  document.addEventListener('click', (event) => {
-    if (!(event.target instanceof Element)) {
-      return;
-    }
-
-    if (event.target.closest('.btn-open-login')) {
-      openLoginPanel();
-      return;
-    }
-
-    if (event.target.closest('.btn-close-login')) {
-      closeLoginPanel();
-    }
-  });
-
-  loginPanel.addEventListener('transitionend', (/** @type {TransitionEvent} */ event) => {
-    if (event.target !== loginPanel || event.propertyName !== 'right') {
-      return;
-    }
-
-    finalizeLoginPanelHidden();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !loginPanel.classList.contains('visible')) {
-      return;
-    }
-
-    closeLoginPanel();
-  });
 }
 
 function bindCommunityAuthControls() {

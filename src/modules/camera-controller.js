@@ -11,12 +11,16 @@ export function createCameraController({
   onCameraActiveChange,
   onZoomChange,
   onError,
+  onStreamInterrupted,
   initialFacingMode = 'environment',
   zoomStep = DEFAULT_ZOOM_STEP,
 }) {
   let facingMode = initialFacingMode;
   let videoTrack = null;
   let currentZoom = 1;
+  let activeStartPromise = null;
+  let streamRevision = 0;
+  const trackEventCleanups = [];
 
   function notifyZoomChange() {
     onZoomChange?.(currentZoom);
@@ -29,6 +33,51 @@ export function createCameraController({
   function reportError(message, error) {
     console.error(message, error);
     onError?.(error);
+  }
+
+  function clearTrackEventListeners() {
+    while (trackEventCleanups.length > 0) {
+      const cleanup = trackEventCleanups.pop();
+      cleanup?.();
+    }
+  }
+
+  function getCurrentStream() {
+    return cameraFeed?.srcObject instanceof MediaStream
+      ? /** @type {MediaStream} */ (cameraFeed.srcObject)
+      : null;
+  }
+
+  function notifyStreamInterrupted(type) {
+    onStreamInterrupted?.({
+      type,
+      trackReadyState: videoTrack?.readyState ?? 'ended',
+    });
+  }
+
+  function bindVideoTrack(nextVideoTrack) {
+    clearTrackEventListeners();
+    videoTrack = nextVideoTrack;
+
+    if (!nextVideoTrack) {
+      return;
+    }
+
+    const handleTrackInterrupted = (event) => {
+      if (videoTrack !== nextVideoTrack) {
+        return;
+      }
+
+      notifyStreamInterrupted(event.type);
+    };
+
+    nextVideoTrack.addEventListener('ended', handleTrackInterrupted);
+    nextVideoTrack.addEventListener('mute', handleTrackInterrupted);
+
+    trackEventCleanups.push(() => {
+      nextVideoTrack.removeEventListener('ended', handleTrackInterrupted);
+      nextVideoTrack.removeEventListener('mute', handleTrackInterrupted);
+    });
   }
 
   function enforceInlineVideoPlayback() {
@@ -76,7 +125,11 @@ export function createCameraController({
   }
 
   function stopStream() {
-    const stream = /** @type {MediaStream | null} */ (cameraFeed?.srcObject);
+    streamRevision += 1;
+    activeStartPromise = null;
+    clearTrackEventListeners();
+
+    const stream = getCurrentStream();
     if (!stream) {
       notifyCameraActiveChange(false);
       videoTrack = null;
@@ -86,6 +139,7 @@ export function createCameraController({
     stream.getTracks().forEach((track) => {
       track.stop();
     });
+    cameraFeed?.pause?.();
     cameraFeed.srcObject = null;
     videoTrack = null;
     notifyCameraActiveChange(false);
@@ -96,37 +150,71 @@ export function createCameraController({
       return false;
     }
 
+    if (activeStartPromise) {
+      return activeStartPromise;
+    }
+
     enforceInlineVideoPlayback();
     stopStream();
+    const startRevision = streamRevision;
+
+    const currentStartPromise = (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode,
+            width: { ideal: IDEAL_CAMERA_WIDTH },
+            height: { ideal: IDEAL_CAMERA_HEIGHT },
+          },
+          audio: false,
+        });
+
+        if (startRevision !== streamRevision) {
+          stream.getTracks().forEach((track) => {
+            track.stop();
+          });
+          return false;
+        }
+
+        cameraFeed.srcObject = stream;
+        await cameraFeed.play();
+
+        if (startRevision !== streamRevision) {
+          stream.getTracks().forEach((track) => {
+            track.stop();
+          });
+          if (cameraFeed.srcObject === stream) {
+            cameraFeed.srcObject = null;
+          }
+          return false;
+        }
+
+        bindVideoTrack(stream.getVideoTracks()[0] ?? null);
+
+        const minimumZoom = /** @type {any} */ (videoTrack?.getCapabilities?.())?.zoom?.min;
+        if (typeof minimumZoom === 'number') {
+          currentZoom = minimumZoom;
+        }
+
+        notifyZoomChange();
+        notifyCameraActiveChange(true);
+
+        return true;
+      } catch (error) {
+        notifyCameraActiveChange(false);
+        reportError('Unable to start camera stream:', error);
+        return false;
+      }
+    })();
+
+    activeStartPromise = currentStartPromise;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode,
-          width: { ideal: IDEAL_CAMERA_WIDTH },
-          height: { ideal: IDEAL_CAMERA_HEIGHT },
-        },
-        audio: false,
-      });
-
-      cameraFeed.srcObject = stream;
-      await cameraFeed.play();
-
-      videoTrack = stream.getVideoTracks()[0] ?? null;
-
-      const minimumZoom = /** @type {any} */ (videoTrack?.getCapabilities?.())?.zoom?.min;
-      if (typeof minimumZoom === 'number') {
-        currentZoom = minimumZoom;
+      return await currentStartPromise;
+    } finally {
+      if (activeStartPromise === currentStartPromise) {
+        activeStartPromise = null;
       }
-
-      notifyZoomChange();
-      notifyCameraActiveChange(true);
-
-      return true;
-    } catch (error) {
-      notifyCameraActiveChange(false);
-      reportError('Unable to start camera stream:', error);
-      return false;
     }
   }
 
@@ -159,6 +247,23 @@ export function createCameraController({
     };
   }
 
+  function getStreamState() {
+    const stream = getCurrentStream();
+    const currentVideoTrack = videoTrack ?? stream?.getVideoTracks()[0] ?? null;
+
+    return {
+      hasStream: Boolean(stream),
+      hasVideoTrack: Boolean(currentVideoTrack),
+      trackReadyState: currentVideoTrack?.readyState ?? 'ended',
+      videoReadyState: cameraFeed?.readyState ?? 0,
+      videoPaused: Boolean(cameraFeed?.paused),
+      videoEnded: Boolean(cameraFeed?.ended),
+      videoWidth: cameraFeed?.videoWidth ?? 0,
+      videoHeight: cameraFeed?.videoHeight ?? 0,
+      currentTime: cameraFeed?.currentTime ?? 0,
+    };
+  }
+
   function destroy() {
     stopStream();
   }
@@ -169,6 +274,7 @@ export function createCameraController({
     getCurrentZoom,
     getZoomCapabilities,
     getFacingMode,
+    getStreamState,
     startStream,
     stopStream,
     toggleFacingMode,

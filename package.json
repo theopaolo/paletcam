@@ -12,7 +12,8 @@
     "check": "biome check --write ."
   },
   "dependencies": {
-    "dexie": "^4.2.1"
+    "dexie": "^4.2.1",
+    "lit": "^3.3.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2"

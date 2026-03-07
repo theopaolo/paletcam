@@ -3,6 +3,7 @@ import {
   SAMPLE_DIAMETER,
   SAMPLE_ROW_COUNT,
 } from './palette-extract-grid.js';
+import './camera/sample-grid-overlay-element.js';
 
 /**
  * @param {object} [options]
@@ -20,19 +21,10 @@ export function createSampleGridOverlayController({
   sampleDiameter = SAMPLE_DIAMETER,
   sampleRowCount = SAMPLE_ROW_COUNT,
 } = {}) {
-  let overlayBuilt = false;
-  let currentSampleColCount = Math.max(1, Math.floor(sampleColCount) || SAMPLE_COL_COUNT);
-  let currentSampleDiameter = Math.max(1, Math.floor(sampleDiameter) || SAMPLE_DIAMETER);
-  let currentSampleRowCount = Math.max(1, Math.floor(sampleRowCount) || SAMPLE_ROW_COUNT);
-
-  function rebuildOverlay() {
-    if (!overlayElement) {
-      overlayBuilt = false;
-      return;
-    }
-
-    overlayElement.innerHTML = '';
-    overlayBuilt = false;
+  if (overlayElement) {
+    overlayElement.sampleColCount = sampleColCount;
+    overlayElement.sampleDiameter = sampleDiameter;
+    overlayElement.sampleRowCount = sampleRowCount;
   }
 
   function markChosenSquares(chosenIndices = []) {
@@ -40,24 +32,23 @@ export function createSampleGridOverlayController({
       return;
     }
 
-    const safeChosenIndices = Array.isArray(chosenIndices) ? chosenIndices : [];
-    const chosenSet = new Set(safeChosenIndices.map(String));
-
-    overlayElement.querySelectorAll('.sample-row-point').forEach((/** @type {HTMLElement} */ element) => {
-      element.classList.toggle('is-chosen', chosenSet.has(element.dataset.gridIndex));
-    });
+    overlayElement.chosenIndices = Array.isArray(chosenIndices) ? [...chosenIndices] : [];
   }
 
-  function setVisible(isVisible) {
+  function setVisible(nextVisibility) {
     if (!overlayElement) {
       return;
     }
 
-    overlayElement.style.display = isVisible ? '' : 'none';
+    const nextVisible = Boolean(nextVisibility);
+    overlayElement.visible = nextVisible;
 
-    if (!isVisible) {
+    if (!nextVisible) {
       markChosenSquares([]);
+      return;
     }
+
+    updatePointSizes();
   }
 
   function updatePointSizes() {
@@ -70,63 +61,33 @@ export function createSampleGridOverlayController({
       return;
     }
 
-    const displayWidth = overlayElement.offsetWidth;
-    const scale = displayWidth / videoWidth;
-    const size = Math.max(2, Math.round(currentSampleDiameter * scale));
-
-    overlayElement.style.setProperty('--sample-size', `${size}px`);
+    overlayElement.videoWidth = videoWidth;
+    overlayElement.updatePointSize?.();
   }
 
-  function configureGrid({
-    sampleColCount: nextSampleColCount = currentSampleColCount,
-    sampleDiameter: nextSampleDiameter = currentSampleDiameter,
-    sampleRowCount: nextSampleRowCount = currentSampleRowCount,
-  } = {}) {
-    const normalizedSampleColCount = Math.max(1, Math.floor(nextSampleColCount) || currentSampleColCount);
-    const normalizedSampleDiameter = Math.max(1, Math.floor(nextSampleDiameter) || currentSampleDiameter);
-    const normalizedSampleRowCount = Math.max(1, Math.floor(nextSampleRowCount) || currentSampleRowCount);
-
-    const hasChanged = (
-      normalizedSampleColCount !== currentSampleColCount ||
-      normalizedSampleDiameter !== currentSampleDiameter ||
-      normalizedSampleRowCount !== currentSampleRowCount
-    );
-
-    if (!hasChanged) {
+  function configureGrid(nextGrid = {}) {
+    if (!overlayElement) {
       return;
     }
 
-    currentSampleColCount = normalizedSampleColCount;
-    currentSampleDiameter = normalizedSampleDiameter;
-    currentSampleRowCount = normalizedSampleRowCount;
-    rebuildOverlay();
+    const safeGrid = nextGrid && typeof nextGrid === 'object' ? nextGrid : {};
+
+    if ('sampleColCount' in safeGrid) {
+      overlayElement.sampleColCount = safeGrid.sampleColCount;
+    }
+
+    if ('sampleDiameter' in safeGrid) {
+      overlayElement.sampleDiameter = safeGrid.sampleDiameter;
+    }
+
+    if ('sampleRowCount' in safeGrid) {
+      overlayElement.sampleRowCount = safeGrid.sampleRowCount;
+    }
+
+    updatePointSizes();
   }
 
   function ensureBuilt() {
-    if (!overlayElement || overlayBuilt) {
-      return;
-    }
-
-    overlayBuilt = true;
-
-    for (let row = 0; row < currentSampleRowCount; row += 1) {
-      const rowPercent = ((row + 1) / (currentSampleRowCount + 1)) * 100;
-
-      const line = document.createElement('div');
-      line.className = 'sample-row-line';
-      line.style.top = `${rowPercent}%`;
-      overlayElement.appendChild(line);
-
-      for (let col = 0; col < currentSampleColCount; col += 1) {
-        const square = document.createElement('div');
-        square.className = 'sample-row-point';
-        square.dataset.gridIndex = String((col * currentSampleRowCount) + row);
-        square.style.left = `${((col + 0.5) / currentSampleColCount) * 100}%`;
-        square.style.top = `${rowPercent}%`;
-        overlayElement.appendChild(square);
-      }
-    }
-
     updatePointSizes();
   }
 

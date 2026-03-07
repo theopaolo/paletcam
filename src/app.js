@@ -24,10 +24,14 @@ import { clientLog } from './modules/client-log.js';
 import { formatErrorDetails } from './modules/error-format.js';
 import { showToast } from './modules/toast-ui.js';
 import { savePalette } from './palette-storage.js';
+import './settings-ui.js';
 
 const PHOTO_EXPORT_MAX_WIDTH = 1440;
 const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
 const CAMERA_FRAME_ASPECT_RATIO_LABEL = '4:3';
+const CAMERA_RESUME_DELAY_MS = 240;
+const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
+const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
 
 function isIOSDevice() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -110,6 +114,9 @@ let previewFrameRequestId = 0;
 let unsubscribeFromAppSettings = () => {};
 const appEventCleanups = [];
 let isAppDestroyed = false;
+let shouldResumeCameraOnForeground = false;
+let cameraResumeTimeoutId = 0;
+let cameraResumeAttemptId = 0;
 
 cameraViewportFrame.className = 'camera-feed-frame';
 const captureMicroInteractions = createCaptureMicroInteractions({
@@ -194,6 +201,19 @@ function schedulePreviewRefresh() {
   });
 }
 
+function cancelScheduledCameraResume() {
+  if (!cameraResumeTimeoutId) {
+    return;
+  }
+
+  window.clearTimeout(cameraResumeTimeoutId);
+  cameraResumeTimeoutId = 0;
+}
+
+function invalidateCameraResumeChecks() {
+  cameraResumeAttemptId += 1;
+}
+
 function updateCachedPreviewDimensions() {
   const { width: nextPaletteWidth, height: nextPaletteHeight } = getPaletteViewportSize();
   if (nextPaletteWidth <= 0 || nextPaletteHeight <= 0) {
@@ -228,6 +248,12 @@ function updateCachedPreviewDimensions() {
 
   sampleGridOverlay.updatePointSizes();
   return true;
+}
+
+function waitForDelay(delayMs) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+  });
 }
 
 function getContainedSize(width, height, aspectRatio) {
@@ -466,12 +492,23 @@ const cameraController = createCameraController({
       zoomUi?.syncCapabilities();
     }
 
-    if (!isCameraActive) {
+    if (isCameraActive) {
+      shouldResumeCameraOnForeground = true;
+    } else {
       isStreaming = false;
     }
   },
   onZoomChange: (zoomValue) => {
     zoomUi?.handleZoomChange(zoomValue);
+  },
+  onStreamInterrupted: ({ type }) => {
+    shouldResumeCameraOnForeground = true;
+
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+
+    scheduleCameraResume(`track-${type}`, 0);
   },
 });
 
@@ -513,13 +550,210 @@ async function handleRotateButtonClick() {
     return;
   }
 
-  stopCurrentStream();
+  stopCurrentStream({ preserveResumeIntent: true });
   await cameraController.toggleFacingMode();
 }
 
 function handleWindowResize() {
   syncCameraViewportLayout();
   updateCachedPreviewDimensions();
+}
+
+function pauseCameraPreview() {
+  isStreaming = false;
+  cancelPreviewRefresh();
+  cameraFeed?.pause?.();
+  visualEffects.setCaptureGlowActive(false);
+  captureMicroInteractions.cleanup();
+}
+
+function shouldHandleCameraLifecycle() {
+  return !isAppDestroyed && !_testImageMode && Boolean(cameraFeed);
+}
+
+function getShouldKeepCameraWarmInBackground() {
+  return !isIOS;
+}
+
+async function resumePreviewFromActiveStream() {
+  if (!cameraFeed) {
+    return false;
+  }
+
+  try {
+    await cameraFeed.play();
+  } catch {
+    return false;
+  }
+
+  syncCameraViewportLayout();
+  if (!updateCachedPreviewDimensions()) {
+    return false;
+  }
+
+  zoomUi?.syncCapabilities();
+  if (!isStreaming) {
+    isStreaming = true;
+    schedulePreviewRefresh();
+  }
+
+  return true;
+}
+
+async function isCameraStreamHealthy(resumeAttemptId) {
+  if (!cameraFeed) {
+    return false;
+  }
+
+  const initialState = cameraController.getStreamState();
+  if (
+    !initialState.hasStream
+    || !initialState.hasVideoTrack
+    || initialState.trackReadyState !== 'live'
+    || initialState.videoReadyState < HTMLMediaElement.HAVE_CURRENT_DATA
+  ) {
+    return false;
+  }
+
+  try {
+    await cameraFeed.play();
+  } catch {
+    return false;
+  }
+
+  const initialTime = cameraFeed.currentTime;
+  await waitForDelay(CAMERA_HEALTH_CHECK_DELAY_MS);
+
+  if (
+    resumeAttemptId !== cameraResumeAttemptId
+    || !shouldHandleCameraLifecycle()
+    || document.visibilityState !== 'visible'
+  ) {
+    return false;
+  }
+
+  const nextState = cameraController.getStreamState();
+  if (
+    !nextState.hasStream
+    || !nextState.hasVideoTrack
+    || nextState.trackReadyState !== 'live'
+    || nextState.videoWidth <= 0
+    || nextState.videoHeight <= 0
+  ) {
+    return false;
+  }
+
+  return cameraFeed.currentTime > initialTime + CAMERA_MIN_TIME_ADVANCE_SECONDS;
+}
+
+async function resumeCameraIfNeeded(reason) {
+  if (
+    !shouldHandleCameraLifecycle()
+    || !shouldResumeCameraOnForeground
+    || document.visibilityState !== 'visible'
+  ) {
+    return;
+  }
+
+  const resumeAttemptId = ++cameraResumeAttemptId;
+  const streamState = cameraController.getStreamState();
+
+  if (
+    !streamState.hasStream
+    || !streamState.hasVideoTrack
+    || streamState.trackReadyState !== 'live'
+    || !getShouldKeepCameraWarmInBackground()
+  ) {
+    await startCameraStream();
+    return;
+  }
+
+  const isHealthy = await isCameraStreamHealthy(resumeAttemptId);
+  if (
+    resumeAttemptId !== cameraResumeAttemptId
+    || !shouldHandleCameraLifecycle()
+    || !shouldResumeCameraOnForeground
+    || document.visibilityState !== 'visible'
+  ) {
+    return;
+  }
+
+  if (isHealthy) {
+    const resumed = await resumePreviewFromActiveStream();
+    if (resumed) {
+      return;
+    }
+  }
+
+  clientLog('Restarting camera after app resume.', {
+    reason,
+    isIOS,
+  });
+  await startCameraStream();
+}
+
+function scheduleCameraResume(reason, delayMs = CAMERA_RESUME_DELAY_MS) {
+  if (
+    !shouldHandleCameraLifecycle()
+    || !shouldResumeCameraOnForeground
+    || document.visibilityState !== 'visible'
+  ) {
+    return;
+  }
+
+  cancelScheduledCameraResume();
+  cameraResumeTimeoutId = window.setTimeout(() => {
+    cameraResumeTimeoutId = 0;
+    void resumeCameraIfNeeded(reason);
+  }, delayMs);
+}
+
+function handleAppHidden() {
+  if (!shouldHandleCameraLifecycle()) {
+    return;
+  }
+
+  const streamState = cameraController.getStreamState();
+  // Preserve an earlier resume intent so repeated background events do not
+  // clear it after the stream has already been paused/stopped once.
+  shouldResumeCameraOnForeground = (
+    shouldResumeCameraOnForeground
+    || isStreaming
+    || streamState.hasStream
+    || streamState.trackReadyState === 'live'
+  );
+  invalidateCameraResumeChecks();
+  cancelScheduledCameraResume();
+  pauseCameraPreview();
+
+  if (!getShouldKeepCameraWarmInBackground()) {
+    cameraController.stopStream();
+  }
+}
+
+function handleDocumentVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    handleAppHidden();
+    return;
+  }
+
+  scheduleCameraResume('visibilitychange');
+}
+
+function handleWindowPageHide() {
+  handleAppHidden();
+}
+
+function handleWindowPageShow() {
+  scheduleCameraResume('pageshow');
+}
+
+function handleWindowFocus() {
+  if (document.visibilityState !== 'visible') {
+    return;
+  }
+
+  scheduleCameraResume('focus');
 }
 
 function handleWindowBeforeUnload() {
@@ -550,7 +784,11 @@ function initializeApp() {
   bindRotationEvents();
   swatchSliderUi.bindEvents();
   bindManagedEventListener(window, 'beforeunload', handleWindowBeforeUnload);
+  bindManagedEventListener(window, 'focus', handleWindowFocus);
+  bindManagedEventListener(window, 'pagehide', handleWindowPageHide);
+  bindManagedEventListener(window, 'pageshow', handleWindowPageShow);
   bindManagedEventListener(window, 'resize', handleWindowResize);
+  bindManagedEventListener(document, 'visibilitychange', handleDocumentVisibilityChange);
   unsubscribeFromAppSettings = subscribeAppSettings(applyAppSettings);
   syncCameraFeedOrientation();
 
@@ -600,24 +838,29 @@ function bindRotationEvents() {
 
 async function startCameraStream() {
   if (_testImageMode) {
-    return;
+    return false;
   }
 
+  cancelScheduledCameraResume();
+  invalidateCameraResumeChecks();
   isStreaming = false;
   cancelPreviewRefresh();
   const started = await cameraController.startStream();
 
   // loadTestImage may have activated test mode while we were awaiting the stream
   if (_testImageMode) {
-    stopCurrentStream();
-    return;
+    stopCurrentStream({ preserveResumeIntent: false });
+    return false;
   }
 
   if (started) {
     syncCameraViewportLayout();
     updateCachedPreviewDimensions();
     zoomUi.syncCapabilities();
+    shouldResumeCameraOnForeground = true;
   }
+
+  return started;
 }
 
 function handleCameraCanPlay() {
@@ -905,12 +1148,11 @@ function exportPhotoData({
   return photoCanvas.toDataURL('image/jpeg', photoExportQuality);
 }
 
-function stopCurrentStream() {
-  isStreaming = false;
-  cancelPreviewRefresh();
-  visualEffects.setCaptureGlowActive(false);
-  captureMicroInteractions.cleanup();
-
+function stopCurrentStream({ preserveResumeIntent = shouldResumeCameraOnForeground } = {}) {
+  shouldResumeCameraOnForeground = preserveResumeIntent;
+  invalidateCameraResumeChecks();
+  cancelScheduledCameraResume();
+  pauseCameraPreview();
   cameraController.stopStream();
 }
 
@@ -920,7 +1162,7 @@ function destroyApp() {
   }
 
   isAppDestroyed = true;
-  stopCurrentStream();
+  stopCurrentStream({ preserveResumeIntent: false });
   swatchSliderUi.destroy?.();
   zoomUi?.destroy?.();
   cameraController.destroy?.();
@@ -939,7 +1181,7 @@ function _loadTestImage(src) {
 
   // Prevent the camera from starting (or restarting) while testing with a static image
   _testImageMode = true;
-  stopCurrentStream();
+  stopCurrentStream({ preserveResumeIntent: false });
   cameraFeed?.removeEventListener('canplay', handleCameraCanPlay);
 
   const img = new Image();

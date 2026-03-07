@@ -1,70 +1,88 @@
+const isLocalDevelopment = (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname === '0.0.0.0'
+);
+
 // Register Service Worker
 if ('serviceWorker' in navigator) {
-  const SERVICE_WORKER_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-  let refreshing = false;
+  if (isLocalDevelopment) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.getRegistrations()
+        .then((registrations) => Promise.all(
+          registrations.map((registration) => registration.unregister())
+        ))
+        .catch((error) => {
+          console.warn('Service Worker cleanup failed in local dev:', error);
+        });
+    });
+  } else {
+    const SERVICE_WORKER_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
+    let refreshing = false;
 
-  function bindServiceWorkerUpdateChecks(registration) {
-    let isUpdating = false;
+    function bindServiceWorkerUpdateChecks(registration) {
+      let isUpdating = false;
 
-    const triggerUpdate = () => {
-      if (!registration || isUpdating) {
+      const triggerUpdate = () => {
+        if (!registration || isUpdating) {
+          return;
+        }
+
+        isUpdating = true;
+        registration.update()
+          .catch((error) => {
+            console.warn('Service Worker update check failed:', error);
+          })
+          .finally(() => {
+            isUpdating = false;
+          });
+      };
+
+      const intervalId = globalThis.setInterval(
+        triggerUpdate,
+        SERVICE_WORKER_UPDATE_INTERVAL_MS
+      );
+
+      window.addEventListener('focus', triggerUpdate);
+      window.addEventListener('pageshow', triggerUpdate);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          triggerUpdate();
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        globalThis.clearInterval(intervalId);
+      }, { once: true });
+
+      triggerUpdate();
+    }
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) {
         return;
       }
 
-      isUpdating = true;
-      registration.update()
-        .catch((error) => {
-          console.warn('Service Worker update check failed:', error);
-        })
-        .finally(() => {
-          isUpdating = false;
-        });
-    };
-
-    const intervalId = globalThis.setInterval(
-      triggerUpdate,
-      SERVICE_WORKER_UPDATE_INTERVAL_MS
-    );
-
-    window.addEventListener('focus', triggerUpdate);
-    window.addEventListener('pageshow', triggerUpdate);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        triggerUpdate();
-      }
+      refreshing = true;
+      window.location.reload();
     });
 
-    window.addEventListener('beforeunload', () => {
-      globalThis.clearInterval(intervalId);
-    }, { once: true });
+    window.addEventListener('load', () => {
+      const serviceWorkerUrl = new URL('service-worker.js', window.location.href);
+      const serviceWorkerScope = new URL('.', window.location.href).pathname;
 
-    triggerUpdate();
-  }
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) {
-      return;
-    }
-
-    refreshing = true;
-    window.location.reload();
-  });
-
-  window.addEventListener('load', () => {
-    const serviceWorkerUrl = new URL('service-worker.js', window.location.href);
-    const serviceWorkerScope = new URL('.', window.location.href).pathname;
-
-    navigator.serviceWorker.register(serviceWorkerUrl.pathname, {
-      scope: serviceWorkerScope,
-      updateViaCache: 'none',
-    })
-      .then((registration) => {
-        bindServiceWorkerUpdateChecks(registration);
+      navigator.serviceWorker.register(serviceWorkerUrl.pathname, {
+        scope: serviceWorkerScope,
+        updateViaCache: 'none',
       })
-      .catch((error) => {
-        console.error('Service Worker registration failed:', error);
-      });
-  });
+        .then((registration) => {
+          bindServiceWorkerUpdateChecks(registration);
+        })
+        .catch((error) => {
+          console.error('Service Worker registration failed:', error);
+        });
+    });
+  }
 }
 
 // PWA Install Prompt

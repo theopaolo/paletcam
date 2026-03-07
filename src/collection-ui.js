@@ -14,13 +14,17 @@ import { createCollectionCardLifecycle } from "./modules/collection/card-lifecyc
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { clientLog } from "./modules/client-log.js";
 import { formatErrorDetails } from "./modules/error-format.js";
+import {
+  closeSharedPanel,
+  openSharedPanel,
+  subscribeSharedPanelClosing,
+} from "./modules/panels/panel-manager.js";
 import { showToast } from "./modules/toast-ui.js";
 import { openLoginPanel } from "./login-ui.js";
 
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
-const closeCollectionButton = document.querySelector(".btn-close-collection");
 const EMPTY_MESSAGE_TEXT = "Aucune palette enregistree pour le moment";
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
@@ -253,20 +257,7 @@ export async function openCollectionPanel({
   }
 
   shouldCloseCollectionOnViewerClose = false;
-  closePaletteViewerOverlay();
-  const settingsPanel = /** @type {HTMLElement | null} */ (document.querySelector(".settings-panel"));
-  settingsPanel?.classList.remove("visible");
-  settingsPanel?.setAttribute("aria-hidden", "true");
-  if (settingsPanel) {
-    settingsPanel.hidden = true;
-  }
-  const loginPanelEl = /** @type {HTMLElement | null} */ (document.querySelector(".login-panel"));
-  loginPanelEl?.classList.remove("visible");
-  loginPanelEl?.setAttribute("aria-hidden", "true");
-  if (loginPanelEl) {
-    loginPanelEl.hidden = true;
-  }
-  collectionPanel.classList.add("visible");
+  openSharedPanel("collection");
   await loadCollectionUi();
   void syncModerationStatuses();
 
@@ -300,8 +291,7 @@ export async function openCollectionPanel({
 
 function bindCollectionUiEvents() {
   if (
-    !collectionPanel || !collectionGrid || !viewCollectionButton ||
-    !closeCollectionButton
+    !collectionPanel || !collectionGrid || !viewCollectionButton
   ) {
     return;
   }
@@ -316,17 +306,13 @@ function bindCollectionUiEvents() {
     }
 
     shouldCloseCollectionOnViewerClose = false;
-    clearModerationSyncLoop();
-    collectionPanel.classList.remove("visible");
-    collectionPanel.scrollTop = 0;
+    closeSharedPanel("collection");
   });
 
-  closeCollectionButton.addEventListener("click", () => {
+  subscribeSharedPanelClosing("collection", () => {
     shouldCloseCollectionOnViewerClose = false;
     clearModerationSyncLoop();
     closePaletteViewerOverlay();
-    collectionPanel.classList.remove("visible");
-    collectionPanel.scrollTop = 0;
   });
 }
 

@@ -11,7 +11,7 @@ img {
 }
 
 body {
-  font-family: "Air", Arial, sans-serif;
+  font-family: "Museum", Arial, sans-serif;
   background-color: var(--primary-color);
   max-width: 500px;
   width: 100%;
@@ -271,7 +271,6 @@ header {
   margin: 0;
   color: rgb(240 240 240 / 69%);
   font-size: 0.85rem;
-  letter-spacing: 0.05em;
   text-transform: uppercase;
   text-shadow: 0px 0px 0px #ffc90c6e;
   line-height: 1.2;

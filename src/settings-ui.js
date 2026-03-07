@@ -5,18 +5,12 @@ import {
   updateAppSettings,
 } from './app-settings.js';
 import { PALETTE_EXTRACTION_ALGORITHMS } from './modules/palette-extraction.js';
-import { closePaletteViewerOverlay } from './modules/collection/palette-card.js';
+import { openSharedPanel } from './modules/panels/panel-manager.js';
 import { showToast } from './modules/toast-ui.js';
 import { exportAllPalettes, importAllPalettes } from './palette-storage.js';
 
-const settingsPanel = /** @type {HTMLElement | null} */ (document.querySelector('.settings-panel'));
 const openSettingsButton = document.querySelector('.btn-open-settings');
-const closeSettingsButton = document.querySelector('.btn-close-settings');
-const SETTINGS_PANEL_HIDE_DELAY_MS = 380;
 const integerFormatter = new Intl.NumberFormat('en-US');
-let settingsPanelHideTimeoutId = 0;
-let settingsPanelOpenFrameId = 0;
-let hasBoundSettingsPanelEvents = false;
 const algorithmButtons = Array.from(
   document.querySelectorAll('[data-settings-algorithm]')
 );
@@ -270,115 +264,12 @@ function renderSettingsUi(settings) {
   syncAlgorithmPanels(activeAlgorithm);
 }
 
-function clearSettingsPanelHideTimeout() {
-  if (!settingsPanelHideTimeoutId) {
-    return;
-  }
-
-  window.clearTimeout(settingsPanelHideTimeoutId);
-  settingsPanelHideTimeoutId = 0;
-}
-
-function cancelPendingSettingsPanelOpen() {
-  if (!settingsPanelOpenFrameId) {
-    return;
-  }
-
-  window.cancelAnimationFrame(settingsPanelOpenFrameId);
-  settingsPanelOpenFrameId = 0;
-}
-
-function finalizeSettingsPanelHidden() {
-  if (!settingsPanel || settingsPanel.classList.contains('visible')) {
-    return;
-  }
-
-  settingsPanel.hidden = true;
-}
-
-function scheduleSettingsPanelHide() {
-  clearSettingsPanelHideTimeout();
-  settingsPanelHideTimeoutId = window.setTimeout(() => {
-    settingsPanelHideTimeoutId = 0;
-    finalizeSettingsPanelHidden();
-  }, SETTINGS_PANEL_HIDE_DELAY_MS);
-}
-
 function openSettingsPanel() {
-  if (!settingsPanel) {
-    return;
-  }
-
-  clearSettingsPanelHideTimeout();
-  cancelPendingSettingsPanelOpen();
-  closePaletteViewerOverlay();
-  document.querySelector('.collection-panel')?.classList.remove('visible');
-  document.querySelector('.login-panel')?.classList.remove('visible');
-  settingsPanel.hidden = false;
-  settingsPanel.setAttribute('aria-hidden', 'false');
-  // Force layout before toggling the visible class so the slide transition
-  // starts reliably on mobile/PWA shells without depending on rAF timing.
-  void settingsPanel.offsetWidth;
-  settingsPanel.classList.add('visible');
-}
-
-function closeSettingsPanel() {
-  if (!settingsPanel) {
-    return;
-  }
-
-  cancelPendingSettingsPanelOpen();
-  settingsPanel.classList.remove('visible');
-  settingsPanel.setAttribute('aria-hidden', 'true');
-  settingsPanel.scrollTop = 0;
-  scheduleSettingsPanelHide();
+  openSharedPanel('settings');
 }
 
 function bindSettingsPanelEvents() {
-  if (!settingsPanel || hasBoundSettingsPanelEvents) {
-    return;
-  }
-  hasBoundSettingsPanelEvents = true;
-
-  settingsPanel.hidden = true;
-  settingsPanel.setAttribute('aria-hidden', 'true');
-  settingsPanel.classList.remove('visible');
-
   openSettingsButton?.addEventListener('click', openSettingsPanel);
-  closeSettingsButton?.addEventListener('click', closeSettingsPanel);
-
-  // Delegated fallback keeps the panel working if buttons are re-rendered
-  // or if one of the direct selectors is temporarily unavailable at init.
-  document.addEventListener('click', (event) => {
-    if (!(event.target instanceof Element)) {
-      return;
-    }
-
-    if (event.target.closest('.btn-open-settings')) {
-      openSettingsPanel();
-      return;
-    }
-
-    if (event.target.closest('.btn-close-settings')) {
-      closeSettingsPanel();
-    }
-  });
-
-  settingsPanel.addEventListener('transitionend', (/** @type {TransitionEvent} */ event) => {
-    if (event.target !== settingsPanel || event.propertyName !== 'right') {
-      return;
-    }
-
-    finalizeSettingsPanelHidden();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !settingsPanel.classList.contains('visible')) {
-      return;
-    }
-
-    closeSettingsPanel();
-  });
 }
 
 function bindAlgorithmControls() {

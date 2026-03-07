@@ -122,8 +122,6 @@ await mkdir(outDir, { recursive: true });
 const buildResult = await Bun.build({
   entrypoints: [
     join(sourceRoot, "app.js"),
-    join(sourceRoot, "collection-ui.js"),
-    join(sourceRoot, "settings-ui.js"),
   ],
   outdir: outDir,
   target: "browser",
