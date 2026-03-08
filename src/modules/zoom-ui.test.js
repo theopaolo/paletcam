@@ -242,12 +242,14 @@ describe("createZoomUiController", () => {
     const zoomUi = createZoomUiController({
       cameraController,
       overlayHost,
+      scrubHideDelayMs: 5,
     });
     zoomUi.initialize();
     zoomUi.syncCapabilities();
     zoomUi.bindEvents();
 
     const chipRack = findByClass(overlayHost, "camera-zoom-chip-rack");
+    const dock = findByClass(overlayHost, "camera-zoom-dock");
     const readout = findByClass(overlayHost, "camera-zoom-readout");
     const scrubber = findByClass(overlayHost, "camera-zoom-scrubber");
     const chipLabels = chipRack.children.map((chip) => chip.textContent);
@@ -269,7 +271,8 @@ describe("createZoomUiController", () => {
       target: activeChip,
     });
 
-    expect(scrubber.hidden).toBe(false);
+    expect(dock.classList.contains("is-scrubbing")).toBe(true);
+    expect(scrubber.classList.contains("is-visible")).toBe(true);
     expect(readout.textContent).toBe("1.4x");
     expect(applyRequestCount).toBe(1);
 
@@ -286,5 +289,17 @@ describe("createZoomUiController", () => {
     });
 
     expect(applyRequestCount).toBe(2);
+
+    chipRack.dispatch("pointerup", {
+      clientX: 144,
+      pointerId: 1,
+      target: activeChip,
+    });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 12);
+    });
+
+    expect(dock.classList.contains("is-scrubbing")).toBe(false);
+    expect(scrubber.classList.contains("is-visible")).toBe(false);
   });
 });

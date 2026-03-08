@@ -1,9 +1,9 @@
 const DEFAULT_ZOOM_STEP = 0.1;
-const DEFAULT_SCRUB_HIDE_DELAY_MS = 1400;
+const DEFAULT_SCRUB_HIDE_DELAY_MS = 1100;
 const DRAG_THRESHOLD_PX = 12;
 const HAPTIC_DURATION_MS = 10;
 const SCRUB_RANGE_PX = 220;
-const MAX_VISIBLE_CHIPS = 4;
+const MAX_VISIBLE_CHIPS = 3;
 const CANONICAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5];
 
 function clampValue(value, minValue, maxValue) {
@@ -63,7 +63,6 @@ export function createZoomUiController({
 
   const scrubber = document.createElement("div");
   scrubber.className = "camera-zoom-scrubber";
-  scrubber.hidden = true;
 
   const readout = document.createElement("div");
   readout.className = "camera-zoom-readout";
@@ -133,10 +132,11 @@ export function createZoomUiController({
   }
 
   function setScrubberVisible(isVisible) {
-    scrubber.hidden = !isVisible;
-    scrubber.classList.toggle("is-visible", isVisible);
+    const shouldShowScrubber = isVisible && isEnabled;
+    overlayDock.classList.toggle("is-scrubbing", shouldShowScrubber);
+    scrubber.classList.toggle("is-visible", shouldShowScrubber);
 
-    if (isVisible) {
+    if (shouldShowScrubber) {
       clearScrubberHideTimer();
     }
   }
@@ -424,7 +424,7 @@ export function createZoomUiController({
       void applyZoomValue(targetZoom);
     }
 
-    if (scrubber.classList.contains("is-visible")) {
+    if (overlayDock.classList.contains("is-scrubbing")) {
       scheduleScrubberHide();
     }
   }
