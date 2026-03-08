@@ -2,10 +2,12 @@ const DEFAULT_EXPOSURE_STEP = 0.1;
 const DEFAULT_HIDE_DELAY_MS = 1800;
 const DRAG_THRESHOLD_PX = 8;
 const HAPTIC_DURATION_MS = 10;
-const OVERLAY_EDGE_OFFSET_PX = 14;
+const OVERLAY_HORIZONTAL_MARGIN_PX = 12;
+const OVERLAY_POINTER_OFFSET_PX = 20;
+const OVERLAY_PANEL_WIDTH_PX = 42;
 const OVERLAY_VERTICAL_MARGIN_PX = 28;
-const OVERLAY_RAIL_HEIGHT_PX = 154;
-const OVERLAY_RAIL_PADDING_PX = 14;
+const OVERLAY_RAIL_HEIGHT_PX = 146;
+const OVERLAY_RAIL_PADDING_PX = 12;
 
 function formatExposureValue(value) {
   if (!Number.isFinite(value)) {
@@ -77,9 +79,14 @@ export function createExposureUiController({
   resetButton.textContent = "0";
   resetButton.setAttribute("aria-label", "Réinitialiser l'exposition");
 
+  const passiveIndicator = document.createElement("div");
+  passiveIndicator.className = "camera-ev-indicator";
+  passiveIndicator.hidden = true;
+  passiveIndicator.textContent = "EV 0.0";
+
   rail.append(zeroLine, thumb);
   overlayPanel.append(valueBadge, rail, resetButton);
-  overlayLayer.append(interactionLayer, meterPoint, overlayPanel);
+  overlayLayer.append(interactionLayer, meterPoint, overlayPanel, passiveIndicator);
   overlayHost.appendChild(overlayLayer);
 
   let isBound = false;
@@ -139,11 +146,13 @@ export function createExposureUiController({
     hideTimeoutId = window.setTimeout(() => {
       hideTimeoutId = 0;
       overlayLayer.classList.remove("is-visible");
+      syncPassiveIndicator();
     }, hideDelayMs);
   }
 
   function setVisible(isVisible) {
     overlayLayer.classList.toggle("is-visible", isVisible && isEnabled);
+    syncPassiveIndicator();
 
     if (isVisible) {
       clearHideTimer();
@@ -175,6 +184,17 @@ export function createExposureUiController({
     resetButton.hidden = Math.abs(exposureValue) < getStepValue() / 2;
   }
 
+  function syncPassiveIndicator() {
+    const shouldShowIndicator =
+      isEnabled &&
+      Math.abs(currentExposure) >= getStepValue() / 2 &&
+      !overlayLayer.classList.contains("is-visible");
+
+    passiveIndicator.hidden = !shouldShowIndicator;
+    passiveIndicator.classList.toggle("is-visible", shouldShowIndicator);
+    passiveIndicator.textContent = `EV ${formatExposureValue(currentExposure)}`;
+  }
+
   function updateExposureDisplay(exposureValue, { isConfirmed = false } = {}) {
     currentExposure = clampToCapabilities(exposureValue);
     if (isConfirmed) {
@@ -184,6 +204,7 @@ export function createExposureUiController({
     valueBadge.textContent = formatExposureValue(currentExposure);
     updateThumbPosition(currentExposure);
     updateResetVisibility(currentExposure);
+    syncPassiveIndicator();
   }
 
   function positionOverlay(localX, localY) {
@@ -197,9 +218,19 @@ export function createExposureUiController({
       ),
     );
     const clampedX = clampValue(localX, 18, Math.max(18, bounds.width - 18));
-    const overlayLeft = Math.max(
-      OVERLAY_EDGE_OFFSET_PX,
-      bounds.width - 46 - OVERLAY_EDGE_OFFSET_PX,
+    const canPlaceRight =
+      clampedX + OVERLAY_POINTER_OFFSET_PX + OVERLAY_PANEL_WIDTH_PX <=
+      bounds.width - OVERLAY_HORIZONTAL_MARGIN_PX;
+    const desiredLeft = canPlaceRight
+      ? clampedX + OVERLAY_POINTER_OFFSET_PX
+      : clampedX - OVERLAY_POINTER_OFFSET_PX - OVERLAY_PANEL_WIDTH_PX;
+    const overlayLeft = clampValue(
+      desiredLeft,
+      OVERLAY_HORIZONTAL_MARGIN_PX,
+      Math.max(
+        OVERLAY_HORIZONTAL_MARGIN_PX,
+        bounds.width - OVERLAY_PANEL_WIDTH_PX - OVERLAY_HORIZONTAL_MARGIN_PX,
+      ),
     );
 
     meterPoint.style.left = `${clampedX}px`;
@@ -207,6 +238,7 @@ export function createExposureUiController({
     overlayPanel.style.top = `${clampedY}px`;
     overlayPanel.style.left = `${overlayLeft}px`;
     overlayPanel.style.right = "auto";
+    overlayPanel.style.setProperty("--ev-shift-x", canPlaceRight ? "8px" : "-8px");
   }
 
   function getLocalPointerPosition(event) {
@@ -390,6 +422,8 @@ export function createExposureUiController({
     resetActiveGesture();
     clearHideTimer();
     pendingExposure = null;
+    passiveIndicator.hidden = true;
+    passiveIndicator.classList.remove("is-visible");
   }
 
   function syncCapabilities() {

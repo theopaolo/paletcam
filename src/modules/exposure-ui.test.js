@@ -267,6 +267,16 @@ describe("createExposureUiController", () => {
 
     const hitArea = findByClass(overlayHost, "camera-exposure-hit-area");
     const valueBadge = findByClass(overlayHost, "camera-ev-value");
+    const passiveIndicator = findByClass(overlayHost, "camera-ev-indicator");
+
+    expect(passiveIndicator.hidden).toBe(true);
+
+    exposureUi.handleExposureChange(0.8);
+    expect(passiveIndicator.hidden).toBe(false);
+    expect(passiveIndicator.textContent).toBe("EV +0.8");
+
+    exposureUi.handleExposureChange(0);
+    expect(passiveIndicator.hidden).toBe(true);
 
     hitArea.dispatch("pointerdown", {
       button: 0,
@@ -280,7 +290,7 @@ describe("createExposureUiController", () => {
       pointerId: 1,
     });
 
-    expect(valueBadge.textContent).toBe("+1.0");
+    expect(valueBadge.textContent).toBe("+1.1");
     expect(applyRequestCount).toBe(1);
 
     resolveApply(false);
