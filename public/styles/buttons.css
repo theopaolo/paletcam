@@ -121,9 +121,8 @@
   background: linear-gradient(#181818, #141414 8%, #131313 20%, #0c0c0c 50%, #131313bd 80%, #161616);
 }
 
-.btn-containers .btn-view-collection svg,
-.btn-containers .btn-rotate svg {
-  fill: #525252;
+.btn-containers .btn-view-collection img,
+.btn-containers .btn-rotate img {
   transition: transform 0.2s ease;
 }
 
@@ -134,8 +133,8 @@
   background: linear-gradient(#111111 10%, #101010 20%, #0c0c0c 40%, #080808 50%, #0b0b0b);
 }
 
-.btn-containers .btn-view-collection:active svg,
-.btn-containers .btn-rotate:active svg {
+.btn-containers .btn-view-collection:active img,
+.btn-containers .btn-rotate:active img {
   scale: 0.9;
 }
 
@@ -144,8 +143,8 @@
   cursor: pointer;
 }
 
-.btn-containers .btn-rotate:hover svg,
-.btn-containers .btn-view-collection:hover svg {
+.btn-containers .btn-rotate:hover img,
+.btn-containers .btn-view-collection:hover img {
   transform: rotate(-16deg);
 }
 
@@ -172,9 +171,6 @@
     border-color 0.2s ease;
 }
 
-.btn-containers .btn-capture svg {
-  fill: var(--accent-color);
-}
 
 .btn-containers .btn-capture::after {
   content: "";
@@ -327,8 +323,7 @@ body.is-preview-expanded .camera-preview-dock {
   width: fit-content;
 }
 
-.btn-open-settings svg,
-.btn-open-login svg {
-  fill: var(--secondary-color);
+.btn-open-settings img,
+.btn-open-login img {
   transition: transform 0.2s ease;
 }

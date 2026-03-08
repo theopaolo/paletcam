@@ -9,11 +9,14 @@ html.hide-zoom-ui .zoom-btns {
 
 
 /* ── Skeuomorphic Swatch Slider ── */
-
+.camera-control-stack {
+  flex:1;
+}
 .swatch-slider {
   position: relative;
   width: 100%;
   display: flex;
+  flex:1;
   flex-direction: column;
   align-items: center;
   --swatch-inline-pad: 0.9rem;
