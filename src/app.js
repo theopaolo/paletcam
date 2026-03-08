@@ -39,10 +39,6 @@ function isIOSDevice() {
   );
 }
 
-function supportsCameraTrackZoomConstraint() {
-  return Boolean(/** @type {any} */ (navigator.mediaDevices?.getSupportedConstraints?.())?.zoom);
-}
-
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
 const captureButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-capture"));
 const allowButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-allow-media"));
@@ -64,18 +60,6 @@ const frameCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElement
 const paletteCanvas = /** @type {HTMLCanvasElement | null} */ (
   document.getElementById("canvas-palette")
 );
-const zoomWheel = /** @type {HTMLInputElement | null} */ (document.querySelector(".zoom-wheel"));
-const zoomWheelContainer = /** @type {HTMLElement | null} */ (
-  document.querySelector(".wheel-range")
-);
-const zoomPanel = /** @type {HTMLElement | null} */ (document.querySelector(".zoom-btns"));
-const zoomDisplay = /** @type {HTMLElement | null} */ (document.querySelector(".zoom-display"));
-const zoomMinDisplay = /** @type {HTMLElement | null} */ (
-  document.querySelector(".zoom-scale-min")
-);
-const zoomMaxDisplay = /** @type {HTMLElement | null} */ (
-  document.querySelector(".zoom-scale-max")
-);
 const rotateButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-rotate"));
 const swatchSlider = /** @type {HTMLInputElement | null} */ (
   document.querySelector('.swatch-slider input[type="range"]')
@@ -88,11 +72,6 @@ const cameraSourceMount = document.createElement("div");
 const isIOS = isIOSDevice();
 const shouldUseCanvasPreview = isIOS;
 const cameraPreviewSurface = shouldUseCanvasPreview ? frameCanvas : cameraFeed;
-const shouldHideZoomUi = isIOS || !supportsCameraTrackZoomConstraint();
-
-if (shouldHideZoomUi) {
-  document.documentElement.classList.add("hide-zoom-ui");
-}
 
 if (shouldUseCanvasPreview) {
   document.documentElement.classList.add("use-canvas-camera-preview");
@@ -605,12 +584,7 @@ const cameraController = createCameraController({
 
 zoomUi = createZoomUiController({
   cameraController,
-  zoomWheel,
-  zoomWheelContainer,
-  zoomPanel,
-  zoomDisplay,
-  zoomMinDisplay,
-  zoomMaxDisplay,
+  overlayHost: cameraViewportFrame,
 });
 
 exposureUi = createExposureUiController({
