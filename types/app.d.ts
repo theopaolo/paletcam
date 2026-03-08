@@ -215,10 +215,18 @@ interface ZoomCapabilities {
   step: number;
 }
 
+/** Exposure compensation capability range reported by the camera track. */
+interface ExposureCapabilities {
+  min: number;
+  max: number;
+  step: number;
+}
+
 /** Options accepted by createCameraController. */
 interface CameraControllerOptions {
   cameraFeed: HTMLVideoElement | null;
   onCameraActiveChange?: (isActive: boolean) => void;
+  onExposureChange?: (exposure: number) => void;
   onZoomChange?: (zoom: number) => void;
   onError?: (error: unknown) => void;
   initialFacingMode?: FacingMode;
@@ -227,13 +235,18 @@ interface CameraControllerOptions {
 
 /** The controller object returned by createCameraController. */
 interface CameraController {
+  applyExposureCompensation(exposureValue: number): Promise<void>;
   destroy(): void;
   applyZoom(zoomValue: number): Promise<void>;
+  getCurrentExposureCompensation(): number;
   getCurrentZoom(): number;
+  getExposureCapabilities(): ExposureCapabilities | null;
   getZoomCapabilities(): ZoomCapabilities | null;
   getFacingMode(): FacingMode;
   startStream(): Promise<boolean>;
+  setMeteringPoint(point: { x: number; y: number }): Promise<boolean>;
   stopStream(): void;
+  supportsMeteringPointSelection(): boolean;
   toggleFacingMode(): Promise<boolean>;
 }
 
@@ -245,6 +258,15 @@ interface ZoomUiController {
   bindEvents(): void;
   destroy(): void;
   handleZoomChange(zoomValue: number): void;
+  initialize(): void;
+  setDisabled(): void;
+  syncCapabilities(): void;
+}
+
+interface ExposureUiController {
+  bindEvents(): void;
+  destroy(): void;
+  handleExposureChange(exposureValue: number): void;
   initialize(): void;
   setDisabled(): void;
   syncCapabilities(): void;

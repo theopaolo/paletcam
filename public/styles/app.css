@@ -1,7 +1,7 @@
 :root {
   --primary-color: #222222;
   --dark-color: #2f2c1f;
-  --secondary-color: #F0F0F0;
+  --secondary-color: #f0f0f0;
   --accent-color: #ffc800;
   --app-height: 100vh;
 }
@@ -37,14 +37,21 @@ body {
 header {
   display: flex;
   justify-content: space-between;
-  padding: 0 .5rem;
+  padding: 0 0.5rem;
   border: 5px solid #242424;
   border-bottom: unset;
   background-color: #1b1b1b;
   background-image:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.25) 100%),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0) 45%,
+      rgba(0, 0, 0, 0.25) 100%
+    ),
     url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="1" seed="12"/><feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1.35 -0.45"/></filter><rect width="120" height="120" filter="url(%23n)" opacity="0.28"/></svg>');
-  background-size: 100% 100%, 140px 140px;
+  background-size:
+    100% 100%,
+    140px 140px;
   background-repeat: repeat;
   background-blend-mode: soft-light;
 }
@@ -114,7 +121,12 @@ header {
   pointer-events: none;
   opacity: 0;
   background:
-    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.22) 45%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(
+      circle at 50% 46%,
+      rgba(255, 255, 255, 0.82) 0%,
+      rgba(255, 255, 255, 0.22) 45%,
+      rgba(255, 255, 255, 0) 100%
+    ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.08));
   mix-blend-mode: screen;
 }
@@ -153,6 +165,178 @@ header {
   overflow: hidden;
 }
 
+.camera-exposure-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.camera-exposure-hit-area {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: default;
+}
+
+.camera-meter-point {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  margin-top: -24px;
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.32),
+    0 0 16px rgba(0, 0, 0, 0.38);
+  opacity: 0;
+  transform: scale(0.88);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.camera-meter-point::before,
+.camera-meter-point::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  transform: translate(-50%, -50%);
+}
+
+.camera-meter-point::before {
+  width: 16px;
+  height: 1.5px;
+}
+
+.camera-meter-point::after {
+  width: 1.5px;
+  height: 16px;
+}
+
+.camera-ev-overlay {
+  position: absolute;
+  right: 14px;
+  width: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) translateX(10px) scale(0.96);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.camera-exposure-layer.is-visible .camera-meter-point,
+.camera-exposure-layer.is-visible .camera-ev-overlay {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0) scale(1);
+}
+
+.camera-exposure-layer.is-visible .camera-meter-point {
+  transform: scale(1);
+}
+
+.camera-ev-value {
+  min-width: 3.7ch;
+  padding: 0.18rem 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(8, 8, 8, 0.72);
+  color: #f2f2f2;
+  font-family: monospace;
+  font-size: 0.76rem;
+  line-height: 1;
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 20px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.camera-ev-rail {
+  position: relative;
+  width: 30px;
+  height: 154px;
+  border-radius: 999px;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05)),
+    rgba(7, 7, 7, 0.74);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.46),
+    0 6px 18px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.camera-ev-rail::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0.46),
+    rgba(255, 255, 255, 0.18)
+  );
+  transform: translateX(-50%);
+}
+
+.camera-ev-zero-line {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 200, 0, 0.64);
+  box-shadow: 0 0 10px rgba(255, 200, 0, 0.34);
+  transform: translateY(-50%);
+}
+
+.camera-ev-thumb {
+  position: absolute;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(228, 228, 228, 0.82)),
+    rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transform: translate(-50%, -50%);
+}
+
+.camera-ev-reset {
+  padding: 0.12rem 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(8, 8, 8, 0.76);
+  color: rgba(255, 255, 255, 0.92);
+  font-family: monospace;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 14px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(10px);
+}
+
 .sample-row-line {
   position: absolute;
   left: 0;
@@ -170,7 +354,9 @@ header {
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.05);
   transform: translate(-50%, -50%);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .sample-row-point.is-chosen {
@@ -178,8 +364,8 @@ header {
   background: rgba(255, 200, 0, 0.18);
 }
 
-.camera-preview-dock{
-  display: none
+.camera-preview-dock {
+  display: none;
 }
 
 .camera-preview-dock .sample-row-line {
@@ -200,10 +386,15 @@ header {
   cursor: default;
   opacity: 1;
   border: 0px solid #0f0f0f;
-  box-shadow: inset 0px 2px 5px #5757578a, 0px 2px 4px #303030;
+  box-shadow:
+    inset 0px 2px 5px #5757578a,
+    0px 2px 4px #303030;
   border-radius: 16px;
   background-color: #0b0b0b;
-  transition: border-radius 0.2s ease, box-shadow 0.2s ease, border-width 0.2s ease;
+  transition:
+    border-radius 0.2s ease,
+    box-shadow 0.2s ease,
+    border-width 0.2s ease;
 }
 
 .capture-camera-stage .camera-feed,
@@ -242,10 +433,12 @@ header {
   overflow-x: hidden;
   display: flex;
   background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 4px rgba(0, 0, 0, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.62);
 }
 
-.output-img{
+.output-img {
   height: 100%;
   width: auto;
   flex: 1;
@@ -285,12 +478,14 @@ header {
   min-width: 4ch;
   color: #d3d3d3;
   font-family: monospace;
-  font-size: .9rem;
+  font-size: 0.9rem;
   text-shadow: 0 1px 0 #000;
 }
 
 .counter {
-  box-shadow: 0px 2px 0px #9d7b00, inset 0px 0px 19px #ffc800;
+  box-shadow:
+    0px 2px 0px #9d7b00,
+    inset 0px 0px 19px #ffc800;
   border: 1px solid #bb9300;
   border-radius: 2px;
   width: 2rem;
