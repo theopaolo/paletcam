@@ -10,15 +10,15 @@
   right: .5rem;
   color: var(--accent-color);
   font-family: monospace;
+}
 
-  button {
-    width: 2rem;
-    height: fit-content;
-  }
+.swatch-count-btns button {
+  width: 2rem;
+  height: fit-content;
+}
 
-  .swatch-count-display {
-    font-family: monospace;
-    display: inline-block;
-    text-align: center;
-  }
+.swatch-count-btns .swatch-count-display {
+  font-family: monospace;
+  display: inline-block;
+  text-align: center;
 }
