@@ -193,7 +193,7 @@ export function createCameraController({
 
   async function applyTrackControls() {
     if (!videoTrack?.getCapabilities || !videoTrack.applyConstraints) {
-      return;
+      return false;
     }
 
     const capabilities = /** @type {any} */ (videoTrack.getCapabilities());
@@ -229,7 +229,7 @@ export function createCameraController({
     if (Object.keys(nextConstraintSet).length === 0) {
       notifyZoomChange();
       notifyExposureChange();
-      return;
+      return true;
     }
 
     try {
@@ -237,40 +237,45 @@ export function createCameraController({
       syncTrackControlsFromSettings();
       notifyZoomChange();
       notifyExposureChange();
+      return true;
     } catch (error) {
       reportControlError("Error applying camera controls:", error);
+      syncTrackControlsFromSettings();
+      notifyZoomChange();
+      notifyExposureChange();
+      return false;
     }
   }
 
   async function applyZoom(zoomValue) {
     if (!videoTrack?.getCapabilities) {
-      return;
+      return false;
     }
 
     const zoomCapabilities = /** @type {any} */ (videoTrack.getCapabilities()).zoom;
     if (!zoomCapabilities) {
-      return;
+      return false;
     }
 
     currentZoom = clampZoom(zoomValue, zoomCapabilities);
 
-    await applyTrackControls();
+    return applyTrackControls();
   }
 
   async function applyExposureCompensation(exposureValue) {
     if (!videoTrack?.getCapabilities) {
-      return;
+      return false;
     }
 
     const exposureCapabilities = /** @type {any} */ (videoTrack.getCapabilities())
       .exposureCompensation;
     if (!exposureCapabilities) {
-      return;
+      return false;
     }
 
     currentExposureCompensation = clampExposureCompensation(exposureValue, exposureCapabilities);
 
-    await applyTrackControls();
+    return applyTrackControls();
   }
 
   async function setMeteringPoint(point) {
@@ -284,8 +289,7 @@ export function createCameraController({
     }
 
     currentMeteringPoint = clampNormalizedPoint(point);
-    await applyTrackControls();
-    return true;
+    return applyTrackControls();
   }
 
   function stopStream() {

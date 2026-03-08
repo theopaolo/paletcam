@@ -93,6 +93,7 @@ export function createExposureUiController({
   let hideTimeoutId = 0;
   let lastBoundaryKey = null;
   let lastAppliedExposure = null;
+  let pendingExposure = null;
 
   function getVisibleOverlayBounds() {
     const overlayBounds = overlayHost.getBoundingClientRect();
@@ -174,9 +175,12 @@ export function createExposureUiController({
     resetButton.hidden = Math.abs(exposureValue) < getStepValue() / 2;
   }
 
-  function updateExposureDisplay(exposureValue) {
+  function updateExposureDisplay(exposureValue, { isConfirmed = false } = {}) {
     currentExposure = clampToCapabilities(exposureValue);
-    lastAppliedExposure = currentExposure;
+    if (isConfirmed) {
+      lastAppliedExposure = currentExposure;
+      pendingExposure = null;
+    }
     valueBadge.textContent = formatExposureValue(currentExposure);
     updateThumbPosition(currentExposure);
     updateResetVisibility(currentExposure);
@@ -241,17 +245,33 @@ export function createExposureUiController({
     navigator.vibrate?.(HAPTIC_DURATION_MS);
   }
 
-  function applyExposureValue(exposureValue) {
+  async function applyExposureValue(exposureValue) {
     const nextExposure = quantizeExposure(exposureValue);
 
-    if (nextExposure === lastAppliedExposure) {
+    if (nextExposure === pendingExposure) {
       updateExposureDisplay(nextExposure);
+      return;
+    }
+
+    if (pendingExposure === null && nextExposure === lastAppliedExposure) {
+      updateExposureDisplay(nextExposure, { isConfirmed: true });
       return;
     }
 
     updateExposureDisplay(nextExposure);
     emitBoundaryHaptic(nextExposure);
-    void cameraController?.applyExposureCompensation?.(nextExposure);
+    pendingExposure = nextExposure;
+    let applySucceeded = false;
+
+    try {
+      applySucceeded = (await cameraController?.applyExposureCompensation?.(nextExposure)) === true;
+    } catch {
+      applySucceeded = false;
+    }
+
+    if (!applySucceeded && pendingExposure === nextExposure) {
+      updateExposureDisplay(lastAppliedExposure ?? 0, { isConfirmed: true });
+    }
   }
 
   async function updateMeteringPoint(event) {
@@ -300,7 +320,7 @@ export function createExposureUiController({
     const { min, max } = getExposureRange();
     const exposureRange = max - min;
     const nextExposure = dragStartExposure + (deltaY / OVERLAY_RAIL_HEIGHT_PX) * exposureRange;
-    applyExposureValue(nextExposure);
+    void applyExposureValue(nextExposure);
     event.preventDefault();
   }
 
@@ -330,7 +350,7 @@ export function createExposureUiController({
     event.stopPropagation();
     clearHideTimer();
     setVisible(true);
-    applyExposureValue(0);
+    void applyExposureValue(0);
     scheduleHide();
   }
 
@@ -369,6 +389,7 @@ export function createExposureUiController({
     overlayLayer.classList.remove("is-visible");
     resetActiveGesture();
     clearHideTimer();
+    pendingExposure = null;
   }
 
   function syncCapabilities() {
@@ -391,7 +412,9 @@ export function createExposureUiController({
     };
     isEnabled = true;
     interactionLayer.hidden = false;
-    updateExposureDisplay(cameraController?.getCurrentExposureCompensation?.() ?? 0);
+    updateExposureDisplay(cameraController?.getCurrentExposureCompensation?.() ?? 0, {
+      isConfirmed: true,
+    });
   }
 
   function handleExposureChange(exposureValue) {
@@ -399,13 +422,15 @@ export function createExposureUiController({
       return;
     }
 
-    updateExposureDisplay(exposureValue);
+    updateExposureDisplay(exposureValue, { isConfirmed: true });
   }
 
   function initialize() {
     interactionLayer.hidden = true;
     resetButton.hidden = true;
-    updateExposureDisplay(cameraController?.getCurrentExposureCompensation?.() ?? 0);
+    updateExposureDisplay(cameraController?.getCurrentExposureCompensation?.() ?? 0, {
+      isConfirmed: true,
+    });
   }
 
   return {

@@ -235,9 +235,9 @@ interface CameraControllerOptions {
 
 /** The controller object returned by createCameraController. */
 interface CameraController {
-  applyExposureCompensation(exposureValue: number): Promise<void>;
+  applyExposureCompensation(exposureValue: number): Promise<boolean>;
   destroy(): void;
-  applyZoom(zoomValue: number): Promise<void>;
+  applyZoom(zoomValue: number): Promise<boolean>;
   getCurrentExposureCompensation(): number;
   getCurrentZoom(): number;
   getExposureCapabilities(): ExposureCapabilities | null;
