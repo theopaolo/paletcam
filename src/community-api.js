@@ -56,6 +56,15 @@ export function normalizeCatchStatus(status) {
   return KNOWN_CATCH_STATUSES.has(normalized) ? /** @type {ModerationStatus} */ (normalized) : null;
 }
 
+function createTimeoutSignal(ms) {
+  if (typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms);
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new DOMException('TimeoutError', 'TimeoutError')), ms);
+  return controller.signal;
+}
+
 async function requestCommunityApi(
   path,
   {
@@ -77,7 +86,7 @@ async function requestCommunityApi(
   const requestInit = {
     method,
     headers,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: createTimeoutSignal(REQUEST_TIMEOUT_MS),
   };
 
   if (body !== undefined) {
