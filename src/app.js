@@ -32,6 +32,8 @@ const CAMERA_FRAME_ASPECT_RATIO_LABEL = '4:3';
 const CAMERA_RESUME_DELAY_MS = 240;
 const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
 const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
+const APP_VIEWPORT_HEIGHT_CSS_VAR = '--app-height';
+const APP_VIEWPORT_RESYNC_DELAYS_MS = [120, 360];
 
 function isIOSDevice() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -117,6 +119,9 @@ let isAppDestroyed = false;
 let shouldResumeCameraOnForeground = false;
 let cameraResumeTimeoutId = 0;
 let cameraResumeAttemptId = 0;
+let viewportHeightSyncFrameId = 0;
+const viewportHeightSyncTimeoutIds = [];
+let lastViewportHeight = 0;
 
 cameraViewportFrame.className = 'camera-feed-frame';
 const captureMicroInteractions = createCaptureMicroInteractions({
@@ -178,6 +183,72 @@ function clearManagedEventListeners() {
   while (appEventCleanups.length > 0) {
     const cleanup = appEventCleanups.pop();
     cleanup?.();
+  }
+}
+
+function clearScheduledViewportHeightSync() {
+  if (viewportHeightSyncFrameId) {
+    window.cancelAnimationFrame(viewportHeightSyncFrameId);
+    viewportHeightSyncFrameId = 0;
+  }
+
+  while (viewportHeightSyncTimeoutIds.length > 0) {
+    window.clearTimeout(viewportHeightSyncTimeoutIds.pop());
+  }
+}
+
+function getLiveViewportHeight() {
+  const viewportHeightCandidates = [
+    window.visualViewport?.height ?? 0,
+    window.innerHeight,
+    document.documentElement?.clientHeight ?? 0,
+  ].filter((value) => Number.isFinite(value) && value > 0);
+
+  if (viewportHeightCandidates.length === 0) {
+    return 0;
+  }
+
+  return Math.round(Math.min(...viewportHeightCandidates));
+}
+
+function applyViewportHeight() {
+  const nextViewportHeight = getLiveViewportHeight();
+  if (nextViewportHeight <= 0 || nextViewportHeight === lastViewportHeight) {
+    return;
+  }
+
+  document.documentElement.style.setProperty(
+    APP_VIEWPORT_HEIGHT_CSS_VAR,
+    `${nextViewportHeight}px`
+  );
+  lastViewportHeight = nextViewportHeight;
+}
+
+function syncViewportMetrics() {
+  applyViewportHeight();
+  syncCameraViewportLayout();
+  updateCachedPreviewDimensions();
+}
+
+function scheduleViewportMetricsSync() {
+  clearScheduledViewportHeightSync();
+
+  viewportHeightSyncFrameId = window.requestAnimationFrame(() => {
+    viewportHeightSyncFrameId = 0;
+    syncViewportMetrics();
+  });
+
+  for (const delayMs of APP_VIEWPORT_RESYNC_DELAYS_MS) {
+    const timeoutId = window.setTimeout(() => {
+      const timeoutIndex = viewportHeightSyncTimeoutIds.indexOf(timeoutId);
+      if (timeoutIndex >= 0) {
+        viewportHeightSyncTimeoutIds.splice(timeoutIndex, 1);
+      }
+
+      syncViewportMetrics();
+    }, delayMs);
+
+    viewportHeightSyncTimeoutIds.push(timeoutId);
   }
 }
 
@@ -555,8 +626,7 @@ async function handleRotateButtonClick() {
 }
 
 function handleWindowResize() {
-  syncCameraViewportLayout();
-  updateCachedPreviewDimensions();
+  scheduleViewportMetricsSync();
 }
 
 function pauseCameraPreview() {
@@ -737,6 +807,7 @@ function handleDocumentVisibilityChange() {
     return;
   }
 
+  scheduleViewportMetricsSync();
   scheduleCameraResume('visibilitychange');
 }
 
@@ -745,6 +816,7 @@ function handleWindowPageHide() {
 }
 
 function handleWindowPageShow() {
+  scheduleViewportMetricsSync();
   scheduleCameraResume('pageshow');
 }
 
@@ -753,6 +825,7 @@ function handleWindowFocus() {
     return;
   }
 
+  scheduleViewportMetricsSync();
   scheduleCameraResume('focus');
 }
 
@@ -775,6 +848,7 @@ function initializeApp() {
   }
 
   isAppDestroyed = false;
+  syncViewportMetrics();
   applyAppSettings(getAppSettings());
   setPreviewExpanded(true);
   bindCameraPermissionEvents();
@@ -788,6 +862,9 @@ function initializeApp() {
   bindManagedEventListener(window, 'pagehide', handleWindowPageHide);
   bindManagedEventListener(window, 'pageshow', handleWindowPageShow);
   bindManagedEventListener(window, 'resize', handleWindowResize);
+  bindManagedEventListener(window, 'orientationchange', handleWindowResize);
+  bindManagedEventListener(window.visualViewport, 'resize', handleWindowResize);
+  bindManagedEventListener(window.visualViewport, 'scroll', handleWindowResize);
   bindManagedEventListener(document, 'visibilitychange', handleDocumentVisibilityChange);
   unsubscribeFromAppSettings = subscribeAppSettings(applyAppSettings);
   syncCameraFeedOrientation();
@@ -1162,6 +1239,7 @@ function destroyApp() {
   }
 
   isAppDestroyed = true;
+  clearScheduledViewportHeightSync();
   stopCurrentStream({ preserveResumeIntent: false });
   swatchSliderUi.destroy?.();
   zoomUi?.destroy?.();

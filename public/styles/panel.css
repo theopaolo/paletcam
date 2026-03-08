@@ -773,7 +773,7 @@
 .catch-details-content {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  min-height: calc(100vh - 4rem);
+  min-height: calc(var(--app-height, 100vh) - 4rem);
   padding: 0.5rem;
   background: #1b1b1b;
 }

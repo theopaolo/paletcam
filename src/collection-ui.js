@@ -31,6 +31,28 @@ const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
 const SESSION_REVEAL_STAGGER_MS = 42;
 const MODERATION_SYNC_DELAY_MS = 12000;
+const PUBLICATION_ACTIONS = Object.freeze({
+  publish: Object.freeze({
+    run: publishPaletteToCommunityFeed,
+    authMessage: "Connecte ton email pour publier.",
+    successMessage: "Capture publiée. Modération en cours.",
+    alreadyDoneCode: "ALREADY_PUBLISHED",
+    alreadyDoneMessage: "Capture déjà publiée.",
+    failureMessage: "Publication échouée.",
+    shouldScheduleModerationSync: true,
+    shouldReloadOnAlreadyDone: false,
+  }),
+  unpublish: Object.freeze({
+    run: unpublishPaletteFromCommunityFeed,
+    authMessage: "Connecte ton email pour dépublier.",
+    successMessage: "Capture retirée de la grille publique.",
+    alreadyDoneCode: "NOT_PUBLIC",
+    alreadyDoneMessage: "Capture déjà retirée de la grille publique.",
+    failureMessage: "Dépublication échouée.",
+    shouldScheduleModerationSync: false,
+    shouldReloadOnAlreadyDone: true,
+  }),
+});
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
 let shouldCloseCollectionOnViewerClose = false;
@@ -162,17 +184,15 @@ function getPublicationErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
-function getPublicationAuthMessage(action) {
-  return action === "unpublish"
-    ? "Connecte ton email pour dépublier."
-    : "Connecte ton email pour publier.";
+function getPublicationActionConfig(action) {
+  return PUBLICATION_ACTIONS[action] ?? PUBLICATION_ACTIONS.publish;
 }
 
 async function handlePublishPalette(palette, action = "publish") {
-  const authMessage = getPublicationAuthMessage(action);
+  const actionConfig = getPublicationActionConfig(action);
 
   if (!getCurrentCommunitySession()?.token) {
-    showToast(authMessage, {
+    showToast(actionConfig.authMessage, {
       variant: "error",
       duration: 3500,
       actionLabel: "Connexion",
@@ -185,41 +205,31 @@ async function handlePublishPalette(palette, action = "publish") {
   }
 
   try {
-    if (action === "unpublish") {
-      await unpublishPaletteFromCommunityFeed(palette);
-      showToast("Capture retirée de la grille publique.", {
-        duration: 1800,
-      });
-    } else {
-      await publishPaletteToCommunityFeed(palette);
-      showToast("Capture publiée. Modération en cours.", {
-        duration: 1800,
-      });
-    }
+    await actionConfig.run(palette);
+    showToast(actionConfig.successMessage, {
+      duration: 1800,
+    });
 
     await loadCollectionUi();
 
-    if (action === "publish") {
+    if (actionConfig.shouldScheduleModerationSync) {
       scheduleModerationSync();
     }
   } catch (error) {
-    if (action === "publish" && error?.code === "ALREADY_PUBLISHED") {
-      showToast("Capture déjà publiée.", {
+    if (error?.code === actionConfig.alreadyDoneCode) {
+      showToast(actionConfig.alreadyDoneMessage, {
         duration: 1500,
       });
-      return;
-    }
 
-    if (action === "unpublish" && error?.code === "NOT_PUBLIC") {
-      showToast("Capture déjà retirée de la grille publique.", {
-        duration: 1500,
-      });
-      await loadCollectionUi();
+      if (actionConfig.shouldReloadOnAlreadyDone) {
+        await loadCollectionUi();
+      }
+
       return;
     }
 
     if (error?.code === "NOT_AUTHENTICATED" || error?.code === "AUTH_EXPIRED") {
-      showToast(authMessage, {
+      showToast(actionConfig.authMessage, {
         variant: "error",
         duration: 2000,
       });
@@ -235,7 +245,7 @@ async function handlePublishPalette(palette, action = "publish") {
     });
     showToast(getPublicationErrorMessage(
       error,
-      action === "unpublish" ? "Dépublication échouée." : "Publication échouée.",
+      actionConfig.failureMessage,
     ), {
       variant: "error",
       duration: 4000,
