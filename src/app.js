@@ -1,6 +1,10 @@
 import { getAppSettings, subscribeAppSettings } from "./app-settings.js";
 import { openCollectionPanel } from "./collection-ui.js";
 import { createCameraController } from "./modules/camera-controller.js";
+import {
+  DEFAULT_CAMERA_RESUME_DELAY_MS,
+  getCameraResumeDelay,
+} from "./modules/camera-resume-policy.js";
 import { drawFrameToCanvas, renderOutputSwatches, setCaptureState } from "./modules/camera-ui.js";
 import { clientLog } from "./modules/client-log.js";
 import { formatErrorDetails } from "./modules/error-format.js";
@@ -23,10 +27,9 @@ import { createZoomUiController } from "./modules/zoom-ui.js";
 import { savePalette } from "./palette-storage.js";
 import "./settings-ui.js";
 
-const PHOTO_EXPORT_MAX_WIDTH = 1440;
+const PHOTO_EXPORT_MAX_WIDTH = 3840;
 const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
 const CAMERA_FRAME_ASPECT_RATIO_LABEL = "4:3";
-const CAMERA_RESUME_DELAY_MS = 240;
 const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
 const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
 const APP_VIEWPORT_HEIGHT_CSS_VAR = "--app-height";
@@ -761,7 +764,7 @@ async function resumeCameraIfNeeded(reason) {
   await startCameraStream();
 }
 
-function scheduleCameraResume(reason, delayMs = CAMERA_RESUME_DELAY_MS) {
+function scheduleCameraResume(reason, delayMs = DEFAULT_CAMERA_RESUME_DELAY_MS) {
   if (
     !shouldHandleCameraLifecycle() ||
     !shouldResumeCameraOnForeground ||
@@ -771,10 +774,16 @@ function scheduleCameraResume(reason, delayMs = CAMERA_RESUME_DELAY_MS) {
   }
 
   cancelScheduledCameraResume();
+  const effectiveDelayMs = getCameraResumeDelay({
+    isIOS,
+    reason,
+    requestedDelayMs: delayMs,
+  });
+
   cameraResumeTimeoutId = window.setTimeout(() => {
     cameraResumeTimeoutId = 0;
     void resumeCameraIfNeeded(reason);
-  }, delayMs);
+  }, effectiveDelayMs);
 }
 
 function handleAppHidden() {

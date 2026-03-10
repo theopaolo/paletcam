@@ -20,7 +20,7 @@ const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
 
 const DEFAULT_SETTINGS = Object.freeze({
-  photoExportQuality: 0.88,
+  photoExportQuality: 0.95,
   paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
   grid: Object.freeze({
     sampleRowCount: SAMPLE_ROW_COUNT,
@@ -63,7 +63,7 @@ function clampPhotoExportQuality(value) {
     return DEFAULT_SETTINGS.photoExportQuality;
   }
 
-  return Math.max(0.6, Math.min(0.98, Number(numericValue.toFixed(2))));
+  return Math.max(0.6, Math.min(1.0, Number(numericValue.toFixed(2))));
 }
 
 function clampIntegerInRange(value, fallbackValue, { min, max }) {
