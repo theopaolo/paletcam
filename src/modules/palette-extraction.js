@@ -8,7 +8,7 @@ import {
   SAMPLE_ROW_COUNT,
 } from "./palette-extract-grid.js";
 
-const COLOR_DISTANCE_THRESHOLD = 35;
+const COLOR_DISTANCE_THRESHOLD = 24;
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
 
 // Reorder `incoming` so each slot best matches the corresponding slot in
@@ -153,7 +153,7 @@ export function renderPaletteBars(context, colors, canvasWidth, canvasHeight) {
 
 let previousColors = null;
 let lastRawColorsRef = null;
-const ACCUMULATOR_MAX_SIZE = 3;
+const ACCUMULATOR_MAX_SIZE = 2;
 let colorAccumulator = [];
 
 export function resetColorSmoothing() {

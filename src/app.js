@@ -35,6 +35,7 @@ const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
 const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
 const APP_VIEWPORT_HEIGHT_CSS_VAR = "--app-height";
 const APP_VIEWPORT_RESYNC_DELAYS_MS = [120, 360];
+const PREVIEW_SMOOTHING_FACTOR = 0.22;
 
 function isIOSDevice() {
   return (
@@ -108,7 +109,7 @@ let photoExportQuality = getAppSettings().photoExportQuality;
 let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let paletteScoringSettings = { ...getAppSettings().paletteScoring };
-const EXTRACTION_INTERVAL = 10;
+const EXTRACTION_INTERVAL = 4;
 let lastCameraViewportLayout = null;
 let cachedPaletteWidth = 0;
 let cachedPaletteHeight = 0;
@@ -326,6 +327,12 @@ function updateCachedPreviewDimensions() {
 function waitForDelay(delayMs) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, delayMs);
+  });
+}
+
+function waitForNextAnimationFrame() {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve());
   });
 }
 
@@ -1075,7 +1082,7 @@ function refreshPreview() {
     return;
   }
 
-  const smoothedColors = smoothColors(lastExtractedColors, 0.1);
+  const smoothedColors = smoothColors(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
   lastVisiblePaletteColors = clonePaletteColors(smoothedColors);
   const dominantColor = getDominantColor(smoothedColors);
 
@@ -1150,7 +1157,9 @@ async function captureCurrentFrame() {
 
   if (paletteColors.length > 0) {
     try {
-      const masterPhotoData = exportPhotoData({
+      await waitForNextAnimationFrame();
+
+      const masterPhotoBlob = await exportPhotoBlob({
         fallbackCanvas: frameCanvas,
         fallbackWidth: frameWidth,
         fallbackHeight: frameHeight,
@@ -1161,7 +1170,7 @@ async function captureCurrentFrame() {
       });
 
       const savedPalette = await savePalette(paletteColors, {
-        photoDataUrl: masterPhotoData,
+        photoBlob: masterPhotoBlob,
         captureAspectRatio: CAMERA_FRAME_ASPECT_RATIO_LABEL,
         captureCropRect,
       });
@@ -1260,6 +1269,87 @@ function exportPhotoData({
   }
 
   return photoCanvas.toDataURL("image/jpeg", photoExportQuality);
+}
+
+function canvasToBlob(canvas, type) {
+  return new Promise((resolve) => {
+    canvas.toBlob(resolve, type, photoExportQuality);
+  });
+}
+
+async function exportPhotoBlob({
+  fallbackCanvas,
+  fallbackWidth,
+  fallbackHeight,
+  cameraFeed,
+  facingMode,
+  shouldMirrorUserFacing,
+  sourceRect = undefined,
+}) {
+  const photoCanvas = document.createElement("canvas");
+  const photoContext = photoCanvas.getContext("2d");
+
+  if (!photoContext) {
+    return canvasToBlob(fallbackCanvas, "image/jpeg");
+  }
+
+  const hasNativeVideoFrame = Boolean(
+    cameraFeed && cameraFeed.videoWidth > 0 && cameraFeed.videoHeight > 0,
+  );
+  const sourceWidth = hasNativeVideoFrame ? cameraFeed.videoWidth : fallbackWidth;
+  const sourceHeight = hasNativeVideoFrame ? cameraFeed.videoHeight : fallbackHeight;
+  const defaultSourceRect = hasNativeVideoFrame
+    ? getCenteredAspectCropRect(sourceWidth, sourceHeight)
+    : null;
+  const effectiveSourceRect = sourceRect === undefined ? defaultSourceRect : sourceRect;
+  const exportSourceWidth = effectiveSourceRect?.width ?? sourceWidth;
+  const exportSourceHeight = effectiveSourceRect?.height ?? sourceHeight;
+
+  if (exportSourceWidth <= 0 || exportSourceHeight <= 0) {
+    return canvasToBlob(fallbackCanvas, "image/jpeg");
+  }
+
+  const photoWidth = Math.min(exportSourceWidth, PHOTO_EXPORT_MAX_WIDTH);
+  const photoHeight = Math.max(
+    1,
+    Math.round((exportSourceHeight / exportSourceWidth) * photoWidth),
+  );
+
+  photoCanvas.width = photoWidth;
+  photoCanvas.height = photoHeight;
+  photoContext.imageSmoothingEnabled = true;
+  photoContext.imageSmoothingQuality = "high";
+
+  if (hasNativeVideoFrame) {
+    drawFrameToCanvas({
+      context: photoContext,
+      cameraFeed,
+      width: photoWidth,
+      height: photoHeight,
+      facingMode,
+      shouldMirrorUserFacing,
+      sourceRect: effectiveSourceRect,
+    });
+  } else {
+    photoContext.drawImage(
+      fallbackCanvas,
+      0,
+      0,
+      fallbackWidth,
+      fallbackHeight,
+      0,
+      0,
+      photoWidth,
+      photoHeight,
+    );
+  }
+
+  const webpBlob = await canvasToBlob(photoCanvas, "image/webp");
+  if (webpBlob?.type === "image/webp") {
+    return webpBlob;
+  }
+
+  return canvasToBlob(photoCanvas, "image/jpeg");
 }
 
 function stopCurrentStream({ preserveResumeIntent = shouldResumeCameraOnForeground } = {}) {
