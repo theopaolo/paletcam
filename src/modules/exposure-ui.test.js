@@ -265,29 +265,31 @@ describe("createExposureUiController", () => {
     exposureUi.syncCapabilities();
     exposureUi.bindEvents();
 
-    const hitArea = findByClass(overlayHost, "camera-exposure-hit-area");
+    const exposureLayer = findByClass(overlayHost, "camera-exposure-layer");
+    const rail = findByClass(overlayHost, "camera-ev-rail");
     const valueBadge = findByClass(overlayHost, "camera-ev-value");
     const passiveIndicator = findByClass(overlayHost, "camera-ev-indicator");
 
-    expect(passiveIndicator.hidden).toBe(true);
+    rail.setBoundingRect({ height: 146, top: 100 });
+
+    expect(passiveIndicator.hidden).toBe(false);
 
     exposureUi.handleExposureChange(0.8);
-    expect(passiveIndicator.hidden).toBe(false);
     expect(passiveIndicator.textContent).toBe("EV +0.8");
 
     exposureUi.handleExposureChange(0);
-    expect(passiveIndicator.hidden).toBe(true);
+    expect(passiveIndicator.textContent).toBe("EV 0.0");
 
-    hitArea.dispatch("pointerdown", {
+    passiveIndicator.dispatch("pointerdown", {
       button: 0,
-      clientX: 120,
-      clientY: 200,
       pointerId: 1,
     });
-    hitArea.dispatch("pointermove", {
-      clientX: 120,
-      clientY: 161,
-      pointerId: 1,
+    expect(exposureLayer.classList.contains("is-visible")).toBe(true);
+
+    rail.dispatch("pointerdown", {
+      button: 0,
+      clientY: 133,
+      pointerId: 2,
     });
 
     expect(valueBadge.textContent).toBe("+1.1");
@@ -298,11 +300,12 @@ describe("createExposureUiController", () => {
     await Promise.resolve();
 
     expect(valueBadge.textContent).toBe("0.0");
+    expect(passiveIndicator.textContent).toBe("EV 0.0");
 
-    hitArea.dispatch("pointermove", {
-      clientX: 120,
-      clientY: 161,
-      pointerId: 1,
+    rail.dispatch("pointerdown", {
+      button: 0,
+      clientY: 133,
+      pointerId: 3,
     });
 
     expect(applyRequestCount).toBe(2);

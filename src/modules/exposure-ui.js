@@ -254,7 +254,7 @@ export function createExposureUiController({
     return max - normalizedPosition * (max - min);
   }
 
-  function handleIndicatorClick(event) {
+  function handleIndicatorPointerDown(event) {
     if (!isEnabled) {
       return;
     }
@@ -329,7 +329,7 @@ export function createExposureUiController({
       return;
     }
 
-    passiveIndicator.addEventListener("click", handleIndicatorClick);
+    passiveIndicator.addEventListener("pointerdown", handleIndicatorPointerDown);
     rail.addEventListener("pointerdown", handleRailPointerDown);
     rail.addEventListener("pointermove", handleRailPointerMove);
     rail.addEventListener("pointerup", handleRailPointerUp);
@@ -341,7 +341,7 @@ export function createExposureUiController({
 
   function destroy() {
     if (isBound) {
-      passiveIndicator.removeEventListener("click", handleIndicatorClick);
+      passiveIndicator.removeEventListener("pointerdown", handleIndicatorPointerDown);
       rail.removeEventListener("pointerdown", handleRailPointerDown);
       rail.removeEventListener("pointermove", handleRailPointerMove);
       rail.removeEventListener("pointerup", handleRailPointerUp);

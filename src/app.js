@@ -1102,7 +1102,6 @@ async function captureCurrentFrame() {
   const shouldMirrorUserFacing = shouldMirrorUserFacingCamera();
   const captureSourceWidth = cameraFeed.videoWidth || frameWidth;
   const captureSourceHeight = cameraFeed.videoHeight || frameHeight;
-  console.log("[capture-debug] stream:", captureSourceWidth, "x", captureSourceHeight, "| display canvas:", frameWidth, "x", frameHeight, "| export max:", PHOTO_EXPORT_MAX_WIDTH, "| quality:", photoExportQuality);
   const captureSourceRect = getCenteredAspectCropRect(captureSourceWidth, captureSourceHeight);
   const captureCropRect = toNormalizedCropRect(
     captureSourceRect,

@@ -165,13 +165,6 @@ header {
   overflow: hidden;
 }
 
-.camera-exposure-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-}
-
 .camera-zoom-layer {
   position: absolute;
   inset: 0;
@@ -338,74 +331,45 @@ header {
   transform: translate(-50%, 0.78rem);
 }
 
-.camera-exposure-hit-area {
+.camera-exposure-layer {
   position: absolute;
   inset: 0;
-  pointer-events: auto;
-  touch-action: none;
-  cursor: default;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0 0.78rem calc(env(safe-area-inset-bottom, 0px) + 1.05rem);
+  pointer-events: none;
 }
 
-.camera-meter-point {
-  position: absolute;
-  width: 42px;
-  height: 42px;
-  margin-left: -21px;
-  margin-top: -21px;
-  border: 1px solid rgba(255, 255, 255, 0.86);
-  border-radius: 0;
-  opacity: 0;
-  transform: scale(0.96);
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-}
-
-.camera-meter-point::before,
-.camera-meter-point::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  transform: translate(-50%, -50%);
-}
-
-.camera-meter-point::before {
-  width: 4px;
-  height: 4px;
-}
-
-.camera-meter-point::after {
-  width: 18px;
-  height: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: transparent;
+.camera-ev-dock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.42rem;
+  pointer-events: none;
 }
 
 .camera-ev-overlay {
-  position: absolute;
+  position: relative;
   width: 42px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.34rem;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(-50%) translateX(var(--ev-shift-x, 8px));
+  transform: translateY(0.72rem);
   transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
-.camera-exposure-layer.is-visible .camera-meter-point,
 .camera-exposure-layer.is-visible .camera-ev-overlay {
   opacity: 1;
-  transform: translateY(-50%) translateX(0);
-}
-
-.camera-exposure-layer.is-visible .camera-meter-point {
-  transform: scale(1);
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .camera-ev-value {
@@ -424,19 +388,20 @@ header {
 
 .camera-ev-rail {
   position: relative;
-  width: 24px;
+  width: 22px;
   height: 146px;
   border-radius: 0;
-  background: rgba(14, 14, 14, 0.46);
-  pointer-events: none;
+  background: rgba(10, 10, 10, 0.38);
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .camera-ev-rail::before {
   content: "";
   position: absolute;
   left: 50%;
-  top: 12px;
-  bottom: 12px;
+  top: 10px;
+  bottom: 10px;
   width: 1px;
   background: rgba(255, 255, 255, 0.24);
   transform: translateX(-50%);
@@ -455,8 +420,8 @@ header {
 .camera-ev-thumb {
   position: absolute;
   left: 50%;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: none;
   border-radius: 0;
   background: rgba(247, 247, 247, 0.96);
@@ -477,9 +442,6 @@ header {
 }
 
 .camera-ev-indicator {
-  position: absolute;
-  right: 0.72rem;
-  bottom: 0.7rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -492,11 +454,23 @@ header {
   font-size: 0.66rem;
   line-height: 1;
   letter-spacing: -0.01em;
+  cursor: pointer;
   opacity: 0;
   transform: translateY(0.32rem);
   transition:
     opacity 0.18s ease,
     transform 0.18s ease;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.camera-ev-indicator.is-offset {
+  color: rgba(255, 224, 109, 0.88);
+  border-color: rgba(255, 224, 109, 0.22);
+}
+
+.camera-ev-indicator.is-open {
+  color: rgba(248, 248, 248, 0.96);
 }
 
 .camera-ev-indicator.is-visible {
