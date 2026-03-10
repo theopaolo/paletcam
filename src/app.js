@@ -15,6 +15,7 @@ import {
   getDominantColor,
   getPaletteExtractionAlgorithm,
   PALETTE_EXTRACTION_ALGORITHMS,
+  resetColorSmoothing,
   renderPaletteBars,
   setPaletteExtractionAlgorithm,
   smoothColors,
@@ -102,6 +103,7 @@ let _isPreviewExpanded = false;
 let extractionFrame = 0;
 let lastExtractedColors = null;
 let lastChosenIndices = [];
+let lastVisiblePaletteColors = [];
 let photoExportQuality = getAppSettings().photoExportQuality;
 let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
@@ -137,6 +139,8 @@ const swatchSliderUi = createSwatchSliderUiController({
   swatchSlider,
   onSwatchCountChange: (nextSwatchCount) => {
     swatchCount = nextSwatchCount;
+    resetPalettePreviewState();
+    schedulePreviewRefresh();
   },
 });
 
@@ -466,6 +470,30 @@ function getPaletteExtractionOptions() {
   };
 }
 
+function clonePaletteColors(colors) {
+  if (!Array.isArray(colors)) {
+    return [];
+  }
+
+  return colors.map((color) => ({ ...color }));
+}
+
+function resetPalettePreviewState() {
+  extractionFrame = 0;
+  lastExtractedColors = null;
+  lastChosenIndices = [];
+  lastVisiblePaletteColors = [];
+  resetColorSmoothing();
+}
+
+function getCapturePaletteColors() {
+  if (lastVisiblePaletteColors.length === swatchCount) {
+    return clonePaletteColors(lastVisiblePaletteColors);
+  }
+
+  return [];
+}
+
 function applyAppSettings({
   photoExportQuality: nextPhotoExportQuality,
   paletteExtractionAlgorithm,
@@ -484,9 +512,7 @@ function applyAppSettings({
     sampleDiameter: gridExtractionSettings.sampleRadius * 2 + 1,
   });
   sampleGridOverlay.setVisible(isGridExtractionMode());
-  extractionFrame = 0;
-  lastExtractedColors = null;
-  lastChosenIndices = [];
+  resetPalettePreviewState();
 }
 
 function mountCameraFeed(targetElement) {
@@ -554,6 +580,7 @@ const cameraController = createCameraController({
     setCaptureState({ btnOn, btnShoot, isCameraActive });
 
     if (!isCameraActive) {
+      resetPalettePreviewState();
       zoomUi?.setDisabled();
       exposureUi?.setDisabled();
       visualEffects.setCaptureGlowActive(false);
@@ -634,6 +661,7 @@ function handleWindowResize() {
 function pauseCameraPreview() {
   isStreaming = false;
   cancelPreviewRefresh();
+  resetPalettePreviewState();
   cameraFeed?.pause?.();
   visualEffects.setCaptureGlowActive(false);
   captureMicroInteractions.cleanup();
@@ -1048,6 +1076,7 @@ function refreshPreview() {
   }
 
   const smoothedColors = smoothColors(lastExtractedColors, 0.1);
+  lastVisiblePaletteColors = clonePaletteColors(smoothedColors);
   const dominantColor = getDominantColor(smoothedColors);
 
   renderPaletteBars(paletteContext, smoothedColors, paletteCanvas.width, paletteCanvas.height);
@@ -1073,6 +1102,7 @@ async function captureCurrentFrame() {
   const shouldMirrorUserFacing = shouldMirrorUserFacingCamera();
   const captureSourceWidth = cameraFeed.videoWidth || frameWidth;
   const captureSourceHeight = cameraFeed.videoHeight || frameHeight;
+  console.log("[capture-debug] stream:", captureSourceWidth, "x", captureSourceHeight, "| display canvas:", frameWidth, "x", frameHeight, "| export max:", PHOTO_EXPORT_MAX_WIDTH, "| quality:", photoExportQuality);
   const captureSourceRect = getCenteredAspectCropRect(captureSourceWidth, captureSourceHeight);
   const captureCropRect = toNormalizedCropRect(
     captureSourceRect,
@@ -1093,14 +1123,18 @@ async function captureCurrentFrame() {
     sourceRect: captureSourceRect,
   });
 
-  const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-  const { colors: paletteColors } = extractPaletteColors(
-    imageData,
-    frameWidth,
-    frameHeight,
-    swatchCount,
-    getPaletteExtractionOptions(),
-  );
+  let paletteColors = getCapturePaletteColors();
+  if (paletteColors.length === 0) {
+    const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+    const { colors: extractedPaletteColors } = extractPaletteColors(
+      imageData,
+      frameWidth,
+      frameHeight,
+      swatchCount,
+      getPaletteExtractionOptions(),
+    );
+    paletteColors = clonePaletteColors(extractedPaletteColors);
+  }
 
   const photoData = exportPhotoData({
     fallbackCanvas: frameCanvas,
@@ -1264,6 +1298,7 @@ function _loadTestImage(src) {
 
   // Prevent the camera from starting (or restarting) while testing with a static image
   _testImageMode = true;
+  resetPalettePreviewState();
   stopCurrentStream({ preserveResumeIntent: false });
   cameraFeed?.removeEventListener("canplay", handleCameraCanPlay);
 
@@ -1306,6 +1341,7 @@ function _loadTestImage(src) {
     if (isGridMode) {
       sampleGridOverlay.markChosenSquares(chosenIndices);
     }
+    lastVisiblePaletteColors = clonePaletteColors(colors);
     renderPaletteBars(paletteContext, colors, paletteCanvas.width, paletteCanvas.height);
     renderOutputSwatches(outputPalette, colors);
 

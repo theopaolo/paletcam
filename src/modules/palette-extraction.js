@@ -156,6 +156,12 @@ let lastRawColorsRef = null;
 const ACCUMULATOR_MAX_SIZE = 3;
 let colorAccumulator = [];
 
+export function resetColorSmoothing() {
+  previousColors = null;
+  lastRawColorsRef = null;
+  colorAccumulator = [];
+}
+
 function averageAccumulatedColors(accumulator) {
   const frameCount = accumulator.length;
   if (frameCount === 0) return [];
