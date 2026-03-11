@@ -9,7 +9,7 @@ function clampPositiveInteger(value, fallbackValue) {
   return Math.floor(numericValue);
 }
 
-function computePixelStride(frameWidth, frameHeight, maxPixels) {
+export function computePixelStride(frameWidth, frameHeight, maxPixels) {
   const totalPixels = frameWidth * frameHeight;
   if (totalPixels <= 0) {
     return 1;

@@ -65,9 +65,13 @@ interface GridSettings {
   sampleRadius: number;
 }
 
+/** Quantization color space: 'rgb' (default) or 'oklch' (perceptually uniform). */
+type QuantizationColorSpace = "rgb" | "oklch";
+
 interface MedianCutSettings {
   quantizedPoolSize: number;
   maxQuantizerPixels: number;
+  colorSpace: QuantizationColorSpace;
 }
 
 interface PaletteScoringWeights {
@@ -153,6 +157,7 @@ interface PaletteExtractionResult {
 
 interface PaletteExtractionOptions {
   algorithm?: PaletteExtractionAlgorithm;
+  colorSpace?: QuantizationColorSpace;
   grid?: Partial<GridSettings>;
   medianCut?: Partial<MedianCutSettings>;
   scoring?: Partial<PaletteScoringWeights> | ScoringProfile;
@@ -162,6 +167,62 @@ interface PaletteExtractionOptions {
 interface QuantizedSwatch {
   rgb: number;
   population: number;
+}
+
+// ---------------------------------------------------------------------------
+//  PaletteColor (rich color wrapper)
+// ---------------------------------------------------------------------------
+
+/** OKLCH color representation. */
+interface OklchColor {
+  l: number;
+  c: number;
+  h: number;
+}
+
+/** Contrast ratios against white and black backgrounds. */
+interface ContrastInfo {
+  white: number;
+  black: number;
+}
+
+/**
+ * Rich color object returned by createPaletteColor / enrichPaletteColors.
+ *
+ * Enumerable properties: r, g, b, population (backward-compatible with RgbColor).
+ * Non-enumerable getters/methods provide extra info without breaking spreads.
+ */
+interface PaletteColor extends RgbColor {
+  population: number;
+  readonly hex: string;
+  readonly hsl: HslColor;
+  readonly oklch: OklchColor;
+  readonly luminance: number;
+  readonly isDark: boolean;
+  readonly isLight: boolean;
+  readonly textColor: string;
+  readonly contrast: ContrastInfo;
+  css(format?: "rgb" | "hsl" | "oklch" | "hex"): string;
+  toString(): string;
+}
+
+// ---------------------------------------------------------------------------
+//  RAL color matching
+// ---------------------------------------------------------------------------
+
+/** A RAL Classic color entry. */
+interface RalColor {
+  code: string;
+  name: string;
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** A RAL match result with perceptual distance. */
+interface RalMatch {
+  ral: RalColor;
+  deltaE: number;
 }
 
 // ---------------------------------------------------------------------------

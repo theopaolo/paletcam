@@ -8,7 +8,8 @@
       "Bash(git stash)",
       "Bash(git stash pop)",
       "Bash(find /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam -type f -name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.json)",
-      "Bash(grep -l \"extractPalette\\\\|extractMedianCut\\\\|extractGridPalette\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/**/*.js)"
+      "Bash(grep -l \"extractPalette\\\\|extractMedianCut\\\\|extractGridPalette\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/**/*.js)",
+      "Bash(bun run:*)"
     ]
   }
 }

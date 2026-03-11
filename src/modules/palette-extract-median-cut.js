@@ -1,10 +1,11 @@
 import { ColorCutQuantizer } from './color-cut-quantizer.js';
-import { packImageDataToArgb8888 } from './palette-pixel-pack.js';
+import { packImageDataToArgb8888, computePixelStride } from './palette-pixel-pack.js';
 import {
   buildHueRarityMap,
   createPaletteScoringProfile,
   scoreCandidate,
 } from './palette-scoring.js';
+import { packImageDataToOklchArgb, swatchOklchToRgb } from './color-space-oklch.js';
 
 const MIN_SWATCH_COUNT = 1;
 export const DEFAULT_QUANTIZED_POOL_SIZE = 16;
@@ -112,6 +113,7 @@ function rankQuantizedCandidates(candidatePool, swatchCount, scoringProfile) {
  * @param {object} [options]
  * @param {number} [options.quantizedPoolSize]
  * @param {number} [options.maxQuantizerPixels]
+ * @param {'rgb' | 'oklch'} [options.colorSpace]  Quantization color space (default 'rgb')
  * @param {Partial<PaletteScoringWeights> | ScoringProfile} [options.scoring]
  * @returns {PaletteExtractionResult}
  */
@@ -123,6 +125,7 @@ export function extractMedianCutPaletteColors(
   {
     quantizedPoolSize,
     maxQuantizerPixels = DEFAULT_MAX_QUANTIZER_PIXELS,
+    colorSpace = 'rgb',
     scoring,
   } = {} ) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
@@ -131,9 +134,18 @@ export function extractMedianCutPaletteColors(
     return { colors: [], chosenIndices: [] };
   }
 
-  const packedPixels = packImageDataToArgb8888(imageData, frameWidth, frameHeight, {
-    maxPixels: maxQuantizerPixels,
-  });
+  const useOklch = colorSpace === 'oklch';
+
+  // Pack pixels — either as RGB or scaled OKLCH, both into ARGB8888 ints
+  let packedPixels;
+  if (useOklch) {
+    const stride = computePixelStride(frameWidth, frameHeight, maxQuantizerPixels);
+    packedPixels = packImageDataToOklchArgb(imageData, frameWidth, frameHeight, stride);
+  } else {
+    packedPixels = packImageDataToArgb8888(imageData, frameWidth, frameHeight, {
+      maxPixels: maxQuantizerPixels,
+    });
+  }
 
   if (packedPixels.length === 0) {
     return { colors: [], chosenIndices: [] };
@@ -151,6 +163,7 @@ export function extractMedianCutPaletteColors(
     return { colors: [], chosenIndices: [] };
   }
 
+  // Build candidate pool — convert swatches back to RGB
   const seenRgbKeys = new Set();
   const candidatePool = [];
 
@@ -159,7 +172,9 @@ export function extractMedianCutPaletteColors(
       continue;
     }
 
-    const candidate = buildCandidateFromSwatch(swatch);
+    const candidate = useOklch
+      ? { ...swatchOklchToRgb(swatch.rgb), population: swatch.population ?? 0 }
+      : buildCandidateFromSwatch(swatch);
     const key = `${candidate.r},${candidate.g},${candidate.b}`;
     if (seenRgbKeys.has(key)) {
       continue;

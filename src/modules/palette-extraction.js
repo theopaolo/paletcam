@@ -8,6 +8,9 @@ import {
   SAMPLE_ROW_COUNT,
 } from "./palette-extract-grid.js";
 
+export { createPaletteColor, enrichPaletteColors } from "./palette-color.js";
+export { findClosestRAL, matchPaletteToRAL, sampleColorAtPoint, RAL_CLASSIC } from "./color-matching-ral.js";
+
 const COLOR_DISTANCE_THRESHOLD = 24;
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
 
@@ -115,6 +118,7 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
       typeof options === "object" && options
         ? {
             ...(options.medianCut ?? {}),
+            colorSpace: options.colorSpace,
             scoring: options.scoring,
           }
         : undefined
