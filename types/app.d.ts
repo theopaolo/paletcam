@@ -57,6 +57,8 @@ type CopyMode = "rgb" | "hex" | "hsl";
 //  App settings
 // ---------------------------------------------------------------------------
 
+type CaptureMode = "palette" | "ral";
+
 type PaletteExtractionAlgorithm = "grid" | "median-cut";
 
 interface GridSettings {
@@ -82,6 +84,7 @@ interface PaletteScoringWeights {
 }
 
 interface AppSettings {
+  captureMode: CaptureMode;
   photoExportQuality: number;
   paletteExtractionAlgorithm: PaletteExtractionAlgorithm;
   grid: GridSettings;
@@ -91,6 +94,7 @@ interface AppSettings {
 
 /** Deep-partial variant for updateAppSettings — nested groups accept partial patches. */
 interface AppSettingsPatch {
+  captureMode?: CaptureMode;
   photoExportQuality?: number;
   paletteExtractionAlgorithm?: PaletteExtractionAlgorithm;
   grid?: Partial<GridSettings>;
@@ -157,6 +161,7 @@ interface PaletteExtractionResult {
 
 interface PaletteExtractionOptions {
   algorithm?: PaletteExtractionAlgorithm;
+  /** Optional alias for medianCut.colorSpace for direct callers. */
   colorSpace?: QuantizationColorSpace;
   grid?: Partial<GridSettings>;
   medianCut?: Partial<MedianCutSettings>;
@@ -393,6 +398,7 @@ interface ShareResult {
 // ---------------------------------------------------------------------------
 
 interface PaletteViewerOpenOptions {
+  colors?: RgbColor[];
   getPreviewAsset?: () => Promise<PreviewAsset>;
   onShare?: () => void | Promise<void>;
   onExport?: () => void | Promise<void>;

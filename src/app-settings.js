@@ -18,8 +18,18 @@ const GRID_SAMPLE_RADIUS_RANGE = { min: 1, max: 12 };
 const MEDIAN_CUT_POOL_SIZE_RANGE = { min: 4, max: 64 };
 const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
+const VALID_CAPTURE_MODES = new Set(['palette', 'ral']);
+
+function normalizeQuantizationColorSpace(value) {
+  return value === 'oklch' ? 'oklch' : 'rgb';
+}
+
+function normalizeCaptureMode(value) {
+  return VALID_CAPTURE_MODES.has(value) ? value : 'palette';
+}
 
 const DEFAULT_SETTINGS = Object.freeze({
+  captureMode: 'palette',
   photoExportQuality: 0.95,
   paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
   grid: Object.freeze({
@@ -30,6 +40,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   medianCut: Object.freeze({
     quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
     maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
+    colorSpace: 'rgb',
   }),
   paletteScoring: Object.freeze({
     chromaWeight: DEFAULT_PALETTE_SCORING_SETTINGS.chromaWeight,
@@ -55,6 +66,16 @@ function getGlobalSettingsStore() {
 const settingsStore = getGlobalSettingsStore();
 if (!settingsStore.currentSettings) {
   settingsStore.currentSettings = loadSettings();
+}
+
+/**
+ * Test-only helper to reload settings from storage and clear listeners.
+ * @returns {AppSettings}
+ */
+export function resetAppSettingsForTests() {
+  settingsStore.listeners.clear();
+  settingsStore.currentSettings = loadSettings();
+  return getAppSettings();
 }
 
 function clampPhotoExportQuality(value) {
@@ -117,6 +138,7 @@ function normalizeMedianCutSettings(candidate) {
       fallback.maxQuantizerPixels,
       MEDIAN_CUT_MAX_PIXELS_RANGE
     ),
+    colorSpace: normalizeQuantizationColorSpace(candidate?.colorSpace),
   };
 }
 
@@ -149,6 +171,7 @@ function normalizePaletteScoringSettings(candidate) {
 
 function normalizeSettings(candidate) {
   return {
+    captureMode: normalizeCaptureMode(candidate?.captureMode),
     photoExportQuality: clampPhotoExportQuality(candidate?.photoExportQuality),
     paletteExtractionAlgorithm: normalizeAlgorithm(candidate?.paletteExtractionAlgorithm),
     grid: normalizeGridSettings(candidate?.grid),
@@ -159,6 +182,7 @@ function normalizeSettings(candidate) {
 
 function areSettingsEqual(firstSettings, secondSettings) {
   return (
+    firstSettings.captureMode === secondSettings.captureMode &&
     firstSettings.photoExportQuality === secondSettings.photoExportQuality &&
     firstSettings.paletteExtractionAlgorithm === secondSettings.paletteExtractionAlgorithm &&
     firstSettings.grid.sampleRowCount === secondSettings.grid.sampleRowCount &&
@@ -166,6 +190,7 @@ function areSettingsEqual(firstSettings, secondSettings) {
     firstSettings.grid.sampleRadius === secondSettings.grid.sampleRadius &&
     firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&
     firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
+    firstSettings.medianCut.colorSpace === secondSettings.medianCut.colorSpace &&
     firstSettings.paletteScoring.chromaWeight === secondSettings.paletteScoring.chromaWeight &&
     firstSettings.paletteScoring.lumaSpreadWeight === secondSettings.paletteScoring.lumaSpreadWeight &&
     firstSettings.paletteScoring.rarityWeight === secondSettings.paletteScoring.rarityWeight &&
