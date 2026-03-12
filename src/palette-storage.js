@@ -105,6 +105,8 @@ export async function getSavedPalettes() {
  * @param {Blob | null} [options.photoBlob]
  * @param {string} [options.captureAspectRatio]
  * @param {CropRect | null} [options.captureCropRect]
+ * @param {CaptureMode} [options.captureMode]
+ * @param {RalMatchRecord | null} [options.ralMatch]
  * @returns {Promise<Palette>}
  */
 export async function savePalette(
@@ -114,6 +116,8 @@ export async function savePalette(
     photoBlob: providedPhotoBlob = null,
     captureAspectRatio = '4:3',
     captureCropRect = null,
+    captureMode,
+    ralMatch = null,
   } = {},
 ) {
   const timestamp = new Date().toISOString();
@@ -142,6 +146,7 @@ export async function savePalette(
       photoBlob,
       captureAspectRatio,
       captureCropRect: safeCaptureCropRect,
+      ...(captureMode === 'ral' ? { captureMode: 'ral', ralMatch } : {}),
       remoteCatchId: null,
       moderationStatus: null,
       postedAt: null,
@@ -156,6 +161,7 @@ export async function savePalette(
       photoBlob,
       captureAspectRatio,
       captureCropRect: safeCaptureCropRect,
+      ...(captureMode === 'ral' ? { captureMode: 'ral', ralMatch } : {}),
       remoteCatchId: null,
       moderationStatus: null,
       postedAt: null,

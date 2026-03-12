@@ -43,6 +43,8 @@ interface Palette {
   photoBlob: Blob;
   captureAspectRatio?: string;
   captureCropRect?: CropRect | null;
+  captureMode?: CaptureMode;
+  ralMatch?: RalMatchRecord;
   remoteCatchId: string | null;
   moderationStatus: ModerationStatus | null;
   postedAt: string | null;
@@ -227,6 +229,16 @@ interface RalColor {
 /** A RAL match result with perceptual distance. */
 interface RalMatch {
   ral: RalColor;
+  deltaE: number;
+}
+
+/** Flattened RAL match record stored on a saved Palette. */
+interface RalMatchRecord {
+  code: string;
+  name: string;
+  r: number;
+  g: number;
+  b: number;
   deltaE: number;
 }
 
