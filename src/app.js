@@ -115,6 +115,7 @@ let lastExtractedColors = null;
 let lastChosenIndices = [];
 let lastVisiblePaletteColors = [];
 let currentCaptureMode = 'palette';
+let lastRalMatch = null;
 let photoExportQuality = getAppSettings().photoExportQuality;
 let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
@@ -1076,50 +1077,75 @@ function refreshPreview() {
     sourceRect: getCameraFrameSourceRect(),
   });
 
-  const isGridMode = isGridExtractionMode();
+  if (currentCaptureMode === 'ral') {
+    // RAL mode: sample center point each frame
+    const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight);
+    const centerX = Math.round(frameWidth / 2);
+    const centerY = Math.round(frameHeight / 2);
+    const sampled = sampleColorAtPoint(frameImageData.data, frameWidth, frameHeight, centerX, centerY);
+    const matches = findClosestRAL(sampled.r, sampled.g, sampled.b, 1);
 
-  if (isGridMode) {
-    sampleGridOverlay.setVisible(true);
-    sampleGridOverlay.ensureBuilt();
-  } else {
-    sampleGridOverlay.setVisible(false);
-  }
-
-  extractionFrame += 1;
-  if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
-    const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-
-    const result = extractPaletteColors(
-      frameImageData,
-      frameWidth,
-      frameHeight,
-      swatchCount,
-      getPaletteExtractionOptions(),
-    );
-
-    lastExtractedColors = result.colors;
-    lastChosenIndices = result.chosenIndices;
-    if (isGridMode) {
-      sampleGridOverlay.markChosenSquares(lastChosenIndices);
+    if (matches.length > 0) {
+      const best = matches[0];
+      lastRalMatch = best;
+      if (ralLiveSwatchColor) {
+        ralLiveSwatchColor.style.backgroundColor = `rgb(${best.ral.r}, ${best.ral.g}, ${best.ral.b})`;
+      }
+      if (ralLiveSwatchCode) ralLiveSwatchCode.textContent = best.ral.code;
+      if (ralLiveSwatchName) ralLiveSwatchName.textContent = best.ral.name;
+      if (ralLiveSwatchQuality) {
+        ralLiveSwatchQuality.textContent = `${getRalQualityLabel(best.deltaE)} · ΔE ${best.deltaE.toFixed(1)}`;
+      }
+      visualEffects.setCaptureButtonGlowColor(sampled);
+      visualEffects.setCaptureGlowActive(true);
     }
-  }
-
-  if (!lastExtractedColors || lastExtractedColors.length === 0) {
-    schedulePreviewRefresh();
-    return;
-  }
-
-  const smoothedColors = smoothColors(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
-  lastVisiblePaletteColors = clonePaletteColors(smoothedColors);
-  const dominantColor = getDominantColor(smoothedColors);
-
-  renderPaletteBars(paletteContext, smoothedColors, paletteCanvas.width, paletteCanvas.height);
-
-  if (dominantColor) {
-    visualEffects.setCaptureButtonGlowColor(dominantColor);
-    visualEffects.setCaptureGlowActive(true);
   } else {
-    visualEffects.setCaptureGlowActive(false);
+    // Palette mode: existing extraction logic
+    const isGridMode = isGridExtractionMode();
+
+    if (isGridMode) {
+      sampleGridOverlay.setVisible(true);
+      sampleGridOverlay.ensureBuilt();
+    } else {
+      sampleGridOverlay.setVisible(false);
+    }
+
+    extractionFrame += 1;
+    if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
+      const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+
+      const result = extractPaletteColors(
+        frameImageData,
+        frameWidth,
+        frameHeight,
+        swatchCount,
+        getPaletteExtractionOptions(),
+      );
+
+      lastExtractedColors = result.colors;
+      lastChosenIndices = result.chosenIndices;
+      if (isGridMode) {
+        sampleGridOverlay.markChosenSquares(lastChosenIndices);
+      }
+    }
+
+    if (!lastExtractedColors || lastExtractedColors.length === 0) {
+      schedulePreviewRefresh();
+      return;
+    }
+
+    const smoothedColors = smoothColors(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
+    lastVisiblePaletteColors = clonePaletteColors(smoothedColors);
+    const dominantColor = getDominantColor(smoothedColors);
+
+    renderPaletteBars(paletteContext, smoothedColors, paletteCanvas.width, paletteCanvas.height);
+
+    if (dominantColor) {
+      visualEffects.setCaptureButtonGlowColor(dominantColor);
+      visualEffects.setCaptureGlowActive(true);
+    } else {
+      visualEffects.setCaptureGlowActive(false);
+    }
   }
 
   schedulePreviewRefresh();
