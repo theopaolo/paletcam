@@ -266,3 +266,28 @@ export function matchPaletteToRAL(colors, matchesPerColor = 3) {
 
 // Re-export for convenience
 export { RAL_CLASSIC } from './ral-classic-data.js';
+
+/**
+ * Human-readable quality label for a RAL match delta-E distance.
+ * @param {number} deltaE
+ * @returns {string}
+ */
+export function getRalQualityLabel(deltaE) {
+  if (!Number.isFinite(deltaE)) {
+    return '';
+  }
+
+  if (deltaE <= 2) {
+    return 'Très proche';
+  }
+
+  if (deltaE <= 5) {
+    return 'Proche';
+  }
+
+  if (deltaE <= 10) {
+    return 'Bonne piste';
+  }
+
+  return 'Approximation';
+}

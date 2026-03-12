@@ -4,9 +4,12 @@ import {
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from '../panels/panel-manager.js';
+import { getRalQualityLabel, matchPaletteToRAL } from '../color-matching-ral.js';
 
 const viewerImage = /** @type {HTMLImageElement | null} */ (document.getElementById('catchDetailsImage'));
 const viewerStatus = document.getElementById('catchDetailsStatus');
+const viewerRalSection = document.getElementById('catchDetailsRalSection');
+const viewerRalList = document.getElementById('catchDetailsRalList');
 const shareButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsShareButton'));
 const exportButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsExportButton'));
 const publishButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsPublishButton'));
@@ -95,6 +98,14 @@ function resetViewerFrame() {
 
   if (viewerStatus) {
     viewerStatus.textContent = '';
+  }
+
+  if (viewerRalList) {
+    viewerRalList.innerHTML = '';
+  }
+
+  if (viewerRalSection) {
+    viewerRalSection.hidden = true;
   }
 }
 
@@ -186,8 +197,67 @@ function bindViewerPanelEvents() {
   subscribeSharedPanelClosed('catch-details', handleViewerPanelClosed);
 }
 
+function renderRalMatches(colors) {
+  if (!viewerRalSection || !viewerRalList) {
+    return;
+  }
+
+  const safeColors = Array.isArray(colors)
+    ? colors.filter((color) =>
+      color
+      && Number.isFinite(Number(color.r))
+      && Number.isFinite(Number(color.g))
+      && Number.isFinite(Number(color.b))
+    )
+    : [];
+
+  viewerRalList.innerHTML = '';
+  viewerRalSection.hidden = safeColors.length === 0;
+  if (safeColors.length === 0) {
+    return;
+  }
+
+  const matches = matchPaletteToRAL(safeColors, 1);
+
+  matches.forEach(({ color, matches: closestMatches }) => {
+    const bestMatch = closestMatches[0];
+    if (!bestMatch) {
+      return;
+    }
+
+    const card = document.createElement('article');
+    card.className = 'palette-viewer-ral-card';
+
+    const swatch = document.createElement('div');
+    swatch.className = 'palette-viewer-ral-swatch';
+    swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+
+    const copy = document.createElement('div');
+    copy.className = 'palette-viewer-ral-copy';
+
+    const code = document.createElement('p');
+    code.className = 'palette-viewer-ral-code';
+    code.textContent = bestMatch.ral.code;
+
+    const name = document.createElement('p');
+    name.className = 'palette-viewer-ral-name';
+    name.textContent = bestMatch.ral.name;
+
+    const quality = document.createElement('p');
+    quality.className = 'palette-viewer-ral-quality';
+    quality.textContent = `${getRalQualityLabel(bestMatch.deltaE)} · ΔE ${bestMatch.deltaE.toFixed(1)}`;
+
+    copy.append(code, name, quality);
+    card.append(swatch, copy);
+    viewerRalList.appendChild(card);
+  });
+
+  viewerRalSection.hidden = viewerRalList.childElementCount === 0;
+}
+
 /** @param {PaletteViewerOpenOptions} options */
 export async function openPaletteViewerOverlay({
+  colors = [],
   getPreviewAsset,
   onShare,
   onExport,
@@ -217,6 +287,7 @@ export async function openPaletteViewerOverlay({
   syncPublishButtonCopy();
 
   resetViewerFrame();
+  renderRalMatches(colors);
   if (viewerStatus) {
     viewerStatus.textContent = canExport ? 'Chargement...' : 'Aperçu indisponible';
   }
