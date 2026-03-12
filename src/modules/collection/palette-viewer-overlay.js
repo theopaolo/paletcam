@@ -4,7 +4,7 @@ import {
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from '../panels/panel-manager.js';
-import { getRalQualityLabel } from '../color-matching-ral.js';
+import { findClosestRAL, getRalQualityLabel } from '../color-matching-ral.js';
 
 const viewerImage = /** @type {HTMLImageElement | null} */ (document.getElementById('catchDetailsImage'));
 const viewerStatus = document.getElementById('catchDetailsStatus');
@@ -17,6 +17,12 @@ const viewerRalSwatchColor = document.getElementById('catchDetailsRalSwatchColor
 const viewerRalSwatchCode = document.getElementById('catchDetailsRalSwatchCode');
 const viewerRalSwatchName = document.getElementById('catchDetailsRalSwatchName');
 const viewerRalSwatchQuality = document.getElementById('catchDetailsRalSwatchQuality');
+const ralPopover = document.getElementById('ralPopover');
+const ralPopoverColor = document.getElementById('ralPopoverColor');
+const ralPopoverCode = document.getElementById('ralPopoverCode');
+const ralPopoverName = document.getElementById('ralPopoverName');
+const ralPopoverQuality = document.getElementById('ralPopoverQuality');
+const swatchStripContainer = document.getElementById('catchDetailsSwatchStrip');
 let activeRequestId = 0;
 let activeSession;
 let hasBoundViewerPanelEvents = false;
@@ -93,6 +99,70 @@ function syncPublishButtonCopy() {
   hydrateViewerActionButton(publishButton, PUBLISH_BUTTON_COPY[publishAction]);
 }
 
+function showRalPopover(color, anchorElement) {
+  const matches = findClosestRAL(color.r, color.g, color.b, 1);
+  if (matches.length === 0 || !ralPopover) return;
+
+  const best = matches[0];
+
+  if (ralPopoverColor) {
+    ralPopoverColor.style.backgroundColor = `rgb(${best.ral.r}, ${best.ral.g}, ${best.ral.b})`;
+  }
+  if (ralPopoverCode) ralPopoverCode.textContent = best.ral.code;
+  if (ralPopoverName) ralPopoverName.textContent = best.ral.name;
+  if (ralPopoverQuality) {
+    ralPopoverQuality.textContent = `${getRalQualityLabel(best.deltaE)} · ΔE ${best.deltaE.toFixed(1)}`;
+  }
+
+  // Position above the anchor, centered horizontally
+  const anchorRect = anchorElement.getBoundingClientRect();
+  const popoverWidth = 140;
+  let left = anchorRect.left + (anchorRect.width / 2) - (popoverWidth / 2);
+  let top = anchorRect.top - ralPopover.offsetHeight - 8;
+
+  // Flip below if clipping top
+  if (top < 0) {
+    top = anchorRect.bottom + 8;
+  }
+
+  // Keep within viewport horizontally
+  left = Math.max(8, Math.min(left, window.innerWidth - popoverWidth - 8));
+
+  ralPopover.style.left = `${left}px`;
+  ralPopover.style.top = `${top}px`;
+  ralPopover.hidden = false;
+}
+
+function hideRalPopover() {
+  if (ralPopover) {
+    ralPopover.hidden = true;
+  }
+}
+
+function renderViewerSwatches(colors) {
+  if (!swatchStripContainer) return;
+
+  swatchStripContainer.innerHTML = '';
+
+  colors.forEach((color) => {
+    const swatch = document.createElement('button');
+    swatch.className = 'palette-viewer-swatch';
+    swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    swatch.setAttribute('aria-label', 'Voir correspondance RAL');
+    swatch.addEventListener('click', (event) => {
+      event.stopPropagation();
+      showRalPopover(color, swatch);
+    });
+    swatchStripContainer.appendChild(swatch);
+  });
+}
+
+function clearViewerSwatches() {
+  if (swatchStripContainer) {
+    swatchStripContainer.innerHTML = '';
+  }
+}
+
 function resetViewerFrame() {
   if (viewerImage) {
     viewerImage.hidden = true;
@@ -106,6 +176,9 @@ function resetViewerFrame() {
   if (viewerRalSwatch) {
     viewerRalSwatch.hidden = true;
   }
+
+  hideRalPopover();
+  clearViewerSwatches();
 }
 
 function setBusy(nextBusy) {
@@ -152,6 +225,8 @@ function handleViewerPanelClosing() {
   activeRequestId += 1;
   activeSession = undefined;
   setBusy(false);
+  document.removeEventListener('click', hideRalPopover);
+  hideRalPopover();
 }
 
 function handleViewerPanelClosed() {
@@ -246,6 +321,12 @@ export async function openPaletteViewerOverlay({
       viewerRalSwatchQuality.textContent = `${getRalQualityLabel(ralMatch.deltaE)} · ΔE ${ralMatch.deltaE.toFixed(1)}`;
     }
   }
+
+  if (!isRalCapture && colors.length > 0) {
+    renderViewerSwatches(colors);
+  }
+
+  document.addEventListener('click', hideRalPopover);
 
   if (viewerStatus) {
     viewerStatus.textContent = canExport ? 'Chargement...' : 'Aperçu indisponible';
