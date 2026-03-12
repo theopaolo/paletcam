@@ -14,6 +14,13 @@ const integerFormatter = new Intl.NumberFormat('en-US');
 const algorithmButtons = Array.from(
   document.querySelectorAll('[data-settings-algorithm]')
 );
+const colorSpaceButtons = Array.from(
+  document.querySelectorAll('[data-settings-color-space]')
+);
+const captureModeButtons = Array.from(
+  document.querySelectorAll('[data-settings-capture-mode]')
+);
+const paletteModeGroup = document.getElementById('settingsPaletteModeGroup');
 const algorithmPanels = /** @type {HTMLElement[]} */ (Array.from(
   document.querySelectorAll('[data-settings-algorithm-panel]')
 ));
@@ -254,6 +261,26 @@ function syncAlgorithmPanels(activeAlgorithm) {
   });
 }
 
+function syncColorSpaceButtons(activeColorSpace) {
+  colorSpaceButtons.forEach((button) => {
+    const buttonColorSpace = button.getAttribute('data-settings-color-space');
+    button.setAttribute('aria-pressed', String(buttonColorSpace === activeColorSpace));
+  });
+}
+
+function syncCaptureModeButtons(activeMode) {
+  captureModeButtons.forEach((button) => {
+    const buttonMode = button.getAttribute('data-settings-capture-mode');
+    button.setAttribute('aria-pressed', String(buttonMode === activeMode));
+  });
+}
+
+function syncPaletteModeGroupVisibility(captureMode) {
+  if (paletteModeGroup) {
+    paletteModeGroup.hidden = captureMode === 'ral';
+  }
+}
+
 function renderSettingsUi(settings) {
   rangeControls.forEach((control) => {
     control.renderFromSettings(settings);
@@ -262,6 +289,9 @@ function renderSettingsUi(settings) {
   const activeAlgorithm = settings?.paletteExtractionAlgorithm;
   syncAlgorithmButtons(activeAlgorithm);
   syncAlgorithmPanels(activeAlgorithm);
+  syncColorSpaceButtons(settings?.medianCut?.colorSpace ?? 'rgb');
+  syncCaptureModeButtons(settings.captureMode);
+  syncPaletteModeGroupVisibility(settings.captureMode);
 }
 
 function openSettingsPanel() {
@@ -289,6 +319,36 @@ function bindAlgorithmControls() {
 
       updateAppSettings({
         paletteExtractionAlgorithm: nextAlgorithm,
+      });
+    });
+  });
+}
+
+function bindCaptureModeControls() {
+  captureModeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextMode = button.getAttribute('data-settings-capture-mode');
+      if (nextMode === 'palette' || nextMode === 'ral') {
+        updateAppSettings({ captureMode: nextMode });
+      }
+    });
+  });
+}
+
+function bindColorSpaceControls() {
+  if (colorSpaceButtons.length === 0) {
+    return;
+  }
+
+  colorSpaceButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextColorSpace = button.getAttribute('data-settings-color-space');
+      if (nextColorSpace !== 'rgb' && nextColorSpace !== 'oklch') {
+        return;
+      }
+
+      updateAppSettings({
+        medianCut: { colorSpace: nextColorSpace },
       });
     });
   });
@@ -377,7 +437,9 @@ function bindImportInput() {
 }
 
 bindSettingsPanelEvents();
+bindCaptureModeControls();
 bindAlgorithmControls();
+bindColorSpaceControls();
 bindRangeControls();
 bindResetButton();
 bindExportButton();
