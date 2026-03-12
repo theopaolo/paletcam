@@ -1182,17 +1182,36 @@ async function captureCurrentFrame() {
     sourceRect: captureSourceRect,
   });
 
-  let paletteColors = getCapturePaletteColors();
-  if (paletteColors.length === 0) {
-    const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-    const { colors: extractedPaletteColors } = extractPaletteColors(
-      imageData,
-      frameWidth,
-      frameHeight,
-      swatchCount,
-      getPaletteExtractionOptions(),
-    );
-    paletteColors = clonePaletteColors(extractedPaletteColors);
+  let paletteColors;
+  let ralMatchData = null;
+
+  if (currentCaptureMode === 'ral') {
+    if (lastRalMatch) {
+      paletteColors = [{ r: lastRalMatch.ral.r, g: lastRalMatch.ral.g, b: lastRalMatch.ral.b }];
+      ralMatchData = {
+        code: lastRalMatch.ral.code,
+        name: lastRalMatch.ral.name,
+        r: lastRalMatch.ral.r,
+        g: lastRalMatch.ral.g,
+        b: lastRalMatch.ral.b,
+        deltaE: lastRalMatch.deltaE,
+      };
+    } else {
+      paletteColors = [];
+    }
+  } else {
+    paletteColors = getCapturePaletteColors();
+    if (paletteColors.length === 0) {
+      const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+      const { colors: extractedPaletteColors } = extractPaletteColors(
+        imageData,
+        frameWidth,
+        frameHeight,
+        swatchCount,
+        getPaletteExtractionOptions(),
+      );
+      paletteColors = clonePaletteColors(extractedPaletteColors);
+    }
   }
 
   const photoData = exportPhotoData({
@@ -1226,6 +1245,8 @@ async function captureCurrentFrame() {
         photoBlob: masterPhotoBlob,
         captureAspectRatio: CAMERA_FRAME_ASPECT_RATIO_LABEL,
         captureCropRect,
+        captureMode: currentCaptureMode,
+        ralMatch: ralMatchData,
       });
       if (savedPalette?.id !== undefined && savedPalette?.id !== null) {
         photoOutput.dataset.paletteId = String(savedPalette.id);
