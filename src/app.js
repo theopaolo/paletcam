@@ -24,6 +24,7 @@ import { clientLog } from './modules/client-log.js';
 import { formatErrorDetails } from './modules/error-format.js';
 import { showToast } from './modules/toast-ui.js';
 import { savePalette } from './palette-storage.js';
+import { trackCaptureStatAsync } from './capture-stat-service.js';
 import './settings-ui.js';
 
 const PHOTO_EXPORT_MAX_WIDTH = 1440;
@@ -1129,6 +1130,7 @@ async function captureCurrentFrame() {
         captureAspectRatio: CAMERA_FRAME_ASPECT_RATIO_LABEL,
         captureCropRect,
       });
+      trackCaptureStatAsync();
       if (savedPalette?.id !== undefined && savedPalette?.id !== null) {
         photoOutput.dataset.paletteId = String(savedPalette.id);
       } else {
