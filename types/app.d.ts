@@ -411,6 +411,8 @@ interface ShareResult {
 
 interface PaletteViewerOpenOptions {
   colors?: RgbColor[];
+  captureMode?: CaptureMode;
+  ralMatch?: RalMatchRecord;
   getPreviewAsset?: () => Promise<PreviewAsset>;
   onShare?: () => void | Promise<void>;
   onExport?: () => void | Promise<void>;

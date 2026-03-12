@@ -12,6 +12,11 @@ const shareButton = /** @type {HTMLButtonElement | null} */ (document.getElement
 const exportButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsExportButton'));
 const publishButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsPublishButton'));
 const deleteButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsDeleteButton'));
+const viewerRalSwatch = document.getElementById('catchDetailsRalSwatch');
+const viewerRalSwatchColor = document.getElementById('catchDetailsRalSwatchColor');
+const viewerRalSwatchCode = document.getElementById('catchDetailsRalSwatchCode');
+const viewerRalSwatchName = document.getElementById('catchDetailsRalSwatchName');
+const viewerRalSwatchQuality = document.getElementById('catchDetailsRalSwatchQuality');
 let activeRequestId = 0;
 let activeSession;
 let hasBoundViewerPanelEvents = false;
@@ -96,6 +101,10 @@ function resetViewerFrame() {
 
   if (viewerStatus) {
     viewerStatus.textContent = '';
+  }
+
+  if (viewerRalSwatch) {
+    viewerRalSwatch.hidden = true;
   }
 }
 
@@ -190,6 +199,8 @@ function bindViewerPanelEvents() {
 /** @param {PaletteViewerOpenOptions} options */
 export async function openPaletteViewerOverlay({
   colors = [],
+  captureMode,
+  ralMatch,
   getPreviewAsset,
   onShare,
   onExport,
@@ -219,6 +230,23 @@ export async function openPaletteViewerOverlay({
   syncPublishButtonCopy();
 
   resetViewerFrame();
+
+  const isRalCapture = captureMode === 'ral' && ralMatch;
+  if (viewerRalSwatch) {
+    viewerRalSwatch.hidden = !isRalCapture;
+  }
+
+  if (isRalCapture && ralMatch) {
+    if (viewerRalSwatchColor) {
+      viewerRalSwatchColor.style.backgroundColor = `rgb(${ralMatch.r}, ${ralMatch.g}, ${ralMatch.b})`;
+    }
+    if (viewerRalSwatchCode) viewerRalSwatchCode.textContent = ralMatch.code;
+    if (viewerRalSwatchName) viewerRalSwatchName.textContent = ralMatch.name;
+    if (viewerRalSwatchQuality) {
+      viewerRalSwatchQuality.textContent = `${getRalQualityLabel(ralMatch.deltaE)} · ΔE ${ralMatch.deltaE.toFixed(1)}`;
+    }
+  }
+
   if (viewerStatus) {
     viewerStatus.textContent = canExport ? 'Chargement...' : 'Aperçu indisponible';
   }

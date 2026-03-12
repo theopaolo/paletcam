@@ -313,6 +313,9 @@ export function createPaletteCard({
     startPreviewLoad();
 
     await openPaletteViewerOverlay({
+      colors: palette.colors,
+      captureMode: palette.captureMode,
+      ralMatch: palette.ralMatch,
       getPreviewAsset: hasMasterPhoto ? ensurePreviewImageAsset : undefined,
       canShare: hasMasterPhoto,
       canExport: hasMasterPhoto,
