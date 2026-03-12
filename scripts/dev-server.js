@@ -7,7 +7,7 @@ const initialPort = Number(process.env.PORT ?? 3000);
 const communityApiProxyPrefix = '/api/v1';
 const communityApiProxyTarget = (
   process.env.COMMUNITY_API_PROXY_TARGET
-  ?? 'https://ccs.preview.name'
+  ?? 'https://colorcatchers.co'
 ).replace(/\/+$/, '');
 const fallbackPorts = [
   ...Array.from({ length: 120 }, (_, index) => initialPort + index),

@@ -1,16 +1,7 @@
+import { getApiBaseUrl } from "./config.js";
+
 const PENDING_COUNT_KEY = "paletcam:stats:pending:local_capture";
 const API_EVENT = "local_capture";
-const LOCAL_API_BASE = "/api/v1";
-const LIVE_API_BASE = "https://ccs.preview.name/api/v1";
-
-function isLocalDevHost() {
-  const hostname = String(globalThis.location?.hostname || "").toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
-function getApiBase() {
-  return isLocalDevHost() ? LOCAL_API_BASE : LIVE_API_BASE;
-}
 
 /**
  * Returns the Capacitor global if running inside a native app, otherwise null.
@@ -68,7 +59,7 @@ async function flushCaptureStats() {
   }
 
   try {
-    const response = await fetch(`${getApiBase()}/stats`, {
+    const response = await fetch(`${getApiBaseUrl()}/stats`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

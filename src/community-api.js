@@ -1,7 +1,6 @@
 import { clientLog } from "./modules/client-log.js";
+import { getApiBaseUrl } from "./config.js";
 
-const LOCAL_API_BASE_URL = "/api/v1";
-const LIVE_API_BASE_URL = "https://ccs.preview.name/api/v1";
 const REQUEST_TIMEOUT_MS = 15000;
 
 export const CATCH_MODERATION_STATUSES = Object.freeze({
@@ -13,15 +12,6 @@ export const CATCH_MODERATION_STATUSES = Object.freeze({
 
 /** @type {Set<string>} */
 const KNOWN_CATCH_STATUSES = new Set(Object.values(CATCH_MODERATION_STATUSES));
-
-function isLocalDevHost() {
-  const hostname = String(globalThis.location?.hostname || "").toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
-function getApiBaseUrl() {
-  return isLocalDevHost() ? LOCAL_API_BASE_URL : LIVE_API_BASE_URL;
-}
 
 function buildApiUrl(pathname) {
   const safePath = typeof pathname === "string" ? pathname.replace(/^\/+/, "") : "";
