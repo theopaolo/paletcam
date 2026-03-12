@@ -105,6 +105,9 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
   const requestedAlgorithm = typeof options === "string"
     ? options
     : options?.algorithm;
+  const requestedColorSpace = typeof options === "object" && options
+    ? (options.colorSpace ?? options.medianCut?.colorSpace)
+    : undefined;
   const algorithm = normalizePaletteExtractionAlgorithm(
     requestedAlgorithm ?? activePaletteExtractionAlgorithm
   );
@@ -118,7 +121,7 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
       typeof options === "object" && options
         ? {
             ...(options.medianCut ?? {}),
-            colorSpace: options.colorSpace,
+            colorSpace: requestedColorSpace,
             scoring: options.scoring,
           }
         : undefined

@@ -16,12 +16,12 @@ import { RAL_CLASSIC } from './ral-classic-data.js';
 
 // D65 reference white point
 const XN = 0.95047;
-const YN = 1.00000;
+const YN = 1;
 const ZN = 1.08883;
 
 function srgbToLinear(c) {
   const s = c / 255;
-  return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
 function rgbToXyz(r, g, b) {
@@ -59,7 +59,7 @@ function rgbToLab(r, g, b) {
 
 const RAD = Math.PI / 180;
 const DEG = 180 / Math.PI;
-const POW25_7 = Math.pow(25, 7); // 6103515625
+const POW25_7 = 25 ** 7; // 6103515625
 
 /**
  * Compute the CIEDE2000 color difference between two CIELAB colors.
@@ -84,7 +84,7 @@ function deltaE2000(lab1, lab2) {
   const C1 = Math.sqrt(a1 * a1 + b1 * b1);
   const C2 = Math.sqrt(a2 * a2 + b2 * b2);
   const Cab = (C1 + C2) / 2;
-  const Cab7 = Math.pow(Cab, 7);
+  const Cab7 = Cab ** 7;
   const G = 0.5 * (1 - Math.sqrt(Cab7 / (Cab7 + POW25_7)));
 
   const a1p = a1 * (1 + G);
@@ -141,7 +141,7 @@ function deltaE2000(lab1, lab2) {
   const SC = 1 + 0.045 * Cp;
   const SH = 1 + 0.015 * Cp * T;
 
-  const Cp7 = Math.pow(Cp, 7);
+  const Cp7 = Cp ** 7;
   const RC = 2 * Math.sqrt(Cp7 / (Cp7 + POW25_7));
   const dTheta = 30 * Math.exp(-((hp - 275) / 25) * ((hp - 275) / 25));
   const RT = -Math.sin(2 * dTheta * RAD) * RC;
@@ -164,7 +164,7 @@ const RAL_LAB_CACHE = RAL_CLASSIC.map((ral) => rgbToLab(ral.r, ral.g, ral.b));
 // Point sampling
 // ---------------------------------------------------------------------------
 
-const DEFAULT_SAMPLE_RADIUS = 4;
+export const DEFAULT_SAMPLE_RADIUS = 4;
 
 /**
  * Sample a single color from imageData at a given point, averaging a square

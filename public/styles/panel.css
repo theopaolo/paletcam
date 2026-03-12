@@ -234,6 +234,7 @@
   color: #f0f0f0;
   font-family: monospace;
   font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 0 #1b1b1b;
 }
 
@@ -368,6 +369,7 @@
   font-weight: 300;
   text-align: center;
   cursor: pointer;
+  user-select: none;
   transition:
     border-color 0.14s ease,
     color 0.14s ease,
@@ -487,6 +489,7 @@
   cursor: pointer;
   text-align: left;
   font: inherit;
+  user-select: none;
   transition: color 0.2s ease;
 }
 
@@ -560,6 +563,8 @@
   text-align: center;
   padding: 40px 20px;
   opacity: 0.6;
+  white-space: pre-line;
+  line-height: 1.4;
 }
 
 .palette-card {
@@ -732,6 +737,7 @@
   background: #141414;
   color: var(--secondary-color);
   cursor: pointer;
+  user-select: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -926,6 +932,7 @@
   border: none;
   cursor: pointer;
   padding: 0;
+  user-select: none;
   transition: transform 0.1s ease;
 }
 

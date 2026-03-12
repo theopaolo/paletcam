@@ -5,6 +5,7 @@ import {
   subscribeSharedPanelClosing,
 } from '../panels/panel-manager.js';
 import { findClosestRAL, getRalQualityLabel } from '../color-matching-ral.js';
+import { computeRalPopoverPosition } from './ral-popover-position.js';
 
 const viewerImage = /** @type {HTMLImageElement | null} */ (document.getElementById('catchDetailsImage'));
 const viewerStatus = document.getElementById('catchDetailsStatus');
@@ -114,28 +115,26 @@ function showRalPopover(color, anchorElement) {
     ralPopoverQuality.textContent = `${getRalQualityLabel(best.deltaE)} · ΔE ${best.deltaE.toFixed(1)}`;
   }
 
-  // Position above the anchor, centered horizontally
+  ralPopover.hidden = false;
+  ralPopover.style.visibility = 'hidden';
+
   const anchorRect = anchorElement.getBoundingClientRect();
-  const popoverWidth = 140;
-  let left = anchorRect.left + (anchorRect.width / 2) - (popoverWidth / 2);
-  let top = anchorRect.top - ralPopover.offsetHeight - 8;
-
-  // Flip below if clipping top
-  if (top < 0) {
-    top = anchorRect.bottom + 8;
-  }
-
-  // Keep within viewport horizontally
-  left = Math.max(8, Math.min(left, window.innerWidth - popoverWidth - 8));
+  const popoverRect = ralPopover.getBoundingClientRect();
+  const { left, top } = computeRalPopoverPosition(
+    anchorRect,
+    popoverRect,
+    window.innerWidth,
+  );
 
   ralPopover.style.left = `${left}px`;
   ralPopover.style.top = `${top}px`;
-  ralPopover.hidden = false;
+  ralPopover.style.visibility = '';
 }
 
 function hideRalPopover() {
   if (ralPopover) {
     ralPopover.hidden = true;
+    ralPopover.style.visibility = '';
   }
 }
 

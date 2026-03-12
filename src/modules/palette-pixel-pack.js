@@ -6,7 +6,7 @@ function clampPositiveInteger(value, fallbackValue) {
     return fallbackValue;
   }
 
-  return Math.floor(numericValue);
+  return Math.max(1, Math.floor(numericValue));
 }
 
 export function computePixelStride(frameWidth, frameHeight, maxPixels) {
@@ -15,9 +15,11 @@ export function computePixelStride(frameWidth, frameHeight, maxPixels) {
     return 1;
   }
 
+  const boundedMaxPixels = clampPositiveInteger(maxPixels, DEFAULT_MAX_SAMPLED_PIXELS);
+
   // Use a square stride so we roughly preserve the image distribution while
   // keeping the quantizer input bounded for live preview use.
-  return Math.max(1, Math.ceil(Math.sqrt(totalPixels / maxPixels)));
+  return Math.max(1, Math.ceil(Math.sqrt(totalPixels / boundedMaxPixels)));
 }
 
 function packArgb8888(red, green, blue) {

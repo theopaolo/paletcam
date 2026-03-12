@@ -83,4 +83,29 @@ describe('extractMedianCutPaletteColors', () => {
     expect(result.chosenIndices).toEqual([]);
     expect(result.colors.length).toBe(1);
   });
+
+  test('clamps invalid or fractional maxQuantizerPixels on the oklch path', () => {
+    const imageData = createRgbaData([
+      [255, 0, 0, 255],
+      [0, 255, 0, 255],
+      [0, 0, 255, 255],
+      [255, 255, 0, 255],
+    ]);
+
+    const zeroBudgetResult = extractMedianCutPaletteColors(imageData, 2, 2, 2, {
+      quantizedPoolSize: 4,
+      maxQuantizerPixels: 0,
+      colorSpace: 'oklch',
+    });
+    const fractionalBudgetResult = extractMedianCutPaletteColors(imageData, 2, 2, 2, {
+      quantizedPoolSize: 4,
+      maxQuantizerPixels: 0.5,
+      colorSpace: 'oklch',
+    });
+
+    expect(zeroBudgetResult.chosenIndices).toEqual([]);
+    expect(zeroBudgetResult.colors.length).toBeGreaterThan(0);
+    expect(fractionalBudgetResult.chosenIndices).toEqual([]);
+    expect(fractionalBudgetResult.colors.length).toBeGreaterThan(0);
+  });
 });

@@ -13,11 +13,11 @@
 
 function srgbToLinear(c) {
   const s = c / 255;
-  return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
 function linearToSrgb(c) {
-  const s = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  const s = c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
   return Math.round(Math.max(0, Math.min(255, s * 255)));
 }
 
@@ -107,20 +107,19 @@ export function rgbToHsl(r, g, b) {
   let h = 0;
   let s = 0;
 
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  if (min !== max) {
+    const delta = max - min;
+    s = delta / (1 - Math.abs(2 * l - 1));
 
-    if (max === rN) h = ((gN - bN) / d + (gN < bN ? 6 : 0)) / 6;
-    else if (max === gN) h = ((bN - rN) / d + 2) / 6;
-    else h = ((rN - gN) / d + 4) / 6;
+    if (max === rN) h = ((gN - bN) / delta) % 6;
+    else if (max === gN) h = (bN - rN) / delta + 2;
+    else h = (rN - gN) / delta + 4;
+
+    h *= 60;
+    if (h < 0) h += 360;
   }
 
-  return {
-    h: Math.round(h * 360),
-    s: Math.round(s * 100),
-    l: Math.round(l * 100),
-  };
+  return { h, s, l };
 }
 
 // ---------------------------------------------------------------------------

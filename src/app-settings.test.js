@@ -86,6 +86,15 @@ describe('app-settings captureMode', () => {
 
     expect(updates).toHaveLength(0);
   });
+
+  test('default reset patch restores captureMode to palette', async () => {
+    const { module } = await loadAppSettingsModule();
+
+    module.updateAppSettings({ captureMode: 'ral' });
+    module.updateAppSettings(module.getDefaultAppSettingsResetPatch());
+
+    expect(module.getAppSettings().captureMode).toBe('palette');
+  });
 });
 
 describe('app-settings medianCut.colorSpace', () => {

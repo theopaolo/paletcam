@@ -262,6 +262,19 @@ export function getDefaultAppSettings() {
   };
 }
 
+/** @returns {AppSettingsPatch} */
+export function getDefaultAppSettingsResetPatch() {
+  const defaults = getDefaultAppSettings();
+
+  return {
+    captureMode: defaults.captureMode,
+    grid: defaults.grid,
+    medianCut: defaults.medianCut,
+    paletteExtractionAlgorithm: defaults.paletteExtractionAlgorithm,
+    paletteScoring: defaults.paletteScoring,
+  };
+}
+
 /** @returns {AppSettings} */
 export function getAppSettings() {
   return {

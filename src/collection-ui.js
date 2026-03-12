@@ -26,7 +26,7 @@ import { openLoginPanel } from "./login-ui.js";
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
-const EMPTY_MESSAGE_TEXT = "Aucune palette enregistree pour le moment";
+const EMPTY_MESSAGE_TEXT = "Aucune capture pour le moment.\nFermez ce panneau et appuyez sur le bouton central pour capturer votre premiere palette !";
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
 const SESSION_REVEAL_STAGGER_MS = 42;

@@ -1,6 +1,6 @@
 import {
   getAppSettings,
-  getDefaultAppSettings,
+  getDefaultAppSettingsResetPatch,
   subscribeAppSettings,
   updateAppSettings,
 } from './app-settings.js';
@@ -367,13 +367,7 @@ function bindResetButton() {
   }
 
   resetButton.addEventListener('click', () => {
-    const defaults = getDefaultAppSettings();
-    updateAppSettings({
-      paletteExtractionAlgorithm: defaults.paletteExtractionAlgorithm,
-      grid: defaults.grid,
-      medianCut: defaults.medianCut,
-      paletteScoring: defaults.paletteScoring,
-    });
+    updateAppSettings(getDefaultAppSettingsResetPatch());
     showToast('Réglages réinitialisés.', { duration: 1400 });
   });
 }

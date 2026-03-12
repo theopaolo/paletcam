@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
-import { resetColorSmoothing, smoothColors } from "./palette-extraction.js";
+import { extractPaletteColors, resetColorSmoothing, smoothColors } from "./palette-extraction.js";
+
+function createRgbaData(pixels) {
+  const channels = [];
+
+  for (const [r, g, b, a] of pixels) {
+    channels.push(r, g, b, a);
+  }
+
+  return new Uint8ClampedArray(channels);
+}
 
 describe("smoothColors", () => {
   beforeEach(() => {
@@ -32,5 +42,59 @@ describe("smoothColors", () => {
     resetColorSmoothing();
 
     expect(smoothColors(secondPalette, 0.1)).toEqual(secondPalette);
+  });
+});
+
+describe("extractPaletteColors", () => {
+  test("keeps rgb as the median-cut default and honors nested colorSpace overrides", () => {
+    const imageData = createRgbaData([
+      [255, 0, 0, 255],
+      [255, 128, 0, 255],
+      [0, 255, 0, 255],
+      [0, 128, 255, 255],
+      [128, 0, 255, 255],
+      [255, 0, 128, 255],
+      [200, 200, 40, 255],
+      [40, 200, 200, 255],
+    ]);
+
+    const defaultResult = extractPaletteColors(imageData, 4, 2, 4, {
+      algorithm: "median-cut",
+      medianCut: {
+        quantizedPoolSize: 8,
+        maxQuantizerPixels: 12_000,
+      },
+    });
+    const nestedOklchResult = extractPaletteColors(imageData, 4, 2, 4, {
+      algorithm: "median-cut",
+      medianCut: {
+        quantizedPoolSize: 8,
+        maxQuantizerPixels: 12_000,
+        colorSpace: "oklch",
+      },
+    });
+    const aliasOverrideResult = extractPaletteColors(imageData, 4, 2, 4, {
+      algorithm: "median-cut",
+      colorSpace: "rgb",
+      medianCut: {
+        quantizedPoolSize: 8,
+        maxQuantizerPixels: 12_000,
+        colorSpace: "oklch",
+      },
+    });
+
+    expect(defaultResult.colors).toEqual([
+      { r: 0, g: 248, b: 0 },
+      { r: 128, g: 0, b: 248 },
+      { r: 248, g: 0, b: 0 },
+      { r: 248, g: 0, b: 128 },
+    ]);
+    expect(nestedOklchResult.colors).toEqual([
+      { r: 252, g: 123, b: 56 },
+      { r: 0, g: 129, b: 239 },
+      { r: 103, g: 242, b: 0 },
+      { r: 119, g: 0, b: 243 },
+    ]);
+    expect(aliasOverrideResult.colors).toEqual(defaultResult.colors);
   });
 });

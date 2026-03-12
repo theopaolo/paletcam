@@ -211,8 +211,10 @@ header {
   font-family: monospace;
   font-size: 0.88rem;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   letter-spacing: -0.03em;
+  user-select: none;
   transition:
     transform 0.18s ease,
     color 0.18s ease,
@@ -272,6 +274,7 @@ header {
   font-family: monospace;
   font-size: 0.74rem;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   text-align: center;
   letter-spacing: -0.02em;
@@ -381,6 +384,7 @@ header {
   font-family: monospace;
   font-size: 0.74rem;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   text-align: center;
   letter-spacing: -0.02em;
@@ -452,9 +456,11 @@ header {
   color: rgba(248, 248, 248, 0.8);
   font-family: monospace;
   font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   letter-spacing: -0.01em;
   cursor: pointer;
+  user-select: none;
   opacity: 0;
   transform: translateY(0.32rem);
   transition:

@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 
-const PANEL_HIDE_DELAY_MS = 380;
+const PANEL_HIDE_DELAY_MS = 260;
 
 class SharedPanelElement extends LitElement {
   static properties = {
@@ -41,7 +41,7 @@ class SharedPanelElement extends LitElement {
       background-blend-mode: soft-light;
       color: var(--secondary-color, #f0f0f0);
       transform: translateX(100%);
-      transition: transform 0.3s cubic-bezier(0.65, 0.05, 0.36, 1);
+      transition: transform 0.2s cubic-bezier(0.65, 0.05, 0.36, 1);
       pointer-events: auto;
     }
 
@@ -83,8 +83,10 @@ class SharedPanelElement extends LitElement {
       cursor: pointer;
     }
 
-    .close-button:hover {
-      background-color: rgba(255, 255, 255, 0.1);
+    @media (hover: hover) {
+      .close-button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
     }
 
     .panel-body {

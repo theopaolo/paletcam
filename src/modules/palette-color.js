@@ -115,7 +115,7 @@ export function createPaletteColor(r, g, b, population = 0) {
         switch (format) {
           case 'hsl': {
             const { h, s, l } = this.hsl;
-            return `hsl(${h}, ${s}%, ${l}%)`;
+            return `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
           }
           case 'oklch': {
             const { l, c, h } = this.oklch;

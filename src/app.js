@@ -25,7 +25,8 @@ import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
 import { showToast } from "./modules/toast-ui.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
-import { findClosestRAL, sampleColorAtPoint, getRalQualityLabel } from './modules/color-matching-ral.js';
+import { getRalQualityLabel } from './modules/color-matching-ral.js';
+import { findClosestRalFromContext } from "./modules/ral-live-sampling.js";
 import { savePalette } from "./palette-storage.js";
 import "./settings-ui.js";
 
@@ -115,7 +116,6 @@ let lastExtractedColors = null;
 let lastChosenIndices = [];
 let lastVisiblePaletteColors = [];
 let currentCaptureMode = 'palette';
-let lastRalMatch = null;
 let photoExportQuality = getAppSettings().photoExportQuality;
 let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
@@ -496,11 +496,66 @@ function clonePaletteColors(colors) {
   return colors.map((color) => ({ ...color }));
 }
 
+function clearRalPreviewState() {
+  if (ralLiveSwatchColor) {
+    ralLiveSwatchColor.style.backgroundColor = '';
+  }
+  if (ralLiveSwatchCode) {
+    ralLiveSwatchCode.textContent = '';
+  }
+  if (ralLiveSwatchName) {
+    ralLiveSwatchName.textContent = '';
+  }
+  if (ralLiveSwatchQuality) {
+    ralLiveSwatchQuality.textContent = '';
+  }
+}
+
+function syncRalPreview(match, sampledColor) {
+  if (ralLiveSwatchColor) {
+    ralLiveSwatchColor.style.backgroundColor = `rgb(${match.ral.r}, ${match.ral.g}, ${match.ral.b})`;
+  }
+  if (ralLiveSwatchCode) {
+    ralLiveSwatchCode.textContent = match.ral.code;
+  }
+  if (ralLiveSwatchName) {
+    ralLiveSwatchName.textContent = match.ral.name;
+  }
+  if (ralLiveSwatchQuality) {
+    ralLiveSwatchQuality.textContent = `${getRalQualityLabel(match.deltaE)} · ΔE ${match.deltaE.toFixed(1)}`;
+  }
+
+  visualEffects.setCaptureButtonGlowColor(sampledColor);
+  visualEffects.setCaptureGlowActive(true);
+}
+
+function readCurrentRalMatch() {
+  const { matches, sampledColor } = findClosestRalFromContext(
+    frameContext,
+    frameWidth,
+    frameHeight,
+    frameWidth / 2,
+    frameHeight / 2,
+    1,
+  );
+  const match = matches[0] ?? null;
+
+  if (!match) {
+    clearRalPreviewState();
+    visualEffects.setCaptureGlowActive(false);
+    return null;
+  }
+
+  syncRalPreview(match, sampledColor);
+  return match;
+}
+
 function resetPalettePreviewState() {
   extractionFrame = 0;
   lastExtractedColors = null;
   lastChosenIndices = [];
   lastVisiblePaletteColors = [];
+  clearRalPreviewState();
   resetColorSmoothing();
 }
 
@@ -513,6 +568,7 @@ function syncCaptureMode(mode) {
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
   if (slidersContainer) slidersContainer.hidden = isRal;
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
+  sampleGridOverlay.setVisible(!isRal && isGridExtractionMode());
 
   // Reset state when switching modes
   resetPalettePreviewState();
@@ -545,7 +601,7 @@ function applyAppSettings({
     sampleRowCount: gridExtractionSettings.sampleRowCount,
     sampleDiameter: gridExtractionSettings.sampleRadius * 2 + 1,
   });
-  sampleGridOverlay.setVisible(isGridExtractionMode());
+  sampleGridOverlay.setVisible(captureMode !== 'ral' && isGridExtractionMode());
   resetPalettePreviewState();
   syncCaptureMode(captureMode);
 }
@@ -1078,27 +1134,8 @@ function refreshPreview() {
   });
 
   if (currentCaptureMode === 'ral') {
-    // RAL mode: sample center point each frame
-    const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight);
-    const centerX = Math.round(frameWidth / 2);
-    const centerY = Math.round(frameHeight / 2);
-    const sampled = sampleColorAtPoint(frameImageData.data, frameWidth, frameHeight, centerX, centerY);
-    const matches = findClosestRAL(sampled.r, sampled.g, sampled.b, 1);
-
-    if (matches.length > 0) {
-      const best = matches[0];
-      lastRalMatch = best;
-      if (ralLiveSwatchColor) {
-        ralLiveSwatchColor.style.backgroundColor = `rgb(${best.ral.r}, ${best.ral.g}, ${best.ral.b})`;
-      }
-      if (ralLiveSwatchCode) ralLiveSwatchCode.textContent = best.ral.code;
-      if (ralLiveSwatchName) ralLiveSwatchName.textContent = best.ral.name;
-      if (ralLiveSwatchQuality) {
-        ralLiveSwatchQuality.textContent = `${getRalQualityLabel(best.deltaE)} · ΔE ${best.deltaE.toFixed(1)}`;
-      }
-      visualEffects.setCaptureButtonGlowColor(sampled);
-      visualEffects.setCaptureGlowActive(true);
-    }
+    sampleGridOverlay.setVisible(false);
+    readCurrentRalMatch();
   } else {
     // Palette mode: existing extraction logic
     const isGridMode = isGridExtractionMode();
@@ -1186,15 +1223,16 @@ async function captureCurrentFrame() {
   let ralMatchData = null;
 
   if (currentCaptureMode === 'ral') {
-    if (lastRalMatch) {
-      paletteColors = [{ r: lastRalMatch.ral.r, g: lastRalMatch.ral.g, b: lastRalMatch.ral.b }];
+    const currentRalMatch = readCurrentRalMatch();
+    if (currentRalMatch) {
+      paletteColors = [{ r: currentRalMatch.ral.r, g: currentRalMatch.ral.g, b: currentRalMatch.ral.b }];
       ralMatchData = {
-        code: lastRalMatch.ral.code,
-        name: lastRalMatch.ral.name,
-        r: lastRalMatch.ral.r,
-        g: lastRalMatch.ral.g,
-        b: lastRalMatch.ral.b,
-        deltaE: lastRalMatch.deltaE,
+        code: currentRalMatch.ral.code,
+        name: currentRalMatch.ral.name,
+        r: currentRalMatch.ral.r,
+        g: currentRalMatch.ral.g,
+        b: currentRalMatch.ral.b,
+        deltaE: currentRalMatch.deltaE,
       };
     } else {
       paletteColors = [];
@@ -1225,6 +1263,7 @@ async function captureCurrentFrame() {
   });
 
   photoOutput.setAttribute("src", photoData);
+  photoOutput.removeAttribute("data-palette-id");
   renderOutputSwatches(outputPalette, paletteColors);
 
   if (paletteColors.length > 0) {
