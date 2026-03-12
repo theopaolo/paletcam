@@ -54,7 +54,6 @@ class SharedPanelElement extends LitElement {
       align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
-      padding: 0 1rem;
       color: inherit;
     }
 

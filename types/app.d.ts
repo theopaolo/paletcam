@@ -410,19 +410,19 @@ interface ShareResult {
 // ---------------------------------------------------------------------------
 
 interface PaletteViewerOpenOptions {
-  colors?: RgbColor[];
-  captureMode?: CaptureMode;
-  ralMatch?: RalMatchRecord;
-  getPreviewAsset?: () => Promise<PreviewAsset>;
-  onShare?: () => void | Promise<void>;
-  onExport?: () => void | Promise<void>;
-  onPublish?: () => void | Promise<void>;
-  publishAction?: PublicationAction;
-  onDelete?: () => void | Promise<void>;
-  canShare?: boolean;
-  canExport?: boolean;
-  canPublish?: boolean;
-  canDelete?: boolean;
+  palettes?: Palette[];
+  initialIndex?: number;
+  getPalettes?: () => Palette[];
+  getPreviewAsset?: (palette: Palette) => Promise<PreviewAsset>;
+  onShare?: (palette: Palette) => void | Promise<void>;
+  onExport?: (palette: Palette) => void | Promise<void>;
+  onPublish?: (palette: Palette) => void | Promise<void>;
+  onDelete?: (palette: Palette) => void | Promise<void>;
+  getPublishAction?: (palette: Palette) => PublicationAction;
+  canShare?: (palette: Palette) => boolean;
+  canExport?: (palette: Palette) => boolean;
+  canPublish?: (palette: Palette) => boolean;
+  canDelete?: (palette: Palette) => boolean;
 }
 
 // ---------------------------------------------------------------------------

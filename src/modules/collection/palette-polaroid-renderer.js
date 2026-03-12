@@ -13,6 +13,9 @@ const POLAROID_FRAME_FOOTER_LIGHT = "#f7f7f7";
 const POLAROID_FRAME_FOOTER_DARK = "#101214";
 const POLAROID_FOOTER_TEXT_LIGHT = "rgba(34, 34, 34, 0.9)";
 const POLAROID_FOOTER_TEXT_DARK = "rgba(255, 255, 255, 0.94)";
+const PREVIEW_IMAGE_LOAD_TIMEOUT_MS = 8000;
+const PREVIEW_FONT_LOAD_TIMEOUT_MS = 1200;
+const PREVIEW_CANVAS_TO_BLOB_TIMEOUT_MS = 4000;
 
 function getBrandLabel() {
   return document.querySelector(".ColorCatchers")?.textContent?.trim()
@@ -46,18 +49,53 @@ function loadImageFromBlob(blob) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     const photoUrl = URL.createObjectURL(blob);
+    let settled = false;
+
+    const cleanup = () => {
+      image.onload = null;
+      image.onerror = null;
+      clearTimeout(timeoutId);
+    };
+
+    const finalize = (callback) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      URL.revokeObjectURL(photoUrl);
+      callback();
+    };
 
     image.decoding = "async";
     image.onload = () => {
-      URL.revokeObjectURL(photoUrl);
-      resolve(image);
+      finalize(() => resolve(image));
     };
     image.onerror = () => {
-      URL.revokeObjectURL(photoUrl);
-      reject(new Error("Unable to load preview image"));
+      finalize(() => reject(new Error("Unable to load preview image")));
     };
+    const timeoutId = setTimeout(() => {
+      image.src = "";
+      finalize(() => reject(new Error("Timed out loading preview image")));
+    }, PREVIEW_IMAGE_LOAD_TIMEOUT_MS);
     image.src = photoUrl;
   });
+}
+
+async function waitForBrandFont() {
+  const fontLoader = document.fonts?.load;
+
+  if (typeof fontLoader !== "function") {
+    return;
+  }
+
+  await Promise.race([
+    fontLoader.call(document.fonts, '400 16px Museum').catch(() => undefined),
+    new Promise((resolve) => {
+      setTimeout(resolve, PREVIEW_FONT_LOAD_TIMEOUT_MS);
+    }),
+  ]);
 }
 
 export function hasPaletteMasterPhoto(palette) {
@@ -350,21 +388,37 @@ function renderPolaroidCanvas({
 
 function canvasToBlob(canvas, { type = "image/webp", quality = POLAROID_RENDER_QUALITY } = {}) {
   return new Promise((resolve) => {
+    let settled = false;
+
+    const finalize = (blob) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeoutId);
+      resolve(blob || null);
+    };
+
+    const timeoutId = setTimeout(() => {
+      finalize(null);
+    }, PREVIEW_CANVAS_TO_BLOB_TIMEOUT_MS);
+
     canvas.toBlob(
       (blob) => {
         if (blob && blob.type === type) {
-          resolve(blob);
+          finalize(blob);
           return;
         }
         if (type !== "image/jpeg") {
           canvas.toBlob(
-            (jpegBlob) => resolve(jpegBlob || null),
+            (jpegBlob) => finalize(jpegBlob || null),
             "image/jpeg",
             quality,
           );
           return;
         }
-        resolve(blob || null);
+        finalize(blob || null);
       },
       type,
       quality,
@@ -398,7 +452,7 @@ export async function renderPalettePolaroidBlob(
   }
 
   const image = await loadImageFromBlob(palette.photoBlob);
-  await document.fonts.load('400 16px Museum');
+  await waitForBrandFont();
 
   renderPolaroidCanvas({
     canvas,

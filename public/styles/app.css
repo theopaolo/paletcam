@@ -70,6 +70,11 @@ header {
   transition: grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+body.is-ral-mode .capture {
+  flex: 0 0 auto;
+  aspect-ratio: 4 / 3;
+}
+
 /* .capture.is-preview-expanded {
   grid-template-rows: minmax(0, 2fr) minmax(0, 2fr);
 } */
@@ -103,6 +108,10 @@ header {
   height: 100%;
   display: grid;
   place-items: end center;
+}
+
+body.is-ral-mode .camera-stage-mount {
+  place-items: start center;
 }
 
 .camera-feed-frame {

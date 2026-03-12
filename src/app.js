@@ -128,6 +128,7 @@ let previewFrameRequestId = 0;
 let unsubscribeFromAppSettings = () => {};
 const appEventCleanups = [];
 let isAppDestroyed = false;
+let isInitialStartupComplete = false;
 let shouldResumeCameraOnForeground = false;
 let cameraResumeTimeoutId = 0;
 let cameraResumeAttemptId = 0;
@@ -174,7 +175,10 @@ function syncCameraFeedOrientation() {
 }
 
 function getPaletteViewportSize() {
-  const paletteViewport = capturePaletteStage ?? captureContainer;
+  const paletteViewport =
+    currentCaptureMode === 'ral' || paletteCaptureStage?.hidden
+      ? captureContainer
+      : (capturePaletteStage ?? captureContainer);
 
   return {
     width: paletteViewport?.clientWidth ?? 0,
@@ -564,11 +568,15 @@ function syncCaptureMode(mode) {
   currentCaptureMode = mode;
 
   // Toggle camera UI elements
+  document.body.classList.toggle('is-ral-mode', isRal);
   if (ralReticle) ralReticle.hidden = !isRal;
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
   if (slidersContainer) slidersContainer.hidden = isRal;
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
   sampleGridOverlay.setVisible(!isRal && isGridExtractionMode());
+
+  syncCameraViewportLayout();
+  updateCachedPreviewDimensions();
 
   // Reset state when switching modes
   resetPalettePreviewState();
@@ -626,6 +634,10 @@ function mountCameraFeed(targetElement) {
 
   if (sampleRowOverlay && sampleRowOverlay.parentElement !== cameraViewportFrame) {
     cameraViewportFrame.appendChild(sampleRowOverlay);
+  }
+
+  if (ralReticle && ralReticle.parentElement !== cameraViewportFrame) {
+    cameraViewportFrame.appendChild(ralReticle);
   }
 
   syncCameraViewportLayout();
@@ -783,10 +795,8 @@ async function resumePreviewFromActiveStream() {
   }
 
   zoomUi?.syncCapabilities();
-  if (!isStreaming) {
-    isStreaming = true;
-    schedulePreviewRefresh();
-  }
+  isStreaming = true;
+  schedulePreviewRefresh();
 
   return true;
 }
@@ -885,6 +895,7 @@ async function resumeCameraIfNeeded(reason) {
 
 function scheduleCameraResume(reason, delayMs = DEFAULT_CAMERA_RESUME_DELAY_MS) {
   if (
+    !isInitialStartupComplete ||
     !shouldHandleCameraLifecycle() ||
     !shouldResumeCameraOnForeground ||
     document.visibilityState !== "visible"
@@ -1005,7 +1016,11 @@ function initializeApp() {
   photoOutput?.removeAttribute("data-palette-id");
 
   if (navigator.mediaDevices?.getUserMedia) {
-    void startCameraStream();
+    void startCameraStream().then(() => {
+      isInitialStartupComplete = true;
+    });
+  } else {
+    isInitialStartupComplete = true;
   }
 }
 
@@ -1068,6 +1083,11 @@ async function startCameraStream() {
     zoomUi.syncCapabilities();
     exposureUi.syncCapabilities();
     shouldResumeCameraOnForeground = true;
+
+    if (!isStreaming) {
+      isStreaming = true;
+      schedulePreviewRefresh();
+    }
   }
 
   return started;
@@ -1206,6 +1226,8 @@ async function captureCurrentFrame() {
     captureSourceHeight,
   );
 
+  const captureModeSnapshot = currentCaptureMode;
+
   frameCanvas.width = frameWidth;
   frameCanvas.height = frameHeight;
 
@@ -1222,7 +1244,7 @@ async function captureCurrentFrame() {
   let paletteColors;
   let ralMatchData = null;
 
-  if (currentCaptureMode === 'ral') {
+  if (captureModeSnapshot === 'ral') {
     const currentRalMatch = readCurrentRalMatch();
     if (currentRalMatch) {
       paletteColors = [{ r: currentRalMatch.ral.r, g: currentRalMatch.ral.g, b: currentRalMatch.ral.b }];
@@ -1284,7 +1306,7 @@ async function captureCurrentFrame() {
         photoBlob: masterPhotoBlob,
         captureAspectRatio: CAMERA_FRAME_ASPECT_RATIO_LABEL,
         captureCropRect,
-        captureMode: currentCaptureMode,
+        captureMode: captureModeSnapshot,
         ralMatch: ralMatchData,
       });
       if (savedPalette?.id !== undefined && savedPalette?.id !== null) {

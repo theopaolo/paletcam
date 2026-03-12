@@ -19,6 +19,10 @@
   --shared-panel-padding: 0;
 }
 
+.catch-details-panel .panel-header {
+  padding: 0 0.5rem;
+}
+
 .collection-storage-summary {
   margin: 0 0 0.75rem;
   padding: 0.7rem;
@@ -62,8 +66,7 @@
   height: 0.55rem;
   border-radius: 999px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5);
 }
 
@@ -72,14 +75,12 @@
   height: 100%;
   width: 0%;
   border-radius: inherit;
-  background:
-    linear-gradient(90deg, rgba(255, 200, 0, 0.65), rgba(255, 200, 0, 0.95));
+  background: linear-gradient(90deg, rgba(255, 200, 0, 0.65), rgba(255, 200, 0, 0.95));
   transition: width 0.2s ease;
 }
 
 .collection-storage-summary.is-warning .storage-meter-fill {
-  background:
-    linear-gradient(90deg, rgba(255, 150, 60, 0.8), rgba(255, 90, 40, 0.95));
+  background: linear-gradient(90deg, rgba(255, 150, 60, 0.8), rgba(255, 90, 40, 0.95));
 }
 
 .storage-summary-details {
@@ -159,11 +160,13 @@
 }
 
 .settings-section {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)), rgba(0, 0, 0, 0.4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(0, 0, 0, 0.4);
   color: var(--secondary-color);
   display: grid;
   gap: 0.75rem;
-  padding: .5rem;
+  padding: 0.5rem;
   border: 1px solid #222222;
 }
 
@@ -194,7 +197,7 @@
 }
 
 .settings-section-header p.is-connected::before {
-  content: '';
+  content: "";
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
@@ -380,8 +383,7 @@
 .settings-segment-button[aria-pressed="true"] {
   color: #fff1b8;
   border-color: rgba(255, 200, 0, 0.58);
-  background:
-    linear-gradient(180deg, rgba(255, 200, 0, 0.12) 0%, rgba(18, 16, 8, 1) 100%);
+  background: linear-gradient(180deg, rgba(255, 200, 0, 0.12) 0%, rgba(18, 16, 8, 1) 100%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 200, 0, 0.12),
     0 0 0 1px rgba(255, 200, 0, 0.06);
@@ -400,8 +402,7 @@
 
 .settings-algorithm-panel {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
-    rgba(0, 0, 0, 0.16);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)), rgba(0, 0, 0, 0.16);
   display: grid;
   gap: 0.65rem;
 }
@@ -502,7 +503,7 @@
   font-size: clamp(1rem, 4.8vw, 1.5rem);
   line-height: 1.1;
   opacity: 1;
-  padding: .25rem;
+  padding: 0.25rem;
   transition: opacity 0.22s ease;
 }
 
@@ -518,7 +519,7 @@
 
 .collection-session-count {
   min-width: 1.8ch;
-  font-size: clamp(.75rem, 3.8vw, 1.25rem);
+  font-size: clamp(0.75rem, 3.8vw, 1.25rem);
   text-align: right;
   line-height: 1;
 }
@@ -623,7 +624,7 @@
   background: var(--accent-color, #ffc800);
   color: var(--primary-color, #222222);
   padding: 0.1rem 0.3rem;
-  border-radius: 0.2rem;
+  border-radius: 2px;
   pointer-events: none;
 }
 
@@ -792,30 +793,61 @@
 
 .catch-details-content {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
   min-height: calc(var(--app-height, 100vh) - 4rem);
   padding: 0.5rem;
   background: #1b1b1b;
 }
 
 .palette-viewer-frame {
-  display: grid;
-  place-content: center;
+  min-height: 0;
   width: 100%;
+  overflow: hidden;
+  background: #1b1b1b;
+}
+
+.palette-viewer-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: pan-y pinch-zoom;
+  background: #1b1b1b;
+}
+
+.palette-viewer-track::-webkit-scrollbar {
+  display: none;
+}
+
+.palette-viewer-slide {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
   background: #1b1b1b;
 }
 
 .palette-viewer-image {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
   background: #1b1b1b;
 }
 
 .palette-viewer-status {
   margin: 0;
   width: 100%;
-  min-height: 2.6rem;
+  min-height: 3rem;
   padding: 0.8rem 0.75rem;
   display: grid;
   place-items: center;
@@ -830,57 +862,15 @@
   display: none;
 }
 
-/* RAL Swatch in Viewer (for RAL captures) */
-.palette-viewer-ral-swatch {
-  padding: 1rem;
-  text-align: center;
-}
-
-.palette-viewer-ral-swatch[hidden] {
-  display: none;
-}
-
-.palette-viewer-ral-swatch-color {
-  width: 100%;
-  height: 4rem;
-  border-radius: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.palette-viewer-ral-swatch-info {
-  padding: 0.5rem 0;
-}
-
-.palette-viewer-ral-swatch-code {
-  font-weight: bold;
-  font-size: 0.95rem;
-  margin: 0;
-}
-
-.palette-viewer-ral-swatch-name {
-  font-size: 0.85rem;
-  opacity: 0.8;
-  margin: 0;
-}
-
-.palette-viewer-ral-swatch-quality {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  color: var(--accent-color, #ffc800);
-  margin: 0;
-}
-
 /* RAL Popover (tap-on-swatch in palette viewer) */
 .ral-popover {
   position: fixed;
   width: 140px;
   background: var(--primary-color, #222222);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 0.6rem;
-  padding: 0.5rem;
   text-align: center;
   z-index: 1200;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border-radius: 2px;
   pointer-events: none;
   transition: opacity 0.15s ease;
 }
@@ -892,8 +882,12 @@
 .ral-popover-color {
   width: 100%;
   height: 2.5rem;
-  border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ral-popover-info {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
 }
 
 .ral-popover-code {
@@ -936,14 +930,6 @@
   transition: transform 0.1s ease;
 }
 
-.palette-viewer-swatch:first-child {
-  border-radius: 0.4rem 0 0 0.4rem;
-}
-
-.palette-viewer-swatch:last-child {
-  border-radius: 0 0.4rem 0.4rem 0;
-}
-
 .palette-viewer-swatch:active {
   transform: scale(0.95);
 }
@@ -971,47 +957,93 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   transform: translate(-50%, -50%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 4px;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 12px rgba(0, 0, 0, 0.3);
   pointer-events: none;
   z-index: 10;
 }
 
+.ral-reticle::before,
+.ral-reticle::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.6));
+}
+
+.ral-reticle::before {
+  top: 50%;
+  left: -1px;
+  right: -1px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.ral-reticle::after {
+  left: 50%;
+  top: -1px;
+  bottom: -1px;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
 /* RAL Live Swatch — replaces palette strip in RAL mode */
 .ral-live-swatch {
-  padding: 0.5rem 1rem;
-  text-align: center;
+  padding: 0;
+  background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.62);
+}
+
+body.is-ral-mode .ral-live-swatch {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .ral-live-swatch-color {
   width: 100%;
   height: 3rem;
-  border-radius: 0.6rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+body.is-ral-mode .ral-live-swatch-color {
+  flex: 1 1 auto;
+  min-height: clamp(8rem, 22vh, 18rem);
 }
 
 .ral-live-swatch-info {
   padding: 0.4rem 0;
 }
 
+body.is-ral-mode .ral-live-swatch-info {
+  padding: 0.95rem 0.75rem 1.1rem;
+}
+
 .ral-live-swatch-code {
   font-weight: bold;
   font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.95);
   margin: 0;
 }
 
 .ral-live-swatch-name {
-  font-size: 0.78rem;
-  opacity: 0.8;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.7);
   margin: 0;
 }
 
 .ral-live-swatch-quality {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
   color: var(--accent-color, #ffc800);
   margin: 0;

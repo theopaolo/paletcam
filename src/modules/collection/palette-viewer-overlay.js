@@ -1,49 +1,58 @@
+import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
 import {
   closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
-} from '../panels/panel-manager.js';
-import { findClosestRAL, getRalQualityLabel } from '../color-matching-ral.js';
-import { computeRalPopoverPosition } from './ral-popover-position.js';
+} from "../panels/panel-manager.js";
+import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
+import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
-const viewerImage = /** @type {HTMLImageElement | null} */ (document.getElementById('catchDetailsImage'));
-const viewerStatus = document.getElementById('catchDetailsStatus');
-const shareButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsShareButton'));
-const exportButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsExportButton'));
-const publishButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsPublishButton'));
-const deleteButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('catchDetailsDeleteButton'));
-const viewerRalSwatch = document.getElementById('catchDetailsRalSwatch');
-const viewerRalSwatchColor = document.getElementById('catchDetailsRalSwatchColor');
-const viewerRalSwatchCode = document.getElementById('catchDetailsRalSwatchCode');
-const viewerRalSwatchName = document.getElementById('catchDetailsRalSwatchName');
-const viewerRalSwatchQuality = document.getElementById('catchDetailsRalSwatchQuality');
-const ralPopover = document.getElementById('ralPopover');
-const ralPopoverColor = document.getElementById('ralPopoverColor');
-const ralPopoverCode = document.getElementById('ralPopoverCode');
-const ralPopoverName = document.getElementById('ralPopoverName');
-const ralPopoverQuality = document.getElementById('ralPopoverQuality');
-const swatchStripContainer = document.getElementById('catchDetailsSwatchStrip');
+const PRELOAD_BACKWARD_DISTANCE = 1;
+const PRELOAD_FORWARD_DISTANCE = 3;
+
+const viewerTrack = document.getElementById("catchDetailsTrack");
+const shareButton = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("catchDetailsShareButton")
+);
+const exportButton = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("catchDetailsExportButton")
+);
+const publishButton = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("catchDetailsPublishButton")
+);
+const deleteButton = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("catchDetailsDeleteButton")
+);
+const ralPopover = document.getElementById("ralPopover");
+const ralPopoverColor = document.getElementById("ralPopoverColor");
+const ralPopoverCode = document.getElementById("ralPopoverCode");
+const ralPopoverName = document.getElementById("ralPopoverName");
+const ralPopoverQuality = document.getElementById("ralPopoverQuality");
+const swatchStripContainer = document.getElementById("catchDetailsSwatchStrip");
+
 let activeRequestId = 0;
 let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
+let pendingTrackAlignmentRaf = 0;
+let pendingTrackScrollRaf = 0;
 
 const PUBLISH_BUTTON_COPY = Object.freeze({
   publish: {
-    label: 'Publier la palette',
-    iconName: 'publish',
-    visibleLabel: 'publier',
+    label: "Publier la palette",
+    iconName: "publish",
+    visibleLabel: "publier",
   },
   unpublish: {
-    label: 'Dépublier la palette',
-    iconName: 'unpublish',
-    visibleLabel: 'dépublier',
+    label: "Dépublier la palette",
+    iconName: "unpublish",
+    visibleLabel: "dépublier",
   },
 });
 
 function getActionIconMarkup(iconName) {
-  if (iconName === 'export') {
+  if (iconName === "export") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
         <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,114.34a8,8,0,0,1,11.32,0L120,132.69V72a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32A8,8,0,0,1,90.34,114.34ZM208,208H48V168H76.69L96,187.32A15.89,15.89,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
@@ -51,13 +60,13 @@ function getActionIconMarkup(iconName) {
     `;
   }
 
-  if (iconName === 'share') {
+  if (iconName === "share") {
     return `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#000000" viewBox="0 0 256 256"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
     `;
   }
 
-  if (iconName === 'publish') {
+  if (iconName === "publish") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
         <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,98.34l32-32a8,8,0,0,1,11.32,0l32,32a8,8,0,0,1-11.32,11.32L136,91.31V152a8,8,0,0,1-16,0V91.31l-18.34,18.35A8,8,0,0,1,90.34,98.34ZM208,208H48V168H76.69L96,187.31A15.86,15.86,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
@@ -65,7 +74,7 @@ function getActionIconMarkup(iconName) {
     `;
   }
 
-  if (iconName === 'unpublish') {
+  if (iconName === "unpublish") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
         <path d="M216,40H40A16,16,0,0,0,24,56V208a8,8,0,0,0,11.58,7.15L64,200.94l28.42,14.21a8,8,0,0,0,7.16,0L128,200.94l28.42,14.21a8,8,0,0,0,7.16,0L192,200.94l28.42,14.21A8,8,0,0,0,232,208V56A16,16,0,0,0,216,40Zm-58.34,98.34a8,8,0,0,1-11.32,11.32L128,131.31l-18.34,18.35a8,8,0,0,1-11.32-11.32L116.69,120,98.34,101.66a8,8,0,0,1,11.32-11.32L128,108.69l18.34-18.35a8,8,0,0,1,11.32,11.32L139.31,120Z"></path>
@@ -85,70 +94,135 @@ function hydrateViewerActionButton(button, { label, iconName, visibleLabel }) {
     return;
   }
 
-  button.setAttribute('aria-label', label);
+  button.setAttribute("aria-label", label);
   button.innerHTML = `
     ${getActionIconMarkup(iconName)}
     <span class="palette-quick-action-label">${visibleLabel}</span>
   `;
 }
 
-function syncPublishButtonCopy() {
-  const publishAction = activeSession?.publishAction === 'unpublish'
-    ? 'unpublish'
-    : 'publish';
+function clampIndex(index, length) {
+  if (!Number.isFinite(index) || length <= 0) {
+    return 0;
+  }
 
-  hydrateViewerActionButton(publishButton, PUBLISH_BUTTON_COPY[publishAction]);
+  return Math.max(0, Math.min(Math.round(index), length - 1));
+}
+
+function getActivePalette() {
+  if (!activeSession || activeSession.palettes.length === 0) {
+    return null;
+  }
+
+  return activeSession.palettes[activeSession.activeIndex] ?? null;
+}
+
+function getPublishAction(palette = getActivePalette()) {
+  if (!palette) {
+    return "publish";
+  }
+
+  return activeSession?.getPublishAction?.(palette) === "unpublish" ? "unpublish" : "publish";
+}
+
+function canPalettePreview(palette) {
+  if (!palette || typeof activeSession?.getPreviewAsset !== "function") {
+    return false;
+  }
+
+  return typeof activeSession.canExport === "function"
+    ? Boolean(activeSession.canExport(palette))
+    : true;
+}
+
+function getCapability(capabilityName, palette = getActivePalette()) {
+  if (!palette) {
+    return false;
+  }
+
+  const capability = activeSession?.[capabilityName];
+  return typeof capability === "function" ? Boolean(capability(palette)) : true;
+}
+
+function clearPendingTrackAlignment() {
+  if (!pendingTrackAlignmentRaf) {
+    return;
+  }
+
+  window.cancelAnimationFrame(pendingTrackAlignmentRaf);
+  pendingTrackAlignmentRaf = 0;
+}
+
+function clearPendingTrackScroll() {
+  if (!pendingTrackScrollRaf) {
+    return;
+  }
+
+  window.cancelAnimationFrame(pendingTrackScrollRaf);
+  pendingTrackScrollRaf = 0;
+}
+
+function hideRalPopover() {
+  if (ralPopover) {
+    ralPopover.hidden = true;
+    ralPopover.style.visibility = "";
+  }
+}
+
+function clearViewerSwatches() {
+  if (swatchStripContainer) {
+    swatchStripContainer.innerHTML = "";
+    swatchStripContainer.hidden = true;
+  }
 }
 
 function showRalPopover(color, anchorElement) {
   const matches = findClosestRAL(color.r, color.g, color.b, 1);
-  if (matches.length === 0 || !ralPopover) return;
+  if (matches.length === 0 || !ralPopover) {
+    return;
+  }
 
   const best = matches[0];
 
   if (ralPopoverColor) {
     ralPopoverColor.style.backgroundColor = `rgb(${best.ral.r}, ${best.ral.g}, ${best.ral.b})`;
   }
-  if (ralPopoverCode) ralPopoverCode.textContent = best.ral.code;
-  if (ralPopoverName) ralPopoverName.textContent = best.ral.name;
+  if (ralPopoverCode) {
+    ralPopoverCode.textContent = best.ral.code;
+  }
+  if (ralPopoverName) {
+    ralPopoverName.textContent = best.ral.name;
+  }
   if (ralPopoverQuality) {
     ralPopoverQuality.textContent = `${getRalQualityLabel(best.deltaE)} · ΔE ${best.deltaE.toFixed(1)}`;
   }
 
   ralPopover.hidden = false;
-  ralPopover.style.visibility = 'hidden';
+  ralPopover.style.visibility = "hidden";
 
   const anchorRect = anchorElement.getBoundingClientRect();
   const popoverRect = ralPopover.getBoundingClientRect();
-  const { left, top } = computeRalPopoverPosition(
-    anchorRect,
-    popoverRect,
-    window.innerWidth,
-  );
+  const { left, top } = computeRalPopoverPosition(anchorRect, popoverRect, window.innerWidth);
 
   ralPopover.style.left = `${left}px`;
   ralPopover.style.top = `${top}px`;
-  ralPopover.style.visibility = '';
-}
-
-function hideRalPopover() {
-  if (ralPopover) {
-    ralPopover.hidden = true;
-    ralPopover.style.visibility = '';
-  }
+  ralPopover.style.visibility = "";
 }
 
 function renderViewerSwatches(colors) {
-  if (!swatchStripContainer) return;
+  if (!swatchStripContainer) {
+    return;
+  }
 
-  swatchStripContainer.innerHTML = '';
+  swatchStripContainer.innerHTML = "";
+  swatchStripContainer.hidden = colors.length === 0;
 
   colors.forEach((color) => {
-    const swatch = document.createElement('button');
-    swatch.className = 'palette-viewer-swatch';
+    const swatch = document.createElement("button");
+    swatch.className = "palette-viewer-swatch";
     swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    swatch.setAttribute('aria-label', 'Voir correspondance RAL');
-    swatch.addEventListener('click', (event) => {
+    swatch.setAttribute("aria-label", "Voir correspondance RAL");
+    swatch.addEventListener("click", (event) => {
       event.stopPropagation();
       showRalPopover(color, swatch);
     });
@@ -156,48 +230,318 @@ function renderViewerSwatches(colors) {
   });
 }
 
-function clearViewerSwatches() {
-  if (swatchStripContainer) {
-    swatchStripContainer.innerHTML = '';
+function shouldShowViewerSwatches(palette) {
+  if (!Array.isArray(palette?.colors) || palette.colors.length === 0) {
+    return false;
+  }
+
+  return getAppSettings().captureMode === "ral" || palette.captureMode === "ral";
+}
+
+function renderActivePaletteSupplementaryUi() {
+  const palette = getActivePalette();
+  hideRalPopover();
+  clearViewerSwatches();
+
+  if (!palette) {
+    return;
+  }
+
+  if (shouldShowViewerSwatches(palette)) {
+    renderViewerSwatches(palette.colors);
   }
 }
 
-function resetViewerFrame() {
-  if (viewerImage) {
-    viewerImage.hidden = true;
-    viewerImage.removeAttribute('src');
+function syncPublishButtonCopy() {
+  hydrateViewerActionButton(publishButton, PUBLISH_BUTTON_COPY[getPublishAction()]);
+}
+
+function syncActionButtons() {
+  if (shareButton) {
+    shareButton.disabled = isBusy || !getCapability("canShare");
   }
 
-  if (viewerStatus) {
-    viewerStatus.textContent = '';
+  if (exportButton) {
+    exportButton.disabled = isBusy || !getCapability("canExport");
   }
 
-  if (viewerRalSwatch) {
-    viewerRalSwatch.hidden = true;
+  if (publishButton) {
+    publishButton.disabled = isBusy || !getCapability("canPublish");
   }
 
-  hideRalPopover();
-  clearViewerSwatches();
+  if (deleteButton) {
+    deleteButton.disabled = isBusy || !getCapability("canDelete");
+  }
+}
+
+function syncViewerChrome() {
+  syncPublishButtonCopy();
+  syncActionButtons();
+  renderActivePaletteSupplementaryUi();
 }
 
 function setBusy(nextBusy) {
   isBusy = nextBusy;
+  syncActionButtons();
+}
 
-  if (shareButton) {
-    shareButton.disabled = nextBusy || !activeSession?.canShare;
+function loadImageElement(image, src) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      image.removeEventListener("load", handleLoad);
+      image.removeEventListener("error", handleError);
+    };
+
+    const handleLoad = () => {
+      cleanup();
+      resolve();
+    };
+
+    const handleError = () => {
+      cleanup();
+      reject(new Error("Unable to load preview image element"));
+    };
+
+    image.addEventListener("load", handleLoad);
+    image.addEventListener("error", handleError);
+    image.src = src;
+
+    if (image.complete) {
+      if (image.naturalWidth > 0) {
+        cleanup();
+        resolve();
+        return;
+      }
+
+      cleanup();
+      reject(new Error("Unable to load preview image element"));
+    }
+  });
+}
+
+function createSlideState(palette, index) {
+  const slide = document.createElement("article");
+  slide.className = "palette-viewer-slide";
+  slide.dataset.index = String(index);
+
+  const image = document.createElement("img");
+  image.className = "palette-viewer-image";
+  image.alt = "Aperçu de capture";
+  image.decoding = "async";
+  image.hidden = true;
+
+  const status = document.createElement("p");
+  status.className = "palette-viewer-status";
+  status.textContent = canPalettePreview(palette) ? "" : "Aperçu indisponible";
+
+  slide.append(image, status);
+
+  return {
+    paletteId: palette.id,
+    slide,
+    image,
+    status,
+    loadState: canPalettePreview(palette) ? "idle" : "unavailable",
+    requestId: 0,
+  };
+}
+
+function renderViewerTrack() {
+  if (!viewerTrack || !activeSession) {
+    return;
   }
 
-  if (exportButton) {
-    exportButton.disabled = nextBusy || !activeSession?.canExport;
+  viewerTrack.innerHTML = "";
+  activeSession.slideStates = activeSession.palettes.map((palette, index) => {
+    const slideState = createSlideState(palette, index);
+    viewerTrack.appendChild(slideState.slide);
+    return slideState;
+  });
+}
+
+async function loadSlideAsset(index) {
+  if (!activeSession) {
+    return;
   }
 
-  if (publishButton) {
-    publishButton.disabled = nextBusy || !activeSession?.canPublish;
+  const palette = activeSession.palettes[index];
+  const slideState = activeSession.slideStates[index];
+  if (
+    !palette ||
+    !slideState ||
+    slideState.loadState === "loading" ||
+    slideState.loadState === "loaded" ||
+    slideState.loadState === "unavailable"
+  ) {
+    return;
   }
 
-  if (deleteButton) {
-    deleteButton.disabled = nextBusy || !activeSession?.canDelete;
+  const session = activeSession;
+  slideState.loadState = "loading";
+  slideState.requestId += 1;
+  const requestId = slideState.requestId;
+  slideState.status.textContent = "Chargement...";
+
+  try {
+    const asset = await session.getPreviewAsset(palette);
+    if (
+      activeSession !== session ||
+      session.slideStates[index] !== slideState ||
+      slideState.requestId !== requestId
+    ) {
+      return;
+    }
+
+    await loadImageElement(slideState.image, asset.objectUrl);
+    if (
+      activeSession !== session ||
+      session.slideStates[index] !== slideState ||
+      slideState.requestId !== requestId
+    ) {
+      return;
+    }
+
+    slideState.image.hidden = false;
+    slideState.status.textContent = "";
+    slideState.loadState = "loaded";
+  } catch (error) {
+    if (
+      activeSession !== session ||
+      session.slideStates[index] !== slideState ||
+      slideState.requestId !== requestId
+    ) {
+      return;
+    }
+
+    slideState.image.hidden = true;
+    slideState.image.removeAttribute("src");
+    slideState.status.textContent = "Aperçu indisponible";
+    slideState.loadState = "error";
+    console.error(`Failed to load palette viewer preview for palette ${palette.id}:`, error);
   }
+}
+
+function preloadNearbySlides() {
+  if (!activeSession) {
+    return;
+  }
+
+  const queue = [activeSession.activeIndex];
+  for (let offset = 1; offset <= PRELOAD_FORWARD_DISTANCE; offset += 1) {
+    queue.push(activeSession.activeIndex + offset);
+  }
+  for (let offset = 1; offset <= PRELOAD_BACKWARD_DISTANCE; offset += 1) {
+    queue.push(activeSession.activeIndex - offset);
+  }
+
+  const visited = new Set();
+  queue.forEach((index) => {
+    if (visited.has(index)) {
+      return;
+    }
+    visited.add(index);
+
+    if (index < 0 || index >= activeSession.palettes.length) {
+      return;
+    }
+
+    void loadSlideAsset(index);
+  });
+}
+
+function scrollToActiveSlide(behavior = "auto") {
+  if (!viewerTrack || !activeSession) {
+    return;
+  }
+
+  const left = viewerTrack.clientWidth * activeSession.activeIndex;
+  if (typeof viewerTrack.scrollTo === "function") {
+    viewerTrack.scrollTo({ left, behavior });
+    return;
+  }
+
+  viewerTrack.scrollLeft = left;
+}
+
+function scheduleTrackAlignment() {
+  clearPendingTrackAlignment();
+  pendingTrackAlignmentRaf = window.requestAnimationFrame(() => {
+    pendingTrackAlignmentRaf = 0;
+    scrollToActiveSlide();
+    preloadNearbySlides();
+  });
+}
+
+function updateActiveIndex(nextIndex) {
+  if (!activeSession) {
+    return;
+  }
+
+  const clampedIndex = clampIndex(nextIndex, activeSession.palettes.length);
+  if (clampedIndex === activeSession.activeIndex) {
+    return;
+  }
+
+  activeSession.activeIndex = clampedIndex;
+  syncViewerChrome();
+  preloadNearbySlides();
+}
+
+function getTrackActiveIndex() {
+  if (!viewerTrack || !activeSession || viewerTrack.clientWidth <= 0) {
+    return activeSession?.activeIndex ?? 0;
+  }
+
+  return clampIndex(
+    viewerTrack.scrollLeft / viewerTrack.clientWidth,
+    activeSession.palettes.length,
+  );
+}
+
+function syncSessionPalettes({
+  preferredPaletteId = null,
+  fallbackIndex = activeSession?.activeIndex ?? 0,
+} = {}) {
+  if (!activeSession) {
+    return false;
+  }
+
+  const nextPalettes =
+    typeof activeSession.getPalettes === "function"
+      ? activeSession.getPalettes()
+      : activeSession.palettes;
+
+  if (!Array.isArray(nextPalettes) || nextPalettes.length === 0) {
+    closePaletteViewerOverlay();
+    return false;
+  }
+
+  let nextIndex = clampIndex(fallbackIndex, nextPalettes.length);
+  if (preferredPaletteId !== null && preferredPaletteId !== undefined) {
+    const preferredIndex = nextPalettes.findIndex((palette) => palette.id === preferredPaletteId);
+    if (preferredIndex >= 0) {
+      nextIndex = preferredIndex;
+    }
+  }
+
+  activeSession.palettes = [...nextPalettes];
+  activeSession.activeIndex = nextIndex;
+  renderViewerTrack();
+  syncViewerChrome();
+  scheduleTrackAlignment();
+  return true;
+}
+
+function resetViewerFrame() {
+  clearPendingTrackAlignment();
+  clearPendingTrackScroll();
+  if (viewerTrack) {
+    viewerTrack.innerHTML = "";
+    viewerTrack.scrollLeft = 0;
+  }
+
+  hideRalPopover();
+  clearViewerSwatches();
 }
 
 async function runAction(actionName) {
@@ -205,14 +549,37 @@ async function runAction(actionName) {
     return;
   }
 
+  const palette = getActivePalette();
   const action = activeSession[actionName];
-  if (typeof action !== 'function') {
+  const fallbackIndex = activeSession.activeIndex;
+  const paletteId = palette?.id ?? null;
+  if (!palette || typeof action !== "function") {
     return;
   }
 
   setBusy(true);
   try {
-    await action();
+    await action(palette);
+    if (!activeSession) {
+      return;
+    }
+
+    if (actionName === "onPublish") {
+      syncSessionPalettes({
+        preferredPaletteId: paletteId,
+        fallbackIndex,
+      });
+      return;
+    }
+
+    if (actionName === "onDelete") {
+      syncSessionPalettes({
+        fallbackIndex,
+      });
+      return;
+    }
+
+    syncViewerChrome();
   } finally {
     if (activeSession) {
       setBusy(false);
@@ -220,11 +587,40 @@ async function runAction(actionName) {
   }
 }
 
+function handleTrackScroll() {
+  hideRalPopover();
+
+  if (pendingTrackScrollRaf) {
+    return;
+  }
+
+  pendingTrackScrollRaf = window.requestAnimationFrame(() => {
+    pendingTrackScrollRaf = 0;
+    updateActiveIndex(getTrackActiveIndex());
+  });
+}
+
+function handleWindowResize() {
+  if (!activeSession) {
+    return;
+  }
+
+  scheduleTrackAlignment();
+}
+
+function handleAppSettingsChange() {
+  if (!activeSession) {
+    return;
+  }
+
+  renderActivePaletteSupplementaryUi();
+}
+
 function handleViewerPanelClosing() {
   activeRequestId += 1;
   activeSession = undefined;
   setBusy(false);
-  document.removeEventListener('click', hideRalPopover);
+  document.removeEventListener("click", hideRalPopover);
   hideRalPopover();
 }
 
@@ -239,133 +635,109 @@ function bindViewerPanelEvents() {
 
   hasBoundViewerPanelEvents = true;
   hydrateViewerActionButton(shareButton, {
-    label: 'Partager la palette',
-    iconName: 'share',
-    visibleLabel: 'partager',
+    label: "Partager la palette",
+    iconName: "share",
+    visibleLabel: "partager",
   });
   hydrateViewerActionButton(exportButton, {
-    label: 'Exporter la palette',
-    iconName: 'export',
-    visibleLabel: 'télécharger',
+    label: "Exporter la palette",
+    iconName: "export",
+    visibleLabel: "télécharger",
+  });
+  hydrateViewerActionButton(deleteButton, {
+    label: "Supprimer la palette",
+    iconName: "delete",
+    visibleLabel: "supprimer",
   });
   syncPublishButtonCopy();
-  hydrateViewerActionButton(deleteButton, {
-    label: 'Supprimer la palette',
-    iconName: 'delete',
-    visibleLabel: 'supprimer',
+
+  shareButton?.addEventListener("click", () => {
+    void runAction("onShare");
   });
-  shareButton?.addEventListener('click', () => {
-    void runAction('onShare');
+  exportButton?.addEventListener("click", () => {
+    void runAction("onExport");
   });
-  exportButton?.addEventListener('click', () => {
-    void runAction('onExport');
+  publishButton?.addEventListener("click", () => {
+    void runAction("onPublish");
   });
-  publishButton?.addEventListener('click', () => {
-    void runAction('onPublish');
+  deleteButton?.addEventListener("click", () => {
+    void runAction("onDelete");
   });
-  deleteButton?.addEventListener('click', () => {
-    void runAction('onDelete');
-  });
-  subscribeSharedPanelClosing('catch-details', handleViewerPanelClosing);
-  subscribeSharedPanelClosed('catch-details', handleViewerPanelClosed);
+  viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true });
+  window.addEventListener("resize", handleWindowResize);
+  subscribeAppSettings(handleAppSettingsChange);
+  subscribeSharedPanelClosing("catch-details", handleViewerPanelClosing);
+  subscribeSharedPanelClosed("catch-details", handleViewerPanelClosed);
 }
 
 /** @param {PaletteViewerOpenOptions} options */
-export async function openPaletteViewerOverlay({
-  colors = [],
-  captureMode,
-  ralMatch,
+export function openPaletteViewerOverlay({
+  palettes = [],
+  initialIndex = 0,
+  getPalettes,
   getPreviewAsset,
   onShare,
   onExport,
   onPublish,
-  publishAction = 'publish',
   onDelete,
-  canShare = true,
-  canExport = true,
-  canPublish = true,
-  canDelete = true,
+  getPublishAction,
+  canShare,
+  canExport,
+  canPublish,
+  canDelete,
 }) {
   bindViewerPanelEvents();
+
+  if (!Array.isArray(palettes) || palettes.length === 0 || typeof getPreviewAsset !== "function") {
+    return;
+  }
+
   activeRequestId += 1;
   const requestId = activeRequestId;
 
   activeSession = {
+    requestId,
+    palettes: [...palettes],
+    activeIndex: clampIndex(initialIndex, palettes.length),
+    slideStates: [],
+    getPalettes,
+    getPreviewAsset,
     onShare,
     onExport,
     onPublish,
-    publishAction,
     onDelete,
+    getPublishAction,
     canShare,
     canExport,
     canPublish,
     canDelete,
   };
-  syncPublishButtonCopy();
 
   resetViewerFrame();
-
-  const isRalCapture = captureMode === 'ral' && ralMatch;
-  if (viewerRalSwatch) {
-    viewerRalSwatch.hidden = !isRalCapture;
-  }
-
-  if (isRalCapture && ralMatch) {
-    if (viewerRalSwatchColor) {
-      viewerRalSwatchColor.style.backgroundColor = `rgb(${ralMatch.r}, ${ralMatch.g}, ${ralMatch.b})`;
-    }
-    if (viewerRalSwatchCode) viewerRalSwatchCode.textContent = ralMatch.code;
-    if (viewerRalSwatchName) viewerRalSwatchName.textContent = ralMatch.name;
-    if (viewerRalSwatchQuality) {
-      viewerRalSwatchQuality.textContent = `${getRalQualityLabel(ralMatch.deltaE)} · ΔE ${ralMatch.deltaE.toFixed(1)}`;
-    }
-  }
-
-  if (!isRalCapture && colors.length > 0) {
-    renderViewerSwatches(colors);
-  }
-
-  document.addEventListener('click', hideRalPopover);
-
-  if (viewerStatus) {
-    viewerStatus.textContent = canExport ? 'Chargement...' : 'Aperçu indisponible';
-  }
+  renderViewerTrack();
+  syncViewerChrome();
   setBusy(false);
-  openSharedPanel('catch-details', { closeOtherPanels: false });
+  document.addEventListener("click", hideRalPopover);
+  openSharedPanel("catch-details", { closeOtherPanels: false });
+  scheduleTrackAlignment();
+}
 
-  if (!canExport || typeof getPreviewAsset !== 'function') {
-    return;
+export function refreshPaletteViewerOverlay(options = {}) {
+  if (!activeSession) {
+    return false;
   }
 
-  try {
-    const asset = await getPreviewAsset();
-    if (requestId !== activeRequestId || !activeSession) {
-      return;
-    }
-
-    if (viewerImage) {
-      viewerImage.src = asset.objectUrl;
-      viewerImage.hidden = false;
-    }
-    if (viewerStatus) {
-      viewerStatus.textContent = '';
-    }
-  } catch (error) {
-    if (requestId !== activeRequestId || !activeSession) {
-      return;
-    }
-
-    if (viewerStatus) {
-      viewerStatus.textContent = 'Aperçu indisponible';
-    }
-    console.error('Failed to load palette viewer preview:', error);
-  }
+  const currentPalette = getActivePalette();
+  return syncSessionPalettes({
+    preferredPaletteId: options.preferredPaletteId ?? currentPalette?.id ?? null,
+    fallbackIndex: options.fallbackIndex ?? activeSession.activeIndex,
+  });
 }
 
 export function closePaletteViewerOverlay() {
-  closeSharedPanel('catch-details');
+  closeSharedPanel("catch-details");
 }
 
 export function subscribePaletteViewerOverlayClose(listener) {
-  return subscribeSharedPanelClosing('catch-details', listener);
+  return subscribeSharedPanelClosing("catch-details", listener);
 }
