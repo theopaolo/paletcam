@@ -29,25 +29,14 @@ describe('color-matching-ral', () => {
 });
 
 describe('getRalQualityLabel', () => {
-  test('returns Très proche for deltaE <= 2', () => {
-    expect(getRalQualityLabel(0)).toBe('Très proche');
-    expect(getRalQualityLabel(1.5)).toBe('Très proche');
-    expect(getRalQualityLabel(2)).toBe('Très proche');
+  test('returns similarity percentage based on deltaE', () => {
+    expect(getRalQualityLabel(0)).toBe('RAL similarity 100%');
+    expect(getRalQualityLabel(5)).toBe('RAL similarity 50%');
+    expect(getRalQualityLabel(10)).toBe('RAL similarity 0%');
   });
 
-  test('returns Proche for deltaE <= 5', () => {
-    expect(getRalQualityLabel(2.1)).toBe('Proche');
-    expect(getRalQualityLabel(5)).toBe('Proche');
-  });
-
-  test('returns Bonne piste for deltaE <= 10', () => {
-    expect(getRalQualityLabel(5.1)).toBe('Bonne piste');
-    expect(getRalQualityLabel(10)).toBe('Bonne piste');
-  });
-
-  test('returns Approximation for deltaE > 10', () => {
-    expect(getRalQualityLabel(10.1)).toBe('Approximation');
-    expect(getRalQualityLabel(50)).toBe('Approximation');
+  test('clamps at 0% for high deltaE', () => {
+    expect(getRalQualityLabel(15)).toBe('RAL similarity 0%');
   });
 
   test('returns empty string for non-finite values', () => {

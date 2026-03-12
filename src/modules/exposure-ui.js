@@ -160,8 +160,12 @@ export function createExposureUiController({
     thumb.style.top = `${nextTop}px`;
   }
 
-  function updateResetVisibility(exposureValue) {
-    resetButton.hidden = Math.abs(exposureValue) < getStepValue() / 2;
+  function updateResetButtonState(exposureValue) {
+    const isZeroExposure = Math.abs(exposureValue) < getStepValue() / 2;
+    resetButton.hidden = false;
+    resetButton.disabled = isZeroExposure;
+    resetButton.classList.toggle("is-zero", isZeroExposure);
+    resetButton.classList.toggle("is-active", !isZeroExposure);
   }
 
   function syncPassiveIndicator() {
@@ -180,7 +184,7 @@ export function createExposureUiController({
     }
     valueBadge.textContent = formatExposureValue(currentExposure);
     updateThumbPosition(currentExposure);
-    updateResetVisibility(currentExposure);
+    updateResetButtonState(currentExposure);
     syncPassiveIndicator();
   }
 
@@ -361,6 +365,9 @@ export function createExposureUiController({
     resetActiveGesture();
     clearHideTimer();
     pendingExposure = null;
+    resetButton.disabled = true;
+    resetButton.classList.add("is-zero");
+    resetButton.classList.remove("is-active");
     passiveIndicator.hidden = true;
     passiveIndicator.classList.remove("is-visible");
     passiveIndicator.classList.remove("is-offset");
@@ -401,7 +408,7 @@ export function createExposureUiController({
 
   function initialize() {
     overlayLayer.classList.remove("is-visible");
-    resetButton.hidden = true;
+    resetButton.hidden = false;
     updateExposureDisplay(cameraController?.getCurrentExposureCompensation?.() ?? 0, {
       isConfirmed: true,
     });

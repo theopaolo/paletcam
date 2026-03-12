@@ -59,17 +59,20 @@ class FakeClassList {
 class FakeElement {
   constructor(tagName) {
     this.tagName = tagName.toUpperCase();
+    this.attributes = new Map();
     this.children = [];
     this.classList = new FakeClassList(this);
     this.dataset = {};
     this.hidden = false;
     this.listeners = new Map();
     this.parentElement = null;
+    this.rect = { height: 20, left: 0, top: 0, width: 220 };
     this.style = {
       setProperty(name, value) {
         this[name] = value;
       },
     };
+    this.tabIndex = -1;
     this.textContent = "";
     this.type = "";
     this._className = "";
@@ -109,6 +112,7 @@ class FakeElement {
       currentTarget: this,
       deltaX: 0,
       deltaY: 0,
+      key: "",
       pointerId: 1,
       preventDefault() {},
       stopPropagation() {},
@@ -121,6 +125,14 @@ class FakeElement {
     }
 
     return event;
+  }
+
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+
+  getBoundingClientRect() {
+    return this.rect;
   }
 
   remove() {
@@ -148,7 +160,9 @@ class FakeElement {
     }
   }
 
-  setAttribute() {}
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  }
 
   setPointerCapture() {}
 }
@@ -216,7 +230,7 @@ describe("createZoomUiController", () => {
     }
   });
 
-  test("renders canonical lens chips and rolls back a failed horizontal scrub", async () => {
+  test("renders an always-visible scrubber and rolls back a failed drag", async () => {
     const previewFrame = new FakeElement("div");
     const overlayHost = new FakeElement("div");
     previewFrame.appendChild(overlayHost);
@@ -242,38 +256,38 @@ describe("createZoomUiController", () => {
     const zoomUi = createZoomUiController({
       cameraController,
       overlayHost,
-      scrubHideDelayMs: 5,
     });
     zoomUi.initialize();
     zoomUi.syncCapabilities();
     zoomUi.bindEvents();
 
-    const chipRack = findByClass(overlayHost, "camera-zoom-chip-rack");
     const dock = findByClass(overlayHost, "camera-zoom-dock");
     const readout = findByClass(overlayHost, "camera-zoom-readout");
     const scrubber = findByClass(overlayHost, "camera-zoom-scrubber");
-    const chipLabels = chipRack.children.map((chip) => chip.textContent);
-    const activeChip = chipRack.children.find((chip) => chip.dataset.active === "true");
+    const track = findByClass(overlayHost, "camera-zoom-ruler");
+    track.rect = { height: 20, left: 40, top: 0, width: 220 };
 
-    expect(chipLabels).toEqual([".5", "1x", "2"]);
+    expect(findByClass(overlayHost, "camera-zoom-chip-rack")).toBeNull();
     expect(readout.textContent).toBe("1x");
-    expect(activeChip?.textContent).toBe("1x");
+    expect(scrubber.tabIndex).toBe(0);
+    expect(scrubber.getAttribute("aria-valuetext")).toBe("Zoom 1x");
 
-    chipRack.dispatch("pointerdown", {
+    scrubber.dispatch("pointerdown", {
       button: 0,
-      clientX: 100,
+      clientX: 98,
       pointerId: 1,
-      target: activeChip,
+      target: scrubber,
     });
-    chipRack.dispatch("pointermove", {
+    scrubber.dispatch("pointermove", {
       clientX: 144,
       pointerId: 1,
-      target: activeChip,
+      target: scrubber,
     });
 
     expect(dock.classList.contains("is-scrubbing")).toBe(true);
-    expect(scrubber.classList.contains("is-visible")).toBe(true);
+    expect(scrubber.classList.contains("is-active")).toBe(true);
     expect(readout.textContent).toBe("1.4x");
+    expect(scrubber.getAttribute("aria-valuetext")).toBe("Zoom 1.4x");
     expect(applyRequestCount).toBe(1);
 
     resolveApply(false);
@@ -282,24 +296,59 @@ describe("createZoomUiController", () => {
 
     expect(readout.textContent).toBe("1x");
 
-    chipRack.dispatch("pointermove", {
+    scrubber.dispatch("pointermove", {
       clientX: 144,
       pointerId: 1,
-      target: activeChip,
+      target: scrubber,
     });
 
     expect(applyRequestCount).toBe(2);
 
-    chipRack.dispatch("pointerup", {
+    scrubber.dispatch("pointerup", {
       clientX: 144,
       pointerId: 1,
-      target: activeChip,
-    });
-    await new Promise((resolve) => {
-      setTimeout(resolve, 12);
+      target: scrubber,
     });
 
     expect(dock.classList.contains("is-scrubbing")).toBe(false);
-    expect(scrubber.classList.contains("is-visible")).toBe(false);
+    expect(scrubber.classList.contains("is-active")).toBe(false);
+  });
+
+  test("supports keyboard nudges on the scrubber slider", async () => {
+    const overlayHost = new FakeElement("div");
+
+    let appliedZoom = null;
+    const cameraController = {
+      applyZoom(zoomValue) {
+        appliedZoom = zoomValue;
+        return Promise.resolve(true);
+      },
+      getCurrentZoom() {
+        return 1;
+      },
+      getZoomCapabilities() {
+        return { min: 1, max: 3, step: 0.1 };
+      },
+    };
+
+    const zoomUi = createZoomUiController({
+      cameraController,
+      overlayHost,
+    });
+    zoomUi.initialize();
+    zoomUi.syncCapabilities();
+    zoomUi.bindEvents();
+
+    const scrubber = findByClass(overlayHost, "camera-zoom-scrubber");
+    const readout = findByClass(overlayHost, "camera-zoom-readout");
+
+    scrubber.dispatch("keydown", { key: "ArrowRight", target: scrubber });
+    await Promise.resolve();
+    zoomUi.handleZoomChange(1.1);
+
+    expect(appliedZoom).toBe(1.1);
+    expect(readout.textContent).toBe("1.1x");
+    expect(scrubber.getAttribute("aria-valuenow")).toBe("1.1");
+    expect(scrubber.classList.contains("is-active")).toBe(true);
   });
 });

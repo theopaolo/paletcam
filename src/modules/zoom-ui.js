@@ -1,13 +1,20 @@
 const DEFAULT_ZOOM_STEP = 0.1;
-const DEFAULT_SCRUB_HIDE_DELAY_MS = 1100;
-const DRAG_THRESHOLD_PX = 12;
+const ACTIVE_FEEDBACK_HIDE_DELAY_MS = 240;
 const HAPTIC_DURATION_MS = 10;
 const SCRUB_RANGE_PX = 220;
-const MAX_VISIBLE_CHIPS = 3;
 const CANONICAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5];
 
 function clampValue(value, minValue, maxValue) {
   return Math.max(minValue, Math.min(maxValue, value));
+}
+
+function formatZoomNumber(value) {
+  if (!Number.isFinite(value)) {
+    return "1";
+  }
+
+  const absoluteValue = Math.abs(value);
+  return Number.isInteger(absoluteValue) ? String(absoluteValue) : absoluteValue.toFixed(1);
 }
 
 function formatZoomToken(value) {
@@ -16,9 +23,7 @@ function formatZoomToken(value) {
   }
 
   const absoluteValue = Math.abs(value);
-  const zoomLabel = Number.isInteger(absoluteValue)
-    ? String(absoluteValue)
-    : absoluteValue.toFixed(1);
+  const zoomLabel = formatZoomNumber(absoluteValue);
   return absoluteValue < 1 ? zoomLabel.replace(/^0/, "") : zoomLabel.replace(/\.0$/, "");
 }
 
@@ -26,23 +31,13 @@ function formatZoomReadout(value) {
   return `${formatZoomToken(value)}x`;
 }
 
-function formatZoomChipLabel(value, { isActive = false } = {}) {
-  const label = formatZoomToken(value);
-  return isActive || value === 1 || (value > 1 && !Number.isInteger(value)) ? `${label}x` : label;
-}
-
 /**
  * @param {object} [options]
  * @param {CameraController | null} [options.cameraController]
  * @param {HTMLElement | null} [options.overlayHost]
- * @param {number} [options.scrubHideDelayMs]
  * @returns {ZoomUiController}
  */
-export function createZoomUiController({
-  cameraController,
-  overlayHost,
-  scrubHideDelayMs = DEFAULT_SCRUB_HIDE_DELAY_MS,
-} = {}) {
+export function createZoomUiController({ cameraController, overlayHost } = {}) {
   if (!overlayHost) {
     return {
       bindEvents() {},
@@ -63,6 +58,11 @@ export function createZoomUiController({
 
   const scrubber = document.createElement("div");
   scrubber.className = "camera-zoom-scrubber";
+  scrubber.tabIndex = -1;
+  scrubber.setAttribute("aria-disabled", "true");
+  scrubber.setAttribute("aria-label", "Zoom");
+  scrubber.setAttribute("aria-orientation", "horizontal");
+  scrubber.setAttribute("role", "slider");
 
   const readout = document.createElement("div");
   readout.className = "camera-zoom-readout";
@@ -70,15 +70,10 @@ export function createZoomUiController({
 
   const scrubberTrack = document.createElement("div");
   scrubberTrack.className = "camera-zoom-ruler";
+  scrubberTrack.setAttribute("aria-hidden", "true");
 
   scrubber.append(readout, scrubberTrack);
-
-  const chipRack = document.createElement("div");
-  chipRack.className = "camera-zoom-chip-rack";
-  chipRack.setAttribute("aria-label", "Sélecteur de zoom");
-  chipRack.setAttribute("role", "group");
-
-  overlayDock.append(scrubber, chipRack);
+  overlayDock.appendChild(scrubber);
   overlayLayer.appendChild(overlayDock);
   overlayHost.appendChild(overlayLayer);
 
@@ -91,12 +86,7 @@ export function createZoomUiController({
   let pendingZoom = null;
   let lastBoundaryKey = null;
   let activePointerId = null;
-  let pointerDownZoom = null;
-  let dragStartZoom = 1;
-  let dragStartX = 0;
-  let didStartOnActiveChip = false;
-  let isScrubbing = false;
-  let scrubberHideTimeoutId = 0;
+  let activeFeedbackTimeoutId = 0;
 
   function getStepValue() {
     const stepValue = Number(currentCapabilities?.step);
@@ -122,36 +112,32 @@ export function createZoomUiController({
     return clampValue(1, min, max);
   }
 
-  function clearScrubberHideTimer() {
-    if (!scrubberHideTimeoutId) {
+  function clearActiveFeedbackTimer() {
+    if (!activeFeedbackTimeoutId) {
       return;
     }
 
-    window.clearTimeout(scrubberHideTimeoutId);
-    scrubberHideTimeoutId = 0;
+    window.clearTimeout(activeFeedbackTimeoutId);
+    activeFeedbackTimeoutId = 0;
   }
 
-  function setScrubberVisible(isVisible) {
-    const shouldShowScrubber = isVisible && isEnabled;
-    overlayDock.classList.toggle("is-scrubbing", shouldShowScrubber);
-    scrubber.classList.toggle("is-visible", shouldShowScrubber);
-
-    if (shouldShowScrubber) {
-      clearScrubberHideTimer();
-    }
+  function setScrubberActive(isActive) {
+    const shouldShowActiveState = isActive && isEnabled;
+    overlayDock.classList.toggle("is-scrubbing", shouldShowActiveState);
+    scrubber.classList.toggle("is-active", shouldShowActiveState);
   }
 
-  function scheduleScrubberHide() {
-    clearScrubberHideTimer();
-
+  function pulseScrubberActive() {
     if (!isEnabled || activePointerId !== null) {
       return;
     }
 
-    scrubberHideTimeoutId = window.setTimeout(() => {
-      scrubberHideTimeoutId = 0;
-      setScrubberVisible(false);
-    }, scrubHideDelayMs);
+    setScrubberActive(true);
+    clearActiveFeedbackTimer();
+    activeFeedbackTimeoutId = window.setTimeout(() => {
+      activeFeedbackTimeoutId = 0;
+      setScrubberActive(false);
+    }, ACTIVE_FEEDBACK_HIDE_DELAY_MS);
   }
 
   function clampToCapabilities(zoomValue) {
@@ -187,20 +173,6 @@ export function createZoomUiController({
 
     lastBoundaryKey = boundaryKey;
     globalThis.navigator?.vibrate?.(HAPTIC_DURATION_MS);
-  }
-
-  function getChipButtonFromTarget(target) {
-    let currentNode = target;
-
-    while (currentNode && currentNode !== chipRack) {
-      if (currentNode.classList?.contains("camera-zoom-chip")) {
-        return currentNode;
-      }
-
-      currentNode = currentNode.parentElement ?? null;
-    }
-
-    return null;
   }
 
   function buildPresetValues() {
@@ -245,77 +217,32 @@ export function createZoomUiController({
     });
   }
 
-  function getDisplayValues() {
-    const tolerance = getSelectionTolerance();
-    const displayValues = [...presetValues];
+  function getZoomFromClientX(clientX) {
+    const { min, max } = getZoomRange();
+    const trackRect = scrubberTrack.getBoundingClientRect?.();
+    const trackWidth = Number(trackRect?.width) > 0 ? Number(trackRect.width) : SCRUB_RANGE_PX;
+    const trackLeft = Number.isFinite(Number(trackRect?.left))
+      ? Number(trackRect.left)
+      : clientX - trackWidth / 2;
+    const normalizedValue = clampValue((clientX - trackLeft) / trackWidth, 0, 1);
+    return min + normalizedValue * (max - min);
+  }
 
-    if (!displayValues.some((zoomValue) => Math.abs(zoomValue - currentZoom) <= tolerance / 2)) {
-      displayValues.push(quantizeZoom(currentZoom));
-    }
-
-    displayValues.sort((leftValue, rightValue) => leftValue - rightValue);
-
-    if (displayValues.length <= MAX_VISIBLE_CHIPS) {
-      return displayValues;
-    }
-
-    let activeIndex = 0;
-    let smallestDistance = Number.POSITIVE_INFINITY;
-
-    displayValues.forEach((zoomValue, index) => {
-      const distance = Math.abs(zoomValue - currentZoom);
-      if (distance < smallestDistance) {
-        smallestDistance = distance;
-        activeIndex = index;
-      }
-    });
-
-    let startIndex = Math.max(0, activeIndex - 1);
-    const endIndex = Math.min(displayValues.length, startIndex + MAX_VISIBLE_CHIPS);
-    startIndex = Math.max(0, endIndex - MAX_VISIBLE_CHIPS);
-
-    return displayValues.slice(startIndex, endIndex);
+  function updateScrubberA11y(zoomValue) {
+    const { min, max } = getZoomRange();
+    scrubber.tabIndex = isEnabled ? 0 : -1;
+    scrubber.setAttribute("aria-disabled", String(!isEnabled));
+    scrubber.setAttribute("aria-valuemin", formatZoomNumber(min));
+    scrubber.setAttribute("aria-valuemax", formatZoomNumber(max));
+    scrubber.setAttribute("aria-valuenow", formatZoomNumber(zoomValue));
+    scrubber.setAttribute("aria-valuetext", `Zoom ${formatZoomReadout(zoomValue)}`);
   }
 
   function updateScrubberProgress(zoomValue) {
     const { min, max } = getZoomRange();
     const normalizedValue = max > min ? (zoomValue - min) / (max - min) : 0.5;
     scrubberTrack.style.setProperty("--zoom-progress", String(clampValue(normalizedValue, 0, 1)));
-  }
-
-  function updateChipButtons() {
-    const displayValues = getDisplayValues();
-    const buttons = [];
-    let activeValue = displayValues[0] ?? currentZoom;
-    let smallestDistance = Number.POSITIVE_INFINITY;
-
-    displayValues.forEach((zoomValue) => {
-      const distance = Math.abs(zoomValue - currentZoom);
-      if (distance < smallestDistance) {
-        smallestDistance = distance;
-        activeValue = zoomValue;
-      }
-    });
-
-    displayValues.forEach((zoomValue) => {
-      const isActive = zoomValue === activeValue;
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "camera-zoom-chip";
-      button.dataset.zoomValue = String(zoomValue);
-      button.dataset.active = String(isActive);
-      button.textContent = formatZoomChipLabel(zoomValue, { isActive });
-      button.setAttribute("aria-label", `Zoom ${formatZoomReadout(zoomValue)}`);
-      button.setAttribute("aria-pressed", String(isActive));
-
-      if (isActive) {
-        button.classList.add("is-active");
-      }
-
-      buttons.push(button);
-    });
-
-    chipRack.replaceChildren(...buttons);
+    updateScrubberA11y(zoomValue);
   }
 
   function updateZoomDisplay(zoomValue, { isConfirmed = false } = {}) {
@@ -328,7 +255,6 @@ export function createZoomUiController({
 
     readout.textContent = formatZoomReadout(currentZoom);
     updateScrubberProgress(currentZoom);
-    updateChipButtons();
   }
 
   async function applyZoomValue(zoomValue) {
@@ -362,11 +288,7 @@ export function createZoomUiController({
 
   function resetGestureState() {
     activePointerId = null;
-    pointerDownZoom = null;
-    dragStartZoom = currentZoom;
-    dragStartX = 0;
-    didStartOnActiveChip = false;
-    isScrubbing = false;
+    setScrubberActive(false);
   }
 
   function handlePointerDown(event) {
@@ -374,39 +296,20 @@ export function createZoomUiController({
       return;
     }
 
-    const chipButton = getChipButtonFromTarget(event.target);
-    if (!chipButton) {
-      return;
-    }
-
     activePointerId = event.pointerId;
-    pointerDownZoom = Number(chipButton.dataset.zoomValue);
-    dragStartZoom = currentZoom;
-    dragStartX = event.clientX;
-    didStartOnActiveChip = chipButton.dataset.active === "true";
-    isScrubbing = false;
-    clearScrubberHideTimer();
-    chipRack.setPointerCapture?.(event.pointerId);
+    clearActiveFeedbackTimer();
+    setScrubberActive(true);
+    scrubber.setPointerCapture?.(event.pointerId);
+    void applyZoomValue(getZoomFromClientX(event.clientX));
     event.preventDefault();
   }
 
   function handlePointerMove(event) {
-    if (event.pointerId !== activePointerId || !currentCapabilities || !didStartOnActiveChip) {
+    if (event.pointerId !== activePointerId || !currentCapabilities) {
       return;
     }
 
-    const deltaX = event.clientX - dragStartX;
-    if (!isScrubbing && Math.abs(deltaX) < DRAG_THRESHOLD_PX) {
-      return;
-    }
-
-    isScrubbing = true;
-    setScrubberVisible(true);
-
-    const { min, max } = getZoomRange();
-    const zoomRange = max - min;
-    const nextZoom = dragStartZoom + (deltaX / SCRUB_RANGE_PX) * zoomRange;
-    void applyZoomValue(nextZoom);
+    void applyZoomValue(getZoomFromClientX(event.clientX));
     event.preventDefault();
   }
 
@@ -415,18 +318,7 @@ export function createZoomUiController({
       return;
     }
 
-    const targetZoom = pointerDownZoom;
-    const shouldCommitTap = !isScrubbing && Number.isFinite(targetZoom);
-
     resetGestureState();
-
-    if (shouldCommitTap) {
-      void applyZoomValue(targetZoom);
-    }
-
-    if (overlayDock.classList.contains("is-scrubbing")) {
-      scheduleScrubberHide();
-    }
   }
 
   function handlePointerUp(event) {
@@ -452,14 +344,51 @@ export function createZoomUiController({
       return;
     }
 
-    clearScrubberHideTimer();
-    setScrubberVisible(true);
+    pulseScrubberActive();
 
     const { min, max } = getZoomRange();
     const zoomRange = max - min;
     const nextZoom = currentZoom + (dominantDelta / SCRUB_RANGE_PX) * zoomRange;
     void applyZoomValue(nextZoom);
-    scheduleScrubberHide();
+    event.preventDefault();
+  }
+
+  function handleKeyDown(event) {
+    if (!isEnabled || !currentCapabilities) {
+      return;
+    }
+
+    const fineStep = getStepValue();
+    const coarseStep = fineStep * 5;
+    let nextZoom = null;
+
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowDown":
+        nextZoom = currentZoom - fineStep;
+        break;
+      case "ArrowRight":
+      case "ArrowUp":
+        nextZoom = currentZoom + fineStep;
+        break;
+      case "PageDown":
+        nextZoom = currentZoom - coarseStep;
+        break;
+      case "PageUp":
+        nextZoom = currentZoom + coarseStep;
+        break;
+      case "Home":
+        nextZoom = getZoomRange().min;
+        break;
+      case "End":
+        nextZoom = getZoomRange().max;
+        break;
+      default:
+        return;
+    }
+
+    pulseScrubberActive();
+    void applyZoomValue(nextZoom);
     event.preventDefault();
   }
 
@@ -468,39 +397,41 @@ export function createZoomUiController({
       return;
     }
 
-    chipRack.addEventListener("pointerdown", handlePointerDown);
-    chipRack.addEventListener("pointermove", handlePointerMove);
-    chipRack.addEventListener("pointerup", handlePointerUp);
-    chipRack.addEventListener("pointercancel", handlePointerCancel);
-    chipRack.addEventListener("lostpointercapture", handleLostPointerCapture);
-    chipRack.addEventListener("wheel", handleWheel, { passive: false });
+    scrubber.addEventListener("pointerdown", handlePointerDown);
+    scrubber.addEventListener("pointermove", handlePointerMove);
+    scrubber.addEventListener("pointerup", handlePointerUp);
+    scrubber.addEventListener("pointercancel", handlePointerCancel);
+    scrubber.addEventListener("lostpointercapture", handleLostPointerCapture);
+    scrubber.addEventListener("wheel", handleWheel, { passive: false });
+    scrubber.addEventListener("keydown", handleKeyDown);
     isBound = true;
   }
 
   function destroy() {
     if (isBound) {
-      chipRack.removeEventListener("pointerdown", handlePointerDown);
-      chipRack.removeEventListener("pointermove", handlePointerMove);
-      chipRack.removeEventListener("pointerup", handlePointerUp);
-      chipRack.removeEventListener("pointercancel", handlePointerCancel);
-      chipRack.removeEventListener("lostpointercapture", handleLostPointerCapture);
-      chipRack.removeEventListener("wheel", handleWheel);
+      scrubber.removeEventListener("pointerdown", handlePointerDown);
+      scrubber.removeEventListener("pointermove", handlePointerMove);
+      scrubber.removeEventListener("pointerup", handlePointerUp);
+      scrubber.removeEventListener("pointercancel", handlePointerCancel);
+      scrubber.removeEventListener("lostpointercapture", handleLostPointerCapture);
+      scrubber.removeEventListener("wheel", handleWheel);
+      scrubber.removeEventListener("keydown", handleKeyDown);
       isBound = false;
     }
 
-    clearScrubberHideTimer();
+    clearActiveFeedbackTimer();
     overlayLayer.remove();
   }
 
   function setDisabled() {
     isEnabled = false;
     overlayLayer.hidden = true;
-    chipRack.replaceChildren();
-    setScrubberVisible(false);
-    clearScrubberHideTimer();
+    setScrubberActive(false);
+    clearActiveFeedbackTimer();
     resetGestureState();
     pendingZoom = null;
     presetValues = [];
+    updateScrubberA11y(currentZoom);
   }
 
   function syncCapabilities() {
@@ -539,7 +470,7 @@ export function createZoomUiController({
 
   function initialize() {
     overlayLayer.hidden = true;
-    setScrubberVisible(false);
+    setScrubberActive(false);
     updateZoomDisplay(cameraController?.getCurrentZoom?.() ?? 1, { isConfirmed: true });
   }
 

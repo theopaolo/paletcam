@@ -60,6 +60,7 @@ type CopyMode = "rgb" | "hex" | "hsl";
 // ---------------------------------------------------------------------------
 
 type CaptureMode = "palette" | "ral";
+type CollectionViewMode = "list" | "grid";
 
 type PaletteExtractionAlgorithm = "grid" | "median-cut";
 
@@ -87,6 +88,8 @@ interface PaletteScoringWeights {
 
 interface AppSettings {
   captureMode: CaptureMode;
+  collectionViewMode: CollectionViewMode;
+  performanceHudEnabled: boolean;
   photoExportQuality: number;
   paletteExtractionAlgorithm: PaletteExtractionAlgorithm;
   grid: GridSettings;
@@ -97,6 +100,8 @@ interface AppSettings {
 /** Deep-partial variant for updateAppSettings — nested groups accept partial patches. */
 interface AppSettingsPatch {
   captureMode?: CaptureMode;
+  collectionViewMode?: CollectionViewMode;
+  performanceHudEnabled?: boolean;
   photoExportQuality?: number;
   paletteExtractionAlgorithm?: PaletteExtractionAlgorithm;
   grid?: Partial<GridSettings>;
@@ -469,5 +474,5 @@ interface PaletcamDb {
 declare module "bun:test" {
   export function describe(name: string, fn: () => void): void;
   export function test(name: string, fn: () => void | Promise<void>): void;
-  export function expect(value: unknown): any;
+  export function expect(value: unknown): unknown;
 }

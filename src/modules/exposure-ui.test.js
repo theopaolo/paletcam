@@ -269,16 +269,25 @@ describe("createExposureUiController", () => {
     const rail = findByClass(overlayHost, "camera-ev-rail");
     const valueBadge = findByClass(overlayHost, "camera-ev-value");
     const passiveIndicator = findByClass(overlayHost, "camera-ev-indicator");
+    const resetButton = findByClass(overlayHost, "camera-ev-reset");
 
     rail.setBoundingRect({ height: 146, top: 100 });
 
     expect(passiveIndicator.hidden).toBe(false);
+    expect(resetButton.hidden).toBe(false);
+    expect(resetButton.disabled).toBe(true);
+    expect(resetButton.classList.contains("is-zero")).toBe(true);
 
     exposureUi.handleExposureChange(0.8);
     expect(passiveIndicator.textContent).toBe("EV +0.8");
+    expect(resetButton.disabled).toBe(false);
+    expect(resetButton.classList.contains("is-active")).toBe(true);
 
     exposureUi.handleExposureChange(0);
     expect(passiveIndicator.textContent).toBe("EV 0.0");
+    expect(resetButton.hidden).toBe(false);
+    expect(resetButton.disabled).toBe(true);
+    expect(resetButton.classList.contains("is-zero")).toBe(true);
 
     passiveIndicator.dispatch("pointerdown", {
       button: 0,

@@ -118,6 +118,39 @@
       close-label="Fermer les captures"
       hidden
     >
+      <div class="collection-panel-toolbar" slot="header-actions">
+        <div
+          class="collection-view-toggle"
+          role="group"
+          aria-label="Mode d'affichage des captures"
+        >
+          <button
+            class="collection-view-toggle-button"
+            id="collectionViewListButton"
+            type="button"
+            aria-label="Afficher les captures en liste"
+            aria-pressed="true"
+          >
+            <img src="/icons/capture-list.svg" alt="" />
+          </button>
+          <button
+            class="collection-view-toggle-button"
+            id="collectionViewGridButton"
+            type="button"
+            aria-label="Afficher les captures en grille"
+            aria-pressed="false"
+          >
+            <img src="/icons/capture-grid.svg" alt="" />
+          </button>
+        </div>
+        <button
+          class="collection-toolbar-button"
+          id="collectionCollapseAllButton"
+          type="button"
+        >
+          Tout replier
+        </button>
+      </div>
       <div class="collection-grid" id="collectionGrid">
         <!-- Palettes will be dynamically added here -->
       </div>
@@ -721,6 +754,46 @@
           </section>
         </div>
         <!-- end settingsPaletteModeGroup -->
+
+        <section class="settings-section" aria-labelledby="settingsDebugTitle">
+          <div class="settings-section-header">
+            <h3 id="settingsDebugTitle">Debug performance</h3>
+            <p>
+              Affiche un HUD avec FPS, temps de frame, coût d'analyse, tâches
+              longues et mémoire quand le navigateur l'autorise.
+            </p>
+          </div>
+
+          <div class="settings-field">
+            <label class="settings-label settings-label-static">HUD debug</label>
+            <div
+              class="settings-segment"
+              role="group"
+              aria-label="Affichage du HUD de performance"
+            >
+              <button
+                class="settings-segment-button"
+                type="button"
+                data-settings-performance-hud="off"
+                aria-pressed="true"
+              >
+                Off
+              </button>
+              <button
+                class="settings-segment-button"
+                type="button"
+                data-settings-performance-hud="on"
+                aria-pressed="false"
+              >
+                On
+              </button>
+            </div>
+            <p class="settings-hint">
+              La température réelle de l'appareil n'est pas disponible via le
+              Web, donc le HUD l'indique comme indisponible.
+            </p>
+          </div>
+        </section>
 
         <section class="settings-section" aria-labelledby="settingsDataTitle">
           <div class="settings-section-header">

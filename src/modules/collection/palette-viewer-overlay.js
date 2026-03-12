@@ -1,11 +1,11 @@
 import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
+import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import {
   closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
-import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
 const PRELOAD_BACKWARD_DISTANCE = 1;
@@ -194,7 +194,7 @@ function showRalPopover(color, anchorElement) {
     ralPopoverName.textContent = best.ral.name;
   }
   if (ralPopoverQuality) {
-    ralPopoverQuality.textContent = `${getRalQualityLabel(best.deltaE)} · ΔE ${best.deltaE.toFixed(1)}`;
+    ralPopoverQuality.textContent = `${getRalQualityLabel(best.deltaE)}`;
   }
 
   ralPopover.hidden = false;

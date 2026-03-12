@@ -1,3 +1,4 @@
+import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
 import { deletePalette, getSavedPalettes } from "./palette-storage.js";
 import {
   getCurrentCommunitySession,
@@ -23,6 +24,12 @@ import {
 } from "./modules/collection/palette-preview-assets.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
+import {
+  areAllCollectionSessionsCollapsed,
+  buildCollectionPanelTitle,
+  getCollectionSessionIds,
+  toggleAllCollectionSessions,
+} from "./modules/collection/panel-state.js";
 import { clientLog } from "./modules/client-log.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import {
@@ -35,6 +42,9 @@ import { openLoginPanel } from "./login-ui.js";
 
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
+const collectionViewListButton = document.getElementById("collectionViewListButton");
+const collectionViewGridButton = document.getElementById("collectionViewGridButton");
+const collectionCollapseAllButton = document.getElementById("collectionCollapseAllButton");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
 const EMPTY_MESSAGE_TEXT =
   "Aucune capture pour le moment.\nFermez ce panneau et appuyez sur le bouton central pour capturer votre premiere palette !";
@@ -70,6 +80,7 @@ let shouldCloseCollectionOnViewerClose = false;
 let moderationSyncTimeoutId = 0;
 let isModerationSyncInProgress = false;
 let currentPalettes = [];
+let currentCollectionViewMode = getAppSettings().collectionViewMode;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -92,6 +103,51 @@ function canPublishPalette(palette) {
 
 function getCurrentPalettes() {
   return [...currentPalettes];
+}
+
+function getCurrentDayGroups() {
+  return groupPalettesByDay(currentPalettes);
+}
+
+function setCollectionPanelTitle(title) {
+  if (!collectionPanel) {
+    return;
+  }
+
+  collectionPanel.panelTitle = title;
+  collectionPanel.setAttribute("panel-title", title);
+}
+
+function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
+  const isListView = currentCollectionViewMode === "list";
+  const sessionIds = getCollectionSessionIds(dayGroups);
+  const hasSessions = isListView && sessionIds.length > 0;
+  const areAllSessionsCollapsed = areAllCollectionSessionsCollapsed(dayGroups, collapsedSessionIds);
+  const collapseAllLabel = areAllSessionsCollapsed ? "Tout déplier" : "Tout replier";
+
+  if (collectionViewListButton instanceof HTMLButtonElement) {
+    const isActive = isListView;
+    collectionViewListButton.setAttribute("aria-pressed", String(isActive));
+    collectionViewListButton.classList.toggle("is-active", isActive);
+  }
+
+  if (collectionViewGridButton instanceof HTMLButtonElement) {
+    const isActive = !isListView;
+    collectionViewGridButton.setAttribute("aria-pressed", String(isActive));
+    collectionViewGridButton.classList.toggle("is-active", isActive);
+  }
+
+  if (collectionCollapseAllButton instanceof HTMLButtonElement) {
+    collectionCollapseAllButton.hidden = !isListView;
+    collectionCollapseAllButton.disabled = !hasSessions;
+    collectionCollapseAllButton.textContent = collapseAllLabel;
+    collectionCollapseAllButton.setAttribute("aria-label", collapseAllLabel);
+  }
+}
+
+function syncCollectionPanelChrome(dayGroups = getCurrentDayGroups()) {
+  setCollectionPanelTitle(buildCollectionPanelTitle(currentPalettes.length));
+  syncCollectionHeaderControls(dayGroups);
 }
 
 function getCollectionCardByPaletteId(paletteId) {
@@ -167,6 +223,7 @@ async function handleDeletePalette(palette) {
   card.remove();
   cardLifecycle.syncSessionStateFromCardContainer(snapshot.parent);
   currentPalettes = currentPalettes.filter((entry) => entry.id !== palette.id);
+  syncCollectionPanelChrome();
 
   showUndoToast("Palette supprimee", {
     duration: DELETE_UNDO_DURATION_MS,
@@ -174,6 +231,7 @@ async function handleDeletePalette(palette) {
       pendingDeletionIds.delete(palette.id);
       insertPaletteAtIndex(palette, removedIndex < 0 ? currentPalettes.length : removedIndex);
       cardLifecycle.restoreCardFromSnapshot(card, snapshot);
+      syncCollectionPanelChrome();
       refreshPaletteViewerOverlay({
         preferredPaletteId: palette.id,
         fallbackIndex: removedIndex < 0 ? 0 : removedIndex,
@@ -185,11 +243,13 @@ async function handleDeletePalette(palette) {
         pendingDeletionIds.delete(palette.id);
         disposePalettePreviewPolaroidAsset(palette);
         cardLifecycle.ensureEmptyMessage();
+        syncCollectionPanelChrome();
       } catch (error) {
         console.error(`Failed to delete palette ${palette.id}:`, error);
         pendingDeletionIds.delete(palette.id);
         insertPaletteAtIndex(palette, removedIndex < 0 ? currentPalettes.length : removedIndex);
         cardLifecycle.restoreCardFromSnapshot(card, snapshot);
+        syncCollectionPanelChrome();
         showToast("Suppression échouée", {
           variant: "error",
           duration: 1800,
@@ -230,6 +290,7 @@ function createCollectionPaletteCard(palette) {
   return createPaletteCard({
     palette,
     onOpenViewer: openCollectionPaletteViewer,
+    scrollRoot: collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null,
   });
 }
 
@@ -241,65 +302,106 @@ function createCollectionDayGroup(dayGroup) {
     onSessionCollapsedChange: (sessionId, isCollapsed) => {
       if (isCollapsed) {
         collapsedSessionIds.add(sessionId);
-        return;
+      } else {
+        collapsedSessionIds.delete(sessionId);
       }
 
-      collapsedSessionIds.delete(sessionId);
+      syncCollectionHeaderControls();
     },
     sessionRevealDurationMs: SESSION_REVEAL_DURATION_MS,
     sessionRevealStaggerMs: SESSION_REVEAL_STAGGER_MS,
+    viewMode: currentCollectionViewMode,
   });
 }
 
-async function loadCollectionUi() {
-  let palettes;
-  try {
-    palettes = (await getSavedPalettes()).filter((palette) => !pendingDeletionIds.has(palette.id));
-  } catch (error) {
-    currentPalettes = [];
-    clientLog("Failed to load palette collection.", {
-      error: error?.name,
-      message: error?.message,
-    });
-    collectionGrid.innerHTML = `<p class="empty-message">Erreur de chargement des palettes.</p>`;
-    showToast("Impossible de charger la collection.", {
-      variant: "error",
-      duration: 3000,
-      details: formatErrorDetails(error),
-    });
-    refreshPaletteViewerOverlay();
-    return;
-  }
-
-  currentPalettes = palettes;
-  collectionGrid.innerHTML = "";
-
-  if (palettes.length === 0) {
-    collectionGrid.innerHTML = `<p class="empty-message">${EMPTY_MESSAGE_TEXT}</p>`;
-    refreshPaletteViewerOverlay();
-    return;
-  }
-
-  const dayGroups = groupPalettesByDay(palettes);
-  const availableSessionIds = new Set();
-
-  dayGroups.forEach((dayGroup) => {
-    dayGroup.sessions.forEach((session) => {
-      availableSessionIds.add(session.id);
-    });
-  });
+function pruneUnavailableCollapsedSessions(dayGroups) {
+  const availableSessionIds = new Set(getCollectionSessionIds(dayGroups));
 
   [...collapsedSessionIds].forEach((sessionId) => {
     if (!availableSessionIds.has(sessionId)) {
       collapsedSessionIds.delete(sessionId);
     }
   });
+}
+
+function renderCollectionUi(palettes) {
+  currentPalettes = palettes;
+  collectionGrid.innerHTML = "";
+  collectionGrid.dataset.viewMode = currentCollectionViewMode;
+
+  if (palettes.length === 0) {
+    collectionGrid.innerHTML = `<p class="empty-message">${EMPTY_MESSAGE_TEXT}</p>`;
+    syncCollectionPanelChrome([]);
+    refreshPaletteViewerOverlay();
+    return;
+  }
+
+  const dayGroups = groupPalettesByDay(palettes);
+  pruneUnavailableCollapsedSessions(dayGroups);
+  syncCollectionPanelChrome(dayGroups);
 
   dayGroups.forEach((dayGroup) => {
     collectionGrid.appendChild(createCollectionDayGroup(dayGroup));
   });
 
   refreshPaletteViewerOverlay();
+}
+
+async function loadCollectionUi() {
+  try {
+    const palettes = (await getSavedPalettes()).filter((palette) => !pendingDeletionIds.has(palette.id));
+    renderCollectionUi(palettes);
+  } catch (error) {
+    currentPalettes = [];
+    collectionGrid.innerHTML = `<p class="empty-message">Erreur de chargement des palettes.</p>`;
+    collectionGrid.dataset.viewMode = currentCollectionViewMode;
+    syncCollectionPanelChrome([]);
+    clientLog("Failed to load palette collection.", {
+      error: error?.name,
+      message: error?.message,
+    });
+    showToast("Impossible de charger la collection.", {
+      variant: "error",
+      duration: 3000,
+      details: formatErrorDetails(error),
+    });
+    refreshPaletteViewerOverlay();
+  }
+}
+
+function handleCollectionViewModeChange(nextViewMode) {
+  if (nextViewMode === currentCollectionViewMode) {
+    syncCollectionHeaderControls();
+    return;
+  }
+
+  currentCollectionViewMode = nextViewMode;
+
+  if (collectionGrid) {
+    collectionGrid.dataset.viewMode = currentCollectionViewMode;
+  }
+
+  if (!collectionPanel?.classList.contains("visible")) {
+    syncCollectionPanelChrome();
+    return;
+  }
+
+  renderCollectionUi(currentPalettes);
+}
+
+function handleCollectionSettingsChange(settings) {
+  handleCollectionViewModeChange(settings.collectionViewMode);
+}
+
+function handleCollapseAllSessions() {
+  const dayGroups = getCurrentDayGroups();
+
+  if (!toggleAllCollectionSessions(dayGroups, collapsedSessionIds)) {
+    syncCollectionHeaderControls(dayGroups);
+    return;
+  }
+
+  renderCollectionUi(currentPalettes);
 }
 
 function clearModerationSyncLoop() {
@@ -483,12 +585,24 @@ export async function openCollectionPanel({
 }
 
 function bindCollectionUiEvents() {
-  if (!collectionPanel || !collectionGrid || !viewCollectionButton) {
+  if (!collectionPanel || !collectionGrid) {
     return;
   }
 
-  viewCollectionButton.addEventListener("click", async () => {
+  viewCollectionButton?.addEventListener("click", async () => {
     await openCollectionPanel();
+  });
+
+  collectionViewListButton?.addEventListener("click", () => {
+    updateAppSettings({ collectionViewMode: "list" });
+  });
+
+  collectionViewGridButton?.addEventListener("click", () => {
+    updateAppSettings({ collectionViewMode: "grid" });
+  });
+
+  collectionCollapseAllButton?.addEventListener("click", () => {
+    handleCollapseAllSessions();
   });
 
   subscribePaletteViewerOverlayClose(() => {
@@ -505,6 +619,9 @@ function bindCollectionUiEvents() {
     clearModerationSyncLoop();
     closePaletteViewerOverlay();
   });
+
+  subscribeAppSettings(handleCollectionSettingsChange);
+  syncCollectionPanelChrome();
 }
 
 bindCollectionUiEvents();

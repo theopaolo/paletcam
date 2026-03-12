@@ -1,7 +1,7 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
 import { getPalettePreviewPolaroidAsset, hasPaletteMasterPhoto } from "./palette-preview-assets.js";
 
-const PREVIEW_OBSERVER_ROOT_MARGIN = "220px 0px";
+const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
 let nextPreviewLoadOrder = 0;
 const pendingPreviewStarts = [];
 let hasScheduledPreviewFlush = false;
@@ -74,8 +74,9 @@ function loadPreviewImageElement(image, src) {
  * @param {object} config
  * @param {Palette} config.palette
  * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
+ * @param {Element | null} [config.scrollRoot]
  */
-export function createPaletteCard({ palette, onOpenViewer }) {
+export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) {
   const card = document.createElement("div");
   card.className = "palette-card";
   card.dataset.paletteId = String(palette.id);
@@ -90,7 +91,6 @@ export function createPaletteCard({ palette, onOpenViewer }) {
   const previewImage = document.createElement("img");
   previewImage.className = "palette-card-image";
   previewImage.alt = "Aperçu polaroid";
-  previewImage.loading = "lazy";
   previewImage.decoding = "async";
   previewImage.hidden = true;
 
@@ -209,7 +209,7 @@ export function createPaletteCard({ palette, onOpenViewer }) {
           observer.disconnect();
           queuePreviewLoad();
         },
-        { rootMargin: PREVIEW_OBSERVER_ROOT_MARGIN },
+        { root: scrollRoot, rootMargin: PREVIEW_OBSERVER_ROOT_MARGIN },
       );
 
       observer.observe(card);

@@ -7,6 +7,7 @@ import {
 } from "./modules/camera-resume-policy.js";
 import { drawFrameToCanvas, renderOutputSwatches, setCaptureState } from "./modules/camera-ui.js";
 import { clientLog } from "./modules/client-log.js";
+import { findClosestRAL, getRalQualityLabel } from "./modules/color-matching-ral.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
 import { createCaptureMicroInteractions } from "./modules/micro-interactions.js";
@@ -15,18 +16,18 @@ import {
   getDominantColor,
   getPaletteExtractionAlgorithm,
   PALETTE_EXTRACTION_ALGORITHMS,
-  resetColorSmoothing,
   renderPaletteBars,
+  resetColorSmoothing,
   setPaletteExtractionAlgorithm,
   smoothColors,
 } from "./modules/palette-extraction.js";
+import { createPerformanceHudController } from "./modules/performance-hud.js";
+import { sampleColorFromContextAtPoint } from "./modules/ral-live-sampling.js";
 import { createSampleGridOverlayController } from "./modules/sample-grid-overlay.js";
 import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
 import { showToast } from "./modules/toast-ui.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
-import { getRalQualityLabel } from './modules/color-matching-ral.js';
-import { findClosestRalFromContext } from "./modules/ral-live-sampling.js";
 import { savePalette } from "./palette-storage.js";
 import "./settings-ui.js";
 
@@ -37,7 +38,10 @@ const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
 const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
 const APP_VIEWPORT_HEIGHT_CSS_VAR = "--app-height";
 const APP_VIEWPORT_RESYNC_DELAYS_MS = [120, 360];
+const ANALYSIS_MAX_WIDTH = 360;
 const PREVIEW_SMOOTHING_FACTOR = 0.22;
+const RAL_SMOOTHING_FACTOR = 0.18;
+const RAL_COLOR_DISTANCE_THRESHOLD = 12;
 
 function isIOSDevice() {
   return (
@@ -67,20 +71,21 @@ const frameCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElement
 const paletteCanvas = /** @type {HTMLCanvasElement | null} */ (
   document.getElementById("canvas-palette")
 );
+const analysisCanvas = document.createElement("canvas");
 const rotateButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-rotate"));
 const swatchSlider = /** @type {HTMLInputElement | null} */ (
   document.querySelector('.swatch-slider input[type="range"]')
 );
 const btnOn = /** @type {HTMLElement | null} */ (document.querySelector(".btn-on"));
 const btnShoot = /** @type {HTMLElement | null} */ (document.querySelector(".btn-shoot"));
-const ralReticle = document.getElementById('ralReticle');
-const ralLiveSwatch = document.getElementById('ralLiveSwatch');
-const ralLiveSwatchColor = document.getElementById('ralLiveSwatchColor');
-const ralLiveSwatchCode = document.getElementById('ralLiveSwatchCode');
-const ralLiveSwatchName = document.getElementById('ralLiveSwatchName');
-const ralLiveSwatchQuality = document.getElementById('ralLiveSwatchQuality');
-const slidersContainer = document.querySelector('.sliders-container');
-const paletteCaptureStage = document.querySelector('.capture-palette-stage');
+const ralReticle = document.getElementById("ralReticle");
+const ralLiveSwatch = document.getElementById("ralLiveSwatch");
+const ralLiveSwatchColor = document.getElementById("ralLiveSwatchColor");
+const ralLiveSwatchCode = document.getElementById("ralLiveSwatchCode");
+const ralLiveSwatchName = document.getElementById("ralLiveSwatchName");
+const ralLiveSwatchQuality = document.getElementById("ralLiveSwatchQuality");
+const slidersContainer = document.querySelector(".sliders-container");
+const paletteCaptureStage = document.querySelector(".capture-palette-stage");
 const sampleRowOverlay = document.getElementById("sampleRowOverlay");
 const cameraViewportFrame = document.createElement("div");
 const cameraSourceMount = document.createElement("div");
@@ -104,9 +109,13 @@ if (shouldUseCanvasPreview) {
 const frameContext =
   frameCanvas?.getContext("2d", { willReadFrequently: true }) ?? frameCanvas?.getContext("2d");
 const paletteContext = paletteCanvas?.getContext("2d");
+const analysisContext =
+  analysisCanvas.getContext("2d", { willReadFrequently: true }) ?? analysisCanvas.getContext("2d");
 
 let frameWidth = 0;
 let frameHeight = 0;
+let analysisWidth = 0;
+let analysisHeight = 0;
 let isStreaming = false;
 let _testImageMode = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
@@ -115,7 +124,7 @@ let extractionFrame = 0;
 let lastExtractedColors = null;
 let lastChosenIndices = [];
 let lastVisiblePaletteColors = [];
-let currentCaptureMode = 'palette';
+let currentCaptureMode = "palette";
 let photoExportQuality = getAppSettings().photoExportQuality;
 let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
@@ -135,6 +144,9 @@ let cameraResumeAttemptId = 0;
 let viewportHeightSyncFrameId = 0;
 const viewportHeightSyncTimeoutIds = [];
 let lastViewportHeight = 0;
+const performanceHud = createPerformanceHudController({
+  initialEnabled: getAppSettings().performanceHudEnabled,
+});
 
 cameraViewportFrame.className = "camera-feed-frame";
 const captureMicroInteractions = createCaptureMicroInteractions({
@@ -176,7 +188,7 @@ function syncCameraFeedOrientation() {
 
 function getPaletteViewportSize() {
   const paletteViewport =
-    currentCaptureMode === 'ral' || paletteCaptureStage?.hidden
+    currentCaptureMode === "ral" || paletteCaptureStage?.hidden
       ? captureContainer
       : (capturePaletteStage ?? captureContainer);
 
@@ -284,9 +296,9 @@ function schedulePreviewRefresh() {
     return;
   }
 
-  previewFrameRequestId = window.requestAnimationFrame(() => {
+  previewFrameRequestId = window.requestAnimationFrame((rafTimestamp) => {
     previewFrameRequestId = 0;
-    refreshPreview();
+    refreshPreview(rafTimestamp);
   });
 }
 
@@ -310,6 +322,10 @@ function updateCachedPreviewDimensions() {
     cachedPaletteHeight = 0;
     frameWidth = 0;
     frameHeight = 0;
+    analysisWidth = 0;
+    analysisHeight = 0;
+    analysisCanvas.width = 0;
+    analysisCanvas.height = 0;
     return false;
   }
 
@@ -318,7 +334,14 @@ function updateCachedPreviewDimensions() {
   frameWidth = nextPaletteWidth;
   frameHeight = getTargetFrameHeight(frameWidth);
 
-  if (!cameraFeed || !frameCanvas || !paletteCanvas || frameWidth <= 0 || frameHeight <= 0) {
+  if (
+    !cameraFeed ||
+    !frameCanvas ||
+    !paletteCanvas ||
+    !analysisContext ||
+    frameWidth <= 0 ||
+    frameHeight <= 0
+  ) {
     return false;
   }
 
@@ -335,6 +358,7 @@ function updateCachedPreviewDimensions() {
     paletteCanvas.height = cachedPaletteHeight;
   }
 
+  updateAnalysisDimensions();
   sampleGridOverlay.updatePointSizes();
   return true;
 }
@@ -375,6 +399,30 @@ function getTargetFrameHeight(width) {
   }
 
   return Math.max(1, Math.floor(width / CAMERA_FRAME_ASPECT_RATIO));
+}
+
+function updateAnalysisDimensions() {
+  if (frameWidth <= 0 || frameHeight <= 0) {
+    analysisWidth = 0;
+    analysisHeight = 0;
+    analysisCanvas.width = 0;
+    analysisCanvas.height = 0;
+    return false;
+  }
+
+  const scale = Math.min(1, ANALYSIS_MAX_WIDTH / frameWidth);
+  const nextAnalysisWidth = Math.max(1, Math.round(frameWidth * scale));
+  const nextAnalysisHeight = Math.max(1, Math.round(frameHeight * scale));
+
+  analysisWidth = nextAnalysisWidth;
+  analysisHeight = nextAnalysisHeight;
+
+  if (analysisCanvas.width !== nextAnalysisWidth || analysisCanvas.height !== nextAnalysisHeight) {
+    analysisCanvas.width = nextAnalysisWidth;
+    analysisCanvas.height = nextAnalysisHeight;
+  }
+
+  return true;
 }
 
 function getCenteredAspectCropRect(
@@ -502,16 +550,16 @@ function clonePaletteColors(colors) {
 
 function clearRalPreviewState() {
   if (ralLiveSwatchColor) {
-    ralLiveSwatchColor.style.backgroundColor = '';
+    ralLiveSwatchColor.style.backgroundColor = "";
   }
   if (ralLiveSwatchCode) {
-    ralLiveSwatchCode.textContent = '';
+    ralLiveSwatchCode.textContent = "";
   }
   if (ralLiveSwatchName) {
-    ralLiveSwatchName.textContent = '';
+    ralLiveSwatchName.textContent = "";
   }
   if (ralLiveSwatchQuality) {
-    ralLiveSwatchQuality.textContent = '';
+    ralLiveSwatchQuality.textContent = "";
   }
 }
 
@@ -526,30 +574,66 @@ function syncRalPreview(match, sampledColor) {
     ralLiveSwatchName.textContent = match.ral.name;
   }
   if (ralLiveSwatchQuality) {
-    ralLiveSwatchQuality.textContent = `${getRalQualityLabel(match.deltaE)} · ΔE ${match.deltaE.toFixed(1)}`;
+    ralLiveSwatchQuality.textContent = `${getRalQualityLabel(match.deltaE)}`;
   }
 
   visualEffects.setCaptureButtonGlowColor(sampledColor);
   visualEffects.setCaptureGlowActive(true);
 }
 
-function readCurrentRalMatch() {
-  const { matches, sampledColor } = findClosestRalFromContext(
-    frameContext,
-    frameWidth,
-    frameHeight,
-    frameWidth / 2,
-    frameHeight / 2,
-    1,
+/** @type {{ r: number, g: number, b: number } | null} */
+let previousRalSampledColor = null;
+/** @type {{ match: RalMatch, sampledColor: { r: number, g: number, b: number } } | null} */
+let currentLiveRalPreview = null;
+
+function smoothRalSampledColor(raw) {
+  if (!previousRalSampledColor) {
+    previousRalSampledColor = raw;
+    return raw;
+  }
+
+  const distance = Math.hypot(
+    raw.r - previousRalSampledColor.r,
+    raw.g - previousRalSampledColor.g,
+    raw.b - previousRalSampledColor.b,
   );
+
+  if (distance < RAL_COLOR_DISTANCE_THRESHOLD) {
+    return previousRalSampledColor;
+  }
+
+  const smoothed = {
+    r: Math.round(previousRalSampledColor.r + (raw.r - previousRalSampledColor.r) * RAL_SMOOTHING_FACTOR),
+    g: Math.round(previousRalSampledColor.g + (raw.g - previousRalSampledColor.g) * RAL_SMOOTHING_FACTOR),
+    b: Math.round(previousRalSampledColor.b + (raw.b - previousRalSampledColor.b) * RAL_SMOOTHING_FACTOR),
+  };
+
+  previousRalSampledColor = smoothed;
+  return smoothed;
+}
+
+function resetRalSmoothing() {
+  previousRalSampledColor = null;
+  currentLiveRalPreview = null;
+}
+
+function readCurrentRalMatch(context = frameContext, width = frameWidth, height = frameHeight) {
+  const rawColor = sampleColorFromContextAtPoint(context, width, height, width / 2, height / 2);
+  const sampledColor = smoothRalSampledColor(rawColor);
+  const matches = findClosestRAL(sampledColor.r, sampledColor.g, sampledColor.b, 1);
   const match = matches[0] ?? null;
 
   if (!match) {
+    currentLiveRalPreview = null;
     clearRalPreviewState();
     visualEffects.setCaptureGlowActive(false);
     return null;
   }
 
+  currentLiveRalPreview = {
+    match,
+    sampledColor: { ...sampledColor },
+  };
   syncRalPreview(match, sampledColor);
   return match;
 }
@@ -561,14 +645,15 @@ function resetPalettePreviewState() {
   lastVisiblePaletteColors = [];
   clearRalPreviewState();
   resetColorSmoothing();
+  resetRalSmoothing();
 }
 
 function syncCaptureMode(mode) {
-  const isRal = mode === 'ral';
+  const isRal = mode === "ral";
   currentCaptureMode = mode;
 
   // Toggle camera UI elements
-  document.body.classList.toggle('is-ral-mode', isRal);
+  document.body.classList.toggle("is-ral-mode", isRal);
   if (ralReticle) ralReticle.hidden = !isRal;
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
   if (slidersContainer) slidersContainer.hidden = isRal;
@@ -593,6 +678,7 @@ function getCapturePaletteColors() {
 
 function applyAppSettings({
   captureMode,
+  performanceHudEnabled,
   photoExportQuality: nextPhotoExportQuality,
   paletteExtractionAlgorithm,
   grid,
@@ -600,6 +686,7 @@ function applyAppSettings({
   paletteScoring,
 }) {
   photoExportQuality = nextPhotoExportQuality;
+  performanceHud.setEnabled(performanceHudEnabled);
   gridExtractionSettings = { ...grid };
   medianCutExtractionSettings = { ...medianCut };
   paletteScoringSettings = { ...paletteScoring };
@@ -609,7 +696,7 @@ function applyAppSettings({
     sampleRowCount: gridExtractionSettings.sampleRowCount,
     sampleDiameter: gridExtractionSettings.sampleRadius * 2 + 1,
   });
-  sampleGridOverlay.setVisible(captureMode !== 'ral' && isGridExtractionMode());
+  sampleGridOverlay.setVisible(captureMode !== "ral" && isGridExtractionMode());
   resetPalettePreviewState();
   syncCaptureMode(captureMode);
 }
@@ -761,6 +848,60 @@ function handleWindowResize() {
   scheduleViewportMetricsSync();
 }
 
+function drawCurrentFrameToAnalysisCanvas() {
+  if (!analysisContext || analysisWidth <= 0 || analysisHeight <= 0) {
+    return false;
+  }
+
+  drawFrameToCanvas({
+    context: analysisContext,
+    cameraFeed,
+    width: analysisWidth,
+    height: analysisHeight,
+    facingMode: cameraController.getFacingMode(),
+    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
+    sourceRect: getCameraFrameSourceRect(),
+  });
+
+  return true;
+}
+
+function copyVisibleFrameToAnalysisCanvas() {
+  if (
+    !analysisContext ||
+    !frameCanvas ||
+    analysisWidth <= 0 ||
+    analysisHeight <= 0 ||
+    frameWidth <= 0 ||
+    frameHeight <= 0
+  ) {
+    return false;
+  }
+
+  analysisContext.drawImage(
+    frameCanvas,
+    0,
+    0,
+    frameWidth,
+    frameHeight,
+    0,
+    0,
+    analysisWidth,
+    analysisHeight,
+  );
+
+  return true;
+}
+
+function getCameraTrackSettings() {
+  const stream = cameraFeed?.srcObject;
+  if (!(stream instanceof MediaStream)) {
+    return null;
+  }
+
+  return stream.getVideoTracks()[0]?.getSettings?.() ?? null;
+}
+
 function pauseCameraPreview() {
   isStreaming = false;
   cancelPreviewRefresh();
@@ -768,6 +909,11 @@ function pauseCameraPreview() {
   cameraFeed?.pause?.();
   visualEffects.setCaptureGlowActive(false);
   captureMicroInteractions.cleanup();
+  performanceHud.recordFrame({
+    captureMode: currentCaptureMode,
+    paletteAlgorithm: getPaletteExtractionAlgorithm(),
+    streaming: false,
+  });
 }
 
 function shouldHandleCameraLifecycle() {
@@ -1113,8 +1259,13 @@ function handleCameraCanPlay() {
   }
 }
 
-function refreshPreview() {
-  if (!isStreaming || !frameContext || !paletteContext) {
+function refreshPreview(rafTimestamp = 0) {
+  if (
+    !isStreaming ||
+    !analysisContext ||
+    (shouldUseCanvasPreview && !frameContext) ||
+    !paletteContext
+  ) {
     return;
   }
 
@@ -1123,41 +1274,43 @@ function refreshPreview() {
     cachedPaletteHeight <= 0 ||
     frameWidth <= 0 ||
     frameHeight <= 0 ||
+    analysisWidth <= 0 ||
+    analysisHeight <= 0 ||
     cameraFeed.videoWidth <= 0 ||
     cameraFeed.videoHeight <= 0
   ) {
     schedulePreviewRefresh();
     return;
   }
+  const frameStartTime = performance.now();
+  let analysisDurationMs = null;
 
-  const nextCanvasWidth = frameWidth;
-  const nextCanvasHeight = frameHeight;
-
-  if (frameCanvas.width !== nextCanvasWidth || frameCanvas.height !== nextCanvasHeight) {
-    frameCanvas.width = nextCanvasWidth;
-    frameCanvas.height = nextCanvasHeight;
+  if (shouldUseCanvasPreview) {
+    drawFrameToCanvas({
+      context: frameContext,
+      cameraFeed,
+      width: frameWidth,
+      height: frameHeight,
+      facingMode: cameraController.getFacingMode(),
+      shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
+      sourceRect: getCameraFrameSourceRect(),
+    });
   }
 
-  if (paletteCanvas.width !== nextCanvasWidth || paletteCanvas.height !== cachedPaletteHeight) {
-    paletteCanvas.width = nextCanvasWidth;
-    paletteCanvas.height = cachedPaletteHeight;
-  }
-
-  drawFrameToCanvas({
-    context: frameContext,
-    cameraFeed,
-    width: frameWidth,
-    height: frameHeight,
-    facingMode: cameraController.getFacingMode(),
-    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
-    sourceRect: getCameraFrameSourceRect(),
-  });
-
-  if (currentCaptureMode === 'ral') {
+  if (currentCaptureMode === "ral") {
     sampleGridOverlay.setVisible(false);
-    readCurrentRalMatch();
+    const analysisStartTime = performance.now();
+    if (!shouldUseCanvasPreview) {
+      drawCurrentFrameToAnalysisCanvas();
+    }
+
+    readCurrentRalMatch(
+      shouldUseCanvasPreview ? frameContext : analysisContext,
+      shouldUseCanvasPreview ? frameWidth : analysisWidth,
+      shouldUseCanvasPreview ? frameHeight : analysisHeight,
+    );
+    analysisDurationMs = performance.now() - analysisStartTime;
   } else {
-    // Palette mode: existing extraction logic
     const isGridMode = isGridExtractionMode();
 
     if (isGridMode) {
@@ -1169,21 +1322,35 @@ function refreshPreview() {
 
     extractionFrame += 1;
     if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
-      const frameImageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
+      const analysisStartTime = performance.now();
+      const analysisFrameReady = shouldUseCanvasPreview
+        ? copyVisibleFrameToAnalysisCanvas()
+        : drawCurrentFrameToAnalysisCanvas();
 
-      const result = extractPaletteColors(
-        frameImageData,
-        frameWidth,
-        frameHeight,
-        swatchCount,
-        getPaletteExtractionOptions(),
-      );
+      if (analysisFrameReady) {
+        const frameImageData = analysisContext.getImageData(
+          0,
+          0,
+          analysisWidth,
+          analysisHeight,
+        ).data;
 
-      lastExtractedColors = result.colors;
-      lastChosenIndices = result.chosenIndices;
-      if (isGridMode) {
-        sampleGridOverlay.markChosenSquares(lastChosenIndices);
+        const result = extractPaletteColors(
+          frameImageData,
+          analysisWidth,
+          analysisHeight,
+          swatchCount,
+          getPaletteExtractionOptions(),
+        );
+
+        lastExtractedColors = result.colors;
+        lastChosenIndices = result.chosenIndices;
+        if (isGridMode) {
+          sampleGridOverlay.markChosenSquares(lastChosenIndices);
+        }
       }
+
+      analysisDurationMs = performance.now() - analysisStartTime;
     }
 
     if (!lastExtractedColors || lastExtractedColors.length === 0) {
@@ -1205,6 +1372,23 @@ function refreshPreview() {
     }
   }
 
+  const cameraTrackSettings = getCameraTrackSettings();
+  performanceHud.recordFrame({
+    analysisDurationMs,
+    analysisHeight:
+      currentCaptureMode === "ral" && shouldUseCanvasPreview ? frameHeight : analysisHeight,
+    analysisWidth:
+      currentCaptureMode === "ral" && shouldUseCanvasPreview ? frameWidth : analysisWidth,
+    cameraFps: Number(cameraTrackSettings?.frameRate) || null,
+    captureMode: currentCaptureMode,
+    extractionInterval: currentCaptureMode === "ral" ? 1 : EXTRACTION_INTERVAL,
+    paletteAlgorithm: getPaletteExtractionAlgorithm(),
+    rafTimestamp,
+    refreshDurationMs: performance.now() - frameStartTime,
+    sourceHeight: cameraFeed.videoHeight,
+    sourceWidth: cameraFeed.videoWidth,
+    streaming: isStreaming,
+  });
   schedulePreviewRefresh();
 }
 
@@ -1244,10 +1428,12 @@ async function captureCurrentFrame() {
   let paletteColors;
   let ralMatchData = null;
 
-  if (captureModeSnapshot === 'ral') {
-    const currentRalMatch = readCurrentRalMatch();
+  if (captureModeSnapshot === "ral") {
+    const currentRalMatch = currentLiveRalPreview?.match ?? readCurrentRalMatch();
     if (currentRalMatch) {
-      paletteColors = [{ r: currentRalMatch.ral.r, g: currentRalMatch.ral.g, b: currentRalMatch.ral.b }];
+      paletteColors = [
+        { r: currentRalMatch.ral.r, g: currentRalMatch.ral.g, b: currentRalMatch.ral.b },
+      ];
       ralMatchData = {
         code: currentRalMatch.ral.code,
         name: currentRalMatch.ral.name,
@@ -1507,6 +1693,7 @@ function destroyApp() {
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   cameraController.destroy?.();
+  performanceHud.destroy?.();
   unsubscribeFromAppSettings();
   unsubscribeFromAppSettings = () => {};
   clearManagedEventListeners();

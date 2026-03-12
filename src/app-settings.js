@@ -1,35 +1,42 @@
-import { PALETTE_EXTRACTION_ALGORITHMS } from './modules/palette-extraction.js';
 import {
   SAMPLE_COL_COUNT,
   SAMPLE_RADIUS,
   SAMPLE_ROW_COUNT,
-} from './modules/palette-extract-grid.js';
+} from "./modules/palette-extract-grid.js";
 import {
   DEFAULT_MAX_QUANTIZER_PIXELS,
   DEFAULT_QUANTIZED_POOL_SIZE,
-} from './modules/palette-extract-median-cut.js';
-import { DEFAULT_PALETTE_SCORING_SETTINGS } from './modules/palette-scoring.js';
+} from "./modules/palette-extract-median-cut.js";
+import { PALETTE_EXTRACTION_ALGORITHMS } from "./modules/palette-extraction.js";
+import { DEFAULT_PALETTE_SCORING_SETTINGS } from "./modules/palette-scoring.js";
 
-const SETTINGS_STORAGE_KEY = 'paletcam:settings:v1';
-const GLOBAL_SETTINGS_STORE_KEY = '__paletcamAppSettingsStore__';
+const SETTINGS_STORAGE_KEY = "paletcam:settings:v1";
+const GLOBAL_SETTINGS_STORE_KEY = "__paletcamAppSettingsStore__";
 const GRID_ROW_COUNT_RANGE = { min: 2, max: 12 };
 const GRID_COL_COUNT_RANGE = { min: 2, max: 20 };
 const GRID_SAMPLE_RADIUS_RANGE = { min: 1, max: 12 };
 const MEDIAN_CUT_POOL_SIZE_RANGE = { min: 4, max: 64 };
 const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
-const VALID_CAPTURE_MODES = new Set(['palette', 'ral']);
+const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
+const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid"]);
 
 function normalizeQuantizationColorSpace(value) {
-  return value === 'oklch' ? 'oklch' : 'rgb';
+  return value === "oklch" ? "oklch" : "rgb";
 }
 
 function normalizeCaptureMode(value) {
-  return VALID_CAPTURE_MODES.has(value) ? value : 'palette';
+  return VALID_CAPTURE_MODES.has(value) ? value : "palette";
+}
+
+function normalizeCollectionViewMode(value) {
+  return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "list";
 }
 
 const DEFAULT_SETTINGS = Object.freeze({
-  captureMode: 'palette',
+  captureMode: "palette",
+  collectionViewMode: "list",
+  performanceHudEnabled: false,
   photoExportQuality: 0.95,
   paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
   grid: Object.freeze({
@@ -40,7 +47,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   medianCut: Object.freeze({
     quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
     maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
-    colorSpace: 'rgb',
+    colorSpace: "rgb",
   }),
   paletteScoring: Object.freeze({
     chromaWeight: DEFAULT_PALETTE_SCORING_SETTINGS.chromaWeight,
@@ -109,17 +116,17 @@ function normalizeGridSettings(candidate) {
     sampleRowCount: clampIntegerInRange(
       candidate?.sampleRowCount,
       fallback.sampleRowCount,
-      GRID_ROW_COUNT_RANGE
+      GRID_ROW_COUNT_RANGE,
     ),
     sampleColCount: clampIntegerInRange(
       candidate?.sampleColCount,
       fallback.sampleColCount,
-      GRID_COL_COUNT_RANGE
+      GRID_COL_COUNT_RANGE,
     ),
     sampleRadius: clampIntegerInRange(
       candidate?.sampleRadius,
       fallback.sampleRadius,
-      GRID_SAMPLE_RADIUS_RANGE
+      GRID_SAMPLE_RADIUS_RANGE,
     ),
   };
 }
@@ -131,12 +138,12 @@ function normalizeMedianCutSettings(candidate) {
     quantizedPoolSize: clampIntegerInRange(
       candidate?.quantizedPoolSize,
       fallback.quantizedPoolSize,
-      MEDIAN_CUT_POOL_SIZE_RANGE
+      MEDIAN_CUT_POOL_SIZE_RANGE,
     ),
     maxQuantizerPixels: clampIntegerInRange(
       candidate?.maxQuantizerPixels,
       fallback.maxQuantizerPixels,
-      MEDIAN_CUT_MAX_PIXELS_RANGE
+      MEDIAN_CUT_MAX_PIXELS_RANGE,
     ),
     colorSpace: normalizeQuantizationColorSpace(candidate?.colorSpace),
   };
@@ -149,22 +156,22 @@ function normalizePaletteScoringSettings(candidate) {
     chromaWeight: clampIntegerInRange(
       candidate?.chromaWeight,
       fallback.chromaWeight,
-      SCORING_WEIGHT_RANGE
+      SCORING_WEIGHT_RANGE,
     ),
     lumaSpreadWeight: clampIntegerInRange(
       candidate?.lumaSpreadWeight,
       fallback.lumaSpreadWeight,
-      SCORING_WEIGHT_RANGE
+      SCORING_WEIGHT_RANGE,
     ),
     rarityWeight: clampIntegerInRange(
       candidate?.rarityWeight,
       fallback.rarityWeight,
-      SCORING_WEIGHT_RANGE
+      SCORING_WEIGHT_RANGE,
     ),
     diversityWeight: clampIntegerInRange(
       candidate?.diversityWeight,
       fallback.diversityWeight,
-      SCORING_WEIGHT_RANGE
+      SCORING_WEIGHT_RANGE,
     ),
   };
 }
@@ -172,6 +179,8 @@ function normalizePaletteScoringSettings(candidate) {
 function normalizeSettings(candidate) {
   return {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
+    collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
+    performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     photoExportQuality: clampPhotoExportQuality(candidate?.photoExportQuality),
     paletteExtractionAlgorithm: normalizeAlgorithm(candidate?.paletteExtractionAlgorithm),
     grid: normalizeGridSettings(candidate?.grid),
@@ -183,6 +192,8 @@ function normalizeSettings(candidate) {
 function areSettingsEqual(firstSettings, secondSettings) {
   return (
     firstSettings.captureMode === secondSettings.captureMode &&
+    firstSettings.collectionViewMode === secondSettings.collectionViewMode &&
+    firstSettings.performanceHudEnabled === secondSettings.performanceHudEnabled &&
     firstSettings.photoExportQuality === secondSettings.photoExportQuality &&
     firstSettings.paletteExtractionAlgorithm === secondSettings.paletteExtractionAlgorithm &&
     firstSettings.grid.sampleRowCount === secondSettings.grid.sampleRowCount &&
@@ -192,7 +203,8 @@ function areSettingsEqual(firstSettings, secondSettings) {
     firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
     firstSettings.medianCut.colorSpace === secondSettings.medianCut.colorSpace &&
     firstSettings.paletteScoring.chromaWeight === secondSettings.paletteScoring.chromaWeight &&
-    firstSettings.paletteScoring.lumaSpreadWeight === secondSettings.paletteScoring.lumaSpreadWeight &&
+    firstSettings.paletteScoring.lumaSpreadWeight ===
+      secondSettings.paletteScoring.lumaSpreadWeight &&
     firstSettings.paletteScoring.rarityWeight === secondSettings.paletteScoring.rarityWeight &&
     firstSettings.paletteScoring.diversityWeight === secondSettings.paletteScoring.diversityWeight
   );
@@ -207,7 +219,7 @@ function readStoredSettings() {
 
     return JSON.parse(rawValue);
   } catch (error) {
-    console.warn('Unable to read app settings:', error);
+    console.warn("Unable to read app settings:", error);
     return null;
   }
 }
@@ -216,7 +228,7 @@ function persistSettings(nextSettings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings));
   } catch (error) {
-    console.warn('Unable to persist app settings:', error);
+    console.warn("Unable to persist app settings:", error);
   }
 }
 
@@ -247,7 +259,7 @@ function notifySettingsListeners() {
     try {
       listener(snapshot);
     } catch (error) {
-      console.error('App settings listener failed:', error);
+      console.error("App settings listener failed:", error);
     }
   });
 }
@@ -268,6 +280,8 @@ export function getDefaultAppSettingsResetPatch() {
 
   return {
     captureMode: defaults.captureMode,
+    collectionViewMode: defaults.collectionViewMode,
+    performanceHudEnabled: defaults.performanceHudEnabled,
     grid: defaults.grid,
     medianCut: defaults.medianCut,
     paletteExtractionAlgorithm: defaults.paletteExtractionAlgorithm,
@@ -323,7 +337,7 @@ export function updateAppSettings(partialSettings) {
  * @returns {() => void}
  */
 export function subscribeAppSettings(listener) {
-  if (typeof listener !== 'function') {
+  if (typeof listener !== "function") {
     return () => {};
   }
 

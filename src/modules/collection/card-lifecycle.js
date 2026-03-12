@@ -57,6 +57,14 @@ export function createCollectionCardLifecycle({
     return cardCount;
   }
 
+  function getDayCardCount(dayElement) {
+    if (!dayElement) {
+      return 0;
+    }
+
+    return dayElement.querySelectorAll(".palette-card").length;
+  }
+
   function updateDayCardCount(dayElement) {
     if (!dayElement) {
       return 0;
@@ -67,43 +75,40 @@ export function createCollectionCardLifecycle({
       return 0;
     }
 
-    const cardCount = dayElement.querySelectorAll(".palette-card").length;
+    const cardCount = getDayCardCount(dayElement);
     countElement.textContent = String(cardCount);
     return cardCount;
   }
 
   function syncSessionStateFromCardContainer(cardContainer) {
     const sessionElement = cardContainer?.closest(".collection-session");
+    const dayElement = cardContainer?.closest(".collection-day");
 
-    if (!sessionElement) {
-      ensureEmptyMessage();
-      return;
+    if (sessionElement) {
+      const cardCount = updateSessionCardCount(sessionElement);
+
+      if (cardCount === 0) {
+        const sessionId = sessionElement.dataset.sessionId;
+        if (sessionId) {
+          collapsedSessionIds.delete(sessionId);
+        }
+
+        sessionElement.remove();
+      }
     }
 
-    const dayElement = sessionElement.closest(".collection-day");
-    const cardCount = updateSessionCardCount(sessionElement);
-
-    if (cardCount === 0) {
-      const sessionId = sessionElement.dataset.sessionId;
-      if (sessionId) {
-        collapsedSessionIds.delete(sessionId);
+    if (dayElement) {
+      const dayCount = updateDayCardCount(dayElement);
+      if (dayCount > 0) {
+        removeEmptyMessage();
+        return;
       }
 
-      sessionElement.remove();
-    }
-
-    if (!dayElement) {
+      dayElement.remove();
       ensureEmptyMessage();
       return;
     }
 
-    const dayCount = updateDayCardCount(dayElement);
-    if (dayCount > 0) {
-      removeEmptyMessage();
-      return;
-    }
-
-    dayElement.remove();
     ensureEmptyMessage();
   }
 

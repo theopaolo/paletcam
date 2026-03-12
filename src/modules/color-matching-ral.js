@@ -273,21 +273,12 @@ export { RAL_CLASSIC } from './ral-classic-data.js';
  * @returns {string}
  */
 export function getRalQualityLabel(deltaE) {
+
   if (!Number.isFinite(deltaE)) {
     return '';
   }
 
-  if (deltaE <= 2) {
-    return 'Très proche';
-  }
+  const similarityPercentage = Math.max(0, Math.round(100 - deltaE * 10));
 
-  if (deltaE <= 5) {
-    return 'Proche';
-  }
-
-  if (deltaE <= 10) {
-    return 'Bonne piste';
-  }
-
-  return 'Approximation';
+  return `RAL similarity ${similarityPercentage}%` ;
 }
