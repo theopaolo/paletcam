@@ -118,6 +118,13 @@ export function createPaletteCard({
   trigger.append(previewImage, previewLoader, previewStatus);
   card.append(trigger, publicationBadge);
 
+  if (palette.captureMode === 'ral') {
+    const ralIndicator = document.createElement('span');
+    ralIndicator.className = 'palette-card-ral-indicator';
+    ralIndicator.textContent = 'RAL';
+    card.appendChild(ralIndicator);
+  }
+
   let previewAssetPromise;
   let hasStartedPreviewLoad = false;
   let hasPreviewLoadFailed = false;

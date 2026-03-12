@@ -608,6 +608,20 @@
   display: none;
 }
 
+.palette-card-ral-indicator {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background: var(--accent-color, #ffc800);
+  color: var(--primary-color, #222222);
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  pointer-events: none;
+}
+
 .collection-session:not(.is-collapsed) .palette-card.is-revealing {
   animation: session-palette-reveal 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: calc(var(--reveal-index, 0) * 42ms);
