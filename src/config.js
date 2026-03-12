@@ -1,5 +1,5 @@
 export const LOCAL_API_BASE_URL = "/api/v1";
-export const LIVE_API_BASE_URL = "https://ccs.preview.name/api/v1";
+export const LIVE_API_BASE_URL = "https://colorcatchers.co/api/v1";
 
 export function isLocalDevHost() {
   const hostname = String(globalThis.location?.hostname || "").toLowerCase();
