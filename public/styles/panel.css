@@ -772,7 +772,7 @@
 
 .catch-details-content {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   min-height: calc(var(--app-height, 100vh) - 4rem);
   padding: 0.5rem;
   background: #1b1b1b;
@@ -810,6 +810,87 @@
   display: none;
 }
 
+.palette-viewer-ral {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.7rem 0 0.8rem;
+  background: #1b1b1b;
+}
+
+.palette-viewer-ral[hidden] {
+  display: none;
+}
+
+.palette-viewer-ral-title {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 240, 184, 0.78);
+}
+
+.palette-viewer-ral-list {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(7.5rem, 1fr);
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+  scrollbar-width: thin;
+}
+
+.palette-viewer-ral-card {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.palette-viewer-ral-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.palette-viewer-ral-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.palette-viewer-ral-code,
+.palette-viewer-ral-name,
+.palette-viewer-ral-quality {
+  margin: 0;
+}
+
+.palette-viewer-ral-code {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.palette-viewer-ral-name {
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.palette-viewer-ral-quality {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 240, 184, 0.72);
+}
+
 .palette-viewer-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -826,4 +907,55 @@
   opacity: 0.45;
   color: rgba(255, 255, 255, 0.52);
   cursor: default;
+}
+
+/* RAL Reticle — centered in camera viewport */
+.ral-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* RAL Live Swatch — replaces palette strip in RAL mode */
+.ral-live-swatch {
+  padding: 0.5rem 1rem;
+  text-align: center;
+}
+
+.ral-live-swatch-color {
+  width: 100%;
+  height: 3rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ral-live-swatch-info {
+  padding: 0.4rem 0;
+}
+
+.ral-live-swatch-code {
+  font-weight: bold;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.ral-live-swatch-name {
+  font-size: 0.78rem;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.ral-live-swatch-quality {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--accent-color, #ffc800);
+  margin: 0;
 }

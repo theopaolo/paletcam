@@ -25,6 +25,7 @@ import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
 import { showToast } from "./modules/toast-ui.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
+import { findClosestRAL, sampleColorAtPoint, getRalQualityLabel } from './modules/color-matching-ral.js';
 import { savePalette } from "./palette-storage.js";
 import "./settings-ui.js";
 
@@ -71,6 +72,14 @@ const swatchSlider = /** @type {HTMLInputElement | null} */ (
 );
 const btnOn = /** @type {HTMLElement | null} */ (document.querySelector(".btn-on"));
 const btnShoot = /** @type {HTMLElement | null} */ (document.querySelector(".btn-shoot"));
+const ralReticle = document.getElementById('ralReticle');
+const ralLiveSwatch = document.getElementById('ralLiveSwatch');
+const ralLiveSwatchColor = document.getElementById('ralLiveSwatchColor');
+const ralLiveSwatchCode = document.getElementById('ralLiveSwatchCode');
+const ralLiveSwatchName = document.getElementById('ralLiveSwatchName');
+const ralLiveSwatchQuality = document.getElementById('ralLiveSwatchQuality');
+const slidersContainer = document.querySelector('.sliders-container');
+const paletteCaptureStage = document.querySelector('.capture-palette-stage');
 const sampleRowOverlay = document.getElementById("sampleRowOverlay");
 const cameraViewportFrame = document.createElement("div");
 const cameraSourceMount = document.createElement("div");
@@ -105,6 +114,7 @@ let extractionFrame = 0;
 let lastExtractedColors = null;
 let lastChosenIndices = [];
 let lastVisiblePaletteColors = [];
+let currentCaptureMode = 'palette';
 let photoExportQuality = getAppSettings().photoExportQuality;
 let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
@@ -493,6 +503,21 @@ function resetPalettePreviewState() {
   resetColorSmoothing();
 }
 
+function syncCaptureMode(mode) {
+  const isRal = mode === 'ral';
+  currentCaptureMode = mode;
+
+  // Toggle camera UI elements
+  if (ralReticle) ralReticle.hidden = !isRal;
+  if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
+  if (slidersContainer) slidersContainer.hidden = isRal;
+  if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
+
+  // Reset state when switching modes
+  resetPalettePreviewState();
+  schedulePreviewRefresh();
+}
+
 function getCapturePaletteColors() {
   if (lastVisiblePaletteColors.length === swatchCount) {
     return clonePaletteColors(lastVisiblePaletteColors);
@@ -502,6 +527,7 @@ function getCapturePaletteColors() {
 }
 
 function applyAppSettings({
+  captureMode,
   photoExportQuality: nextPhotoExportQuality,
   paletteExtractionAlgorithm,
   grid,
@@ -520,6 +546,7 @@ function applyAppSettings({
   });
   sampleGridOverlay.setVisible(isGridExtractionMode());
   resetPalettePreviewState();
+  syncCaptureMode(captureMode);
 }
 
 function mountCameraFeed(targetElement) {
