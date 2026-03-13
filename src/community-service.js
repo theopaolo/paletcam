@@ -21,6 +21,7 @@ import {
 import {
   buildCommunityCatchPublishPayload,
 } from "./modules/community-publish-payload.js";
+import { normalizePhotoBlob } from "./modules/photo-blob-normalization.js";
 
 function createCommunityServiceError(message, { code = "UNKNOWN", cause = /** @type {any} */ (undefined) } = {}) {
   const error = /** @type {Error & CommunityServiceError} */ (new Error(message));
@@ -273,7 +274,8 @@ export async function publishPaletteToCommunityFeed(palette) {
   }
 
   const token = getAuthTokenOrThrow();
-  const photoBase64 = await blobToBase64(palette.photoBlob);
+  const normalizedPhotoBlob = (await normalizePhotoBlob(palette.photoBlob)) || palette.photoBlob;
+  const photoBase64 = await blobToBase64(normalizedPhotoBlob);
 
   if (!photoBase64) {
     throw createCommunityServiceError(

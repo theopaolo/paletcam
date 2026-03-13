@@ -23,6 +23,7 @@ import {
 } from "./modules/palette-extraction.js";
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudController } from "./modules/performance-hud.js";
+import { normalizePhotoBlob } from "./modules/photo-blob-normalization.js";
 import { sampleColorFromContextAtPoint } from "./modules/ral-live-sampling.js";
 import { createSampleGridOverlayController } from "./modules/sample-grid-overlay.js";
 import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
@@ -1628,7 +1629,24 @@ async function captureCurrentFrame() {
   isCaptureSavePending = true;
   try {
     await waitForNextAnimationFrame();
-    const masterPhotoBlob = (await captureStillPhotoBlob()) || (await exportPhotoBlob({
+    const stillPhotoBlob = await captureStillPhotoBlob();
+    let normalizedStillPhotoBlob = null;
+
+    if (stillPhotoBlob) {
+      try {
+        normalizedStillPhotoBlob = await normalizePhotoBlob(stillPhotoBlob, {
+          mirror: facingMode === "user" && shouldMirrorUserFacing,
+          quality: photoExportQuality,
+        });
+      } catch (error) {
+        clientLog("Still photo normalization unavailable.", {
+          error: error?.name,
+          message: error?.message,
+        });
+      }
+    }
+
+    const masterPhotoBlob = normalizedStillPhotoBlob || (await exportPhotoBlob({
       fallbackCanvas: frameCanvas,
       fallbackWidth: frameWidth,
       fallbackHeight: frameHeight,
