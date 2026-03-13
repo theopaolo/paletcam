@@ -18,6 +18,9 @@ import {
   getSavedPalettes,
   updatePaletteRemoteState,
 } from "./palette-storage.js";
+import {
+  buildCommunityCatchPublishPayload,
+} from "./modules/community-publish-payload.js";
 
 function createCommunityServiceError(message, { code = "UNKNOWN", cause = /** @type {any} */ (undefined) } = {}) {
   const error = /** @type {Error & CommunityServiceError} */ (new Error(message));
@@ -36,41 +39,6 @@ function normalizeEmail(email) {
   return email.trim().toLowerCase();
 }
 
-function normalizeColor(color) {
-  if (!color || typeof color !== "object") {
-    return null;
-  }
-
-  const r = Number(color.r);
-  const g = Number(color.g);
-  const b = Number(color.b);
-
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
-    return null;
-  }
-
-  return {
-    r: Math.max(0, Math.min(255, Math.round(r))),
-    g: Math.max(0, Math.min(255, Math.round(g))),
-    b: Math.max(0, Math.min(255, Math.round(b))),
-  };
-}
-
-function normalizeColorsForApi(colors) {
-  const paletteColors = Array.isArray(colors)
-    ? colors.map((color) => normalizeColor(color)).filter(Boolean)
-    : [];
-
-  if (paletteColors.length === 0) {
-    throw createCommunityServiceError(
-      "Palette colors are missing.",
-      { code: "MISSING_COLORS" },
-    );
-  }
-
-  return paletteColors;
-}
-
 async function blobToBase64(blob) {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -79,16 +47,6 @@ async function blobToBase64(blob) {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
-}
-
-
-function getPaletteTimestamp(palette) {
-  const parsedDate = new Date(palette?.timestamp);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return new Date().toISOString();
-  }
-
-  return parsedDate.toISOString();
 }
 
 function getAuthTokenOrThrow() {
@@ -324,17 +282,18 @@ export async function publishPaletteToCommunityFeed(palette) {
     );
   }
 
-  const colors = normalizeColorsForApi(palette.colors);
-  const timestamp = getPaletteTimestamp(palette);
+  const publishPayload = buildCommunityCatchPublishPayload(palette, photoBase64);
+  if (publishPayload.colors.length === 0) {
+    throw createCommunityServiceError(
+      "Palette colors are missing.",
+      { code: "MISSING_COLORS" },
+    );
+  }
 
   try {
     const payload = await postCatchToCommunity({
       token,
-      photoBase64,
-      timestamp,
-      colors,
-      captureAspectRatio: palette.captureAspectRatio || null,
-      captureCropRect: palette.captureCropRect || null,
+      ...publishPayload,
     });
 
     const nextRemoteCatchId = String(payload?.catch?.id || "").trim();
