@@ -475,6 +475,11 @@ function updateAnalysisDimensions() {
   return true;
 }
 
+function needsOrientationCorrection(srcWidth, srcHeight) {
+  if (srcWidth <= srcHeight) return false;
+  return screen.orientation?.type?.startsWith("portrait") ?? false;
+}
+
 function getCenteredAspectCropRect(
   sourceWidth,
   sourceHeight,
@@ -1566,11 +1571,20 @@ async function captureCurrentFrame() {
   const captureSourceWidth = cameraFeed.videoWidth || frameWidth;
   const captureSourceHeight = cameraFeed.videoHeight || frameHeight;
   const captureSourceRect = getCenteredAspectCropRect(captureSourceWidth, captureSourceHeight);
-  const captureCropRect = toNormalizedCropRect(
+  let captureCropRect = toNormalizedCropRect(
     captureSourceRect,
     captureSourceWidth,
     captureSourceHeight,
   );
+
+  if (captureCropRect && needsOrientationCorrection(captureSourceWidth, captureSourceHeight)) {
+    captureCropRect = {
+      x: captureCropRect.y,
+      y: 1 - captureCropRect.x - captureCropRect.width,
+      width: captureCropRect.height,
+      height: captureCropRect.width,
+    };
+  }
 
   const captureModeSnapshot = currentCaptureMode;
 
@@ -1792,12 +1806,19 @@ async function exportPhotoBlob({
     Math.round((exportSourceHeight / exportSourceWidth) * photoWidth),
   );
 
-  photoCanvas.width = photoWidth;
-  photoCanvas.height = photoHeight;
+  const rotated = needsOrientationCorrection(exportSourceWidth, exportSourceHeight);
+
+  photoCanvas.width = rotated ? photoHeight : photoWidth;
+  photoCanvas.height = rotated ? photoWidth : photoHeight;
   photoContext.imageSmoothingEnabled = true;
   photoContext.imageSmoothingQuality = "high";
 
   if (hasNativeVideoFrame) {
+    photoContext.save();
+    if (rotated) {
+      photoContext.translate(photoCanvas.width, 0);
+      photoContext.rotate(Math.PI / 2);
+    }
     drawFrameToCanvas({
       context: photoContext,
       cameraFeed,
@@ -1807,6 +1828,7 @@ async function exportPhotoBlob({
       shouldMirrorUserFacing,
       sourceRect: effectiveSourceRect,
     });
+    photoContext.restore();
   } else {
     photoContext.drawImage(
       fallbackCanvas,
