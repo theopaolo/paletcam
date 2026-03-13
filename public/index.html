@@ -171,6 +171,10 @@
           <div class="settings-section-header">
             <h3 id="settingsCaptureTitle">Qualité des photos</h3>
           </div>
+          <p class="settings-hint">
+            Une qualité plus élevée donne de plus belles images, mais chaque
+            capture prend plus de place sur votre appareil.
+          </p>
 
           <div class="settings-field">
             <div class="settings-field-header">
@@ -211,11 +215,6 @@
                 >
               </div>
             </div>
-
-            <p class="settings-hint">
-              Une qualité plus élevée donne de plus belles images, mais chaque
-              capture prend plus de place sur votre appareil.
-            </p>
           </div>
         </section>
 
@@ -287,7 +286,11 @@
                   data-settings-algorithm-panel="median-cut"
                   aria-labelledby="settingsMedianCutTuningTitle"
                 >
-                  <div class="settings-subsection-header" data-settings-advanced hidden>
+                  <div
+                    class="settings-subsection-header"
+                    data-settings-advanced
+                    hidden
+                  >
                     <h4 id="settingsMedianCutTuningTitle">
                       Réglages du mode Auto
                     </h4>
@@ -374,6 +377,10 @@
                         >16</output
                       >
                     </div>
+                    <p class="settings-hint">
+                      Plus la valeur est élevée, plus la palette sera variée,
+                      mais l'analyse sera plus lente.
+                    </p>
                     <div
                       class="swatch-slider settings-quality-slider"
                       id="settingsMedianCutPoolSlider"
@@ -401,10 +408,6 @@
                         >
                       </div>
                     </div>
-                    <p class="settings-hint">
-                      Plus la valeur est élevée, plus la palette sera variée,
-                      mais l'analyse sera plus lente.
-                    </p>
                   </div>
 
                   <div class="settings-field">
@@ -420,6 +423,10 @@
                         >12,000</output
                       >
                     </div>
+                    <p class="settings-hint">
+                      Améliore la précision pour les scènes complexes, mais
+                      ralentit le traitement.
+                    </p>
                     <div
                       class="swatch-slider settings-quality-slider"
                       id="settingsMedianCutPixelsSlider"
@@ -447,10 +454,6 @@
                         >
                       </div>
                     </div>
-                    <p class="settings-hint">
-                      Améliore la précision pour les scènes complexes, mais
-                      ralentit le traitement.
-                    </p>
                   </div>
                 </section>
 
@@ -622,6 +625,10 @@
                   >25</output
                 >
               </div>
+              <p class="settings-hint">
+                Plus la valeur est élevée, plus les couleurs éclatantes et
+                saturées seront privilégiées.
+              </p>
               <div
                 class="swatch-slider settings-quality-slider"
                 id="settingsScoringVibrancySlider"
@@ -649,10 +656,6 @@
                   >
                 </div>
               </div>
-              <p class="settings-hint">
-                Plus la valeur est élevée, plus les couleurs éclatantes et
-                saturées seront privilégiées.
-              </p>
             </div>
 
             <div class="settings-field">
@@ -666,6 +669,10 @@
                   >15</output
                 >
               </div>
+              <p class="settings-hint">
+                Favorise les couleurs très claires ou très foncées pour un plus
+                grand contraste dans la palette.
+              </p>
               <div
                 class="swatch-slider settings-quality-slider"
                 id="settingsScoringContrastSlider"
@@ -693,10 +700,6 @@
                   >
                 </div>
               </div>
-              <p class="settings-hint">
-                Favorise les couleurs très claires ou très foncées pour un plus
-                grand contraste dans la palette.
-              </p>
             </div>
 
             <div class="settings-field">
@@ -710,6 +713,10 @@
                   >20</output
                 >
               </div>
+              <p class="settings-hint">
+                Met en avant les teintes peu présentes dans l'image pour une
+                palette plus originale.
+              </p>
               <div
                 class="swatch-slider settings-quality-slider"
                 id="settingsScoringRaritySlider"
@@ -737,10 +744,6 @@
                   >
                 </div>
               </div>
-              <p class="settings-hint">
-                Met en avant les teintes peu présentes dans l'image pour une
-                palette plus originale.
-              </p>
             </div>
 
             <div class="settings-field">
@@ -756,6 +759,10 @@
                   >40</output
                 >
               </div>
+              <p class="settings-hint">
+                Plus la valeur est élevée, plus les couleurs choisies seront
+                différentes les unes des autres.
+              </p>
               <div
                 class="swatch-slider settings-quality-slider"
                 id="settingsScoringDiversitySlider"
@@ -783,10 +790,6 @@
                   >
                 </div>
               </div>
-              <p class="settings-hint">
-                Plus la valeur est élevée, plus les couleurs choisies seront
-                différentes les unes des autres.
-              </p>
             </div>
           </section>
         </div>
@@ -807,7 +810,9 @@
           </div>
 
           <div class="settings-field">
-            <label class="settings-label settings-label-static">HUD debug</label>
+            <label class="settings-label settings-label-static"
+              >HUD debug</label
+            >
             <div
               class="settings-segment"
               role="group"

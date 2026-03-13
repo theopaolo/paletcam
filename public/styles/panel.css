@@ -224,9 +224,9 @@
 
 .settings-label {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 300;
-  color: rgba(240, 240, 240, 0.9);
+  color: var(--secondary-color);
 }
 
 .settings-label-static {
@@ -234,7 +234,7 @@
 }
 
 .settings-inline-value {
-  color: #f0f0f0;
+  color: var(--secondary-color);
   font-family: monospace;
   font-size: 0.92rem;
   font-variant-numeric: tabular-nums;
@@ -249,7 +249,7 @@
 
 .settings-hint {
   margin: 0;
-  color: rgba(240, 240, 240, 0.8);
+  color: var(--accent-color);
   font-size: 1rem;
   font-weight: 300;
   line-height: 1.22;
