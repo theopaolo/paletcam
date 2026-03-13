@@ -86,8 +86,8 @@ describe("extractPaletteColors", () => {
     expect(defaultResult.colors).toEqual([
       { r: 0, g: 248, b: 0 },
       { r: 128, g: 0, b: 248 },
-      { r: 248, g: 128, b: 0 },
-      { r: 200, g: 200, b: 40 },
+      { r: 248, g: 0, b: 0 },
+      { r: 248, g: 0, b: 128 },
     ]);
     expect(nestedOklchResult.colors).toEqual([
       { r: 103, g: 242, b: 0 },

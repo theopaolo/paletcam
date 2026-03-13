@@ -160,7 +160,7 @@ export function renderPaletteBars(context, colors, canvasWidth, canvasHeight) {
 
 let previousColors = null;
 let lastRawColorsRef = null;
-const ACCUMULATOR_MAX_SIZE = 2;
+const ACCUMULATOR_MAX_SIZE = 3;
 let colorAccumulator = [];
 
 export function resetColorSmoothing() {

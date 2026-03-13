@@ -135,6 +135,10 @@ export function extractMedianCutPaletteColors(
   }
 
   const useOklch = colorSpace === 'oklch';
+  const scoringOptions = {
+    ...(scoring ?? {}),
+    model: scoring?.model ?? (useOklch ? "perceptual" : "classic"),
+  };
 
   // Pack pixels — either as RGB or scaled OKLCH, both into ARGB8888 ints
   let packedPixels;
@@ -184,7 +188,7 @@ export function extractMedianCutPaletteColors(
     candidatePool.push(candidate);
   }
 
-  const scoringProfile = createPaletteScoringProfile(scoring);
+  const scoringProfile = createPaletteScoringProfile(scoringOptions);
   const colors = rankQuantizedCandidates(candidatePool, normalizedSwatchCount, scoringProfile);
   return { colors, chosenIndices: [] };
 }
