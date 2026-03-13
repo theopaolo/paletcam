@@ -33,9 +33,11 @@ import { savePalette } from "./palette-storage.js";
 import { trackCaptureStatAsync } from "./capture-stat-service.js";
 import "./settings-ui.js";
 
-const PHOTO_EXPORT_MAX_WIDTH = 3840;
+const PHOTO_EXPORT_MAX_WIDTH = 2048;
+const STILL_CAPTURE_TARGET_WIDTH = 2048;
 const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
 const CAMERA_FRAME_ASPECT_RATIO_LABEL = "4:3";
+const STILL_CAPTURE_TARGET_HEIGHT = Math.round(STILL_CAPTURE_TARGET_WIDTH / CAMERA_FRAME_ASPECT_RATIO);
 const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
 const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
 const APP_VIEWPORT_HEIGHT_CSS_VAR = "--app-height";
@@ -948,6 +950,101 @@ function getCameraTrackSettings() {
   return stream.getVideoTracks()[0]?.getSettings?.() ?? null;
 }
 
+function getCameraVideoTrack() {
+  const stream = cameraFeed?.srcObject;
+  if (!(stream instanceof MediaStream)) {
+    return null;
+  }
+
+  return stream.getVideoTracks()[0] ?? null;
+}
+
+function clampStillCaptureDimension(requestedValue, range) {
+  const numericValue = Math.round(Number(requestedValue) || 0);
+  if (numericValue <= 0) {
+    return undefined;
+  }
+
+  const min = Number(range?.min);
+  const max = Number(range?.max);
+  const step = Number(range?.step);
+  let clampedValue = numericValue;
+
+  if (Number.isFinite(min)) {
+    clampedValue = Math.max(clampedValue, Math.round(min));
+  }
+
+  if (Number.isFinite(max)) {
+    clampedValue = Math.min(clampedValue, Math.round(max));
+  }
+
+  if (Number.isFinite(step) && step > 0 && Number.isFinite(min)) {
+    clampedValue = Math.round((clampedValue - min) / step) * step + min;
+    clampedValue = Math.max(clampedValue, Math.round(min));
+    if (Number.isFinite(max)) {
+      clampedValue = Math.min(clampedValue, Math.round(max));
+    }
+  }
+
+  return clampedValue > 0 ? clampedValue : undefined;
+}
+
+async function captureStillPhotoBlob() {
+  if (typeof ImageCapture !== "function") {
+    return null;
+  }
+
+  const videoTrack = getCameraVideoTrack();
+  if (!videoTrack) {
+    return null;
+  }
+
+  let imageCapture = null;
+  try {
+    imageCapture = new ImageCapture(videoTrack);
+  } catch (_error) {
+    return null;
+  }
+
+  let photoSettings = {
+    imageWidth: STILL_CAPTURE_TARGET_WIDTH,
+    imageHeight: STILL_CAPTURE_TARGET_HEIGHT,
+  };
+
+  if (typeof imageCapture.getPhotoCapabilities === "function") {
+    try {
+      const capabilities = await imageCapture.getPhotoCapabilities();
+      const imageWidth = clampStillCaptureDimension(
+        STILL_CAPTURE_TARGET_WIDTH,
+        capabilities?.imageWidth,
+      );
+      const imageHeight = clampStillCaptureDimension(
+        STILL_CAPTURE_TARGET_HEIGHT,
+        capabilities?.imageHeight,
+      );
+
+      photoSettings = {
+        ...(imageWidth ? { imageWidth } : {}),
+        ...(imageHeight ? { imageHeight } : {}),
+      };
+    } catch (_error) {
+      // Keep the preferred mobile-sized 4:3 target when capabilities are unavailable.
+    }
+  }
+
+  try {
+    return await imageCapture.takePhoto(
+      Object.keys(photoSettings).length > 0 ? photoSettings : undefined,
+    );
+  } catch (error) {
+    clientLog("Still photo capture unavailable.", {
+      error: error?.name,
+      message: error?.message,
+    });
+    return null;
+  }
+}
+
 function pauseCameraPreview() {
   isStreaming = false;
   cancelPreviewRefresh();
@@ -1531,7 +1628,7 @@ async function captureCurrentFrame() {
   isCaptureSavePending = true;
   try {
     await waitForNextAnimationFrame();
-    const masterPhotoBlob = await exportPhotoBlob({
+    const masterPhotoBlob = (await captureStillPhotoBlob()) || (await exportPhotoBlob({
       fallbackCanvas: frameCanvas,
       fallbackWidth: frameWidth,
       fallbackHeight: frameHeight,
@@ -1539,7 +1636,7 @@ async function captureCurrentFrame() {
       facingMode,
       shouldMirrorUserFacing,
       sourceRect: null,
-    });
+    }));
 
     setPhotoOutputBlob(masterPhotoBlob);
 
