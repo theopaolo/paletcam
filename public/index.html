@@ -248,7 +248,7 @@
             class="settings-section"
             aria-labelledby="settingsPaletteTitle"
           >
-            <div class="settings-section-header">
+            <div class="settings-section-header" data-settings-advanced hidden>
               <h3 id="settingsPaletteTitle">
                 Méthode de détection des couleurs
               </h3>
@@ -259,6 +259,8 @@
                 class="settings-segment"
                 role="group"
                 aria-label="Méthode de détection des couleurs"
+                data-settings-advanced
+                hidden
               >
                 <button
                   class="settings-segment-button"
@@ -273,6 +275,8 @@
                   type="button"
                   data-settings-algorithm="grid"
                   aria-pressed="false"
+                  data-settings-advanced
+                  hidden
                 >
                   Grille
                 </button>
@@ -283,7 +287,7 @@
                   data-settings-algorithm-panel="median-cut"
                   aria-labelledby="settingsMedianCutTuningTitle"
                 >
-                  <div class="settings-subsection-header">
+                  <div class="settings-subsection-header" data-settings-advanced hidden>
                     <h4 id="settingsMedianCutTuningTitle">
                       Réglages du mode Auto
                     </h4>
@@ -293,7 +297,7 @@
                     </p>
                   </div>
 
-                  <div class="settings-field">
+                  <div class="settings-field" data-settings-advanced hidden>
                     <label class="settings-label settings-label-static">
                       Profil d'analyse
                     </label>
@@ -325,7 +329,7 @@
                     </p>
                   </div>
 
-                  <div class="settings-field">
+                  <div class="settings-field" data-settings-advanced hidden>
                     <label class="settings-label settings-label-static">
                       Espace colorimétrique
                     </label>
@@ -453,6 +457,7 @@
                 <section
                   class="settings-algorithm-panel"
                   data-settings-algorithm-panel="grid"
+                  data-settings-advanced-panel
                   aria-labelledby="settingsGridTuningTitle"
                   hidden
                 >
@@ -787,7 +792,12 @@
         </div>
         <!-- end settingsPaletteModeGroup -->
 
-        <section class="settings-section" aria-labelledby="settingsDebugTitle">
+        <section
+          class="settings-section"
+          data-settings-advanced
+          aria-labelledby="settingsDebugTitle"
+          hidden
+        >
           <div class="settings-section-header">
             <h3 id="settingsDebugTitle">Debug performance</h3>
             <p>
@@ -875,7 +885,14 @@
           Reset réglages
         </button>
       </div>
-      <p class="settings-version">v__APP_VERSION__ · __COMMIT_HASH__</p>
+      <button
+        class="settings-version"
+        id="settingsVersionTrigger"
+        type="button"
+        aria-label="Version de l'application"
+      >
+        v__APP_VERSION__ · __COMMIT_HASH__
+      </button>
     </shared-panel>
 
     <!-- Login Panel -->

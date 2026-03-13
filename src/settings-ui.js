@@ -11,6 +11,8 @@ import { openSharedPanel } from "./modules/panels/panel-manager.js";
 import { showToast } from "./modules/toast-ui.js";
 import { exportAllPalettes, importAllPalettes } from "./palette-storage.js";
 
+const SETTINGS_VERSION_TAP_TARGET = 4;
+const SETTINGS_VERSION_TAP_RESET_MS = 1200;
 const openSettingsButton = document.querySelector(".btn-open-settings");
 const integerFormatter = new Intl.NumberFormat("en-US");
 const defaultAppSettings = getDefaultAppSettings();
@@ -25,9 +27,18 @@ const performanceHudButtons = Array.from(
   document.querySelectorAll("[data-settings-performance-hud]"),
 );
 const paletteModeGroup = document.getElementById("settingsPaletteModeGroup");
+const settingsVersionTrigger = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("settingsVersionTrigger")
+);
+const advancedSettingsElements = /** @type {HTMLElement[]} */ (
+  Array.from(document.querySelectorAll("[data-settings-advanced]"))
+);
 const algorithmPanels = /** @type {HTMLElement[]} */ (
   Array.from(document.querySelectorAll("[data-settings-algorithm-panel]"))
 );
+let isAdvancedSettingsUnlocked = false;
+let settingsVersionTapCount = 0;
+let lastSettingsVersionTapAt = 0;
 
 function clampInteger(value, fallbackValue) {
   const numericValue = Number(value);
@@ -295,7 +306,8 @@ function syncAnalysisProfileStatus(activeProfile) {
 function syncAlgorithmPanels(activeAlgorithm) {
   algorithmPanels.forEach((panel) => {
     const panelAlgorithm = panel.getAttribute("data-settings-algorithm-panel");
-    panel.hidden = panelAlgorithm !== activeAlgorithm;
+    const isAdvancedPanel = panel.hasAttribute("data-settings-advanced-panel");
+    panel.hidden = panelAlgorithm !== activeAlgorithm || (isAdvancedPanel && !isAdvancedSettingsUnlocked);
   });
 }
 
@@ -327,6 +339,12 @@ function syncPaletteModeGroupVisibility(captureMode) {
   }
 }
 
+function syncAdvancedSettingsVisibility() {
+  advancedSettingsElements.forEach((element) => {
+    element.hidden = !isAdvancedSettingsUnlocked;
+  });
+}
+
 function renderSettingsUi(settings) {
   rangeControls.forEach((control) => {
     control.renderFromSettings(settings);
@@ -341,6 +359,7 @@ function renderSettingsUi(settings) {
   syncCaptureModeButtons(settings.captureMode);
   syncPerformanceHudButtons(settings.performanceHudEnabled);
   syncPaletteModeGroupVisibility(settings.captureMode);
+  syncAdvancedSettingsVisibility();
 }
 
 function openSettingsPanel() {
@@ -349,6 +368,31 @@ function openSettingsPanel() {
 
 function bindSettingsPanelEvents() {
   openSettingsButton?.addEventListener("click", openSettingsPanel);
+}
+
+function bindAdvancedSettingsUnlock() {
+  if (!settingsVersionTrigger || isAdvancedSettingsUnlocked) {
+    return;
+  }
+
+  settingsVersionTrigger.addEventListener("click", () => {
+    const now = Date.now();
+    if (now - lastSettingsVersionTapAt > SETTINGS_VERSION_TAP_RESET_MS) {
+      settingsVersionTapCount = 0;
+    }
+
+    lastSettingsVersionTapAt = now;
+    settingsVersionTapCount += 1;
+
+    if (settingsVersionTapCount < SETTINGS_VERSION_TAP_TARGET) {
+      return;
+    }
+
+    settingsVersionTapCount = 0;
+    isAdvancedSettingsUnlocked = true;
+    renderSettingsUi(getAppSettings());
+    showToast("Réglages avancés affichés.", { duration: 1600 });
+  });
 }
 
 function bindAlgorithmControls() {
@@ -523,6 +567,7 @@ function bindImportInput() {
 }
 
 bindSettingsPanelEvents();
+bindAdvancedSettingsUnlock();
 bindCaptureModeControls();
 bindAnalysisProfileControls();
 bindAlgorithmControls();

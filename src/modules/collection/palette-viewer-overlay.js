@@ -135,6 +135,10 @@ function canPalettePreview(palette) {
     : true;
 }
 
+function isRalCapture(palette = getActivePalette()) {
+  return palette?.captureMode === "ral";
+}
+
 function getCapability(capabilityName, palette = getActivePalette()) {
   if (!palette) {
     return false;
@@ -266,7 +270,9 @@ function syncActionButtons() {
   }
 
   if (publishButton) {
-    publishButton.disabled = isBusy || !getCapability("canPublish");
+    const hidePublishButton = isRalCapture();
+    publishButton.hidden = hidePublishButton;
+    publishButton.disabled = hidePublishButton || isBusy || !getCapability("canPublish");
   }
 
   if (deleteButton) {

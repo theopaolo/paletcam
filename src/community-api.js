@@ -164,6 +164,8 @@ export function postCatchToCommunity({
   colors,
   captureAspectRatio = null,
   captureCropRect = null,
+  ralCode = null,
+  ralProximity = null,
 }) {
   return requestCommunityApi("/catch/publish", {
     method: "POST",
@@ -174,6 +176,8 @@ export function postCatchToCommunity({
       timestamp,
       captureAspectRatio,
       captureCropRect,
+      ...(ralCode ? { ralCode } : {}),
+      ...(ralProximity !== null ? { ralProximity } : {}),
     },
   });
 }
