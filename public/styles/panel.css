@@ -300,11 +300,23 @@
 }
 
 .settings-version {
+  appearance: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
   margin: 1.5rem 0 0.5rem;
+  padding: 0;
   text-align: center;
   font-size: 0.78rem;
   opacity: 0.4;
   color: var(--secondary-color);
+  cursor: pointer;
+  font: inherit;
+}
+
+.settings-version:focus-visible {
+  outline: 2px solid rgba(255, 200, 0, 0.75);
+  outline-offset: 3px;
 }
 
 .settings-text-input {
