@@ -21,6 +21,7 @@ import {
   setPaletteExtractionAlgorithm,
   smoothColors,
 } from "./modules/palette-extraction.js";
+import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudController } from "./modules/performance-hud.js";
 import { sampleColorFromContextAtPoint } from "./modules/ral-live-sampling.js";
 import { createSampleGridOverlayController } from "./modules/sample-grid-overlay.js";
@@ -144,6 +145,9 @@ let cameraResumeAttemptId = 0;
 let viewportHeightSyncFrameId = 0;
 const viewportHeightSyncTimeoutIds = [];
 let lastViewportHeight = 0;
+let currentPhotoObjectUrl = "";
+let isCaptureSavePending = false;
+let latestPaletteWorkerDurationMs = null;
 const performanceHud = createPerformanceHudController({
   initialEnabled: getAppSettings().performanceHudEnabled,
 });
@@ -159,6 +163,22 @@ const visualEffects = createVisualEffects({
 const sampleGridOverlay = createSampleGridOverlayController({
   overlayElement: sampleRowOverlay,
   cameraFeed,
+});
+const paletteExtractionWorker = createPaletteExtractionWorkerController({
+  onError: (error) => {
+    clientLog("Palette extraction worker unavailable.", {
+      message: error?.message,
+    });
+  },
+  onResult: ({ colors, chosenIndices, durationMs }) => {
+    latestPaletteWorkerDurationMs = durationMs;
+    lastExtractedColors = colors;
+    lastChosenIndices = chosenIndices;
+
+    if (isGridExtractionMode()) {
+      sampleGridOverlay.markChosenSquares(lastChosenIndices);
+    }
+  },
 });
 const swatchSliderUi = createSwatchSliderUiController({
   swatchSlider,
@@ -373,6 +393,31 @@ function waitForNextAnimationFrame() {
   return new Promise((resolve) => {
     window.requestAnimationFrame(() => resolve());
   });
+}
+
+function revokePhotoOutputObjectUrl() {
+  if (!currentPhotoObjectUrl) {
+    return;
+  }
+
+  URL.revokeObjectURL(currentPhotoObjectUrl);
+  currentPhotoObjectUrl = "";
+}
+
+function clearPhotoOutput() {
+  revokePhotoOutputObjectUrl();
+  photoOutput?.removeAttribute("src");
+  photoOutput?.removeAttribute("data-palette-id");
+}
+
+function setPhotoOutputBlob(blob) {
+  if (!(blob instanceof Blob) || !photoOutput) {
+    return;
+  }
+
+  revokePhotoOutputObjectUrl();
+  currentPhotoObjectUrl = URL.createObjectURL(blob);
+  photoOutput.setAttribute("src", currentPhotoObjectUrl);
 }
 
 function getContainedSize(width, height, aspectRatio) {
@@ -643,7 +688,9 @@ function resetPalettePreviewState() {
   lastExtractedColors = null;
   lastChosenIndices = [];
   lastVisiblePaletteColors = [];
+  latestPaletteWorkerDurationMs = null;
   clearRalPreviewState();
+  paletteExtractionWorker.invalidate();
   resetColorSmoothing();
   resetRalSmoothing();
 }
@@ -1157,9 +1204,8 @@ function initializeApp() {
   exposureUi.initialize();
   swatchSliderUi.initialize(swatchCount);
   setCaptureState({ btnOn, btnShoot, isCameraActive: false });
-  photoOutput?.removeAttribute("src");
+  clearPhotoOutput();
   renderOutputSwatches(outputPalette, []);
-  photoOutput?.removeAttribute("data-palette-id");
 
   if (navigator.mediaDevices?.getUserMedia) {
     void startCameraStream().then(() => {
@@ -1283,7 +1329,8 @@ function refreshPreview(rafTimestamp = 0) {
     return;
   }
   const frameStartTime = performance.now();
-  let analysisDurationMs = null;
+  let analysisDurationMs = latestPaletteWorkerDurationMs;
+  latestPaletteWorkerDurationMs = null;
 
   if (shouldUseCanvasPreview) {
     drawFrameToCanvas({
@@ -1297,7 +1344,10 @@ function refreshPreview(rafTimestamp = 0) {
     });
   }
 
-  if (currentCaptureMode === "ral") {
+  if (isCaptureSavePending) {
+    sampleGridOverlay.setVisible(false);
+    visualEffects.setCaptureGlowActive(false);
+  } else if (currentCaptureMode === "ral") {
     sampleGridOverlay.setVisible(false);
     const analysisStartTime = performance.now();
     if (!shouldUseCanvasPreview) {
@@ -1334,23 +1384,31 @@ function refreshPreview(rafTimestamp = 0) {
           analysisWidth,
           analysisHeight,
         ).data;
-
-        const result = extractPaletteColors(
-          frameImageData,
-          analysisWidth,
-          analysisHeight,
+        const extractionDelegatedToWorker = paletteExtractionWorker.requestExtraction({
+          imageData: frameImageData,
+          width: analysisWidth,
+          height: analysisHeight,
           swatchCount,
-          getPaletteExtractionOptions(),
-        );
+          options: getPaletteExtractionOptions(),
+        });
 
-        lastExtractedColors = result.colors;
-        lastChosenIndices = result.chosenIndices;
-        if (isGridMode) {
-          sampleGridOverlay.markChosenSquares(lastChosenIndices);
+        if (!extractionDelegatedToWorker) {
+          const result = extractPaletteColors(
+            frameImageData,
+            analysisWidth,
+            analysisHeight,
+            swatchCount,
+            getPaletteExtractionOptions(),
+          );
+
+          lastExtractedColors = result.colors;
+          lastChosenIndices = result.chosenIndices;
+          if (isGridMode) {
+            sampleGridOverlay.markChosenSquares(lastChosenIndices);
+          }
+          analysisDurationMs = performance.now() - analysisStartTime;
         }
       }
-
-      analysisDurationMs = performance.now() - analysisStartTime;
     }
 
     if (!lastExtractedColors || lastExtractedColors.length === 0) {
@@ -1393,7 +1451,7 @@ function refreshPreview(rafTimestamp = 0) {
 }
 
 async function captureCurrentFrame() {
-  if (!frameContext || frameWidth <= 0 || frameHeight <= 0) {
+  if (!frameContext || frameWidth <= 0 || frameHeight <= 0 || isCaptureSavePending) {
     return;
   }
 
@@ -1460,34 +1518,25 @@ async function captureCurrentFrame() {
     }
   }
 
-  const photoData = exportPhotoData({
-    fallbackCanvas: frameCanvas,
-    fallbackWidth: frameWidth,
-    fallbackHeight: frameHeight,
-    cameraFeed,
-    facingMode,
-    shouldMirrorUserFacing,
-    sourceRect: captureSourceRect,
-  });
-
-  photoOutput.setAttribute("src", photoData);
-  photoOutput.removeAttribute("data-palette-id");
   renderOutputSwatches(outputPalette, paletteColors);
+  photoOutput?.removeAttribute("data-palette-id");
 
-  if (paletteColors.length > 0) {
-    try {
-      await waitForNextAnimationFrame();
+  isCaptureSavePending = true;
+  try {
+    await waitForNextAnimationFrame();
+    const masterPhotoBlob = await exportPhotoBlob({
+      fallbackCanvas: frameCanvas,
+      fallbackWidth: frameWidth,
+      fallbackHeight: frameHeight,
+      cameraFeed,
+      facingMode,
+      shouldMirrorUserFacing,
+      sourceRect: null,
+    });
 
-      const masterPhotoBlob = await exportPhotoBlob({
-        fallbackCanvas: frameCanvas,
-        fallbackWidth: frameWidth,
-        fallbackHeight: frameHeight,
-        cameraFeed,
-        facingMode,
-        shouldMirrorUserFacing,
-        sourceRect: null,
-      });
+    setPhotoOutputBlob(masterPhotoBlob);
 
+    if (paletteColors.length > 0) {
       const savedPalette = await savePalette(paletteColors, {
         photoBlob: masterPhotoBlob,
         captureAspectRatio: CAMERA_FRAME_ASPECT_RATIO_LABEL,
@@ -1500,19 +1549,21 @@ async function captureCurrentFrame() {
       } else {
         photoOutput.removeAttribute("data-palette-id");
       }
-    } catch (error) {
-      photoOutput.removeAttribute("data-palette-id");
-      console.error("Failed to save palette:", error);
-      clientLog("Failed to save palette.", {
-        error: error?.name,
-        message: error?.message,
-      });
-      showToast("Sauvegarde échouée.", {
-        variant: "error",
-        duration: 2500,
-        details: formatErrorDetails(error),
-      });
     }
+  } catch (error) {
+    photoOutput?.removeAttribute("data-palette-id");
+    console.error("Failed to save palette:", error);
+    clientLog("Failed to save palette.", {
+      error: error?.name,
+      message: error?.message,
+    });
+    showToast("Sauvegarde échouée.", {
+      variant: "error",
+      duration: 2500,
+      details: formatErrorDetails(error),
+    });
+  } finally {
+    isCaptureSavePending = false;
   }
 }
 
@@ -1693,10 +1744,12 @@ function destroyApp() {
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   cameraController.destroy?.();
+  paletteExtractionWorker.destroy();
   performanceHud.destroy?.();
   unsubscribeFromAppSettings();
   unsubscribeFromAppSettings = () => {};
   clearManagedEventListeners();
+  clearPhotoOutput();
 }
 
 initializeApp();
@@ -1759,6 +1812,7 @@ function _loadTestImage(src) {
     // Show the test image in the camera preview and output photo
     cameraFeed.setAttribute("poster", src);
     cameraFeed.style.objectFit = "cover";
+    revokePhotoOutputObjectUrl();
     photoOutput.setAttribute(
       "src",
       exportPhotoData({

@@ -1,7 +1,7 @@
 const DEFAULT_ZOOM_STEP = 0.1;
 const DEFAULT_EXPOSURE_STEP = 0.1;
-const IDEAL_CAMERA_WIDTH = 4096;
-const IDEAL_CAMERA_HEIGHT = 2160;
+const IDEAL_CAMERA_WIDTH = 1600;
+const IDEAL_CAMERA_HEIGHT = 1200;
 
 /**
  * @param {CameraControllerOptions} options
