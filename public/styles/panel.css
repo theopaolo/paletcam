@@ -844,6 +844,7 @@
 .palette-quick-action {
   width: auto;
   min-width: 0;
+  flex: 1;
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: #141414;
   color: var(--secondary-color);
@@ -1045,8 +1046,7 @@
 }
 
 .palette-viewer-actions {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   width: 100%;
   background: #1b1b1b;
   padding-bottom: env(safe-area-inset-bottom, 0px);

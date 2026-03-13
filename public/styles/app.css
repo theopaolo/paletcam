@@ -689,14 +689,6 @@ body.is-ral-mode .camera-stage-mount {
   line-height: 1.2;
 }
 
-.zoom-display {
-  min-width: 4ch;
-  color: #d3d3d3;
-  font-family: monospace;
-  font-size: 0.9rem;
-  text-shadow: 0 1px 0 #000;
-}
-
 .counter {
   box-shadow:
     0px 2px 0px #9d7b00,
