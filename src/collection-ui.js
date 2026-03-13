@@ -1,6 +1,12 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
+import {
+  enqueueCommunityDeletionCleanupRetry,
+  flushCommunityDeletionCleanupOutbox,
+  initializeCommunityDeletionCleanupOutbox,
+} from "./community-delete-outbox.js";
 import { deletePalette, getSavedPalettes } from "./palette-storage.js";
 import {
+  cleanupPaletteRemoteCatchForDeletion,
   getCurrentCommunitySession,
   getPalettePublicationAction,
   publishPaletteToCommunityFeed,
@@ -246,18 +252,41 @@ async function handleDeletePalette(palette) {
       });
     },
     onExpire: async () => {
+      const remoteCleanupPromise = cleanupPaletteRemoteCatchForDeletion(palette);
+
       try {
-        await deletePalette(palette.id);
+        const [deleteResult, remoteCleanupResult] = await Promise.allSettled([
+          deletePalette(palette.id),
+          remoteCleanupPromise,
+        ]);
+
+        if (deleteResult.status === "rejected") {
+          throw deleteResult.reason;
+        }
+
         pendingDeletionIds.delete(palette.id);
         disposePalettePreviewPolaroidAsset(palette);
         cardLifecycle.ensureEmptyMessage();
         syncCollectionPanelChrome();
+
+        if (remoteCleanupResult.status === "fulfilled") {
+          const wasQueued = enqueueDeleteRemoteCleanupRetry(remoteCleanupResult.value, palette);
+          notifyDeleteRemoteCleanupIssue(remoteCleanupResult.value, { wasQueued });
+        } else {
+          const fallbackResult = {
+            attempted: true,
+            error: remoteCleanupResult.reason,
+            remoteCatchId: String(palette?.remoteCatchId || "").trim(),
+            status: "failed",
+            success: false,
+          };
+          const wasQueued = enqueueDeleteRemoteCleanupRetry(fallbackResult, palette);
+          notifyDeleteRemoteCleanupIssue(fallbackResult, { wasQueued });
+        }
       } catch (error) {
         console.error(`Failed to delete palette ${palette.id}:`, error);
         pendingDeletionIds.delete(palette.id);
-        insertPaletteAtIndex(palette, removedIndex < 0 ? currentPalettes.length : removedIndex);
-        cardLifecycle.restoreCardFromSnapshot(card, snapshot);
-        syncCollectionPanelChrome();
+        await loadCollectionUi();
         showToast("Suppression échouée", {
           variant: "error",
           duration: 1800,
@@ -268,6 +297,50 @@ async function handleDeletePalette(palette) {
         });
       }
     },
+  });
+}
+
+function enqueueDeleteRemoteCleanupRetry(result, palette) {
+  if (!result || result.success) {
+    return false;
+  }
+
+  const remoteCatchId = String(result?.remoteCatchId || palette?.remoteCatchId || "").trim();
+  if (!remoteCatchId) {
+    return false;
+  }
+
+  return enqueueCommunityDeletionCleanupRetry({ remoteCatchId });
+}
+
+function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
+  if (!result || result.success) {
+    return;
+  }
+
+  clientLog("Failed to clean up palette publication during delete.", {
+    code: result?.error?.code,
+    message: result?.error?.message,
+    remoteCatchId: result?.remoteCatchId,
+    status: result?.status,
+  });
+
+  let message = result.status === "authentication_required"
+    ? "Capture supprimée localement, mais la publication n'a pas pu être retirée de la communauté."
+    : "Capture supprimée localement, mais le retrait de la communauté a échoué.";
+  let variant = "error";
+
+  if (wasQueued) {
+    message = result.status === "authentication_required"
+      ? "Capture supprimée localement. La dépublication sera réessayée automatiquement après reconnexion."
+      : "Capture supprimée localement. Le retrait de la communauté sera réessayé automatiquement.";
+    variant = "default";
+  }
+
+  showToast(message, {
+    variant,
+    duration: 4200,
+    details: formatErrorDetails(result.error),
   });
 }
 
@@ -561,6 +634,7 @@ export async function openCollectionPanel({
   shouldCloseCollectionOnViewerClose = false;
   openSharedPanel("collection");
   await loadCollectionUi();
+  void flushCommunityDeletionCleanupOutbox();
   void syncModerationStatuses();
 
   if (paletteId === undefined || paletteId === null) {
@@ -632,4 +706,5 @@ function bindCollectionUiEvents() {
   syncCollectionPanelChrome();
 }
 
+initializeCommunityDeletionCleanupOutbox();
 bindCollectionUiEvents();

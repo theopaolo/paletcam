@@ -130,6 +130,19 @@ interface ModerationSyncResult {
   updatedCount: number;
 }
 
+interface PaletteDeleteRemoteCleanupResult {
+  attempted: boolean;
+  error?: Error;
+  remoteCatchId: string;
+  status:
+    | "not_published"
+    | "unpublished"
+    | "already_removed"
+    | "authentication_required"
+    | "failed";
+  success: boolean;
+}
+
 interface PublicationMeta {
   tone: "public" | "rejected" | "private" | "pending";
   label: string;

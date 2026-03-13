@@ -241,6 +241,137 @@ export function getCurrentCommunitySession() {
 
 export { subscribeCommunitySession };
 
+function buildRemoteDeletionCleanupAuthRequiredResult(remoteCatchId) {
+  return {
+    attempted: false,
+    error: createCommunityServiceError(
+      "Authentication required.",
+      { code: "NOT_AUTHENTICATED" },
+    ),
+    remoteCatchId,
+    status: "authentication_required",
+    success: false,
+  };
+}
+
+async function persistPalettePrivateRemoteState(palette) {
+  const nowIso = new Date().toISOString();
+  const nextRemoteState = {
+    moderationStatus: CATCH_MODERATION_STATUSES.PRIVATE,
+    moderationUpdatedAt: nowIso,
+    lastModerationCheckAt: nowIso,
+  };
+
+  try {
+    await updatePaletteRemoteState(palette.id, nextRemoteState);
+  } catch (error) {
+    clientLog("Failed to persist palette private remote state.", {
+      paletteId: palette?.id,
+      remoteCatchId: getPaletteRemoteCatchId(palette),
+      error: error?.name,
+      message: error?.message,
+    });
+  }
+
+  applyPaletteRemoteState(palette, nextRemoteState);
+}
+
+/**
+ * @param {string | null | undefined} remoteCatchId
+ * @returns {Promise<PaletteDeleteRemoteCleanupResult>}
+ */
+export async function cleanupRemoteCatchForDeletionByRemoteCatchId(remoteCatchId) {
+  const safeRemoteCatchId = String(remoteCatchId || "").trim();
+  if (!safeRemoteCatchId) {
+    return {
+      attempted: false,
+      remoteCatchId: "",
+      status: "not_published",
+      success: true,
+    };
+  }
+
+  const token = getCommunityAccessToken();
+  if (!token) {
+    return buildRemoteDeletionCleanupAuthRequiredResult(safeRemoteCatchId);
+  }
+
+  try {
+    await unpublishCatchFromCommunity({
+      token,
+      remoteCatchId: safeRemoteCatchId,
+    });
+  } catch (error) {
+    if (Number(error?.status) === 404) {
+      return {
+        attempted: true,
+        remoteCatchId: safeRemoteCatchId,
+        status: "already_removed",
+        success: true,
+      };
+    }
+
+    const mappedError = error?.name === "CommunityServiceError"
+      ? error
+      : mapApiError(error);
+
+    if (mappedError?.code === "AUTH_EXPIRED" || mappedError?.code === "NOT_AUTHENTICATED") {
+      return {
+        attempted: true,
+        error: mappedError,
+        remoteCatchId: safeRemoteCatchId,
+        status: "authentication_required",
+        success: false,
+      };
+    }
+
+    return {
+      attempted: true,
+      error: mappedError,
+      remoteCatchId: safeRemoteCatchId,
+      status: "failed",
+      success: false,
+    };
+  }
+
+  return {
+    attempted: true,
+    remoteCatchId: safeRemoteCatchId,
+    status: "unpublished",
+    success: true,
+  };
+}
+
+/**
+ * @param {Palette} palette
+ * @returns {Promise<PaletteDeleteRemoteCleanupResult>}
+ */
+export async function cleanupPaletteRemoteCatchForDeletion(palette) {
+  if (!palette || typeof palette !== "object") {
+    throw createCommunityServiceError(
+      "Palette is required.",
+      { code: "MISSING_PALETTE" },
+    );
+  }
+
+  const remoteCatchId = getPaletteRemoteCatchId(palette);
+  if (!remoteCatchId) {
+    return {
+      attempted: false,
+      remoteCatchId: "",
+      status: "not_published",
+      success: true,
+    };
+  }
+
+  const result = await cleanupRemoteCatchForDeletionByRemoteCatchId(remoteCatchId);
+  if (result.success && result.attempted) {
+    await persistPalettePrivateRemoteState(palette);
+  }
+
+  return result;
+}
+
 /**
  * @param {Palette} palette
  * @returns {Promise<{ remoteCatchId: string, moderationStatus: ModerationStatus }>}
