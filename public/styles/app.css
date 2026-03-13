@@ -656,7 +656,7 @@ body.is-ral-mode .camera-stage-mount {
   width: 100%;
   height: 100%;
   flex: none;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
 }
 

@@ -408,6 +408,9 @@ function clearPhotoOutput() {
   revokePhotoOutputObjectUrl();
   photoOutput?.removeAttribute("src");
   photoOutput?.removeAttribute("data-palette-id");
+  if (photoOutput) {
+    photoOutput.hidden = true;
+  }
 }
 
 function setPhotoOutputBlob(blob) {
@@ -417,6 +420,7 @@ function setPhotoOutputBlob(blob) {
 
   revokePhotoOutputObjectUrl();
   currentPhotoObjectUrl = URL.createObjectURL(blob);
+  photoOutput.hidden = true;
   photoOutput.setAttribute("src", currentPhotoObjectUrl);
 }
 
@@ -1336,6 +1340,14 @@ function bindMiniOutputEvents() {
     return;
   }
 
+  bindManagedEventListener(photoOutput, "load", () => {
+    photoOutput.hidden = false;
+  });
+  bindManagedEventListener(photoOutput, "error", () => {
+    if (photoOutput.getAttribute("src")) {
+      clearPhotoOutput();
+    }
+  });
   bindManagedEventListener(photoOutput, "click", handleMiniOutputClick);
 }
 
