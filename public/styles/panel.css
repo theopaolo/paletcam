@@ -17,10 +17,7 @@
 .catch-details-panel {
   --shared-panel-z-index: 1102;
   --shared-panel-padding: 0;
-}
-
-.catch-details-panel .panel-header {
-  padding: 0 0.5rem;
+  --shared-panel-header-padding: 0.5rem;
 }
 
 .collection-storage-summary {

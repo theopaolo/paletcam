@@ -652,6 +652,14 @@ body.is-ral-mode .camera-stage-mount {
   object-fit: cover;
 }
 
+.mini-output .output-img {
+  width: 100%;
+  height: 100%;
+  flex: none;
+  object-fit: contain;
+  object-position: center;
+}
+
 .output-palette {
   display: flex;
   height: 100%;

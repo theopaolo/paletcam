@@ -56,6 +56,7 @@ class SharedPanelElement extends LitElement {
       align-items: start;
       column-gap: 0.75rem;
       row-gap: 0.5rem;
+      padding: var(--shared-panel-header-padding, 0);
       color: inherit;
     }
 
@@ -379,7 +380,7 @@ class SharedPanelElement extends LitElement {
         aria-label=${this.panelTitle}
         @transitionend=${this.handleShellTransitionEnd}
       >
-        <header class="panel-header">
+        <header class="panel-header" part="header">
           <h2 class="panel-title">${this.panelTitle}</h2>
           <div class="panel-header-actions">
             <slot name="header-actions"></slot>
