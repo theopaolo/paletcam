@@ -33,6 +33,38 @@ export function getPaletteTimestamp(palette) {
   return parsedDate.toISOString();
 }
 
+function normalizeRalCode(code) {
+  if (typeof code !== "string") {
+    return null;
+  }
+
+  const normalized = code.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizeRalProximity(ralMatch) {
+  const deltaE = Number(ralMatch?.deltaE);
+  if (!Number.isFinite(deltaE)) {
+    return null;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(100 - deltaE * 10)));
+}
+
+function getRalPublishMetadata(palette) {
+  if (palette?.captureMode !== "ral" || !palette?.ralMatch || typeof palette.ralMatch !== "object") {
+    return {};
+  }
+
+  const ralCode = normalizeRalCode(palette.ralMatch.code);
+  const ralProximity = normalizeRalProximity(palette.ralMatch);
+
+  return {
+    ...(ralCode ? { ralCode } : {}),
+    ...(ralProximity !== null ? { ralProximity } : {}),
+  };
+}
+
 export function buildCommunityCatchPublishPayload(palette, photoBase64) {
   return {
     photoBase64,
@@ -40,5 +72,6 @@ export function buildCommunityCatchPublishPayload(palette, photoBase64) {
     colors: normalizeColorsForApi(palette?.colors),
     captureAspectRatio: palette?.captureAspectRatio || null,
     captureCropRect: palette?.captureCropRect || null,
+    ...getRalPublishMetadata(palette),
   };
 }

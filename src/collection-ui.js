@@ -97,7 +97,15 @@ function canExportPalette(palette) {
   return hasPaletteMasterPhoto(palette);
 }
 
+function isRalCapture(palette) {
+  return palette?.captureMode === "ral";
+}
+
 function canPublishPalette(palette) {
+  if (isRalCapture(palette)) {
+    return false;
+  }
+
   return getPalettePublicationAction(palette) === "unpublish" || hasPaletteMasterPhoto(palette);
 }
 
