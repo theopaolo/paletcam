@@ -330,14 +330,27 @@ export function createCameraController({
 
     const currentStartPromise = (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode,
-            width: { ideal: IDEAL_CAMERA_WIDTH },
-            height: { ideal: IDEAL_CAMERA_HEIGHT },
-          },
-          audio: false,
-        });
+        const videoConstraintCandidates = [
+          { facingMode, width: { ideal: IDEAL_CAMERA_WIDTH }, height: { ideal: IDEAL_CAMERA_HEIGHT } },
+          { facingMode },
+          true,
+        ];
+
+        let stream = null;
+        for (const video of videoConstraintCandidates) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+            break;
+          } catch (err) {
+            if (/** @type {any} */ (err)?.name !== "OverconstrainedError") {
+              throw err;
+            }
+          }
+        }
+
+        if (!stream) {
+          throw new DOMException("Camera unavailable", "OverconstrainedError");
+        }
 
         if (startRevision !== streamRevision) {
           stream.getTracks().forEach((track) => {
@@ -367,7 +380,13 @@ export function createCameraController({
         return true;
       } catch (error) {
         notifyCameraActiveChange(false);
-        reportError("Unable to start camera stream:", error);
+        const name = /** @type {any} */ (error)?.name;
+        if (name === "NotAllowedError" || name === "OverconstrainedError") {
+          // Expected: permission denied or camera unavailable — notify without console noise.
+          onError?.(error);
+        } else {
+          reportError("Unable to start camera stream:", error);
+        }
         return false;
       }
     })();

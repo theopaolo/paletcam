@@ -46,12 +46,6 @@ const PREVIEW_SMOOTHING_FACTOR = 0.16;
 const RAL_SMOOTHING_FACTOR = 0.18;
 const RAL_COLOR_DISTANCE_THRESHOLD = 12;
 
-function isIOSDevice() {
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  );
-}
 
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
 const captureButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-capture"));
@@ -89,6 +83,10 @@ const ralLiveSwatchName = document.getElementById("ralLiveSwatchName");
 const ralLiveSwatchQuality = document.getElementById("ralLiveSwatchQuality");
 const slidersContainer = document.querySelector(".sliders-container");
 const paletteCaptureStage = document.querySelector(".capture-palette-stage");
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
+}
+
 const sampleRowOverlay = document.getElementById("sampleRowOverlay");
 const cameraViewportFrame = document.createElement("div");
 const cameraSourceMount = document.createElement("div");
@@ -808,16 +806,12 @@ const cameraController = createCameraController({
       error: error?.name,
       message: error?.message,
     });
-    showToast("Caméra indisponible.", {
-      variant: "error",
-      duration: 3500,
-      details: formatErrorDetails(error),
-    });
+
+    showToast("Pas de caméra accessible.", { variant: "error", duration: 3500 });
   },
   onCameraActiveChange: (isCameraActive) => {
     syncCameraFeedOrientation();
     setCaptureState({ btnOn, btnShoot, isCameraActive });
-
     if (!isCameraActive) {
       resetPalettePreviewState();
       zoomUi?.setDisabled();
