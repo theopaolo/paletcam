@@ -14,6 +14,7 @@ const serviceWorkerBuildIdPlaceholder = "__BUILD_ID__";
 const unknownCommitHash = "unknown";
 const precacheExcludedFiles = new Set(["service-worker.js", precacheManifestFilename]);
 const precacheExcludedExtensions = new Set([".map"]);
+const bundleNodeEnv = "production";
 
 function exitWithBuildErrors(logs) {
   for (const log of logs) {
@@ -129,6 +130,9 @@ const buildResult = await Bun.build({
   splitting: false,
   minify: true,
   sourcemap: "external",
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(bundleNodeEnv),
+  },
 });
 
 if (!buildResult.success) {

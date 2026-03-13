@@ -89,11 +89,21 @@ export async function getPalettePreviewPolaroidAsset(palette) {
   }
 
   const promise = enqueuePreviewRender(async () => {
-    const blob = await renderPalettePolaroidBlob(palette, {
-      maxWidth: POLAROID_PREVIEW_MAX_WIDTH,
-      scale: POLAROID_PREVIEW_SCALE,
-      quality: POLAROID_PREVIEW_QUALITY,
-    });
+    let blob = null;
+
+    try {
+      blob = await renderPalettePolaroidBlob(palette, {
+        maxWidth: POLAROID_PREVIEW_MAX_WIDTH,
+        scale: POLAROID_PREVIEW_SCALE,
+        quality: POLAROID_PREVIEW_QUALITY,
+      });
+    } catch (error) {
+      console.warn("Falling back to raw palette preview image.", error);
+    }
+
+    if (!(blob instanceof Blob) && palette.photoBlob instanceof Blob) {
+      blob = palette.photoBlob;
+    }
 
     if (!blob) {
       throw new Error("Unable to generate palette preview");

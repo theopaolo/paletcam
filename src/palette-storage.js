@@ -102,24 +102,34 @@ export async function getSavedPalettes() {
  * @param {RgbColor[]} colors
  * @param {object} [options]
  * @param {string} [options.photoDataUrl]
+ * @param {Blob | null} [options.photoBlob]
  * @param {string} [options.captureAspectRatio]
  * @param {CropRect | null} [options.captureCropRect]
+ * @param {CaptureMode} [options.captureMode]
+ * @param {RalMatchRecord | null} [options.ralMatch]
  * @returns {Promise<Palette>}
  */
 export async function savePalette(
   colors,
   {
     photoDataUrl,
+    photoBlob: providedPhotoBlob = null,
     captureAspectRatio = '4:3',
     captureCropRect = null,
+    captureMode,
+    ralMatch = null,
   } = {},
 ) {
   const timestamp = new Date().toISOString();
-  if (typeof photoDataUrl !== 'string' || photoDataUrl.length === 0) {
+  const photoBlob = providedPhotoBlob instanceof Blob
+    ? providedPhotoBlob
+    : typeof photoDataUrl === 'string' && photoDataUrl.length > 0
+      ? dataUrlToBlob(photoDataUrl)
+      : null;
+
+  if (!(photoBlob instanceof Blob)) {
     throw new Error('Missing photo data.');
   }
-
-  const photoBlob = dataUrlToBlob(photoDataUrl);
   const safeCaptureCropRect = captureCropRect
     ? {
         x: Number(captureCropRect.x) || 0,
@@ -136,6 +146,7 @@ export async function savePalette(
       photoBlob,
       captureAspectRatio,
       captureCropRect: safeCaptureCropRect,
+      ...(captureMode === 'ral' ? { captureMode: 'ral', ralMatch } : {}),
       remoteCatchId: null,
       moderationStatus: null,
       postedAt: null,
@@ -150,6 +161,7 @@ export async function savePalette(
       photoBlob,
       captureAspectRatio,
       captureCropRect: safeCaptureCropRect,
+      ...(captureMode === 'ral' ? { captureMode: 'ral', ralMatch } : {}),
       remoteCatchId: null,
       moderationStatus: null,
       postedAt: null,

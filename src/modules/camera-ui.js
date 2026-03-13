@@ -1,13 +1,13 @@
-import { toRgbCss } from './color-format.js';
+import { toRgbCss } from "./color-format.js";
 
-const EMPTY_OUTPUT_HINT_TEXT = 'Aperçus.';
+const EMPTY_OUTPUT_HINT_TEXT = "Aperçus.";
 
 function setClassVisibility(element, shouldShow) {
   if (!element) {
     return;
   }
 
-  element.classList.toggle('hidden', !shouldShow);
+  element.classList.toggle("hidden", !shouldShow);
 }
 
 export function setCaptureState({ btnOn, btnShoot, isCameraActive }) {
@@ -30,11 +30,7 @@ export function drawFrameToCanvas({
 
   context.save();
 
-  const hasSourceRect = Boolean(
-    sourceRect &&
-    sourceRect.width > 0 &&
-    sourceRect.height > 0
-  );
+  const hasSourceRect = Boolean(sourceRect && sourceRect.width > 0 && sourceRect.height > 0);
 
   const drawFrame = (x, y, drawWidth, drawHeight) => {
     if (!hasSourceRect) {
@@ -51,11 +47,11 @@ export function drawFrameToCanvas({
       x,
       y,
       drawWidth,
-      drawHeight
+      drawHeight,
     );
   };
 
-  if (facingMode === 'user' && shouldMirrorUserFacing) {
+  if (facingMode === "user" && shouldMirrorUserFacing) {
     context.scale(-1, 1);
     drawFrame(-width, 0, width, height);
   } else {
@@ -71,20 +67,20 @@ export function renderOutputSwatches(container, colors) {
   }
 
   const safeColors = Array.isArray(colors) ? colors : [];
-  container.innerHTML = '';
-  container.classList.toggle('is-empty', safeColors.length === 0);
+  container.innerHTML = "";
+  container.classList.toggle("is-empty", safeColors.length === 0);
 
   if (safeColors.length === 0) {
-    const hint = document.createElement('p');
-    hint.className = 'output-empty-hint';
+    const hint = document.createElement("p");
+    hint.className = "output-empty-hint";
     hint.textContent = EMPTY_OUTPUT_HINT_TEXT;
     container.appendChild(hint);
     return;
   }
 
   safeColors.forEach((color) => {
-    const swatch = document.createElement('div');
-    swatch.className = 'output-swatch';
+    const swatch = document.createElement("div");
+    swatch.className = "output-swatch";
     swatch.style.backgroundColor = toRgbCss(color);
     swatch.title = toRgbCss(color);
 
@@ -100,6 +96,15 @@ export function updateZoomText(zoomDisplay, zoomValue) {
   zoomDisplay.textContent = `${zoomValue.toFixed(1)}x zoom`;
 }
 
+export function updateExposureText(exposureDisplay, exposureValue) {
+  if (!exposureDisplay || !Number.isFinite(exposureValue)) {
+    return;
+  }
+
+  const sign = exposureValue > 0 ? "+" : "";
+  exposureDisplay.textContent = `${sign}${exposureValue.toFixed(1)} EV`;
+}
+
 function formatScaleValue(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
@@ -109,7 +114,7 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
     return;
   }
 
-  const sliderWrapper = sliderElement.closest('.swatch-slider');
+  const sliderWrapper = sliderElement.closest(".swatch-slider");
   if (!sliderWrapper) {
     return;
   }
@@ -119,26 +124,29 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
   const stepValue = Number(sliderElement.step);
   const step = Number.isFinite(stepValue) && stepValue > 0 ? stepValue : 1;
   const clampedCount = Math.min(Math.max(swatchCount, minValue), maxValue);
-  sliderElement.setAttribute('aria-label', `Nombre de couleurs : ${formatScaleValue(clampedCount)}`);
-  const tickCount = Math.max(1, Math.floor(((maxValue - minValue) / step) + Number.EPSILON) + 1);
-  const tickIndex = Math.max(0, Math.floor(((clampedCount - minValue) / step) + Number.EPSILON));
+  sliderElement.setAttribute(
+    "aria-label",
+    `Nombre de couleurs : ${formatScaleValue(clampedCount)}`,
+  );
+  const tickCount = Math.max(1, Math.floor((maxValue - minValue) / step + Number.EPSILON) + 1);
+  const tickIndex = Math.max(0, Math.floor((clampedCount - minValue) / step + Number.EPSILON));
   const tickIntervals = Math.max(1, tickCount - 1);
 
-  sliderWrapper.style.setProperty('--tick-count', String(tickCount));
-  sliderWrapper.style.setProperty('--tick-index', String(tickIndex));
-  sliderWrapper.style.setProperty('--tick-intervals', String(tickIntervals));
+  sliderWrapper.style.setProperty("--tick-count", String(tickCount));
+  sliderWrapper.style.setProperty("--tick-index", String(tickIndex));
+  sliderWrapper.style.setProperty("--tick-intervals", String(tickIntervals));
 
-  const countIndicator = sliderWrapper.querySelector('.swatch-count-indicator');
+  const countIndicator = sliderWrapper.querySelector(".swatch-count-indicator");
   if (countIndicator) {
     countIndicator.textContent = `${formatScaleValue(clampedCount)} couleurs`;
   }
 
-  const minIndicator = sliderWrapper.querySelector('.swatch-scale-label-min');
+  const minIndicator = sliderWrapper.querySelector(".swatch-scale-label-min");
   if (minIndicator) {
     minIndicator.textContent = formatScaleValue(minValue);
   }
 
-  const maxIndicator = sliderWrapper.querySelector('.swatch-scale-label-max');
+  const maxIndicator = sliderWrapper.querySelector(".swatch-scale-label-max");
   if (maxIndicator) {
     maxIndicator.textContent = formatScaleValue(maxValue);
   }

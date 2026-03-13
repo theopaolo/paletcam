@@ -17,6 +17,7 @@
 .catch-details-panel {
   --shared-panel-z-index: 1102;
   --shared-panel-padding: 0;
+  --shared-panel-header-padding: 0.5rem;
 }
 
 .collection-storage-summary {
@@ -62,8 +63,7 @@
   height: 0.55rem;
   border-radius: 999px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5);
 }
 
@@ -72,14 +72,12 @@
   height: 100%;
   width: 0%;
   border-radius: inherit;
-  background:
-    linear-gradient(90deg, rgba(255, 200, 0, 0.65), rgba(255, 200, 0, 0.95));
+  background: linear-gradient(90deg, rgba(255, 200, 0, 0.65), rgba(255, 200, 0, 0.95));
   transition: width 0.2s ease;
 }
 
 .collection-storage-summary.is-warning .storage-meter-fill {
-  background:
-    linear-gradient(90deg, rgba(255, 150, 60, 0.8), rgba(255, 90, 40, 0.95));
+  background: linear-gradient(90deg, rgba(255, 150, 60, 0.8), rgba(255, 90, 40, 0.95));
 }
 
 .storage-summary-details {
@@ -159,11 +157,13 @@
 }
 
 .settings-section {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)), rgba(0, 0, 0, 0.4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(0, 0, 0, 0.4);
   color: var(--secondary-color);
   display: grid;
   gap: 0.75rem;
-  padding: .5rem;
+  padding: 0.5rem;
   border: 1px solid #222222;
 }
 
@@ -194,7 +194,7 @@
 }
 
 .settings-section-header p.is-connected::before {
-  content: '';
+  content: "";
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
@@ -221,9 +221,9 @@
 
 .settings-label {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 300;
-  color: rgba(240, 240, 240, 0.9);
+  color: var(--secondary-color);
 }
 
 .settings-label-static {
@@ -231,9 +231,10 @@
 }
 
 .settings-inline-value {
-  color: #f0f0f0;
+  color: var(--secondary-color);
   font-family: monospace;
   font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 0 #1b1b1b;
 }
 
@@ -245,7 +246,7 @@
 
 .settings-hint {
   margin: 0;
-  color: rgba(240, 240, 240, 0.8);
+  color: var(--accent-color);
   font-size: 1rem;
   font-weight: 300;
   line-height: 1.22;
@@ -296,11 +297,23 @@
 }
 
 .settings-version {
+  appearance: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
   margin: 1.5rem 0 0.5rem;
+  padding: 0;
   text-align: center;
   font-size: 0.78rem;
   opacity: 0.4;
   color: var(--secondary-color);
+  cursor: pointer;
+  font: inherit;
+}
+
+.settings-version:focus-visible {
+  outline: 2px solid rgba(255, 200, 0, 0.75);
+  outline-offset: 3px;
 }
 
 .settings-text-input {
@@ -368,6 +381,7 @@
   font-weight: 300;
   text-align: center;
   cursor: pointer;
+  user-select: none;
   transition:
     border-color 0.14s ease,
     color 0.14s ease,
@@ -378,8 +392,7 @@
 .settings-segment-button[aria-pressed="true"] {
   color: #fff1b8;
   border-color: rgba(255, 200, 0, 0.58);
-  background:
-    linear-gradient(180deg, rgba(255, 200, 0, 0.12) 0%, rgba(18, 16, 8, 1) 100%);
+  background: linear-gradient(180deg, rgba(255, 200, 0, 0.12) 0%, rgba(18, 16, 8, 1) 100%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 200, 0, 0.12),
     0 0 0 1px rgba(255, 200, 0, 0.06);
@@ -398,8 +411,7 @@
 
 .settings-algorithm-panel {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
-    rgba(0, 0, 0, 0.16);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)), rgba(0, 0, 0, 0.16);
   display: grid;
   gap: 0.65rem;
 }
@@ -428,14 +440,109 @@
   color: rgba(255, 240, 184, 1);
 }
 
+.collection-panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  max-width: 100%;
+}
+
+.collection-view-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(15, 15, 15, 0.88);
+}
+
+.collection-view-toggle-button,
+.collection-toolbar-button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(15, 15, 15, 0.88);
+  color: var(--secondary-color);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.collection-view-toggle-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-width: 0;
+  border-right-width: 1px;
+}
+
+.collection-view-toggle-button:last-child {
+  border-right-width: 0;
+}
+
+.collection-view-toggle-button img {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  filter: invert(1);
+}
+
+.collection-view-toggle-button.is-active,
+.collection-view-toggle-button[aria-pressed="true"] {
+  background: rgba(255, 200, 0, 0.16);
+}
+
+.collection-view-toggle-button.is-active img,
+.collection-view-toggle-button[aria-pressed="true"] img {
+  opacity: 1;
+}
+
+.collection-toolbar-button {
+  min-height: 44px;
+  padding: 0.55rem 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.collection-view-toggle-button:disabled,
+.collection-toolbar-button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.collection-view-toggle-button:focus-visible,
+.collection-toolbar-button:focus-visible {
+  outline: 2px solid rgba(255, 200, 0, 0.75);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .collection-panel-toolbar {
+    width: 100%;
+  }
+}
+
 .collection-grid {
   display: grid;
   gap: 1rem;
 }
 
+.collection-grid[data-view-mode="grid"] {
+  gap: 1.15rem;
+}
+
 .collection-day {
   display: grid;
   gap: 0.45rem;
+}
+
+.collection-day[data-view-mode="grid"] {
+  gap: 0.6rem;
 }
 
 .collection-day-header {
@@ -448,7 +555,7 @@
 
 .collection-day-title {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: clamp(1rem, 3.8vw, 1.25rem);
   text-transform: uppercase;
   font-weight: 500;
 }
@@ -463,6 +570,12 @@
 .collection-day-sessions {
   display: grid;
   gap: 0.35rem;
+}
+
+.collection-day-grid {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
 }
 
 .collection-session {
@@ -487,6 +600,7 @@
   cursor: pointer;
   text-align: left;
   font: inherit;
+  user-select: none;
   transition: color 0.2s ease;
 }
 
@@ -496,10 +610,10 @@
 }
 
 .collection-session-title {
-  font-size: clamp(1rem, 4.8vw, 1.5rem);
+  font-size: clamp(.85rem, 3.8vw, 1rem);
   line-height: 1.1;
   opacity: 1;
-  padding: .25rem;
+  padding: 0.25rem;
   transition: opacity 0.22s ease;
 }
 
@@ -515,7 +629,7 @@
 
 .collection-session-count {
   min-width: 1.8ch;
-  font-size: clamp(.75rem, 3.8vw, 1.25rem);
+  font-size: clamp(0.75rem, 3.8vw, 1rem);
   text-align: right;
   line-height: 1;
 }
@@ -560,6 +674,8 @@
   text-align: center;
   padding: 40px 20px;
   opacity: 0.6;
+  white-space: pre-line;
+  line-height: 1.4;
 }
 
 .palette-card {
@@ -606,6 +722,20 @@
 
 .palette-card-publication-badge[hidden] {
   display: none;
+}
+
+.palette-card-ral-indicator {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background: var(--accent-color, #ffc800);
+  color: var(--primary-color, #222222);
+  padding: 0.1rem 0.3rem;
+  border-radius: 2px;
+  pointer-events: none;
 }
 
 .collection-session:not(.is-collapsed) .palette-card.is-revealing {
@@ -718,6 +848,7 @@
   background: #141414;
   color: var(--secondary-color);
   cursor: pointer;
+  user-select: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -772,30 +903,61 @@
 
 .catch-details-content {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
   min-height: calc(var(--app-height, 100vh) - 4rem);
   padding: 0.5rem;
   background: #1b1b1b;
 }
 
 .palette-viewer-frame {
-  display: grid;
-  place-content: center;
+  min-height: 0;
   width: 100%;
+  overflow: hidden;
+  background: #1b1b1b;
+}
+
+.palette-viewer-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: manipulation;
+  background: #1b1b1b;
+}
+
+.palette-viewer-track::-webkit-scrollbar {
+  display: none;
+}
+
+.palette-viewer-slide {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
   background: #1b1b1b;
 }
 
 .palette-viewer-image {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
   background: #1b1b1b;
 }
 
 .palette-viewer-status {
   margin: 0;
   width: 100%;
-  min-height: 2.6rem;
+  min-height: 3rem;
   padding: 0.8rem 0.75rem;
   display: grid;
   place-items: center;
@@ -808,6 +970,78 @@
 
 .palette-viewer-status:empty {
   display: none;
+}
+
+/* RAL Popover (tap-on-swatch in palette viewer) */
+.ral-popover {
+  position: fixed;
+  width: 140px;
+  background: var(--primary-color, #222222);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: center;
+  z-index: 1200;
+  border-radius: 2px;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.ral-popover[hidden] {
+  display: none;
+}
+
+.ral-popover-color {
+  width: 100%;
+  height: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ral-popover-info {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+
+.ral-popover-code {
+  font-weight: bold;
+  font-size: 0.78rem;
+  margin: 0.3rem 0 0;
+}
+
+.ral-popover-name {
+  font-size: 0.72rem;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.ral-popover-quality {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  color: var(--accent-color, #ffc800);
+  margin: 0.2rem 0 0;
+}
+
+/* Palette viewer swatch strip (tappable swatches) */
+.palette-viewer-swatch-strip {
+  display: flex;
+  gap: 0;
+  width: 100%;
+}
+
+.palette-viewer-swatch-strip:empty {
+  display: none;
+}
+
+.palette-viewer-swatch {
+  flex: 1;
+  height: 2.5rem;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  user-select: none;
+  transition: transform 0.1s ease;
+}
+
+.palette-viewer-swatch:active {
+  transform: scale(0.95);
 }
 
 .palette-viewer-actions {
@@ -826,4 +1060,101 @@
   opacity: 0.45;
   color: rgba(255, 255, 255, 0.52);
   cursor: default;
+}
+
+/* RAL Reticle — centered in camera viewport */
+.ral-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ral-reticle::before,
+.ral-reticle::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.6));
+}
+
+.ral-reticle::before {
+  top: 50%;
+  left: -1px;
+  right: -1px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.ral-reticle::after {
+  left: 50%;
+  top: -1px;
+  bottom: -1px;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+/* RAL Live Swatch — replaces palette strip in RAL mode */
+.ral-live-swatch {
+  padding: 0;
+  background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.62);
+}
+
+body.is-ral-mode .ral-live-swatch {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ral-live-swatch-color {
+  width: 100%;
+  height: 3rem;
+}
+
+body.is-ral-mode .ral-live-swatch-color {
+  flex: 1 1 auto;
+  min-height: clamp(8rem, 22vh, 18rem);
+}
+
+.ral-live-swatch-info {
+  padding: 0.4rem 0;
+}
+
+body.is-ral-mode .ral-live-swatch-info {
+  padding: 0.95rem 0.75rem 1.1rem;
+}
+
+.ral-live-swatch-code {
+  font-weight: bold;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+}
+
+.ral-live-swatch-name {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.ral-live-swatch-quality {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  color: var(--accent-color, #ffc800);
+  margin: 0;
 }

@@ -1,12 +1,8 @@
 .sliders-container {
   display: flex;
   align-items: stretch;
+  gap: 0.5rem;
 }
-
-html.hide-zoom-ui .zoom-btns {
-  display: none;
-}
-
 
 /* ── Skeuomorphic Swatch Slider ── */
 .camera-control-stack {
@@ -14,11 +10,14 @@ html.hide-zoom-ui .zoom-btns {
 }
 .swatch-slider {
   position: relative;
+  flex: 1 1 0;
+  min-width: 0;
   width: 100%;
   display: flex;
   flex:1;
   flex-direction: column;
   align-items: center;
+  user-select: none;
   --swatch-inline-pad: 0.9rem;
   --swatch-thumb-width: 18px;
   --tick-count: 6;
@@ -75,6 +74,7 @@ html.hide-zoom-ui .zoom-btns {
   color: #ebebeb;
   font-family: monospace;
   font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   text-shadow: 0 1px 0 #000;
 }
@@ -82,7 +82,7 @@ html.hide-zoom-ui .zoom-btns {
 .swatch-slider::before {
   content: "";
   position: absolute;
-  top: .25rem;
+  top: 0.25rem;
   left: calc(var(--swatch-inline-pad) + (var(--swatch-thumb-width) / 2));
   right: calc(var(--swatch-inline-pad) + (var(--swatch-thumb-width) / 2));
   height: 8px;
@@ -100,20 +100,26 @@ html.hide-zoom-ui .zoom-btns {
       #ffe06d calc(var(--tick-highlight-local) + var(--tick-highlight-width)),
       transparent calc(var(--tick-highlight-local) + var(--tick-highlight-width))
     ),
-    repeating-linear-gradient(
-      to right,
-      rgba(210, 210, 210, 0.82) 0 1.25px,
-      transparent 1px 100%
-    ),
+    repeating-linear-gradient(to right, rgba(210, 210, 210, 0.82) 0 1.25px, transparent 1px 100%),
     linear-gradient(
       to right,
       transparent calc(100% - 1.25px),
       rgba(210, 210, 210, 0.82) calc(100% - 1.25px) 100%
     );
-  background-size: var(--tick-glow-width) var(--tick-glow-height), 100% 100%, var(--tick-step) 100%, 100% 100%;
-  background-position: var(--tick-highlight-local) 50%, 0 0, 0 0, 0 0;
+  background-size:
+    var(--tick-glow-width) var(--tick-glow-height),
+    100% 100%,
+    var(--tick-step) 100%,
+    100% 100%;
+  background-position:
+    var(--tick-highlight-local) 50%,
+    0 0,
+    0 0,
+    0 0;
   background-repeat: no-repeat, no-repeat, repeat-x, no-repeat;
-  transition: background-size 0.16s ease, filter 0.16s ease;
+  transition:
+    background-size 0.16s ease,
+    filter 0.16s ease;
   pointer-events: none;
   z-index: 1;
 }
@@ -135,7 +141,10 @@ html.hide-zoom-ui .zoom-btns {
   cursor: pointer;
   margin: 0;
   background: linear-gradient(#111111 30%, #141414 50%, #141414 80%, #141414);
-  box-shadow: 0 -3px 3px #1b1b1ba6 inset, inset 0 1px 8px rgb(0 0 0 / 70%), 0 0px 1px rgb(86 86 86);
+  box-shadow:
+    0 -3px 3px #1b1b1ba6 inset,
+    inset 0 1px 8px rgb(0 0 0 / 70%),
+    0 0px 1px rgb(86 86 86);
 }
 
 .swatch-slider input[type="range"]::-webkit-slider-thumb {
@@ -148,8 +157,8 @@ html.hide-zoom-ui .zoom-btns {
   cursor: pointer;
   border: 1px solid #111111;
   background:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02))
-      center 1px / 72% 1px no-repeat,
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02)) center 1px / 72%
+    1px no-repeat,
     repeating-linear-gradient(
       to right,
       rgba(18, 18, 18, 0.65) 0 1.5px,
@@ -160,7 +169,9 @@ html.hide-zoom-ui .zoom-btns {
     inset 0 1px 1px rgba(255, 255, 255, 0.14),
     inset 0 -1px 2px rgba(0, 0, 0, 0.72),
     0 1px 1px rgba(0, 0, 0, 0.64);
-  transition: box-shadow 0.15s, transform 0.15s ease;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s ease;
 }
 
 .swatch-slider input[type="range"]::-webkit-slider-thumb:active,
@@ -179,7 +190,10 @@ html.hide-zoom-ui .zoom-btns {
   border-radius: 5px;
   border: none;
   background: linear-gradient(#111111 30%, #141414 50%, #141414 80%, #141414);
-  box-shadow: 0 -3px 3px #1b1b1ba6 inset, inset 0 1px 8px rgb(0 0 0 / 70%), 0 0px 1px rgb(86 86 86);
+  box-shadow:
+    0 -3px 3px #1b1b1ba6 inset,
+    inset 0 1px 8px rgb(0 0 0 / 70%),
+    0 0px 1px rgb(86 86 86);
 }
 
 .swatch-slider input[type="range"]::-moz-range-thumb {
@@ -189,8 +203,8 @@ html.hide-zoom-ui .zoom-btns {
   cursor: pointer;
   border: 1px solid #111111;
   background:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02))
-      center 1px / 72% 1px no-repeat,
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02)) center 1px / 72%
+    1px no-repeat,
     repeating-linear-gradient(
       to right,
       rgba(18, 18, 18, 0.65) 0 1.5px,
@@ -201,7 +215,9 @@ html.hide-zoom-ui .zoom-btns {
     inset 0 1px 1px rgba(255, 255, 255, 0.14),
     inset 0 -1px 2px rgba(0, 0, 0, 0.72),
     0 1px 1px rgba(0, 0, 0, 0.64);
-  transition: box-shadow 0.15s, transform 0.15s ease;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s ease;
 }
 
 .swatch-slider input[type="range"]::-moz-range-thumb:active,
@@ -213,157 +229,4 @@ html.hide-zoom-ui .zoom-btns {
     inset 0 -1px 2px rgba(0, 0, 0, 0.78),
     0 1px 1px rgba(0, 0, 0, 0.68),
     0 0 7px rgba(255, 224, 109, 0.45);
-}
-
-/* ── Symmetric Zoom Slider Shell ── */
-.zoom-btns {
-  position: relative;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  --zoom-inline-pad: 0.9rem;
-  --zoom-thumb-width: 18px;
-  --zoom-intervals: 30;
-  --zoom-tick-step: calc(100% / var(--zoom-intervals));
-  padding: 1rem var(--zoom-inline-pad) 0.5rem;
-  overflow: visible;
-  background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.62);
-}
-
-.zoom-btns::before {
-  content: "";
-  position: absolute;
-  top: 0.25rem;
-  left: calc(var(--zoom-inline-pad) + (var(--zoom-thumb-width) / 2));
-  right: calc(var(--zoom-inline-pad) + (var(--zoom-thumb-width) / 2));
-  height: 8px;
-  background:
-    repeating-linear-gradient(
-      to right,
-      rgba(210, 210, 210, 0.82) 0 1.25px,
-      transparent 1.25px 100%
-    ),
-    linear-gradient(
-      to right,
-      transparent calc(100% - 1.25px),
-      rgba(210, 210, 210, 0.82) calc(100% - 1.25px) 100%
-    );
-  background-size: var(--zoom-tick-step) 100%, 100% 100%;
-  background-position: 0 0, 0 0;
-  background-repeat: repeat-x, no-repeat;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.zoom-meta {
-  width: 100%;
-  margin-top: 0.5rem;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-}
-
-.zoom-scale-bound {
-  color: rgba(208, 208, 208, 0.68);
-  font-family: monospace;
-  font-size: 0.72rem;
-  text-shadow: 0 1px 0 #000;
-}
-
-.zoom-scale-min {
-  justify-self: start;
-}
-
-.zoom-scale-max {
-  justify-self: end;
-}
-
-.zoom-display {
-  justify-self: center;
-}
-
-/* ── Zoom Wheel Range ── */
-.wheel-range {
-  position: relative;
-  width: 100%;
-  height: 22px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-}
-
-.wheel-range input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 22px;
-  background: transparent;
-  outline: none;
-  border: none;
-  cursor: pointer;
-  touch-action: none;
-  margin: 0;
-}
-
-.wheel-range input[type="range"]::-webkit-slider-runnable-track {
-  height: 22px;
-  border-radius: 4px;
-  background: linear-gradient(to bottom, #1d1d1d 0%, #151515 45%, #111111 100%);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.06),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.82);
-}
-
-.wheel-range input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: var(--zoom-thumb-width);
-  height: 24px;
-  margin-top: -1px;
-  border-radius: 0;
-  border: none;
-  cursor: pointer;
-  background:
-    linear-gradient(to bottom, rgba(250, 250, 250, 0.98), rgba(250, 250, 250, 0.98))
-      center 0 / 2px 14px no-repeat,
-    linear-gradient(135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
-      left bottom / 50% 10px no-repeat,
-    linear-gradient(-135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
-      right bottom / 50% 10px no-repeat;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.72);
-}
-
-.wheel-range input[type="range"]::-moz-range-track {
-  height: 22px;
-  border-radius: 4px;
-  border: none;
-  background: linear-gradient(to bottom, #1d1d1d 0%, #151515 45%, #111111 100%);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.06),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.82);
-}
-
-.wheel-range input[type="range"]::-moz-range-thumb {
-  width: var(--zoom-thumb-width);
-  height: 24px;
-  border-radius: 0;
-  border: none;
-  cursor: pointer;
-  background:
-    linear-gradient(to bottom, rgba(250, 250, 250, 0.98), rgba(250, 250, 250, 0.98))
-      center 0 / 2px 14px no-repeat,
-    linear-gradient(135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
-      left bottom / 50% 10px no-repeat,
-    linear-gradient(-135deg, transparent 50%, rgba(250, 250, 250, 0.98) 50%)
-      right bottom / 50% 10px no-repeat;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.72);
-}
-
-.wheel-range input[type="range"]:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }

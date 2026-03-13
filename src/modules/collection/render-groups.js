@@ -1,5 +1,7 @@
 import { toRgbCss } from "../color-format.js";
 
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
 function clampColorChannel(channel) {
   return Math.max(0, Math.min(255, Math.round(channel)));
 }
@@ -38,12 +40,25 @@ function getSessionAverageColor(session) {
   };
 }
 
-function getSessionCaretMarkup() {
-  return `
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M3.2 5.5L8 10.3l4.8-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
-    </svg>
-  `;
+function createSessionCaret() {
+  const caret = document.createElement("span");
+  caret.className = "collection-session-caret";
+
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+
+  const path = document.createElementNS(SVG_NAMESPACE, "path");
+  path.setAttribute("d", "M3.2 5.5L8 10.3l4.8-4.8");
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "1.8");
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+
+  svg.appendChild(path);
+  caret.appendChild(svg);
+  return caret;
 }
 
 function createSessionCover(session) {
@@ -129,13 +144,20 @@ function createSessionGroup({
   headerButton.type = "button";
   headerButton.className = "collection-session-toggle";
   headerButton.setAttribute("aria-controls", sessionBodyId);
-  headerButton.innerHTML = `
-    <span class="collection-session-title">${session.title}</span>
-    <span class="collection-session-meta">
-      <span class="collection-session-count">${session.palettes.length}</span>
-      <span class="collection-session-caret">${getSessionCaretMarkup()}</span>
-    </span>
-  `;
+
+  const title = document.createElement("span");
+  title.className = "collection-session-title";
+  title.textContent = session.title;
+
+  const meta = document.createElement("span");
+  meta.className = "collection-session-meta";
+
+  const count = document.createElement("span");
+  count.className = "collection-session-count";
+  count.textContent = String(session.palettes.length);
+
+  meta.append(count, createSessionCaret());
+  headerButton.append(title, meta);
 
   const body = document.createElement("div");
   body.className = "collection-session-body";
@@ -168,6 +190,19 @@ function createSessionGroup({
   return section;
 }
 
+function createDayGrid(dayGroup, createPaletteCard) {
+  const grid = document.createElement("div");
+  grid.className = "collection-day-grid";
+
+  dayGroup.sessions.forEach((session) => {
+    session.palettes.forEach((palette) => {
+      grid.appendChild(createPaletteCard(palette));
+    });
+  });
+
+  return grid;
+}
+
 /**
  * @param {object} config
  * @param {DayGroup} config.dayGroup
@@ -176,6 +211,7 @@ function createSessionGroup({
  * @param {(sessionId: string, collapsed: boolean) => void} config.onSessionCollapsedChange
  * @param {number} config.sessionRevealDurationMs
  * @param {number} config.sessionRevealStaggerMs
+ * @param {"list" | "grid"} [config.viewMode]
  */
 export function createDayGroup({
   dayGroup,
@@ -184,12 +220,14 @@ export function createDayGroup({
   onSessionCollapsedChange,
   sessionRevealDurationMs,
   sessionRevealStaggerMs,
+  viewMode = "list",
 }) {
   const daySection = document.createElement("section");
   daySection.className = "collection-day";
   daySection.dataset.dayId = dayGroup.id;
+  daySection.dataset.viewMode = viewMode;
 
-  const dayHeader = document.createElement("header");
+  const dayHeader = document.createElement("div");
   dayHeader.className = "collection-day-header";
 
   const dayTitle = document.createElement("p");
@@ -201,6 +239,13 @@ export function createDayGroup({
   const dayCount = document.createElement("span");
   dayCount.className = "collection-day-count";
   dayCount.textContent = String(dayGroup.paletteCount);
+
+  dayHeader.append(dayTitle, dayCount);
+
+  if (viewMode === "grid") {
+    daySection.append(dayHeader, createDayGrid(dayGroup, createPaletteCard));
+    return daySection;
+  }
 
   const sessionsContainer = document.createElement("div");
   sessionsContainer.className = "collection-day-sessions";
@@ -218,7 +263,6 @@ export function createDayGroup({
     );
   });
 
-  dayHeader.append(dayTitle, dayCount);
   daySection.append(dayHeader, sessionsContainer);
   return daySection;
 }

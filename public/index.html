@@ -100,6 +100,15 @@
       </div>
     </div>
 
+    <div class="ral-live-swatch" id="ralLiveSwatch" hidden>
+      <div class="ral-live-swatch-color" id="ralLiveSwatchColor"></div>
+      <div class="ral-live-swatch-info">
+        <p class="ral-live-swatch-code" id="ralLiveSwatchCode"></p>
+        <p class="ral-live-swatch-name" id="ralLiveSwatchName"></p>
+        <p class="ral-live-swatch-quality" id="ralLiveSwatchQuality"></p>
+      </div>
+    </div>
+
     <!-- Palette Collection Panel -->
     <shared-panel
       class="collection-panel"
@@ -108,6 +117,39 @@
       close-label="Fermer les captures"
       hidden
     >
+      <div class="collection-panel-toolbar" slot="header-actions">
+        <div
+          class="collection-view-toggle"
+          role="group"
+          aria-label="Mode d'affichage des captures"
+        >
+          <button
+            class="collection-view-toggle-button"
+            id="collectionViewListButton"
+            type="button"
+            aria-label="Afficher les captures en liste"
+            aria-pressed="true"
+          >
+            <img src="/icons/capture-list.svg" alt="" />
+          </button>
+          <button
+            class="collection-view-toggle-button"
+            id="collectionViewGridButton"
+            type="button"
+            aria-label="Afficher les captures en grille"
+            aria-pressed="false"
+          >
+            <img src="/icons/capture-grid.svg" alt="" />
+          </button>
+        </div>
+        <button
+          class="collection-toolbar-button"
+          id="collectionCollapseAllButton"
+          type="button"
+        >
+          Tout replier
+        </button>
+      </div>
       <div class="collection-grid" id="collectionGrid">
         <!-- Palettes will be dynamically added here -->
       </div>
@@ -128,6 +170,10 @@
           <div class="settings-section-header">
             <h3 id="settingsCaptureTitle">Qualité des photos</h3>
           </div>
+          <p class="settings-hint">
+            Une qualité plus élevée donne de plus belles images, mais chaque
+            capture prend plus de place sur votre appareil.
+          </p>
 
           <div class="settings-field">
             <div class="settings-field-header">
@@ -168,473 +214,629 @@
                 >
               </div>
             </div>
-
-            <p class="settings-hint">
-              Une qualité plus élevée donne de plus belles images, mais chaque
-              capture prend plus de place sur votre appareil.
-            </p>
           </div>
         </section>
 
+        <div class="settings-subsection" id="settingsCaptureModeSection">
+          <label class="settings-subsection-label">Mode</label>
+          <div
+            class="settings-segment"
+            role="group"
+            aria-label="Mode de capture"
+          >
+            <button
+              class="settings-segment-button"
+              type="button"
+              data-settings-capture-mode="palette"
+            >
+              Palette
+            </button>
+            <button
+              class="settings-segment-button"
+              type="button"
+              data-settings-capture-mode="ral"
+            >
+              RAL
+            </button>
+          </div>
+        </div>
+
+        <div id="settingsPaletteModeGroup">
+          <section
+            class="settings-section"
+            aria-labelledby="settingsPaletteTitle"
+          >
+            <div class="settings-section-header" data-settings-advanced hidden>
+              <h3 id="settingsPaletteTitle">
+                Méthode de détection des couleurs
+              </h3>
+            </div>
+
+            <div class="settings-field">
+              <div
+                class="settings-segment"
+                role="group"
+                aria-label="Méthode de détection des couleurs"
+                data-settings-advanced
+                hidden
+              >
+                <button
+                  class="settings-segment-button"
+                  type="button"
+                  data-settings-algorithm="median-cut"
+                  aria-pressed="true"
+                >
+                  Auto
+                </button>
+                <button
+                  class="settings-segment-button"
+                  type="button"
+                  data-settings-algorithm="grid"
+                  aria-pressed="false"
+                  data-settings-advanced
+                  hidden
+                >
+                  Grille
+                </button>
+              </div>
+              <div class="settings-algorithm-panels">
+                <section
+                  class="settings-algorithm-panel"
+                  data-settings-algorithm-panel="median-cut"
+                  aria-labelledby="settingsMedianCutTuningTitle"
+                >
+                  <div
+                    class="settings-subsection-header"
+                    data-settings-advanced
+                    hidden
+                  >
+                    <h4 id="settingsMedianCutTuningTitle">
+                      Réglages du mode Auto
+                    </h4>
+                    <p>
+                      Analyse globale de l'image pour en extraire les couleurs
+                      dominantes.
+                    </p>
+                  </div>
+
+                  <div class="settings-field" data-settings-advanced hidden>
+                    <label class="settings-label settings-label-static">
+                      Profil d'analyse
+                    </label>
+                    <div
+                      class="settings-segment"
+                      role="group"
+                      aria-label="Profil d'analyse du mode Auto"
+                    >
+                      <button
+                        class="settings-segment-button"
+                        type="button"
+                        data-settings-analysis-profile="expressive"
+                        aria-pressed="true"
+                      >
+                        Expressif
+                      </button>
+                      <button
+                        class="settings-segment-button"
+                        type="button"
+                        data-settings-analysis-profile="perceptual"
+                        aria-pressed="false"
+                      >
+                        Perceptif
+                      </button>
+                    </div>
+                    <p class="settings-hint" id="settingsAnalysisProfileStatus">
+                      Expressif actif. Favorise les aplats francs, les accents
+                      et les couleurs rares.
+                    </p>
+                  </div>
+
+                  <div class="settings-field" data-settings-advanced hidden>
+                    <label class="settings-label settings-label-static">
+                      Espace colorimétrique
+                    </label>
+                    <div
+                      class="settings-segment"
+                      role="group"
+                      aria-label="Espace colorimétrique du mode Auto"
+                    >
+                      <button
+                        class="settings-segment-button"
+                        type="button"
+                        data-settings-color-space="rgb"
+                        aria-pressed="true"
+                      >
+                        RGB
+                      </button>
+                      <button
+                        class="settings-segment-button"
+                        type="button"
+                        data-settings-color-space="oklch"
+                        aria-pressed="false"
+                      >
+                        OKLCH
+                      </button>
+                    </div>
+                    <p class="settings-hint">
+                      RGB favorise les aplats francs et les accents. OKLCH
+                      privilégie les rapprochements perceptifs plus fidèles.
+                    </p>
+                  </div>
+
+                  <div class="settings-field">
+                    <div class="settings-field-header">
+                      <label
+                        class="settings-label"
+                        for="settingsMedianCutPoolRange"
+                        >Nombre de couleurs analysées</label
+                      >
+                      <output
+                        class="settings-inline-value"
+                        id="settingsMedianCutPoolValue"
+                        >16</output
+                      >
+                    </div>
+                    <p class="settings-hint">
+                      Plus la valeur est élevée, plus la palette sera variée,
+                      mais l'analyse sera plus lente.
+                    </p>
+                    <div
+                      class="swatch-slider settings-quality-slider"
+                      id="settingsMedianCutPoolSlider"
+                    >
+                      <input
+                        id="settingsMedianCutPoolRange"
+                        type="range"
+                        min="4"
+                        max="64"
+                        value="16"
+                        step="1"
+                        aria-label="Nombre de couleurs analysées : 16"
+                      />
+                      <div class="swatch-meta">
+                        <span class="swatch-scale-label swatch-scale-label-min"
+                          >4</span
+                        >
+                        <span
+                          class="swatch-count-indicator"
+                          data-settings-median-cut-pool-display
+                          >16</span
+                        >
+                        <span class="swatch-scale-label swatch-scale-label-max"
+                          >64</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-field">
+                    <div class="settings-field-header">
+                      <label
+                        class="settings-label"
+                        for="settingsMedianCutPixelsRange"
+                        >Pixels analysés (max)</label
+                      >
+                      <output
+                        class="settings-inline-value"
+                        id="settingsMedianCutPixelsValue"
+                        >12,000</output
+                      >
+                    </div>
+                    <p class="settings-hint">
+                      Améliore la précision pour les scènes complexes, mais
+                      ralentit le traitement.
+                    </p>
+                    <div
+                      class="swatch-slider settings-quality-slider"
+                      id="settingsMedianCutPixelsSlider"
+                    >
+                      <input
+                        id="settingsMedianCutPixelsRange"
+                        type="range"
+                        min="1000"
+                        max="60000"
+                        value="12000"
+                        step="1000"
+                        aria-label="Pixels analysés max : 12000"
+                      />
+                      <div class="swatch-meta">
+                        <span class="swatch-scale-label swatch-scale-label-min"
+                          >1k</span
+                        >
+                        <span
+                          class="swatch-count-indicator"
+                          data-settings-median-cut-pixels-display
+                          >12k</span
+                        >
+                        <span class="swatch-scale-label swatch-scale-label-max"
+                          >60k</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  class="settings-algorithm-panel"
+                  data-settings-algorithm-panel="grid"
+                  data-settings-advanced-panel
+                  aria-labelledby="settingsGridTuningTitle"
+                  hidden
+                >
+                  <div class="settings-subsection-header">
+                    <h4 id="settingsGridTuningTitle">Réglages de la grille</h4>
+                    <p>
+                      Place plusieurs points de mesure sur l'image pour capturer
+                      la couleur à chaque emplacement.
+                    </p>
+                  </div>
+
+                  <div class="settings-field">
+                    <div class="settings-field-header">
+                      <label class="settings-label" for="settingsGridColsRange"
+                        >Colonnes de la grille</label
+                      >
+                      <output
+                        class="settings-inline-value"
+                        id="settingsGridColsValue"
+                        >8</output
+                      >
+                    </div>
+                    <div
+                      class="swatch-slider settings-quality-slider"
+                      id="settingsGridColsSlider"
+                    >
+                      <input
+                        id="settingsGridColsRange"
+                        type="range"
+                        min="2"
+                        max="20"
+                        value="8"
+                        step="1"
+                        aria-label="Colonnes de la grille : 8"
+                      />
+                      <div class="swatch-meta">
+                        <span class="swatch-scale-label swatch-scale-label-min"
+                          >2</span
+                        >
+                        <span
+                          class="swatch-count-indicator"
+                          data-settings-grid-cols-display
+                          >8</span
+                        >
+                        <span class="swatch-scale-label swatch-scale-label-max"
+                          >20</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-field">
+                    <div class="settings-field-header">
+                      <label class="settings-label" for="settingsGridRowsRange"
+                        >Lignes de la grille</label
+                      >
+                      <output
+                        class="settings-inline-value"
+                        id="settingsGridRowsValue"
+                        >5</output
+                      >
+                    </div>
+                    <div
+                      class="swatch-slider settings-quality-slider"
+                      id="settingsGridRowsSlider"
+                    >
+                      <input
+                        id="settingsGridRowsRange"
+                        type="range"
+                        min="2"
+                        max="12"
+                        value="5"
+                        step="1"
+                        aria-label="Lignes de la grille : 5"
+                      />
+                      <div class="swatch-meta">
+                        <span class="swatch-scale-label swatch-scale-label-min"
+                          >2</span
+                        >
+                        <span
+                          class="swatch-count-indicator"
+                          data-settings-grid-rows-display
+                          >5</span
+                        >
+                        <span class="swatch-scale-label swatch-scale-label-max"
+                          >12</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-field">
+                    <div class="settings-field-header">
+                      <label
+                        class="settings-label"
+                        for="settingsGridRadiusRange"
+                        >Taille du point de mesure</label
+                      >
+                      <output
+                        class="settings-inline-value"
+                        id="settingsGridRadiusValue"
+                        >4 px</output
+                      >
+                    </div>
+                    <div
+                      class="swatch-slider settings-quality-slider"
+                      id="settingsGridRadiusSlider"
+                    >
+                      <input
+                        id="settingsGridRadiusRange"
+                        type="range"
+                        min="1"
+                        max="12"
+                        value="4"
+                        step="1"
+                        aria-label="Taille du point de mesure : 4 pixels"
+                      />
+                      <div class="swatch-meta">
+                        <span class="swatch-scale-label swatch-scale-label-min"
+                          >1</span
+                        >
+                        <span
+                          class="swatch-count-indicator"
+                          data-settings-grid-radius-display
+                          >4</span
+                        >
+                        <span class="swatch-scale-label swatch-scale-label-max"
+                          >12</span
+                        >
+                      </div>
+                    </div>
+                    <p class="settings-hint">
+                      Un point plus grand capture la couleur moyenne d'une zone
+                      plus large autour de chaque point de mesure.
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section
+            class="settings-section"
+            aria-labelledby="settingsScoringTitle"
+          >
+            <div class="settings-section-header">
+              <h3 id="settingsScoringTitle">Tri des couleurs</h3>
+              <p>
+                Influencez la manière dont les couleurs sont choisies pour
+                composer la palette finale.
+              </p>
+            </div>
+
+            <div class="settings-field">
+              <div class="settings-field-header">
+                <label class="settings-label" for="settingsScoringVibrancyRange"
+                  >Préférence pour les couleurs vives</label
+                >
+                <output
+                  class="settings-inline-value"
+                  id="settingsScoringVibrancyValue"
+                  >25</output
+                >
+              </div>
+              <p class="settings-hint">
+                Plus la valeur est élevée, plus les couleurs éclatantes et
+                saturées seront privilégiées.
+              </p>
+              <div
+                class="swatch-slider settings-quality-slider"
+                id="settingsScoringVibrancySlider"
+              >
+                <input
+                  id="settingsScoringVibrancyRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="25"
+                  step="1"
+                  aria-label="Préférence pour les couleurs vives : 25"
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min"
+                    >0</span
+                  >
+                  <span
+                    class="swatch-count-indicator"
+                    data-settings-scoring-vibrancy-display
+                    >25</span
+                  >
+                  <span class="swatch-scale-label swatch-scale-label-max"
+                    >100</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <div class="settings-field-header">
+                <label class="settings-label" for="settingsScoringContrastRange"
+                  >Contraste clair/foncé</label
+                >
+                <output
+                  class="settings-inline-value"
+                  id="settingsScoringContrastValue"
+                  >15</output
+                >
+              </div>
+              <p class="settings-hint">
+                Favorise les couleurs très claires ou très foncées pour un plus
+                grand contraste dans la palette.
+              </p>
+              <div
+                class="swatch-slider settings-quality-slider"
+                id="settingsScoringContrastSlider"
+              >
+                <input
+                  id="settingsScoringContrastRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="15"
+                  step="1"
+                  aria-label="Contraste clair/foncé : 15"
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min"
+                    >0</span
+                  >
+                  <span
+                    class="swatch-count-indicator"
+                    data-settings-scoring-contrast-display
+                    >15</span
+                  >
+                  <span class="swatch-scale-label swatch-scale-label-max"
+                    >100</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <div class="settings-field-header">
+                <label class="settings-label" for="settingsScoringRarityRange"
+                  >Bonus aux teintes rares</label
+                >
+                <output
+                  class="settings-inline-value"
+                  id="settingsScoringRarityValue"
+                  >20</output
+                >
+              </div>
+              <p class="settings-hint">
+                Met en avant les teintes peu présentes dans l'image pour une
+                palette plus originale.
+              </p>
+              <div
+                class="swatch-slider settings-quality-slider"
+                id="settingsScoringRaritySlider"
+              >
+                <input
+                  id="settingsScoringRarityRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="20"
+                  step="1"
+                  aria-label="Bonus aux teintes rares : 20"
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min"
+                    >0</span
+                  >
+                  <span
+                    class="swatch-count-indicator"
+                    data-settings-scoring-rarity-display
+                    >20</span
+                  >
+                  <span class="swatch-scale-label swatch-scale-label-max"
+                    >100</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <div class="settings-field-header">
+                <label
+                  class="settings-label"
+                  for="settingsScoringDiversityRange"
+                  >Écart entre les couleurs</label
+                >
+                <output
+                  class="settings-inline-value"
+                  id="settingsScoringDiversityValue"
+                  >40</output
+                >
+              </div>
+              <p class="settings-hint">
+                Plus la valeur est élevée, plus les couleurs choisies seront
+                différentes les unes des autres.
+              </p>
+              <div
+                class="swatch-slider settings-quality-slider"
+                id="settingsScoringDiversitySlider"
+              >
+                <input
+                  id="settingsScoringDiversityRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="40"
+                  step="1"
+                  aria-label="Écart entre les couleurs : 40"
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min"
+                    >0</span
+                  >
+                  <span
+                    class="swatch-count-indicator"
+                    data-settings-scoring-diversity-display
+                    >40</span
+                  >
+                  <span class="swatch-scale-label swatch-scale-label-max"
+                    >100</span
+                  >
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <!-- end settingsPaletteModeGroup -->
+
         <section
           class="settings-section"
-          aria-labelledby="settingsPaletteTitle"
+          data-settings-advanced
+          aria-labelledby="settingsDebugTitle"
+          hidden
         >
           <div class="settings-section-header">
-            <h3 id="settingsPaletteTitle">Méthode de détection des couleurs</h3>
+            <h3 id="settingsDebugTitle">Debug performance</h3>
+            <p>
+              Affiche un HUD avec FPS, temps de frame, coût d'analyse, tâches
+              longues et mémoire quand le navigateur l'autorise.
+            </p>
           </div>
 
           <div class="settings-field">
+            <label class="settings-label settings-label-static"
+              >HUD debug</label
+            >
             <div
               class="settings-segment"
               role="group"
-              aria-label="Méthode de détection des couleurs"
+              aria-label="Affichage du HUD de performance"
             >
               <button
                 class="settings-segment-button"
                 type="button"
-                data-settings-algorithm="median-cut"
+                data-settings-performance-hud="off"
                 aria-pressed="true"
               >
-                Auto
+                Off
               </button>
               <button
                 class="settings-segment-button"
                 type="button"
-                data-settings-algorithm="grid"
+                data-settings-performance-hud="on"
                 aria-pressed="false"
               >
-                Grille
+                On
               </button>
             </div>
-            <div class="settings-algorithm-panels">
-              <section
-                class="settings-algorithm-panel"
-                data-settings-algorithm-panel="median-cut"
-                aria-labelledby="settingsMedianCutTuningTitle"
-              >
-                <div class="settings-subsection-header">
-                  <h4 id="settingsMedianCutTuningTitle">
-                    Réglages du mode Auto
-                  </h4>
-                  <p>
-                    Analyse globale de l'image pour en extraire les couleurs
-                    dominantes.
-                  </p>
-                </div>
-
-                <div class="settings-field">
-                  <div class="settings-field-header">
-                    <label
-                      class="settings-label"
-                      for="settingsMedianCutPoolRange"
-                      >Nombre de couleurs analysées</label
-                    >
-                    <output
-                      class="settings-inline-value"
-                      id="settingsMedianCutPoolValue"
-                      >16</output
-                    >
-                  </div>
-                  <div
-                    class="swatch-slider settings-quality-slider"
-                    id="settingsMedianCutPoolSlider"
-                  >
-                    <input
-                      id="settingsMedianCutPoolRange"
-                      type="range"
-                      min="4"
-                      max="64"
-                      value="16"
-                      step="1"
-                      aria-label="Nombre de couleurs analysées : 16"
-                    />
-                    <div class="swatch-meta">
-                      <span class="swatch-scale-label swatch-scale-label-min"
-                        >4</span
-                      >
-                      <span
-                        class="swatch-count-indicator"
-                        data-settings-median-cut-pool-display
-                        >16</span
-                      >
-                      <span class="swatch-scale-label swatch-scale-label-max"
-                        >64</span
-                      >
-                    </div>
-                  </div>
-                  <p class="settings-hint">
-                    Plus la valeur est élevée, plus la palette sera variée, mais
-                    l'analyse sera plus lente.
-                  </p>
-                </div>
-
-                <div class="settings-field">
-                  <div class="settings-field-header">
-                    <label
-                      class="settings-label"
-                      for="settingsMedianCutPixelsRange"
-                      >Pixels analysés (max)</label
-                    >
-                    <output
-                      class="settings-inline-value"
-                      id="settingsMedianCutPixelsValue"
-                      >12,000</output
-                    >
-                  </div>
-                  <div
-                    class="swatch-slider settings-quality-slider"
-                    id="settingsMedianCutPixelsSlider"
-                  >
-                    <input
-                      id="settingsMedianCutPixelsRange"
-                      type="range"
-                      min="1000"
-                      max="60000"
-                      value="12000"
-                      step="1000"
-                      aria-label="Pixels analysés max : 12000"
-                    />
-                    <div class="swatch-meta">
-                      <span class="swatch-scale-label swatch-scale-label-min"
-                        >1k</span
-                      >
-                      <span
-                        class="swatch-count-indicator"
-                        data-settings-median-cut-pixels-display
-                        >12k</span
-                      >
-                      <span class="swatch-scale-label swatch-scale-label-max"
-                        >60k</span
-                      >
-                    </div>
-                  </div>
-                  <p class="settings-hint">
-                    Améliore la précision pour les scènes complexes, mais
-                    ralentit le traitement.
-                  </p>
-                </div>
-              </section>
-
-              <section
-                class="settings-algorithm-panel"
-                data-settings-algorithm-panel="grid"
-                aria-labelledby="settingsGridTuningTitle"
-                hidden
-              >
-                <div class="settings-subsection-header">
-                  <h4 id="settingsGridTuningTitle">Réglages de la grille</h4>
-                  <p>
-                    Place plusieurs points de mesure sur l'image pour capturer
-                    la couleur à chaque emplacement.
-                  </p>
-                </div>
-
-                <div class="settings-field">
-                  <div class="settings-field-header">
-                    <label class="settings-label" for="settingsGridColsRange"
-                      >Colonnes de la grille</label
-                    >
-                    <output
-                      class="settings-inline-value"
-                      id="settingsGridColsValue"
-                      >8</output
-                    >
-                  </div>
-                  <div
-                    class="swatch-slider settings-quality-slider"
-                    id="settingsGridColsSlider"
-                  >
-                    <input
-                      id="settingsGridColsRange"
-                      type="range"
-                      min="2"
-                      max="20"
-                      value="8"
-                      step="1"
-                      aria-label="Colonnes de la grille : 8"
-                    />
-                    <div class="swatch-meta">
-                      <span class="swatch-scale-label swatch-scale-label-min"
-                        >2</span
-                      >
-                      <span
-                        class="swatch-count-indicator"
-                        data-settings-grid-cols-display
-                        >8</span
-                      >
-                      <span class="swatch-scale-label swatch-scale-label-max"
-                        >20</span
-                      >
-                    </div>
-                  </div>
-                </div>
-
-                <div class="settings-field">
-                  <div class="settings-field-header">
-                    <label class="settings-label" for="settingsGridRowsRange"
-                      >Lignes de la grille</label
-                    >
-                    <output
-                      class="settings-inline-value"
-                      id="settingsGridRowsValue"
-                      >5</output
-                    >
-                  </div>
-                  <div
-                    class="swatch-slider settings-quality-slider"
-                    id="settingsGridRowsSlider"
-                  >
-                    <input
-                      id="settingsGridRowsRange"
-                      type="range"
-                      min="2"
-                      max="12"
-                      value="5"
-                      step="1"
-                      aria-label="Lignes de la grille : 5"
-                    />
-                    <div class="swatch-meta">
-                      <span class="swatch-scale-label swatch-scale-label-min"
-                        >2</span
-                      >
-                      <span
-                        class="swatch-count-indicator"
-                        data-settings-grid-rows-display
-                        >5</span
-                      >
-                      <span class="swatch-scale-label swatch-scale-label-max"
-                        >12</span
-                      >
-                    </div>
-                  </div>
-                </div>
-
-                <div class="settings-field">
-                  <div class="settings-field-header">
-                    <label class="settings-label" for="settingsGridRadiusRange"
-                      >Taille du point de mesure</label
-                    >
-                    <output
-                      class="settings-inline-value"
-                      id="settingsGridRadiusValue"
-                      >4 px</output
-                    >
-                  </div>
-                  <div
-                    class="swatch-slider settings-quality-slider"
-                    id="settingsGridRadiusSlider"
-                  >
-                    <input
-                      id="settingsGridRadiusRange"
-                      type="range"
-                      min="1"
-                      max="12"
-                      value="4"
-                      step="1"
-                      aria-label="Taille du point de mesure : 4 pixels"
-                    />
-                    <div class="swatch-meta">
-                      <span class="swatch-scale-label swatch-scale-label-min"
-                        >1</span
-                      >
-                      <span
-                        class="swatch-count-indicator"
-                        data-settings-grid-radius-display
-                        >4</span
-                      >
-                      <span class="swatch-scale-label swatch-scale-label-max"
-                        >12</span
-                      >
-                    </div>
-                  </div>
-                  <p class="settings-hint">
-                    Un point plus grand capture la couleur moyenne d'une zone
-                    plus large autour de chaque point de mesure.
-                  </p>
-                </div>
-              </section>
-            </div>
-          </div>
-        </section>
-
-        <section
-          class="settings-section"
-          aria-labelledby="settingsScoringTitle"
-        >
-          <div class="settings-section-header">
-            <h3 id="settingsScoringTitle">Tri des couleurs</h3>
-            <p>
-              Influencez la manière dont les couleurs sont choisies pour
-              composer la palette finale.
-            </p>
-          </div>
-
-          <div class="settings-field">
-            <div class="settings-field-header">
-              <label class="settings-label" for="settingsScoringVibrancyRange"
-                >Préférence pour les couleurs vives</label
-              >
-              <output
-                class="settings-inline-value"
-                id="settingsScoringVibrancyValue"
-                >25</output
-              >
-            </div>
-            <div
-              class="swatch-slider settings-quality-slider"
-              id="settingsScoringVibrancySlider"
-            >
-              <input
-                id="settingsScoringVibrancyRange"
-                type="range"
-                min="0"
-                max="100"
-                value="25"
-                step="1"
-                aria-label="Préférence pour les couleurs vives : 25"
-              />
-              <div class="swatch-meta">
-                <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                <span
-                  class="swatch-count-indicator"
-                  data-settings-scoring-vibrancy-display
-                  >25</span
-                >
-                <span class="swatch-scale-label swatch-scale-label-max"
-                  >100</span
-                >
-              </div>
-            </div>
             <p class="settings-hint">
-              Plus la valeur est élevée, plus les couleurs éclatantes et
-              saturées seront privilégiées.
-            </p>
-          </div>
-
-          <div class="settings-field">
-            <div class="settings-field-header">
-              <label class="settings-label" for="settingsScoringContrastRange"
-                >Contraste clair/foncé</label
-              >
-              <output
-                class="settings-inline-value"
-                id="settingsScoringContrastValue"
-                >15</output
-              >
-            </div>
-            <div
-              class="swatch-slider settings-quality-slider"
-              id="settingsScoringContrastSlider"
-            >
-              <input
-                id="settingsScoringContrastRange"
-                type="range"
-                min="0"
-                max="100"
-                value="15"
-                step="1"
-                aria-label="Contraste clair/foncé : 15"
-              />
-              <div class="swatch-meta">
-                <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                <span
-                  class="swatch-count-indicator"
-                  data-settings-scoring-contrast-display
-                  >15</span
-                >
-                <span class="swatch-scale-label swatch-scale-label-max"
-                  >100</span
-                >
-              </div>
-            </div>
-            <p class="settings-hint">
-              Favorise les couleurs très claires ou très foncées pour un plus
-              grand contraste dans la palette.
-            </p>
-          </div>
-
-          <div class="settings-field">
-            <div class="settings-field-header">
-              <label class="settings-label" for="settingsScoringRarityRange"
-                >Bonus aux teintes rares</label
-              >
-              <output
-                class="settings-inline-value"
-                id="settingsScoringRarityValue"
-                >20</output
-              >
-            </div>
-            <div
-              class="swatch-slider settings-quality-slider"
-              id="settingsScoringRaritySlider"
-            >
-              <input
-                id="settingsScoringRarityRange"
-                type="range"
-                min="0"
-                max="100"
-                value="20"
-                step="1"
-                aria-label="Bonus aux teintes rares : 20"
-              />
-              <div class="swatch-meta">
-                <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                <span
-                  class="swatch-count-indicator"
-                  data-settings-scoring-rarity-display
-                  >20</span
-                >
-                <span class="swatch-scale-label swatch-scale-label-max"
-                  >100</span
-                >
-              </div>
-            </div>
-            <p class="settings-hint">
-              Met en avant les teintes peu présentes dans l'image pour une
-              palette plus originale.
-            </p>
-          </div>
-
-          <div class="settings-field">
-            <div class="settings-field-header">
-              <label class="settings-label" for="settingsScoringDiversityRange"
-                >Écart entre les couleurs</label
-              >
-              <output
-                class="settings-inline-value"
-                id="settingsScoringDiversityValue"
-                >40</output
-              >
-            </div>
-            <div
-              class="swatch-slider settings-quality-slider"
-              id="settingsScoringDiversitySlider"
-            >
-              <input
-                id="settingsScoringDiversityRange"
-                type="range"
-                min="0"
-                max="100"
-                value="40"
-                step="1"
-                aria-label="Écart entre les couleurs : 40"
-              />
-              <div class="swatch-meta">
-                <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                <span
-                  class="swatch-count-indicator"
-                  data-settings-scoring-diversity-display
-                  >40</span
-                >
-                <span class="swatch-scale-label swatch-scale-label-max"
-                  >100</span
-                >
-              </div>
-            </div>
-            <p class="settings-hint">
-              Plus la valeur est élevée, plus les couleurs choisies seront
-              différentes les unes des autres.
+              La température réelle de l'appareil n'est pas disponible via le
+              Web, donc le HUD l'indique comme indisponible.
             </p>
           </div>
         </section>
@@ -687,7 +889,14 @@
           Reset réglages
         </button>
       </div>
-      <p class="settings-version">v__APP_VERSION__ · __COMMIT_HASH__</p>
+      <button
+        class="settings-version"
+        id="settingsVersionTrigger"
+        type="button"
+        aria-label="Version de l'application"
+      >
+        v__APP_VERSION__ · __COMMIT_HASH__
+      </button>
     </shared-panel>
 
     <!-- Login Panel -->
@@ -785,15 +994,24 @@
     >
       <div class="catch-details-content">
         <div class="palette-viewer-frame">
-          <img
-            class="palette-viewer-image"
-            id="catchDetailsImage"
-            alt="Aperçu de palette"
-            decoding="async"
-            hidden
-          />
-          <p class="palette-viewer-status" id="catchDetailsStatus"></p>
+          <div
+            class="palette-viewer-track"
+            id="catchDetailsTrack"
+            aria-label="Captures enregistrées"
+          ></div>
         </div>
+        <div class="ral-popover" id="ralPopover" hidden>
+          <div class="ral-popover-color" id="ralPopoverColor"></div>
+          <div class="ral-popover-info">
+            <p class="ral-popover-code" id="ralPopoverCode"></p>
+            <p class="ral-popover-name" id="ralPopoverName"></p>
+            <p class="ral-popover-quality" id="ralPopoverQuality"></p>
+          </div>
+        </div>
+        <div
+          class="palette-viewer-swatch-strip"
+          id="catchDetailsSwatchStrip"
+        ></div>
         <div class="palette-viewer-actions">
           <button
             class="palette-quick-action palette-action-share"
@@ -839,10 +1057,16 @@
           id="sampleRowOverlay"
           aria-hidden="true"
         ></sample-grid-overlay>
+        <div
+          class="ral-reticle"
+          id="ralReticle"
+          hidden
+          aria-hidden="true"
+        ></div>
       </div>
 
       <div class="mini-output">
-        <img class="output-img" id="photo" src="" aria-hidden="true" />
+        <img class="output-img" id="photo" aria-hidden="true" hidden />
         <!-- <div class="output-palette" id="outputPalette"></div> -->
       </div>
 

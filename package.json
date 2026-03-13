@@ -9,13 +9,15 @@
     "test": "bun test",
     "lint": "biome lint .",
     "format": "biome format --write .",
-    "check": "biome check --write ."
+    "check": "biome check --write .",
+    "analyze-sm": "source-map-explorer dist/app.js dist/app.js.map --no-border-checks"
   },
   "dependencies": {
     "dexie": "^4.2.1",
     "lit": "^3.3.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.2"
+    "@biomejs/biome": "^2.4.2",
+    "source-map-explorer": "^2.5.3"
   }
 }

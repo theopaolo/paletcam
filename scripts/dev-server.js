@@ -4,6 +4,7 @@ const projectRoot = process.cwd();
 const publicRoot = join(projectRoot, 'public');
 const sourceRoot = join(projectRoot, 'src');
 const initialPort = Number(process.env.PORT ?? 3000);
+const browserBundleNodeEnv = process.env.BROWSER_BUNDLE_NODE_ENV ?? 'production';
 const communityApiProxyPrefix = '/api/v1';
 const communityApiProxyTarget = (
   process.env.COMMUNITY_API_PROXY_TARGET
@@ -169,6 +170,9 @@ async function bundleSourceModule(filePath) {
     minify: false,
     sourcemap: 'inline',
     write: false,
+    define: {
+      'process.env.NODE_ENV': JSON.stringify(browserBundleNodeEnv),
+    },
   });
 
   if (!buildResult.success || buildResult.outputs.length === 0) {
@@ -251,3 +255,4 @@ if (usedFallback) {
 console.log(
   `Proxying ${communityApiProxyPrefix}/* to ${communityApiProxyTarget} (tries stripped and original paths)`
 );
+console.log(`Bundling browser modules with NODE_ENV=${browserBundleNodeEnv}`);

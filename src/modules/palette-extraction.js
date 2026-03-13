@@ -8,7 +8,10 @@ import {
   SAMPLE_ROW_COUNT,
 } from "./palette-extract-grid.js";
 
-const COLOR_DISTANCE_THRESHOLD = 35;
+export { createPaletteColor, enrichPaletteColors } from "./palette-color.js";
+export { findClosestRAL, matchPaletteToRAL, sampleColorAtPoint, RAL_CLASSIC } from "./color-matching-ral.js";
+
+const COLOR_DISTANCE_THRESHOLD = 24;
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
 
 // Reorder `incoming` so each slot best matches the corresponding slot in
@@ -102,6 +105,9 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
   const requestedAlgorithm = typeof options === "string"
     ? options
     : options?.algorithm;
+  const requestedColorSpace = typeof options === "object" && options
+    ? (options.colorSpace ?? options.medianCut?.colorSpace)
+    : undefined;
   const algorithm = normalizePaletteExtractionAlgorithm(
     requestedAlgorithm ?? activePaletteExtractionAlgorithm
   );
@@ -115,6 +121,7 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
       typeof options === "object" && options
         ? {
             ...(options.medianCut ?? {}),
+            colorSpace: requestedColorSpace,
             scoring: options.scoring,
           }
         : undefined
@@ -155,6 +162,12 @@ let previousColors = null;
 let lastRawColorsRef = null;
 const ACCUMULATOR_MAX_SIZE = 3;
 let colorAccumulator = [];
+
+export function resetColorSmoothing() {
+  previousColors = null;
+  lastRawColorsRef = null;
+  colorAccumulator = [];
+}
 
 function averageAccumulatedColors(accumulator) {
   const frameCount = accumulator.length;

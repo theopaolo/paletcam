@@ -15,11 +15,33 @@
   }
 }
 
+/* 3b. Prevent text resizing in landscape on iOS */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   /* 4. Add accessible line-height */
   line-height: 1.5;
   /* 5. Improve text rendering */
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 5b. Disable default iOS tap highlight */
+a, button, input, select, textarea, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 5c. Prevent text selection on interactive elements */
+button, [role="button"] {
+  user-select: none;
+}
+
+/* 5d. Document selection styling */
+::selection {
+  background: rgba(255, 200, 0, 0.35);
+  color: #fff;
 }
 
 /* 6. Improve media defaults */
@@ -45,4 +67,8 @@ p {
 
 h1, h2, h3, h4, h5, h6 {
   text-wrap: balance;
+}
+
+[hidden] {
+  display: none !important;
 }

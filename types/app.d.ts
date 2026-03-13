@@ -43,6 +43,8 @@ interface Palette {
   photoBlob: Blob;
   captureAspectRatio?: string;
   captureCropRect?: CropRect | null;
+  captureMode?: CaptureMode;
+  ralMatch?: RalMatchRecord;
   remoteCatchId: string | null;
   moderationStatus: ModerationStatus | null;
   postedAt: string | null;
@@ -57,6 +59,9 @@ type CopyMode = "rgb" | "hex" | "hsl";
 //  App settings
 // ---------------------------------------------------------------------------
 
+type CaptureMode = "palette" | "ral";
+type CollectionViewMode = "list" | "grid";
+
 type PaletteExtractionAlgorithm = "grid" | "median-cut";
 
 interface GridSettings {
@@ -65,9 +70,13 @@ interface GridSettings {
   sampleRadius: number;
 }
 
+/** Quantization color space: 'rgb' (default) or 'oklch' (perceptually uniform). */
+type QuantizationColorSpace = "rgb" | "oklch";
+
 interface MedianCutSettings {
   quantizedPoolSize: number;
   maxQuantizerPixels: number;
+  colorSpace: QuantizationColorSpace;
 }
 
 interface PaletteScoringWeights {
@@ -78,6 +87,9 @@ interface PaletteScoringWeights {
 }
 
 interface AppSettings {
+  captureMode: CaptureMode;
+  collectionViewMode: CollectionViewMode;
+  performanceHudEnabled: boolean;
   photoExportQuality: number;
   paletteExtractionAlgorithm: PaletteExtractionAlgorithm;
   grid: GridSettings;
@@ -87,6 +99,9 @@ interface AppSettings {
 
 /** Deep-partial variant for updateAppSettings — nested groups accept partial patches. */
 interface AppSettingsPatch {
+  captureMode?: CaptureMode;
+  collectionViewMode?: CollectionViewMode;
+  performanceHudEnabled?: boolean;
   photoExportQuality?: number;
   paletteExtractionAlgorithm?: PaletteExtractionAlgorithm;
   grid?: Partial<GridSettings>;
@@ -153,6 +168,8 @@ interface PaletteExtractionResult {
 
 interface PaletteExtractionOptions {
   algorithm?: PaletteExtractionAlgorithm;
+  /** Optional alias for medianCut.colorSpace for direct callers. */
+  colorSpace?: QuantizationColorSpace;
   grid?: Partial<GridSettings>;
   medianCut?: Partial<MedianCutSettings>;
   scoring?: Partial<PaletteScoringWeights> | ScoringProfile;
@@ -162,6 +179,72 @@ interface PaletteExtractionOptions {
 interface QuantizedSwatch {
   rgb: number;
   population: number;
+}
+
+// ---------------------------------------------------------------------------
+//  PaletteColor (rich color wrapper)
+// ---------------------------------------------------------------------------
+
+/** OKLCH color representation. */
+interface OklchColor {
+  l: number;
+  c: number;
+  h: number;
+}
+
+/** Contrast ratios against white and black backgrounds. */
+interface ContrastInfo {
+  white: number;
+  black: number;
+}
+
+/**
+ * Rich color object returned by createPaletteColor / enrichPaletteColors.
+ *
+ * Enumerable properties: r, g, b, population (backward-compatible with RgbColor).
+ * Non-enumerable getters/methods provide extra info without breaking spreads.
+ */
+interface PaletteColor extends RgbColor {
+  population: number;
+  readonly hex: string;
+  readonly hsl: HslColor;
+  readonly oklch: OklchColor;
+  readonly luminance: number;
+  readonly isDark: boolean;
+  readonly isLight: boolean;
+  readonly textColor: string;
+  readonly contrast: ContrastInfo;
+  css(format?: "rgb" | "hsl" | "oklch" | "hex"): string;
+  toString(): string;
+}
+
+// ---------------------------------------------------------------------------
+//  RAL color matching
+// ---------------------------------------------------------------------------
+
+/** A RAL Classic color entry. */
+interface RalColor {
+  code: string;
+  name: string;
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** A RAL match result with perceptual distance. */
+interface RalMatch {
+  ral: RalColor;
+  deltaE: number;
+}
+
+/** Flattened RAL match record stored on a saved Palette. */
+interface RalMatchRecord {
+  code: string;
+  name: string;
+  r: number;
+  g: number;
+  b: number;
+  deltaE: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -215,10 +298,18 @@ interface ZoomCapabilities {
   step: number;
 }
 
+/** Exposure compensation capability range reported by the camera track. */
+interface ExposureCapabilities {
+  min: number;
+  max: number;
+  step: number;
+}
+
 /** Options accepted by createCameraController. */
 interface CameraControllerOptions {
   cameraFeed: HTMLVideoElement | null;
   onCameraActiveChange?: (isActive: boolean) => void;
+  onExposureChange?: (exposure: number) => void;
   onZoomChange?: (zoom: number) => void;
   onError?: (error: unknown) => void;
   initialFacingMode?: FacingMode;
@@ -227,13 +318,18 @@ interface CameraControllerOptions {
 
 /** The controller object returned by createCameraController. */
 interface CameraController {
+  applyExposureCompensation(exposureValue: number): Promise<boolean>;
   destroy(): void;
-  applyZoom(zoomValue: number): Promise<void>;
+  applyZoom(zoomValue: number): Promise<boolean>;
+  getCurrentExposureCompensation(): number;
   getCurrentZoom(): number;
+  getExposureCapabilities(): ExposureCapabilities | null;
   getZoomCapabilities(): ZoomCapabilities | null;
   getFacingMode(): FacingMode;
   startStream(): Promise<boolean>;
+  setMeteringPoint(point: { x: number; y: number }): Promise<boolean>;
   stopStream(): void;
+  supportsMeteringPointSelection(): boolean;
   toggleFacingMode(): Promise<boolean>;
 }
 
@@ -245,6 +341,15 @@ interface ZoomUiController {
   bindEvents(): void;
   destroy(): void;
   handleZoomChange(zoomValue: number): void;
+  initialize(): void;
+  setDisabled(): void;
+  syncCapabilities(): void;
+}
+
+interface ExposureUiController {
+  bindEvents(): void;
+  destroy(): void;
+  handleExposureChange(exposureValue: number): void;
   initialize(): void;
   setDisabled(): void;
   syncCapabilities(): void;
@@ -310,16 +415,19 @@ interface ShareResult {
 // ---------------------------------------------------------------------------
 
 interface PaletteViewerOpenOptions {
-  getPreviewAsset?: () => Promise<PreviewAsset>;
-  onShare?: () => void | Promise<void>;
-  onExport?: () => void | Promise<void>;
-  onPublish?: () => void | Promise<void>;
-  publishAction?: PublicationAction;
-  onDelete?: () => void | Promise<void>;
-  canShare?: boolean;
-  canExport?: boolean;
-  canPublish?: boolean;
-  canDelete?: boolean;
+  palettes?: Palette[];
+  initialIndex?: number;
+  getPalettes?: () => Palette[];
+  getPreviewAsset?: (palette: Palette) => Promise<PreviewAsset>;
+  onShare?: (palette: Palette) => void | Promise<void>;
+  onExport?: (palette: Palette) => void | Promise<void>;
+  onPublish?: (palette: Palette) => void | Promise<void>;
+  onDelete?: (palette: Palette) => void | Promise<void>;
+  getPublishAction?: (palette: Palette) => PublicationAction;
+  canShare?: (palette: Palette) => boolean;
+  canExport?: (palette: Palette) => boolean;
+  canPublish?: (palette: Palette) => boolean;
+  canDelete?: (palette: Palette) => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -366,5 +474,5 @@ interface PaletcamDb {
 declare module "bun:test" {
   export function describe(name: string, fn: () => void): void;
   export function test(name: string, fn: () => void | Promise<void>): void;
-  export function expect(value: unknown): any;
+  export function expect(value: unknown): unknown;
 }

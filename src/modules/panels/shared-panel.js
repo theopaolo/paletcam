@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 
-const PANEL_HIDE_DELAY_MS = 380;
+const PANEL_HIDE_DELAY_MS = 260;
 
 class SharedPanelElement extends LitElement {
   static properties = {
@@ -41,7 +41,7 @@ class SharedPanelElement extends LitElement {
       background-blend-mode: soft-light;
       color: var(--secondary-color, #f0f0f0);
       transform: translateX(100%);
-      transition: transform 0.3s cubic-bezier(0.65, 0.05, 0.36, 1);
+      transition: transform 0.2s cubic-bezier(0.65, 0.05, 0.36, 1);
       pointer-events: auto;
     }
 
@@ -50,22 +50,36 @@ class SharedPanelElement extends LitElement {
     }
 
     .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0 1rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-areas: 'title actions close';
+      align-items: start;
+      column-gap: 0.75rem;
+      row-gap: 0.5rem;
+      padding: var(--shared-panel-header-padding, 0);
       color: inherit;
     }
 
     .panel-title {
+      grid-area: title;
+      min-width: 0;
       margin: 0;
       font-size: 1.5rem;
       font-weight: 400;
       text-transform: uppercase;
     }
 
+    .panel-header-actions {
+      grid-area: actions;
+      min-width: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+    }
+
     .close-button {
+      grid-area: close;
+      justify-self: end;
       appearance: none;
       border: none;
       background: none;
@@ -83,12 +97,23 @@ class SharedPanelElement extends LitElement {
       cursor: pointer;
     }
 
-    .close-button:hover {
-      background-color: rgba(255, 255, 255, 0.1);
+    @media (hover: hover) {
+      .close-button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
     }
 
     .panel-body {
       min-height: 0;
+    }
+
+    @media (max-width: 560px) {
+      .panel-header {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+          'title close'
+          'actions actions';
+      }
     }
   `;
 
@@ -355,8 +380,11 @@ class SharedPanelElement extends LitElement {
         aria-label=${this.panelTitle}
         @transitionend=${this.handleShellTransitionEnd}
       >
-        <header class="panel-header">
+        <header class="panel-header" part="header">
           <h2 class="panel-title">${this.panelTitle}</h2>
+          <div class="panel-header-actions">
+            <slot name="header-actions"></slot>
+          </div>
           <button
             class="close-button"
             type="button"

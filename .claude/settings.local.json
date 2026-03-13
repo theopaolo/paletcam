@@ -7,6 +7,15 @@
       "Bash(bunx biome check src/)",
       "Bash(git stash)",
       "Bash(git stash pop)",
+      "Bash(find /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam -type f -name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.json)",
+      "Bash(grep -l \"extractPalette\\\\|extractMedianCut\\\\|extractGridPalette\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/**/*.js)",
+      "Bash(bun run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(grep -A2 '\"\"test\"\"' package.json)",
+      "Bash(bun test:*)",
+      "Bash(find /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public -type f \\\\\\(-name *.html -o -name *.css -o -name *.js \\\\\\))",
+      "Bash(find /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src -type f -name *.js -o -name *.html -o -name *.ts)",
       "Bash(grep -n \"hide-zoom\\\\|use-canvas\\\\|is-ios\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/*.css)",
       "Bash(ls -la /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/modules/*.js)"
     ]
