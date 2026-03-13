@@ -222,7 +222,7 @@ describe("app-settings paletteAnalysisProfile", () => {
     expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
   });
 
-  test("infers precision from legacy precision-like settings", async () => {
+  test("infers perceptual from perceptual-like settings", async () => {
     const { module } = await loadAppSettingsModule({
       medianCut: {
         quantizedPoolSize: 24,
@@ -230,28 +230,28 @@ describe("app-settings paletteAnalysisProfile", () => {
         colorSpace: "oklch",
       },
       paletteScoring: {
-        chromaWeight: 22,
-        lumaSpreadWeight: 20,
-        rarityWeight: 8,
-        diversityWeight: 50,
+        chromaWeight: 24,
+        lumaSpreadWeight: 14,
+        rarityWeight: 14,
+        diversityWeight: 48,
       },
     });
 
-    expect(module.getAppSettings().paletteAnalysisProfile).toBe("precision");
+    expect(module.getAppSettings().paletteAnalysisProfile).toBe("perceptual");
   });
 
-  test("applies the precision profile and persists it", async () => {
+  test("applies the perceptual profile and persists it", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
 
     module.updateAppSettings({
-      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PRECISION,
+      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PERCEPTUAL,
     });
 
-    expect(module.getAppSettings().paletteAnalysisProfile).toBe("precision");
+    expect(module.getAppSettings().paletteAnalysisProfile).toBe("perceptual");
     expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
-    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(8);
+    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(14);
     expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).paletteAnalysisProfile).toBe(
-      "precision",
+      "perceptual",
     );
   });
 
@@ -259,14 +259,14 @@ describe("app-settings paletteAnalysisProfile", () => {
     const { module } = await loadAppSettingsModule();
 
     module.updateAppSettings({
-      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PRECISION,
+      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PERCEPTUAL,
     });
     module.updateAppSettings({
-      paletteScoring: { rarityWeight: 14 },
+      paletteScoring: { rarityWeight: 18 },
     });
 
     expect(module.getAppSettings().paletteAnalysisProfile).toBe("custom");
     expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
-    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(14);
+    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(18);
   });
 });

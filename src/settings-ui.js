@@ -276,9 +276,9 @@ function syncAnalysisProfileStatus(activeProfile) {
     return;
   }
 
-  if (activeProfile === PALETTE_ANALYSIS_PROFILES.PRECISION) {
+  if (activeProfile === PALETTE_ANALYSIS_PROFILES.PERCEPTUAL) {
     analysisProfileStatus.textContent =
-      "Précision actif. Privilégie la fidélité visuelle et les écarts perceptifs.";
+      "Perceptif actif. Regroupe les couleurs visuellement tout en séparant mieux les teintes proches.";
     return;
   }
 
@@ -383,7 +383,7 @@ function bindAnalysisProfileControls() {
       const nextProfile = button.getAttribute("data-settings-analysis-profile");
       if (
         nextProfile !== PALETTE_ANALYSIS_PROFILES.EXPRESSIVE &&
-        nextProfile !== PALETTE_ANALYSIS_PROFILES.PRECISION
+        nextProfile !== PALETTE_ANALYSIS_PROFILES.PERCEPTUAL
       ) {
         return;
       }

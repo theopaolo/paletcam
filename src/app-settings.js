@@ -21,7 +21,7 @@ const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid"]);
 export const PALETTE_ANALYSIS_PROFILES = Object.freeze({
   EXPRESSIVE: "expressive",
-  PRECISION: "precision",
+  PERCEPTUAL: "perceptual",
   CUSTOM: "custom",
 });
 
@@ -31,18 +31,18 @@ const EXPRESSIVE_PALETTE_SCORING_SETTINGS = Object.freeze({
   rarityWeight: 20,
   diversityWeight: 40,
 });
-const PRECISION_PALETTE_SCORING_SETTINGS = Object.freeze({
-  chromaWeight: 22,
-  lumaSpreadWeight: 20,
-  rarityWeight: 8,
-  diversityWeight: 50,
+const PERCEPTUAL_PALETTE_SCORING_SETTINGS = Object.freeze({
+  chromaWeight: 24,
+  lumaSpreadWeight: 14,
+  rarityWeight: 14,
+  diversityWeight: 48,
 });
 const EXPRESSIVE_MEDIAN_CUT_SETTINGS = Object.freeze({
   quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
   maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
   colorSpace: "rgb",
 });
-const PRECISION_MEDIAN_CUT_SETTINGS = Object.freeze({
+const PERCEPTUAL_MEDIAN_CUT_SETTINGS = Object.freeze({
   quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
   maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
   colorSpace: "oklch",
@@ -53,10 +53,10 @@ const PALETTE_ANALYSIS_PROFILE_PRESETS = Object.freeze({
     medianCut: EXPRESSIVE_MEDIAN_CUT_SETTINGS,
     paletteScoring: EXPRESSIVE_PALETTE_SCORING_SETTINGS,
   }),
-  [PALETTE_ANALYSIS_PROFILES.PRECISION]: Object.freeze({
+  [PALETTE_ANALYSIS_PROFILES.PERCEPTUAL]: Object.freeze({
     paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
-    medianCut: PRECISION_MEDIAN_CUT_SETTINGS,
-    paletteScoring: PRECISION_PALETTE_SCORING_SETTINGS,
+    medianCut: PERCEPTUAL_MEDIAN_CUT_SETTINGS,
+    paletteScoring: PERCEPTUAL_PALETTE_SCORING_SETTINGS,
   }),
 });
 
@@ -74,7 +74,7 @@ function normalizeCollectionViewMode(value) {
 
 function normalizePaletteAnalysisProfile(value) {
   return value === PALETTE_ANALYSIS_PROFILES.EXPRESSIVE ||
-      value === PALETTE_ANALYSIS_PROFILES.PRECISION ||
+      value === PALETTE_ANALYSIS_PROFILES.PERCEPTUAL ||
       value === PALETTE_ANALYSIS_PROFILES.CUSTOM
     ? value
     : null;
@@ -137,13 +137,13 @@ function inferPaletteAnalysisProfile(settings) {
     return PALETTE_ANALYSIS_PROFILES.EXPRESSIVE;
   }
 
-  const precisionPreset = getPaletteAnalysisProfilePreset(PALETTE_ANALYSIS_PROFILES.PRECISION);
+  const perceptualPreset = getPaletteAnalysisProfilePreset(PALETTE_ANALYSIS_PROFILES.PERCEPTUAL);
   if (
-    precisionPreset &&
-    doMedianCutSettingsMatch(settings.medianCut, precisionPreset.medianCut) &&
-    doPaletteScoringSettingsMatch(settings.paletteScoring, precisionPreset.paletteScoring)
+    perceptualPreset &&
+    doMedianCutSettingsMatch(settings.medianCut, perceptualPreset.medianCut) &&
+    doPaletteScoringSettingsMatch(settings.paletteScoring, perceptualPreset.paletteScoring)
   ) {
-    return PALETTE_ANALYSIS_PROFILES.PRECISION;
+    return PALETTE_ANALYSIS_PROFILES.PERCEPTUAL;
   }
 
   return PALETTE_ANALYSIS_PROFILES.CUSTOM;
@@ -321,7 +321,7 @@ function normalizeSettings(candidate, explicitPaletteAnalysisProfile = undefined
 
   if (
     requestedProfile === PALETTE_ANALYSIS_PROFILES.EXPRESSIVE ||
-    requestedProfile === PALETTE_ANALYSIS_PROFILES.PRECISION
+    requestedProfile === PALETTE_ANALYSIS_PROFILES.PERCEPTUAL
   ) {
     return applyPaletteAnalysisProfilePreset(normalizedSettings, requestedProfile);
   }

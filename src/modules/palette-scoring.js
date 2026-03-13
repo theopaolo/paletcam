@@ -3,9 +3,12 @@ import { rgbToOklch } from "./color-space-oklch.js";
 const DEFAULT_SCORING_MODEL = "classic";
 const MAX_RGB_DISTANCE = Math.hypot(255, 255, 255);
 const MAX_OKLCH_CHROMA = 0.32;
-const MIN_OKLCH_CHROMA_FOR_HUE = 0.03;
+const MIN_OKLCH_CHROMA_FOR_HUE = 0.02;
 const MIN_HSL_SATURATION_FOR_HUE = 0.08;
-const MAX_OKLCH_DISTANCE = Math.hypot(1, 0.4, 0.8);
+const PERCEPTUAL_HUE_DISTANCE_WEIGHT = 1.35;
+const PERCEPTUAL_HUE_BUCKET_COUNT = 18;
+const CLASSIC_HUE_BUCKET_COUNT = 12;
+const MAX_OKLCH_DISTANCE = Math.hypot(1, 0.4, 0.8 * PERCEPTUAL_HUE_DISTANCE_WEIGHT);
 export const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
   chromaWeight: 25,
   lumaSpreadWeight: 15,
@@ -112,7 +115,10 @@ function getPerceptualColorDistance(firstColor, secondColor) {
   const second = getPerceptualColorFeatures(secondColor);
   const hueDelta = Math.abs(first.h - second.h);
   const shortestHueDelta = Math.min(hueDelta, 360 - hueDelta) * (Math.PI / 180);
-  const hueComponent = 2 * Math.sqrt(first.c * second.c) * Math.sin(shortestHueDelta / 2);
+  const hueComponent = PERCEPTUAL_HUE_DISTANCE_WEIGHT *
+    2 *
+    Math.sqrt(first.c * second.c) *
+    Math.sin(shortestHueDelta / 2);
 
   return Math.hypot(first.l - second.l, first.c - second.c, hueComponent);
 }
@@ -125,7 +131,9 @@ function getPerceptualColorDistance(firstColor, secondColor) {
  */
 export function buildHueRarityMap(pool, scoringOptions = null) {
   const scoringProfile = getPaletteScoringProfile(scoringOptions);
-  const BUCKET_COUNT = 12;
+  const BUCKET_COUNT = scoringProfile.model === "perceptual"
+    ? PERCEPTUAL_HUE_BUCKET_COUNT
+    : CLASSIC_HUE_BUCKET_COUNT;
   const buckets = new Array(BUCKET_COUNT).fill(0);
 
   for (const color of pool) {

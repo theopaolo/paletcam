@@ -93,7 +93,7 @@ describe("extractPaletteColors", () => {
       { r: 103, g: 242, b: 0 },
       { r: 119, g: 0, b: 243 },
       { r: 252, g: 8, b: 56 },
-      { r: 207, g: 187, b: 6 },
+      { r: 243, g: 12, b: 130 },
     ]);
     expect(aliasOverrideResult.colors).toEqual(defaultResult.colors);
   });
