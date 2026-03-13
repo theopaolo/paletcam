@@ -209,8 +209,64 @@ describe("app-settings medianCut.colorSpace", () => {
     });
 
     expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).medianCut.colorSpace).toBe(
-      "rgb",
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).medianCut.colorSpace).toBe("rgb");
+  });
+});
+
+describe("app-settings paletteAnalysisProfile", () => {
+  test("defaults to expressive", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    expect(module.getDefaultAppSettings().paletteAnalysisProfile).toBe("expressive");
+    expect(module.getAppSettings().paletteAnalysisProfile).toBe("expressive");
+    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
+  });
+
+  test("infers precision from legacy precision-like settings", async () => {
+    const { module } = await loadAppSettingsModule({
+      medianCut: {
+        quantizedPoolSize: 24,
+        maxQuantizerPixels: 40000,
+        colorSpace: "oklch",
+      },
+      paletteScoring: {
+        chromaWeight: 22,
+        lumaSpreadWeight: 20,
+        rarityWeight: 8,
+        diversityWeight: 50,
+      },
+    });
+
+    expect(module.getAppSettings().paletteAnalysisProfile).toBe("precision");
+  });
+
+  test("applies the precision profile and persists it", async () => {
+    const { module, localStorageMock } = await loadAppSettingsModule();
+
+    module.updateAppSettings({
+      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PRECISION,
+    });
+
+    expect(module.getAppSettings().paletteAnalysisProfile).toBe("precision");
+    expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
+    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(8);
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).paletteAnalysisProfile).toBe(
+      "precision",
     );
+  });
+
+  test("switches to custom when manual tuning diverges from the active profile", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    module.updateAppSettings({
+      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PRECISION,
+    });
+    module.updateAppSettings({
+      paletteScoring: { rarityWeight: 14 },
+    });
+
+    expect(module.getAppSettings().paletteAnalysisProfile).toBe("custom");
+    expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
+    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(14);
   });
 });

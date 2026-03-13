@@ -1,6 +1,8 @@
 import {
   getAppSettings,
+  getDefaultAppSettings,
   getDefaultAppSettingsResetPatch,
+  PALETTE_ANALYSIS_PROFILES,
   subscribeAppSettings,
   updateAppSettings,
 } from "./app-settings.js";
@@ -11,6 +13,11 @@ import { exportAllPalettes, importAllPalettes } from "./palette-storage.js";
 
 const openSettingsButton = document.querySelector(".btn-open-settings");
 const integerFormatter = new Intl.NumberFormat("en-US");
+const defaultAppSettings = getDefaultAppSettings();
+const analysisProfileButtons = Array.from(
+  document.querySelectorAll("[data-settings-analysis-profile]"),
+);
+const analysisProfileStatus = document.getElementById("settingsAnalysisProfileStatus");
 const algorithmButtons = Array.from(document.querySelectorAll("[data-settings-algorithm]"));
 const colorSpaceButtons = Array.from(document.querySelectorAll("[data-settings-color-space]"));
 const captureModeButtons = Array.from(document.querySelectorAll("[data-settings-capture-mode]"));
@@ -141,7 +148,9 @@ const rangeControls = [
     displaySelector: "[data-settings-scoring-vibrancy-display]",
     getValueFromSettings: (settings) => settings.paletteScoring.chromaWeight,
     buildSettingsPatch: (value) => ({
-      paletteScoring: { chromaWeight: clampInteger(value, 25) },
+      paletteScoring: {
+        chromaWeight: clampInteger(value, defaultAppSettings.paletteScoring.chromaWeight),
+      },
     }),
     getAriaLabel: (value) => `Préférence pour les couleurs vives : ${value}`,
   }),
@@ -152,7 +161,9 @@ const rangeControls = [
     displaySelector: "[data-settings-scoring-contrast-display]",
     getValueFromSettings: (settings) => settings.paletteScoring.lumaSpreadWeight,
     buildSettingsPatch: (value) => ({
-      paletteScoring: { lumaSpreadWeight: clampInteger(value, 15) },
+      paletteScoring: {
+        lumaSpreadWeight: clampInteger(value, defaultAppSettings.paletteScoring.lumaSpreadWeight),
+      },
     }),
     getAriaLabel: (value) => `Contraste clair/foncé : ${value}`,
   }),
@@ -163,7 +174,9 @@ const rangeControls = [
     displaySelector: "[data-settings-scoring-rarity-display]",
     getValueFromSettings: (settings) => settings.paletteScoring.rarityWeight,
     buildSettingsPatch: (value) => ({
-      paletteScoring: { rarityWeight: clampInteger(value, 20) },
+      paletteScoring: {
+        rarityWeight: clampInteger(value, defaultAppSettings.paletteScoring.rarityWeight),
+      },
     }),
     getAriaLabel: (value) => `Bonus aux teintes rares : ${value}`,
   }),
@@ -174,7 +187,9 @@ const rangeControls = [
     displaySelector: "[data-settings-scoring-diversity-display]",
     getValueFromSettings: (settings) => settings.paletteScoring.diversityWeight,
     buildSettingsPatch: (value) => ({
-      paletteScoring: { diversityWeight: clampInteger(value, 40) },
+      paletteScoring: {
+        diversityWeight: clampInteger(value, defaultAppSettings.paletteScoring.diversityWeight),
+      },
     }),
     getAriaLabel: (value) => `Écart entre les couleurs : ${value}`,
   }),
@@ -185,7 +200,9 @@ const rangeControls = [
     displaySelector: "[data-settings-median-cut-pool-display]",
     getValueFromSettings: (settings) => settings.medianCut.quantizedPoolSize,
     buildSettingsPatch: (value) => ({
-      medianCut: { quantizedPoolSize: clampInteger(value, 16) },
+      medianCut: {
+        quantizedPoolSize: clampInteger(value, defaultAppSettings.medianCut.quantizedPoolSize),
+      },
     }),
     getAriaLabel: (value) => `Nombre de couleurs analysées : ${value}`,
   }),
@@ -196,7 +213,9 @@ const rangeControls = [
     displaySelector: "[data-settings-median-cut-pixels-display]",
     getValueFromSettings: (settings) => settings.medianCut.maxQuantizerPixels,
     buildSettingsPatch: (value) => ({
-      medianCut: { maxQuantizerPixels: clampInteger(value, 12000) },
+      medianCut: {
+        maxQuantizerPixels: clampInteger(value, defaultAppSettings.medianCut.maxQuantizerPixels),
+      },
     }),
     getAriaLabel: (value) => `Pixels analysés max : ${value}`,
     formatInlineValue: (value) => formatThousands(value),
@@ -245,6 +264,34 @@ function syncAlgorithmButtons(activeAlgorithm) {
   });
 }
 
+function syncAnalysisProfileButtons(activeProfile) {
+  analysisProfileButtons.forEach((button) => {
+    const buttonProfile = button.getAttribute("data-settings-analysis-profile");
+    button.setAttribute("aria-pressed", String(buttonProfile === activeProfile));
+  });
+}
+
+function syncAnalysisProfileStatus(activeProfile) {
+  if (!analysisProfileStatus) {
+    return;
+  }
+
+  if (activeProfile === PALETTE_ANALYSIS_PROFILES.PRECISION) {
+    analysisProfileStatus.textContent =
+      "Précision actif. Privilégie la fidélité visuelle et les écarts perceptifs.";
+    return;
+  }
+
+  if (activeProfile === PALETTE_ANALYSIS_PROFILES.CUSTOM) {
+    analysisProfileStatus.textContent =
+      "Réglage personnalisé. Les curseurs ci-dessous remplacent les profils prédéfinis.";
+    return;
+  }
+
+  analysisProfileStatus.textContent =
+    "Expressif actif. Favorise les aplats francs, les accents et les couleurs rares.";
+}
+
 function syncAlgorithmPanels(activeAlgorithm) {
   algorithmPanels.forEach((panel) => {
     const panelAlgorithm = panel.getAttribute("data-settings-algorithm-panel");
@@ -286,9 +333,11 @@ function renderSettingsUi(settings) {
   });
 
   const activeAlgorithm = settings?.paletteExtractionAlgorithm;
+  syncAnalysisProfileButtons(settings?.paletteAnalysisProfile);
+  syncAnalysisProfileStatus(settings?.paletteAnalysisProfile);
   syncAlgorithmButtons(activeAlgorithm);
   syncAlgorithmPanels(activeAlgorithm);
-  syncColorSpaceButtons(settings?.medianCut?.colorSpace ?? "rgb");
+  syncColorSpaceButtons(settings?.medianCut?.colorSpace ?? defaultAppSettings.medianCut.colorSpace);
   syncCaptureModeButtons(settings.captureMode);
   syncPerformanceHudButtons(settings.performanceHudEnabled);
   syncPaletteModeGroupVisibility(settings.captureMode);
@@ -319,6 +368,28 @@ function bindAlgorithmControls() {
 
       updateAppSettings({
         paletteExtractionAlgorithm: nextAlgorithm,
+      });
+    });
+  });
+}
+
+function bindAnalysisProfileControls() {
+  if (analysisProfileButtons.length === 0) {
+    return;
+  }
+
+  analysisProfileButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextProfile = button.getAttribute("data-settings-analysis-profile");
+      if (
+        nextProfile !== PALETTE_ANALYSIS_PROFILES.EXPRESSIVE &&
+        nextProfile !== PALETTE_ANALYSIS_PROFILES.PRECISION
+      ) {
+        return;
+      }
+
+      updateAppSettings({
+        paletteAnalysisProfile: nextProfile,
       });
     });
   });
@@ -453,6 +524,7 @@ function bindImportInput() {
 
 bindSettingsPanelEvents();
 bindCaptureModeControls();
+bindAnalysisProfileControls();
 bindAlgorithmControls();
 bindColorSpaceControls();
 bindPerformanceHudControls();

@@ -8,10 +8,10 @@ import {
 import { packImageDataToOklchArgb, swatchOklchToRgb } from './color-space-oklch.js';
 
 const MIN_SWATCH_COUNT = 1;
-export const DEFAULT_QUANTIZED_POOL_SIZE = 16;
+export const DEFAULT_QUANTIZED_POOL_SIZE = 24;
 const QUANTIZED_POOL_MULTIPLIER = 3;
 const MAX_QUANTIZED_POOL_SIZE = 24;
-export const DEFAULT_MAX_QUANTIZER_PIXELS = 12_000;
+export const DEFAULT_MAX_QUANTIZER_PIXELS = 40_000;
 const POPULATION_WEIGHT = 0.15;
 const BASE_SCORE_WEIGHT = 1 - POPULATION_WEIGHT;
 

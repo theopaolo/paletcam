@@ -1,4 +1,8 @@
-const MAX_RGB_DISTANCE = Math.hypot(255, 255, 255);
+import { rgbToOklch } from "./color-space-oklch.js";
+
+const MAX_OKLCH_CHROMA = 0.32;
+const MIN_OKLCH_CHROMA_FOR_HUE = 0.03;
+const MAX_OKLCH_DISTANCE = Math.hypot(1, 0.4, 0.8);
 export const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
   chromaWeight: 25,
   lumaSpreadWeight: 15,
@@ -58,38 +62,22 @@ function getPaletteScoringProfile(profileOrOptions) {
   return createPaletteScoringProfile(profileOrOptions);
 }
 
-/**
- * @param {RgbColor} color
- * @returns {HslColor}
- */
-export function rgbToHsl(color) {
-  let h = 0;
-  let s = 0;
-  let l = 0;
+function getPerceptualColorFeatures(color) {
+  return rgbToOklch(color.r, color.g, color.b);
+}
 
-  const rNorm = color.r / 255;
-  const gNorm = color.g / 255;
-  const bNorm = color.b / 255;
-  const max = Math.max(rNorm, gNorm, bNorm);
-  const min = Math.min(rNorm, gNorm, bNorm);
-  l = (max + min) / 2;
+function getPerceptualHueBucket(colorFeatures, bucketCount) {
+  return Math.floor(colorFeatures.h / (360 / bucketCount)) % bucketCount;
+}
 
-  if (min === max) {
-    s = 0;
-    h = 0;
-  } else {
-    const delta = max - min;
-    s = delta / (1 - Math.abs(2 * l - 1));
+function getPerceptualColorDistance(firstColor, secondColor) {
+  const first = getPerceptualColorFeatures(firstColor);
+  const second = getPerceptualColorFeatures(secondColor);
+  const hueDelta = Math.abs(first.h - second.h);
+  const shortestHueDelta = Math.min(hueDelta, 360 - hueDelta) * (Math.PI / 180);
+  const hueComponent = 2 * Math.sqrt(first.c * second.c) * Math.sin(shortestHueDelta / 2);
 
-    if (max === rNorm) h = ((gNorm - bNorm) / delta) % 6;
-    else if (max === gNorm) h = (bNorm - rNorm) / delta + 2;
-    else h = (rNorm - gNorm) / delta + 4;
-
-    h *= 60;
-    if (h < 0) h += 360;
-  }
-
-  return { h, s, l };
+  return Math.hypot(first.l - second.l, first.c - second.c, hueComponent);
 }
 
 
@@ -104,9 +92,9 @@ export function buildHueRarityMap(pool) {
   const buckets = new Array(BUCKET_COUNT).fill(0);
 
   for (const color of pool) {
-    const hsl = rgbToHsl(color);
-    if (hsl.s < 0.08) continue; // near-grey — skip
-    const bucket = Math.floor(hsl.h / (360 / BUCKET_COUNT)) % BUCKET_COUNT;
+    const colorFeatures = getPerceptualColorFeatures(color);
+    if (colorFeatures.c < MIN_OKLCH_CHROMA_FOR_HUE) continue;
+    const bucket = getPerceptualHueBucket(colorFeatures, BUCKET_COUNT);
     buckets[bucket] += 1;
   }
 
@@ -114,14 +102,14 @@ export function buildHueRarityMap(pool) {
   return { buckets, maxCount, BUCKET_COUNT };
 }
 
-function getHueRarity(hsl, rarityMap) {
-  if (hsl.s < 0.08) return 0; // grey has no hue rarity
-  const bucket = Math.floor(hsl.h / (360 / rarityMap.BUCKET_COUNT)) % rarityMap.BUCKET_COUNT;
+function getHueRarity(colorFeatures, rarityMap) {
+  if (colorFeatures.c < MIN_OKLCH_CHROMA_FOR_HUE) return 0;
+  const bucket = getPerceptualHueBucket(colorFeatures, rarityMap.BUCKET_COUNT);
   return 1 - (rarityMap.buckets[bucket] / rarityMap.maxCount);
 }
 
 
-// Score a candidate color: higher = more interesting
+// Score a candidate color: higher = more representative and distinct.
 /**
  * @param {RgbColor} candidate
  * @param {RgbColor[]} chosenColors
@@ -131,30 +119,26 @@ function getHueRarity(hsl, rarityMap) {
  */
 export function scoreCandidate(candidate, chosenColors, rarityMap, scoringOptions = null) {
   const scoringProfile = getPaletteScoringProfile(scoringOptions);
-  const hsl = rgbToHsl(candidate);
+  const colorFeatures = getPerceptualColorFeatures(candidate);
 
-  // Saturation: vivid colors score higher
-  const chromaScore = hsl.s;
+  // Prefer colors with meaningful perceptual chroma without over-rewarding neon outliers.
+  const chromaScore = Math.min(1, colorFeatures.c / MAX_OKLCH_CHROMA);
 
-  // Light/dark spread: reward colors far from mid-grey
-  const lumaSpreadScore = Math.abs(hsl.l - 0.5) / 0.5;
+  // Reward light/dark anchors because they make the resulting palette more representative.
+  const lumaSpreadScore = Math.abs(colorFeatures.l - 0.5) / 0.5;
 
-  // Hue rarity: underrepresented hues in the pool get a bonus
-  const rarityScore = getHueRarity(hsl, rarityMap);
+  // Hue rarity is a light tiebreaker only — not a dominant factor.
+  const rarityScore = getHueRarity(colorFeatures, rarityMap);
 
-  // Diversity: how different from already-chosen swatches (min distance)
+  // Diversity uses perceptual distance rather than raw RGB distance.
   let diversityScore = 0;
   if (chosenColors.length > 0) {
     let minDistance = Infinity;
     for (const chosen of chosenColors) {
-      const dist = Math.hypot(
-        candidate.r - chosen.r,
-        candidate.g - chosen.g,
-        candidate.b - chosen.b
-      );
+      const dist = getPerceptualColorDistance(candidate, chosen);
       if (dist < minDistance) minDistance = dist;
     }
-    diversityScore = Math.min(1, minDistance / MAX_RGB_DISTANCE);
+    diversityScore = Math.min(1, minDistance / MAX_OKLCH_DISTANCE);
   }
 
   return (scoringProfile.chromaWeight * chromaScore)

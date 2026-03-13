@@ -86,14 +86,14 @@ describe("extractPaletteColors", () => {
     expect(defaultResult.colors).toEqual([
       { r: 0, g: 248, b: 0 },
       { r: 128, g: 0, b: 248 },
-      { r: 248, g: 0, b: 0 },
-      { r: 248, g: 0, b: 128 },
+      { r: 248, g: 128, b: 0 },
+      { r: 200, g: 200, b: 40 },
     ]);
     expect(nestedOklchResult.colors).toEqual([
-      { r: 252, g: 123, b: 56 },
-      { r: 0, g: 129, b: 239 },
       { r: 103, g: 242, b: 0 },
       { r: 119, g: 0, b: 243 },
+      { r: 252, g: 8, b: 56 },
+      { r: 207, g: 187, b: 6 },
     ]);
     expect(aliasOverrideResult.colors).toEqual(defaultResult.colors);
   });

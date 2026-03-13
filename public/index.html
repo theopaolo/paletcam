@@ -295,6 +295,38 @@
 
                   <div class="settings-field">
                     <label class="settings-label settings-label-static">
+                      Profil d'analyse
+                    </label>
+                    <div
+                      class="settings-segment"
+                      role="group"
+                      aria-label="Profil d'analyse du mode Auto"
+                    >
+                      <button
+                        class="settings-segment-button"
+                        type="button"
+                        data-settings-analysis-profile="expressive"
+                        aria-pressed="true"
+                      >
+                        Expressif
+                      </button>
+                      <button
+                        class="settings-segment-button"
+                        type="button"
+                        data-settings-analysis-profile="precision"
+                        aria-pressed="false"
+                      >
+                        Précision
+                      </button>
+                    </div>
+                    <p class="settings-hint" id="settingsAnalysisProfileStatus">
+                      Expressif actif. Favorise les aplats francs, les accents
+                      et les couleurs rares.
+                    </p>
+                  </div>
+
+                  <div class="settings-field">
+                    <label class="settings-label settings-label-static">
                       Espace colorimétrique
                     </label>
                     <div
@@ -320,8 +352,8 @@
                       </button>
                     </div>
                     <p class="settings-hint">
-                      RGB garde le comportement actuel. OKLCH regroupe les
-                      couleurs selon leur proximité visuelle.
+                      RGB favorise les aplats francs et les accents. OKLCH
+                      privilégie les rapprochements perceptifs plus fidèles.
                     </p>
                   </div>
 

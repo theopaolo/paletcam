@@ -8,7 +8,6 @@ import {
   DEFAULT_QUANTIZED_POOL_SIZE,
 } from "./modules/palette-extract-median-cut.js";
 import { PALETTE_EXTRACTION_ALGORITHMS } from "./modules/palette-extraction.js";
-import { DEFAULT_PALETTE_SCORING_SETTINGS } from "./modules/palette-scoring.js";
 
 const SETTINGS_STORAGE_KEY = "paletcam:settings:v1";
 const GLOBAL_SETTINGS_STORE_KEY = "__paletcamAppSettingsStore__";
@@ -20,6 +19,46 @@ const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid"]);
+export const PALETTE_ANALYSIS_PROFILES = Object.freeze({
+  EXPRESSIVE: "expressive",
+  PRECISION: "precision",
+  CUSTOM: "custom",
+});
+
+const EXPRESSIVE_PALETTE_SCORING_SETTINGS = Object.freeze({
+  chromaWeight: 25,
+  lumaSpreadWeight: 15,
+  rarityWeight: 20,
+  diversityWeight: 40,
+});
+const PRECISION_PALETTE_SCORING_SETTINGS = Object.freeze({
+  chromaWeight: 22,
+  lumaSpreadWeight: 20,
+  rarityWeight: 8,
+  diversityWeight: 50,
+});
+const EXPRESSIVE_MEDIAN_CUT_SETTINGS = Object.freeze({
+  quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
+  maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
+  colorSpace: "rgb",
+});
+const PRECISION_MEDIAN_CUT_SETTINGS = Object.freeze({
+  quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
+  maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
+  colorSpace: "oklch",
+});
+const PALETTE_ANALYSIS_PROFILE_PRESETS = Object.freeze({
+  [PALETTE_ANALYSIS_PROFILES.EXPRESSIVE]: Object.freeze({
+    paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
+    medianCut: EXPRESSIVE_MEDIAN_CUT_SETTINGS,
+    paletteScoring: EXPRESSIVE_PALETTE_SCORING_SETTINGS,
+  }),
+  [PALETTE_ANALYSIS_PROFILES.PRECISION]: Object.freeze({
+    paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
+    medianCut: PRECISION_MEDIAN_CUT_SETTINGS,
+    paletteScoring: PRECISION_PALETTE_SCORING_SETTINGS,
+  }),
+});
 
 function normalizeQuantizationColorSpace(value) {
   return value === "oklch" ? "oklch" : "rgb";
@@ -33,28 +72,115 @@ function normalizeCollectionViewMode(value) {
   return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "list";
 }
 
+function normalizePaletteAnalysisProfile(value) {
+  return value === PALETTE_ANALYSIS_PROFILES.EXPRESSIVE ||
+      value === PALETTE_ANALYSIS_PROFILES.PRECISION ||
+      value === PALETTE_ANALYSIS_PROFILES.CUSTOM
+    ? value
+    : null;
+}
+
+function cloneMedianCutSettings(settings) {
+  return {
+    quantizedPoolSize: settings.quantizedPoolSize,
+    maxQuantizerPixels: settings.maxQuantizerPixels,
+    colorSpace: settings.colorSpace,
+  };
+}
+
+function clonePaletteScoringSettings(settings) {
+  return {
+    chromaWeight: settings.chromaWeight,
+    lumaSpreadWeight: settings.lumaSpreadWeight,
+    rarityWeight: settings.rarityWeight,
+    diversityWeight: settings.diversityWeight,
+  };
+}
+
+function getPaletteAnalysisProfilePreset(profile) {
+  const preset = PALETTE_ANALYSIS_PROFILE_PRESETS[profile];
+  if (!preset) {
+    return null;
+  }
+
+  return {
+    paletteExtractionAlgorithm: preset.paletteExtractionAlgorithm,
+    medianCut: cloneMedianCutSettings(preset.medianCut),
+    paletteScoring: clonePaletteScoringSettings(preset.paletteScoring),
+  };
+}
+
+function doMedianCutSettingsMatch(firstSettings, secondSettings) {
+  return (
+    firstSettings.quantizedPoolSize === secondSettings.quantizedPoolSize &&
+    firstSettings.maxQuantizerPixels === secondSettings.maxQuantizerPixels &&
+    firstSettings.colorSpace === secondSettings.colorSpace
+  );
+}
+
+function doPaletteScoringSettingsMatch(firstSettings, secondSettings) {
+  return (
+    firstSettings.chromaWeight === secondSettings.chromaWeight &&
+    firstSettings.lumaSpreadWeight === secondSettings.lumaSpreadWeight &&
+    firstSettings.rarityWeight === secondSettings.rarityWeight &&
+    firstSettings.diversityWeight === secondSettings.diversityWeight
+  );
+}
+
+function inferPaletteAnalysisProfile(settings) {
+  const expressivePreset = getPaletteAnalysisProfilePreset(PALETTE_ANALYSIS_PROFILES.EXPRESSIVE);
+  if (
+    expressivePreset &&
+    doMedianCutSettingsMatch(settings.medianCut, expressivePreset.medianCut) &&
+    doPaletteScoringSettingsMatch(settings.paletteScoring, expressivePreset.paletteScoring)
+  ) {
+    return PALETTE_ANALYSIS_PROFILES.EXPRESSIVE;
+  }
+
+  const precisionPreset = getPaletteAnalysisProfilePreset(PALETTE_ANALYSIS_PROFILES.PRECISION);
+  if (
+    precisionPreset &&
+    doMedianCutSettingsMatch(settings.medianCut, precisionPreset.medianCut) &&
+    doPaletteScoringSettingsMatch(settings.paletteScoring, precisionPreset.paletteScoring)
+  ) {
+    return PALETTE_ANALYSIS_PROFILES.PRECISION;
+  }
+
+  return PALETTE_ANALYSIS_PROFILES.CUSTOM;
+}
+
+function applyPaletteAnalysisProfilePreset(settings, profile) {
+  const preset = getPaletteAnalysisProfilePreset(profile);
+  if (!preset) {
+    return {
+      ...settings,
+      paletteAnalysisProfile: inferPaletteAnalysisProfile(settings),
+    };
+  }
+
+  return {
+    ...settings,
+    paletteAnalysisProfile: profile,
+    paletteExtractionAlgorithm: preset.paletteExtractionAlgorithm,
+    medianCut: preset.medianCut,
+    paletteScoring: preset.paletteScoring,
+  };
+}
+
 const DEFAULT_SETTINGS = Object.freeze({
   captureMode: "palette",
   collectionViewMode: "list",
   performanceHudEnabled: false,
   photoExportQuality: 0.95,
+  paletteAnalysisProfile: PALETTE_ANALYSIS_PROFILES.EXPRESSIVE,
   paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
   grid: Object.freeze({
     sampleRowCount: SAMPLE_ROW_COUNT,
     sampleColCount: SAMPLE_COL_COUNT,
     sampleRadius: SAMPLE_RADIUS,
   }),
-  medianCut: Object.freeze({
-    quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
-    maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
-    colorSpace: "rgb",
-  }),
-  paletteScoring: Object.freeze({
-    chromaWeight: DEFAULT_PALETTE_SCORING_SETTINGS.chromaWeight,
-    lumaSpreadWeight: DEFAULT_PALETTE_SCORING_SETTINGS.lumaSpreadWeight,
-    rarityWeight: DEFAULT_PALETTE_SCORING_SETTINGS.rarityWeight,
-    diversityWeight: DEFAULT_PALETTE_SCORING_SETTINGS.diversityWeight,
-  }),
+  medianCut: EXPRESSIVE_MEDIAN_CUT_SETTINGS,
+  paletteScoring: EXPRESSIVE_PALETTE_SCORING_SETTINGS,
 });
 
 function getGlobalSettingsStore() {
@@ -176,7 +302,7 @@ function normalizePaletteScoringSettings(candidate) {
   };
 }
 
-function normalizeSettings(candidate) {
+function buildNormalizedSettings(candidate) {
   return {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
@@ -189,12 +315,30 @@ function normalizeSettings(candidate) {
   };
 }
 
+function normalizeSettings(candidate, explicitPaletteAnalysisProfile = undefined) {
+  const normalizedSettings = buildNormalizedSettings(candidate);
+  const requestedProfile = normalizePaletteAnalysisProfile(explicitPaletteAnalysisProfile);
+
+  if (
+    requestedProfile === PALETTE_ANALYSIS_PROFILES.EXPRESSIVE ||
+    requestedProfile === PALETTE_ANALYSIS_PROFILES.PRECISION
+  ) {
+    return applyPaletteAnalysisProfilePreset(normalizedSettings, requestedProfile);
+  }
+
+  return {
+    ...normalizedSettings,
+    paletteAnalysisProfile: inferPaletteAnalysisProfile(normalizedSettings),
+  };
+}
+
 function areSettingsEqual(firstSettings, secondSettings) {
   return (
     firstSettings.captureMode === secondSettings.captureMode &&
     firstSettings.collectionViewMode === secondSettings.collectionViewMode &&
     firstSettings.performanceHudEnabled === secondSettings.performanceHudEnabled &&
     firstSettings.photoExportQuality === secondSettings.photoExportQuality &&
+    firstSettings.paletteAnalysisProfile === secondSettings.paletteAnalysisProfile &&
     firstSettings.paletteExtractionAlgorithm === secondSettings.paletteExtractionAlgorithm &&
     firstSettings.grid.sampleRowCount === secondSettings.grid.sampleRowCount &&
     firstSettings.grid.sampleColCount === secondSettings.grid.sampleColCount &&
@@ -234,6 +378,10 @@ function persistSettings(nextSettings) {
 
 function loadSettings() {
   const storedSettings = readStoredSettings();
+  const hasStoredPaletteAnalysisProfile = Object.prototype.hasOwnProperty.call(
+    storedSettings ?? {},
+    "paletteAnalysisProfile",
+  );
 
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
@@ -250,7 +398,7 @@ function loadSettings() {
       ...DEFAULT_SETTINGS.paletteScoring,
       ...(storedSettings?.paletteScoring ?? {}),
     },
-  });
+  }, hasStoredPaletteAnalysisProfile ? storedSettings?.paletteAnalysisProfile : undefined);
 }
 
 function notifySettingsListeners() {
@@ -268,6 +416,7 @@ function notifySettingsListeners() {
 export function getDefaultAppSettings() {
   return {
     ...DEFAULT_SETTINGS,
+    paletteAnalysisProfile: DEFAULT_SETTINGS.paletteAnalysisProfile,
     grid: { ...DEFAULT_SETTINGS.grid },
     medianCut: { ...DEFAULT_SETTINGS.medianCut },
     paletteScoring: { ...DEFAULT_SETTINGS.paletteScoring },
@@ -282,6 +431,7 @@ export function getDefaultAppSettingsResetPatch() {
     captureMode: defaults.captureMode,
     collectionViewMode: defaults.collectionViewMode,
     performanceHudEnabled: defaults.performanceHudEnabled,
+    paletteAnalysisProfile: defaults.paletteAnalysisProfile,
     grid: defaults.grid,
     medianCut: defaults.medianCut,
     paletteExtractionAlgorithm: defaults.paletteExtractionAlgorithm,
@@ -293,6 +443,7 @@ export function getDefaultAppSettingsResetPatch() {
 export function getAppSettings() {
   return {
     ...settingsStore.currentSettings,
+    paletteAnalysisProfile: settingsStore.currentSettings.paletteAnalysisProfile,
     grid: { ...settingsStore.currentSettings.grid },
     medianCut: { ...settingsStore.currentSettings.medianCut },
     paletteScoring: { ...settingsStore.currentSettings.paletteScoring },
@@ -304,6 +455,10 @@ export function getAppSettings() {
  * @returns {AppSettings}
  */
 export function updateAppSettings(partialSettings) {
+  const hasExplicitPaletteAnalysisProfile = Object.prototype.hasOwnProperty.call(
+    partialSettings ?? {},
+    "paletteAnalysisProfile",
+  );
   const nextSettings = normalizeSettings({
     ...settingsStore.currentSettings,
     ...partialSettings,
@@ -319,7 +474,7 @@ export function updateAppSettings(partialSettings) {
       ...settingsStore.currentSettings.paletteScoring,
       ...(partialSettings?.paletteScoring ?? {}),
     },
-  });
+  }, hasExplicitPaletteAnalysisProfile ? partialSettings?.paletteAnalysisProfile : undefined);
 
   if (areSettingsEqual(nextSettings, settingsStore.currentSettings)) {
     return getAppSettings();
