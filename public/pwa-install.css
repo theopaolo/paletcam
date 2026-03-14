@@ -55,9 +55,6 @@
   flex-shrink: 0;
 }
 
-.install-btn:hover {
-  background: #333;
-}
 
 .install-btn:active {
   background: #000;
@@ -78,10 +75,6 @@
   transition: background 0.2s;
 }
 
-.install-close:hover {
-  background: var(--dark-color);
-  color: var(--accent-color);
-}
 
 @media (max-width: 480px) {
   .install-toast {

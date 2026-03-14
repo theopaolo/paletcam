@@ -44,9 +44,6 @@
   font-size: .85rem;
 }
 
-.btn-containers .allow-container:hover {
-  cursor: pointer;
-}
 
 .btn-containers .btn-allow-media {
   display: grid;
@@ -67,9 +64,6 @@
   border: 1px;
 }
 
-.btn-containers .btn-allow-media:hover {
-  cursor: pointer;
-}
 
 .btn-containers .btn-allow-media:active {
   border: 2px solid #9d7b00;
@@ -113,17 +107,27 @@
   display: grid;
   place-content: center;
   overflow: hidden;
+  padding: 0;
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9999px;
   border: 2px solid #0f0f0f;
   box-shadow: inset 0px 2px 5px #5757578a, 0px 2px 4px #303030;
   background: linear-gradient(#181818, #141414 8%, #131313 20%, #0c0c0c 50%, #131313bd 80%, #161616);
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-.btn-containers .btn-view-collection img,
-.btn-containers .btn-rotate img {
+.btn-containers .camera-action-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  min-height: 1.25rem;
+  flex: none;
+  max-width: none;
+  object-fit: contain;
   transition: transform 0.2s ease;
+  transform-origin: center;
 }
 
 .btn-containers .btn-view-collection:active,
@@ -133,20 +137,11 @@
   background: linear-gradient(#111111 10%, #101010 20%, #0c0c0c 40%, #080808 50%, #0b0b0b);
 }
 
-.btn-containers .btn-view-collection:active img,
-.btn-containers .btn-rotate:active img {
-  scale: 0.9;
+.btn-containers .btn-view-collection:active .camera-action-icon,
+.btn-containers .btn-rotate:active .camera-action-icon {
+  transform: scale(0.9);
 }
 
-.btn-containers .btn-rotate:hover,
-.btn-containers .btn-view-collection:hover {
-  cursor: pointer;
-}
-
-.btn-containers .btn-rotate:hover img,
-.btn-containers .btn-view-collection:hover img {
-  transform: rotate(-16deg);
-}
 
 .btn-containers .btn-capture {
   --capture-glow-rgb: 255, 200, 0;
@@ -266,24 +261,10 @@ body.is-preview-expanded .camera-preview-dock {
   background: linear-gradient(182deg, #ffe06d 5%, #bb9300 50%, #bb9300 100%);
 }
 
-@media (hover: hover) {
-  .btn-small:hover {
-    background-color: var(--secondary-color);
-    color: var(--primary-color);
-  }
-}
-
 .btn-small, .counter {
   border-color: #9d7b00;
   color: #5a5336;
   text-shadow: 0px 1px 0px #ffc800;
-}
-
-@media (hover: hover) {
-  .btn-small:hover {
-    background-color: var(--accent-color);
-    color: var(--primary-color);
-  }
 }
 
 .btn-small:active {
