@@ -145,8 +145,9 @@
 
 .btn-containers .btn-capture {
   --capture-glow-rgb: 255, 200, 0;
+  position: relative;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
   overflow: hidden;
   width: 4rem;
@@ -163,13 +164,19 @@
   transition:
     transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    opacity 0.2s ease;
 }
 
 
 .btn-containers .btn-capture::after {
   content: "";
   background: linear-gradient(#212121, #1f1f1f 10%, #0c0c0c 30%, #000000 50%, #000000 80%, #000000);
+}
+
+.btn-containers .btn-capture:disabled,
+.btn-containers .btn-rotate:disabled {
+  cursor: default;
 }
 
 .btn-containers .btn-capture:active {
@@ -193,12 +200,26 @@
   transform: scale(1.08);
 }
 
-.btn-containers .btn-capture.is-pop .btn-on {
-  filter: invert(1);
-}
-
 .btn-containers .btn-capture.is-pop .btn-shoot {
   filter: brightness(1.4) saturate(1.3);
+}
+
+.btn-containers .btn-capture.is-loading {
+  opacity: 0.96;
+  box-shadow:
+    inset 0px 2px 5px #5757578a,
+    0px 2px 4px #303030,
+    0 0 14px rgba(var(--capture-glow-rgb), 0.26),
+    0 0 28px rgba(var(--capture-glow-rgb), 0.14);
+  animation: capture-button-loading-pulse 1.1s ease-in-out infinite;
+}
+
+.btn-containers .btn-capture.is-loading .btn-shoot {
+  animation: capture-button-loading-icon 1.1s ease-in-out infinite;
+}
+
+.btn-containers .btn-rotate:disabled {
+  opacity: 0.48;
 }
 
 .btn-containers .btn-rotate {
@@ -222,23 +243,11 @@ body.is-preview-expanded .camera-preview-dock {
 }
 
 .btn-shoot {
-  transform: translateY(18px);
-  transition: transform .3s ease-in-out, filter 0.12s ease-out;
-}
-
-.btn-on {
-  transition: transform .3s ease-in-out, filter 0.12s ease-out;
-  transform: translateY(-8px);
-}
-
-.btn-shoot.hidden {
-  transform: translateY(-120%);
-  transition: all .3s ease-in-out;
-}
-
-.btn-on.hidden {
-  transform: translateY(130%);
-  transition: all .3s ease-in-out;
+  width: 2rem;
+  height: 2rem;
+  transition: filter 0.12s ease-out;
+  position: relative;
+  z-index: 1;
 }
 
 .btns-actions {
@@ -247,6 +256,40 @@ body.is-preview-expanded .camera-preview-dock {
 
   margin-left: auto;
   padding-left: 4rem;
+}
+
+@keyframes capture-button-loading-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0px 2px 5px #5757578a,
+      0px 2px 4px #303030,
+      0 0 10px rgba(var(--capture-glow-rgb), 0.18),
+      0 0 18px rgba(var(--capture-glow-rgb), 0.08);
+  }
+
+  50% {
+    box-shadow:
+      inset 0px 2px 5px #5757578a,
+      0px 2px 4px #303030,
+      0 0 18px rgba(var(--capture-glow-rgb), 0.3),
+      0 0 32px rgba(var(--capture-glow-rgb), 0.18);
+  }
+}
+
+@keyframes capture-button-loading-icon {
+  0%,
+  100% {
+    opacity: 0.74;
+    transform: scale(0.96);
+    filter: brightness(0.88) saturate(0.92);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1.06) saturate(1.08);
+  }
 }
 
 .btn-small {

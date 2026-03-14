@@ -5,7 +5,7 @@ import {
   DEFAULT_CAMERA_RESUME_DELAY_MS,
   getCameraResumeDelay,
 } from "./modules/camera-resume-policy.js";
-import { drawFrameToCanvas, renderOutputSwatches, setCaptureState } from "./modules/camera-ui.js";
+import { drawFrameToCanvas, renderOutputSwatches } from "./modules/camera-ui.js";
 import { clientLog } from "./modules/client-log.js";
 import { findClosestRAL, getRalQualityLabel } from "./modules/color-matching-ral.js";
 import { formatErrorDetails } from "./modules/error-format.js";
@@ -47,7 +47,7 @@ const RAL_COLOR_DISTANCE_THRESHOLD = 12;
 
 
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
-const captureButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-capture"));
+const captureButton = /** @type {HTMLButtonElement | null} */ (document.querySelector(".btn-capture"));
 const allowButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-allow-media"));
 const allowText = /** @type {HTMLElement | null} */ (
   document.querySelector(".allow-container span")
@@ -68,12 +68,10 @@ const paletteCanvas = /** @type {HTMLCanvasElement | null} */ (
   document.getElementById("canvas-palette")
 );
 const analysisCanvas = document.createElement("canvas");
-const rotateButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-rotate"));
+const rotateButton = /** @type {HTMLButtonElement | null} */ (document.querySelector(".btn-rotate"));
 const swatchSlider = /** @type {HTMLInputElement | null} */ (
   document.querySelector('.swatch-slider input[type="range"]')
 );
-const btnOn = /** @type {HTMLElement | null} */ (document.querySelector(".btn-on"));
-const btnShoot = /** @type {HTMLElement | null} */ (document.querySelector(".btn-shoot"));
 const ralReticle = document.getElementById("ralReticle");
 const ralLiveSwatch = document.getElementById("ralLiveSwatch");
 const ralLiveSwatchColor = document.getElementById("ralLiveSwatchColor");
@@ -147,6 +145,7 @@ let lastViewportHeight = 0;
 let currentPhotoObjectUrl = "";
 let isCaptureSavePending = false;
 let latestPaletteWorkerDurationMs = null;
+let activeCameraStartPromise = null;
 const performanceHud = createPerformanceHudController({
   initialEnabled: getAppSettings().performanceHudEnabled,
 });
@@ -226,6 +225,131 @@ function bindManagedEventListener(target, eventName, listener, options) {
   appEventCleanups.push(() => {
     target.removeEventListener(eventName, listener, options);
   });
+}
+
+function supportsCameraStartup() {
+  return typeof navigator.mediaDevices?.getUserMedia === "function";
+}
+
+function setButtonDisabled(button, shouldDisable) {
+  if (!button) {
+    return;
+  }
+
+  button.disabled = shouldDisable;
+}
+
+function syncCameraActionAvailability() {
+  const shouldDisableActions = !supportsCameraStartup() || Boolean(activeCameraStartPromise);
+  setButtonDisabled(captureButton, shouldDisableActions);
+  setButtonDisabled(rotateButton, shouldDisableActions);
+  captureButton?.classList.toggle("is-loading", Boolean(activeCameraStartPromise));
+}
+
+function getCameraStartToastOptions(error) {
+  const name = error?.name ?? "";
+
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return {
+      message: "Autorisez l’accès à la caméra pour capturer des palettes.",
+      duration: 4200,
+    };
+  }
+
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return {
+      message: "Aucune caméra n’a été détectée sur cet appareil.",
+      duration: 3800,
+    };
+  }
+
+  if (name === "NotReadableError" || name === "TrackStartError" || name === "AbortError") {
+    return {
+      message: "La caméra est déjà utilisée ou momentanément indisponible.",
+      duration: 3800,
+    };
+  }
+
+  if (name === "OverconstrainedError") {
+    return {
+      message: "Impossible de démarrer une caméra compatible.",
+      duration: 3800,
+    };
+  }
+
+  return {
+    message: "Impossible de démarrer la caméra.",
+    duration: 3500,
+    details: formatErrorDetails(error),
+  };
+}
+
+function handleCameraStartError(error) {
+  const { message, duration, details } = getCameraStartToastOptions(error);
+  showToast(message, {
+    variant: "error",
+    duration,
+    details,
+  });
+}
+
+function finalizeStartedCameraStream(started) {
+  if (!started) {
+    return false;
+  }
+
+  syncCameraViewportLayout();
+  updateCachedPreviewDimensions();
+  zoomUi?.syncCapabilities();
+  exposureUi?.syncCapabilities();
+  shouldResumeCameraOnForeground = true;
+
+  if (!isStreaming) {
+    isStreaming = true;
+    schedulePreviewRefresh();
+  }
+
+  return true;
+}
+
+async function runCameraStartOperation(startOperation) {
+  if (_testImageMode || !supportsCameraStartup()) {
+    syncCameraActionAvailability();
+    return false;
+  }
+
+  if (activeCameraStartPromise) {
+    return activeCameraStartPromise;
+  }
+
+  const startPromise = (async () => {
+    cancelScheduledCameraResume();
+    invalidateCameraResumeChecks();
+    isStreaming = false;
+    cancelPreviewRefresh();
+
+    const started = await startOperation();
+
+    // loadTestImage may have activated test mode while we were awaiting the stream
+    if (_testImageMode) {
+      stopCurrentStream({ preserveResumeIntent: false });
+      return false;
+    }
+
+    return finalizeStartedCameraStream(started);
+  })();
+
+  activeCameraStartPromise = startPromise;
+  syncCameraActionAvailability();
+
+  try {
+    return await startPromise;
+  } finally {
+    if (activeCameraStartPromise === startPromise) {
+      activeCameraStartPromise = null;
+    }
+    syncCameraActionAvailability();
+  }
 }
 
 function clearManagedEventListeners() {
@@ -810,11 +934,10 @@ const cameraController = createCameraController({
       message: error?.message,
     });
 
-    showToast("Pas de caméra accessible.", { variant: "error", duration: 3500 });
+    handleCameraStartError(error);
   },
   onCameraActiveChange: (isCameraActive) => {
     syncCameraFeedOrientation();
-    setCaptureState({ btnOn, btnShoot, isCameraActive });
     if (!isCameraActive) {
       resetPalettePreviewState();
       zoomUi?.setDisabled();
@@ -887,7 +1010,7 @@ async function handleRotateButtonClick() {
   }
 
   stopCurrentStream({ preserveResumeIntent: true });
-  await cameraController.toggleFacingMode();
+  await runCameraStartOperation(() => cameraController.toggleFacingMode());
 }
 
 function handleWindowResize() {
@@ -1202,11 +1325,11 @@ function initializeApp() {
   zoomUi.initialize();
   exposureUi.initialize();
   swatchSliderUi.initialize(swatchCount);
-  setCaptureState({ btnOn, btnShoot, isCameraActive: false });
+  syncCameraActionAvailability();
   clearPhotoOutput();
   renderOutputSwatches(outputPalette, []);
 
-  if (navigator.mediaDevices?.getUserMedia) {
+  if (supportsCameraStartup()) {
     void startCameraStream().then(() => {
       isInitialStartupComplete = true;
     });
@@ -1216,7 +1339,7 @@ function initializeApp() {
 }
 
 function bindCameraPermissionEvents() {
-  if (!navigator.mediaDevices?.getUserMedia) {
+  if (!supportsCameraStartup()) {
     return;
   }
 
@@ -1260,36 +1383,7 @@ function bindRotationEvents() {
 }
 
 async function startCameraStream() {
-  if (_testImageMode) {
-    return false;
-  }
-
-  cancelScheduledCameraResume();
-  invalidateCameraResumeChecks();
-  isStreaming = false;
-  cancelPreviewRefresh();
-  const started = await cameraController.startStream();
-
-  // loadTestImage may have activated test mode while we were awaiting the stream
-  if (_testImageMode) {
-    stopCurrentStream({ preserveResumeIntent: false });
-    return false;
-  }
-
-  if (started) {
-    syncCameraViewportLayout();
-    updateCachedPreviewDimensions();
-    zoomUi.syncCapabilities();
-    exposureUi.syncCapabilities();
-    shouldResumeCameraOnForeground = true;
-
-    if (!isStreaming) {
-      isStreaming = true;
-      schedulePreviewRefresh();
-    }
-  }
-
-  return started;
+  return runCameraStartOperation(() => cameraController.startStream());
 }
 
 function handleCameraCanPlay() {

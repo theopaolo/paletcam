@@ -542,9 +542,16 @@ async function handlePublishPalette(palette, action = "publish") {
 
   try {
     await actionConfig.run(palette);
-    showToast(actionConfig.successMessage, {
+    const toastOptions = {
       duration: 1800,
-    });
+    };
+    if (action === 'publish') {
+      toastOptions.actionLabel = 'my catches';
+      toastOptions.onAction = () => {
+        window.open('https://colorcatchers.co/my/catches');
+      };
+    }
+    showToast(actionConfig.successMessage, toastOptions);
 
     await loadCollectionUi();
 

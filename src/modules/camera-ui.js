@@ -2,19 +2,6 @@ import { toRgbCss } from "./color-format.js";
 
 const EMPTY_OUTPUT_HINT_TEXT = "Aperçus.";
 
-function setClassVisibility(element, shouldShow) {
-  if (!element) {
-    return;
-  }
-
-  element.classList.toggle("hidden", !shouldShow);
-}
-
-export function setCaptureState({ btnOn, btnShoot, isCameraActive }) {
-  setClassVisibility(btnOn, !isCameraActive);
-  setClassVisibility(btnShoot, isCameraActive);
-}
-
 export function drawFrameToCanvas({
   context,
   cameraFeed,
