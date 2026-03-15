@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Component Showcase</title>
+  <link rel="stylesheet" href="./styles/app.css" />
+  <link rel="stylesheet" href="./styles/toast.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica Neue, sans-serif;
+      background: #fafbfc;
+      padding: 60px 20px;
+      color: #24292f;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-bottom: 32px;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      margin-bottom: 40px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 28px;
+      color: #24292f;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    button {
+      padding: 8px 14px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      background: white;
+      color: #24292f;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      background: #f6f8fa;
+      border-color: #b1bac4;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    button:active {
+      background: #eaeef2;
+      border-color: #8c959f;
+    }
+
+    .info {
+      background: #f6f8fa;
+      border-left: 3px solid #0969da;
+      padding: 12px 16px;
+      margin-bottom: 28px;
+      font-size: 13px;
+      color: #57606a;
+      border-radius: 6px;
+      line-height: 1.5;
+    }
+
+
+    .variant-group {
+      margin-bottom: 28px;
+    }
+
+    .variant-group h3 {
+      font-size: 12px;
+      color: #57606a;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-weight: 600;
+    }
+
+    .divider {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 28px 0;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+    }
+
+    .pause-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pause-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #ffd700;
+      color: #333;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .pause-badge.active {
+      opacity: 1;
+    }
+
+    /* Demo container for toasts */
+    .toast-demo-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      min-height: 140px;
+      margin-top: 24px;
+      padding: 20px;
+      background: #f6f8fa;
+      border-radius: 8px;
+      border: 1px dashed #d0d7de;
+      overflow: hidden;
+    }
+
+    /* Reposition toast-host for showcase */
+    .toast-demo-container toast-host {
+      position: static;
+      width: 100%;
+      min-height: auto;
+      pointer-events: all;
+      z-index: 1;
+    }
+
+    .toast-demo-container .toast {
+      position: relative;
+      width: 100%;
+      bottom: auto;
+      top: auto;
+      margin: 12px 0;
+      transform: none;
+    }
+
+    .toast-demo-container .toast.is-leaving {
+      opacity: 0;
+    }
+
+    /* Pause animations when paused */
+    body.paused .toast {
+      animation-play-state: paused;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Component Showcase</h1>
+      <div class="pause-control">
+        <button type="button" id="pauseBtn" onclick="window.demo.togglePause()">Pause Animations</button>
+        <div class="pause-badge" id="pauseBadge">⏸ PAUSED</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Toast Notifications</h2>
+
+      <div class="info">
+        Toasts are non-intrusive notifications that appear at the bottom of the screen. Click buttons below to preview different variants and configurations.
+      </div>
+
+      <!-- Standard Toasts -->
+      <div class="variant-group">
+        <h3>Standard Toast</h3>
+        <div class="controls">
+          <button type="button" onclick="window.demo.showStandardDefault()">Default</button>
+          <button type="button" onclick="window.demo.showStandardError()">Error</button>
+          <button type="button" onclick="window.demo.showStandardWithDetails()">With Details</button>
+          <button type="button" onclick="window.demo.showStandardWithAction()">With Action</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Undo Toast -->
+      <div class="variant-group">
+        <h3>Undo Toast</h3>
+        <div class="controls">
+          <button type="button" onclick="window.demo.showUndo()">Basic Undo</button>
+          <button type="button" onclick="window.demo.showUndoWithCallback()">With Callback</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Stress Tests -->
+      <div class="variant-group">
+        <h3>Multiple Toasts</h3>
+        <div class="controls">
+          <button type="button" onclick="window.demo.showMultiple()">Queue Multiple</button>
+          <button type="button" onclick="window.demo.showMixed()">Mixed Types</button>
+          <button type="button" onclick="window.demo.clearAll()">Clear All (manual test)</button>
+        </div>
+      </div>
+
+      <div class="toast-demo-container">
+        <!-- Toasts will be inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import '/modules/toast/toast-host.js';
+    import { showToast, showUndoToast } from '/modules/toast-ui.js';
+
+    // Pause state
+    let isPaused = false;
+    const pausedTimers = new Set();
+
+    // Override window.setTimeout to track timers when paused
+    const originalSetTimeout = window.setTimeout;
+    window.setTimeout = function(...args) {
+      const timerId = originalSetTimeout.apply(this, args);
+      if (isPaused) {
+        pausedTimers.add(timerId);
+        window.clearTimeout(timerId);
+      }
+      return timerId;
+    };
+
+    // Move toast-host into demo container
+    setTimeout(() => {
+      const toastHost = document.querySelector('toast-host');
+      const demoContainer = document.querySelector('.toast-demo-container');
+      if (toastHost && demoContainer) {
+        demoContainer.appendChild(toastHost);
+      }
+    }, 100);
+
+    // Demo API
+    window.demo = {
+      togglePause() {
+        isPaused = !isPaused;
+        const body = document.body;
+        const pauseBtn = document.getElementById('pauseBtn');
+        const pauseBadge = document.getElementById('pauseBadge');
+
+        if (isPaused) {
+          body.classList.add('paused');
+          pauseBtn.textContent = 'Resume Animations';
+          pauseBadge.classList.add('active');
+        } else {
+          body.classList.remove('paused');
+          pauseBtn.textContent = 'Pause Animations';
+          pauseBadge.classList.remove('active');
+          pausedTimers.clear();
+        }
+      },
+
+      showStandardDefault() {
+        showToast('This is a standard toast notification');
+      },
+
+      showStandardError() {
+        showToast('Something went wrong!', { variant: 'error' });
+      },
+
+      showStandardWithDetails() {
+        showToast('Palette saved', {
+          details: 'Your palette has been saved to your library',
+        });
+      },
+
+      showStandardWithAction() {
+        showToast('Palette published', {
+          actionLabel: 'View',
+          onAction: () => console.log('Action clicked!'),
+        });
+      },
+
+      showUndo() {
+        showUndoToast('Item deleted', {
+          onUndo: () => console.log('Undo clicked!'),
+        });
+      },
+
+      showUndoWithCallback() {
+        showUndoToast('Palette removed from collection', {
+          onUndo: () => console.log('Undo executed'),
+          onExpire: () => console.log('Undo expired'),
+        });
+      },
+
+      showMultiple() {
+        const messages = [
+          'First notification',
+          'Second notification',
+          'Third notification',
+        ];
+        messages.forEach((msg, i) => {
+          setTimeout(() => showToast(msg), i * 500);
+        });
+      },
+
+      showMixed() {
+        showToast('Default message');
+        setTimeout(() => showUndoToast('Item deleted'), 800);
+        setTimeout(() => showToast('All done!', { variant: 'error' }), 1600);
+      },
+
+      clearAll() {
+        console.log('To clear toasts, you would need to manually dispatch events or add a clear method to toast-host');
+      },
+    };
+  </script>
+</body>
+</html>

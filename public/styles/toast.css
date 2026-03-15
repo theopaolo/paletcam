@@ -22,12 +22,11 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.68rem 0.85rem 0.92rem;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
   overflow: visible;
   background: rgba(10, 8, 3, 0.97);
   color: var(--secondary-color);
-  backdrop-filter: blur(6px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
   opacity: 0;
   transform:
@@ -109,6 +108,14 @@
 
 .toast-action:active {
   background: rgba(255, 200, 0, 0.24);
+}
+
+.toast-dismiss {
+  display: none;
+}
+
+.toast.is-swiping {
+  transition: none;
 }
 
 .toast-progress {

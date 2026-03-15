@@ -17,7 +17,8 @@
       "Bash(find /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public -type f \\\\\\(-name *.html -o -name *.css -o -name *.js \\\\\\))",
       "Bash(find /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src -type f -name *.js -o -name *.html -o -name *.ts)",
       "Bash(grep -n \"hide-zoom\\\\|use-canvas\\\\|is-ios\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/*.css)",
-      "Bash(ls -la /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/modules/*.js)"
+      "Bash(ls -la /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/modules/*.js)",
+      "Bash(npm run:*)"
     ]
   }
 }

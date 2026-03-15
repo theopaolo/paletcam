@@ -8,8 +8,7 @@ import {
 } from "../panels/panel-manager.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
-const PRELOAD_BACKWARD_DISTANCE = 1;
-const PRELOAD_FORWARD_DISTANCE = 3;
+const PRELOAD_COUNT = 3;
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
 const shareButton = /** @type {HTMLButtonElement | null} */ (
@@ -36,7 +35,6 @@ let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
 let pendingTrackAlignmentRaf = 0;
-let pendingTrackScrollRaf = 0;
 
 const PUBLISH_BUTTON_COPY = Object.freeze({
   publish: {
@@ -157,15 +155,6 @@ function clearPendingTrackAlignment() {
   pendingTrackAlignmentRaf = 0;
 }
 
-function clearPendingTrackScroll() {
-  if (!pendingTrackScrollRaf) {
-    return;
-  }
-
-  window.cancelAnimationFrame(pendingTrackScrollRaf);
-  pendingTrackScrollRaf = 0;
-}
-
 function hideRalPopover() {
   if (ralPopover) {
     ralPopover.hidden = true;
@@ -178,6 +167,13 @@ function clearViewerSwatches() {
     swatchStripContainer.innerHTML = "";
     swatchStripContainer.hidden = true;
   }
+}
+
+function createViewerSwatch() {
+  const swatch = document.createElement("button");
+  swatch.type = "button";
+  swatch.className = "palette-viewer-swatch";
+  return swatch;
 }
 
 function showRalPopover(color, anchorElement) {
@@ -219,11 +215,10 @@ function renderViewerSwatches(colors) {
   }
 
   swatchStripContainer.innerHTML = "";
-  swatchStripContainer.hidden = colors.length === 0;
+  swatchStripContainer.hidden = false;
 
   colors.forEach((color) => {
-    const swatch = document.createElement("button");
-    swatch.className = "palette-viewer-swatch";
+    const swatch = createViewerSwatch();
     swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
     swatch.setAttribute("aria-label", "Voir correspondance RAL");
     swatch.addEventListener("click", (event) => {
@@ -232,6 +227,22 @@ function renderViewerSwatches(colors) {
     });
     swatchStripContainer.appendChild(swatch);
   });
+}
+
+function renderViewerPlaceholderSwatch() {
+  if (!swatchStripContainer) {
+    return;
+  }
+
+  swatchStripContainer.innerHTML = "";
+  swatchStripContainer.hidden = false;
+
+  const swatch = createViewerSwatch();
+  swatch.classList.add("is-placeholder");
+  swatch.disabled = true;
+  swatch.tabIndex = -1;
+  swatch.setAttribute("aria-hidden", "true");
+  swatchStripContainer.appendChild(swatch);
 }
 
 function shouldShowViewerSwatches(palette) {
@@ -253,7 +264,10 @@ function renderActivePaletteSupplementaryUi() {
 
   if (shouldShowViewerSwatches(palette)) {
     renderViewerSwatches(palette.colors);
+    return;
   }
+
+  renderViewerPlaceholderSwatch();
 }
 
 function syncPublishButtonCopy() {
@@ -330,6 +344,16 @@ function createSlideState(palette, index) {
   slide.className = "palette-viewer-slide";
   slide.dataset.index = String(index);
 
+  const rotation = Math.random() * 8 - 4;
+  const offsetX = Math.random() * 8 - 4;
+  const offsetY = Math.random() * 6 - 3;
+
+  slide.style.setProperty("--slide-rotation", `${rotation}deg`);
+  slide.style.setProperty("--slide-offset-x", `${offsetX}px`);
+  slide.style.setProperty("--slide-offset-y", `${offsetY}px`);
+  // Set initial rotation so transition can work when position updates
+  slide.style.rotate = `${rotation}deg`;
+
   const image = document.createElement("img");
   image.className = "palette-viewer-image";
   image.alt = "Aperçu de capture";
@@ -349,6 +373,9 @@ function createSlideState(palette, index) {
     status,
     loadState: canPalettePreview(palette) ? "idle" : "unavailable",
     requestId: 0,
+    rotation,
+    offsetX,
+    offsetY,
   };
 }
 
@@ -363,6 +390,22 @@ function renderViewerTrack() {
     viewerTrack.appendChild(slideState.slide);
     return slideState;
   });
+}
+
+function getSlideElements() {
+  if (!activeSession) {
+    return [];
+  }
+
+  return activeSession.slideStates.map((slideState) => slideState.slide);
+}
+
+function getActiveSlideElement() {
+  if (!activeSession) {
+    return null;
+  }
+
+  return activeSession.slideStates[activeSession.activeIndex]?.slide ?? null;
 }
 
 async function loadSlideAsset(index) {
@@ -432,48 +475,102 @@ function preloadNearbySlides() {
     return;
   }
 
-  const queue = [activeSession.activeIndex];
-  for (let offset = 1; offset <= PRELOAD_FORWARD_DISTANCE; offset += 1) {
-    queue.push(activeSession.activeIndex + offset);
-  }
-  for (let offset = 1; offset <= PRELOAD_BACKWARD_DISTANCE; offset += 1) {
-    queue.push(activeSession.activeIndex - offset);
-  }
-
-  const visited = new Set();
-  queue.forEach((index) => {
-    if (visited.has(index)) {
-      return;
+  for (let i = 0; i < PRELOAD_COUNT; i += 1) {
+    const index = activeSession.activeIndex + i;
+    if (index >= 0 && index < activeSession.palettes.length) {
+      void loadSlideAsset(index);
     }
-    visited.add(index);
-
-    if (index < 0 || index >= activeSession.palettes.length) {
-      return;
-    }
-
-    void loadSlideAsset(index);
-  });
+  }
 }
 
-function scrollToActiveSlide(behavior = "auto") {
+function updateSlidePositionsWithDrag(dragDelta) {
   if (!viewerTrack || !activeSession) {
     return;
   }
 
-  const left = viewerTrack.clientWidth * activeSession.activeIndex;
-  if (typeof viewerTrack.scrollTo === "function") {
-    viewerTrack.scrollTo({ left, behavior });
+  const slides = getSlideElements();
+
+  slides.forEach((slide, index) => {
+    const offset = index - activeSession.activeIndex;
+    const rotation = parseFloat(slide.style.getPropertyValue("--slide-rotation")) || 0;
+    const offsetX = parseFloat(slide.style.getPropertyValue("--slide-offset-x")) || 0;
+    const offsetY = parseFloat(slide.style.getPropertyValue("--slide-offset-y")) || 0;
+
+    if (offset === 0) {
+      // Active card follows the drag with subtle rotation based on drag direction
+      const dragRotation = (dragDelta / 200) * 3; // Subtle rotation from drag
+      slide.style.zIndex = "100";
+      slide.style.transform = `translateX(${dragDelta + offsetX}px) translateY(${offsetY}px) scale(1)`;
+      slide.style.rotate = `${dragRotation}deg`;
+      slide.style.pointerEvents = "auto";
+    } else if (offset === 1) {
+      // Next card peeking underneath
+      slide.style.zIndex = "90";
+      slide.style.transform = `translateX(${offsetX}px) translateY(${6 + offsetY}px) scale(0.97)`;
+      slide.style.rotate = `${rotation}deg`;
+      slide.style.pointerEvents = "none";
+    } else if (offset === 2) {
+      // Second next card barely visible
+      slide.style.zIndex = "80";
+      slide.style.transform = `translateX(${offsetX}px) translateY(${12 + offsetY}px) scale(0.94)`;
+      slide.style.rotate = `${rotation}deg`;
+      slide.style.pointerEvents = "none";
+    } else {
+      // Hidden cards
+      slide.style.zIndex = "0";
+      slide.style.transform = `translateX(${offsetX}px) translateY(${20 + offsetY}px) scale(0.90)`;
+      slide.style.rotate = `${rotation}deg`;
+      slide.style.pointerEvents = "none";
+    }
+  });
+}
+
+function updateSlidePositions() {
+  if (!viewerTrack || !activeSession) {
     return;
   }
 
-  viewerTrack.scrollLeft = left;
+  const slides = getSlideElements();
+
+  slides.forEach((slide, index) => {
+    const offset = index - activeSession.activeIndex;
+    const rotation = parseFloat(slide.style.getPropertyValue("--slide-rotation")) || 0;
+    const offsetX = parseFloat(slide.style.getPropertyValue("--slide-offset-x")) || 0;
+    const offsetY = parseFloat(slide.style.getPropertyValue("--slide-offset-y")) || 0;
+
+    if (offset === 0) {
+      // Active card (on top, front) - always straight
+      slide.style.zIndex = "100";
+      slide.style.transform = `translateX(${offsetX}px) translateY(${offsetY}px) scale(1)`;
+      slide.style.rotate = "0deg";
+      slide.style.pointerEvents = "auto";
+    } else if (offset === 1) {
+      // Next card peeking underneath
+      slide.style.zIndex = "90";
+      slide.style.transform = `translateX(${offsetX}px) translateY(${6 + offsetY}px) scale(0.97)`;
+      slide.style.rotate = `${rotation}deg`;
+      slide.style.pointerEvents = "none";
+    } else if (offset === 2) {
+      // Second next card barely visible
+      slide.style.zIndex = "80";
+      slide.style.transform = `translateX(${offsetX}px) translateY(${12 + offsetY}px) scale(0.94)`;
+      slide.style.rotate = `${rotation}deg`;
+      slide.style.pointerEvents = "none";
+    } else {
+      // Hidden cards
+      slide.style.zIndex = "0";
+      slide.style.transform = `translateX(${offsetX}px) translateY(${20 + offsetY}px) scale(0.90)`;
+      slide.style.rotate = `${rotation}deg`;
+      slide.style.pointerEvents = "none";
+    }
+  });
 }
 
 function scheduleTrackAlignment() {
   clearPendingTrackAlignment();
   pendingTrackAlignmentRaf = window.requestAnimationFrame(() => {
     pendingTrackAlignmentRaf = 0;
-    scrollToActiveSlide();
+    updateSlidePositions();
     preloadNearbySlides();
   });
 }
@@ -490,19 +587,13 @@ function updateActiveIndex(nextIndex) {
 
   activeSession.activeIndex = clampedIndex;
   syncViewerChrome();
+  updateSlidePositions();
   preloadNearbySlides();
 }
 
-function getTrackActiveIndex() {
-  if (!viewerTrack || !activeSession || viewerTrack.clientWidth <= 0) {
-    return activeSession?.activeIndex ?? 0;
-  }
-
-  return clampIndex(
-    viewerTrack.scrollLeft / viewerTrack.clientWidth,
-    activeSession.palettes.length,
-  );
-}
+let trackGestureStart = { x: 0, y: 0 };
+let trackGestureActive = false;
+let trackGestureDelta = 0;
 
 function syncSessionPalettes({
   preferredPaletteId = null,
@@ -540,7 +631,6 @@ function syncSessionPalettes({
 
 function resetViewerFrame() {
   clearPendingTrackAlignment();
-  clearPendingTrackScroll();
   if (viewerTrack) {
     viewerTrack.innerHTML = "";
     viewerTrack.scrollLeft = 0;
@@ -579,6 +669,22 @@ async function runAction(actionName) {
     }
 
     if (actionName === "onDelete") {
+      const activeSlide = getActiveSlideElement();
+      if (activeSlide) {
+        activeSlide.classList.add("is-discarding");
+        await new Promise((resolve) => {
+          const handleAnimationEnd = () => {
+            activeSlide.removeEventListener("animationend", handleAnimationEnd);
+            resolve(undefined);
+          };
+          activeSlide.addEventListener("animationend", handleAnimationEnd, { once: true });
+          setTimeout(() => {
+            activeSlide.removeEventListener("animationend", handleAnimationEnd);
+            resolve(undefined);
+          }, 800);
+        });
+      }
+
       syncSessionPalettes({
         fallbackIndex,
       });
@@ -593,17 +699,57 @@ async function runAction(actionName) {
   }
 }
 
-function handleTrackScroll() {
-  hideRalPopover();
-
-  if (pendingTrackScrollRaf) {
+function handleTrackPointerDown(event) {
+  if (event.pointerType === "mouse" && event.button !== 0) {
     return;
   }
 
-  pendingTrackScrollRaf = window.requestAnimationFrame(() => {
-    pendingTrackScrollRaf = 0;
-    updateActiveIndex(getTrackActiveIndex());
-  });
+  trackGestureStart = { x: event.clientX, y: event.clientY };
+  trackGestureActive = true;
+  trackGestureDelta = 0;
+
+  const activeSlide = getActiveSlideElement();
+  if (activeSlide) {
+    activeSlide.classList.add("is-dragging");
+  }
+}
+
+function handleTrackPointerMove(event) {
+  if (!trackGestureActive) {
+    return;
+  }
+
+  trackGestureDelta = event.clientX - trackGestureStart.x;
+  updateSlidePositionsWithDrag(trackGestureDelta);
+}
+
+function handleTrackPointerUp() {
+  if (!trackGestureActive) {
+    return;
+  }
+
+  trackGestureActive = false;
+  const deltaX = trackGestureDelta;
+  const absDeltaX = Math.abs(deltaX);
+  const threshold = 50;
+
+  const activeSlide = getActiveSlideElement();
+  if (activeSlide) {
+    activeSlide.classList.remove("is-dragging");
+  }
+
+  hideRalPopover();
+
+  if (absDeltaX > threshold) {
+    if (deltaX > 0) {
+      updateActiveIndex((activeSession?.activeIndex ?? 0) - 1);
+    } else {
+      updateActiveIndex((activeSession?.activeIndex ?? 0) + 1);
+    }
+    scheduleTrackAlignment();
+  } else {
+    updateSlidePositions();
+  }
 }
 
 function handleWindowResize() {
@@ -669,7 +815,9 @@ function bindViewerPanelEvents() {
   deleteButton?.addEventListener("click", () => {
     void runAction("onDelete");
   });
-  viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true });
+  viewerTrack?.addEventListener("pointerdown", handleTrackPointerDown, { passive: true });
+  viewerTrack?.addEventListener("pointermove", handleTrackPointerMove, { passive: true });
+  viewerTrack?.addEventListener("pointerup", handleTrackPointerUp, { passive: true });
   window.addEventListener("resize", handleWindowResize);
   subscribeAppSettings(handleAppSettingsChange);
   subscribeSharedPanelClosing("catch-details", handleViewerPanelClosing);
