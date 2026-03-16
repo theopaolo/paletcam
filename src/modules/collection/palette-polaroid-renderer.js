@@ -1,6 +1,7 @@
+import { BRAND } from "../../config.js";
 import { toRgbCss } from "../color-format.js";
 
-const EXPORT_BRAND_LABEL_FALLBACK = "colorcatchers.co";
+const EXPORT_BRAND_LABEL_FALLBACK = BRAND;
 const POLAROID_CARD_ASPECT_RATIO = 1.22;
 const DEFAULT_POLAROID_PHOTO_ASPECT_RATIO = 4 / 3;
 const POLAROID_RENDER_MAX_WIDTH = 1600;
