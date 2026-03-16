@@ -28,7 +28,7 @@ class SharedPanelElement extends LitElement {
       display: grid;
       grid-template-rows: auto 1fr;
       gap: 0.5rem;
-      overflow-y: auto;
+      overflow-y: var(--shared-panel-shell-overflow-y, auto);
       overscroll-behavior: contain;
       box-sizing: border-box;
       padding: var(--shared-panel-padding, 0.5rem);
@@ -51,13 +51,18 @@ class SharedPanelElement extends LitElement {
 
     .panel-header {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      grid-template-areas: 'title actions close';
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: 'title close';
       align-items: start;
       column-gap: 0.75rem;
       row-gap: 0.5rem;
       padding: var(--shared-panel-header-padding, 0);
       color: inherit;
+    }
+
+    .panel-header.panel-header--with-actions {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-areas: 'title actions close';
     }
 
     .panel-title {
@@ -104,11 +109,13 @@ class SharedPanelElement extends LitElement {
     }
 
     .panel-body {
-      min-height: 0;
+      min-height: var(--shared-panel-body-min-height, 0);
+      display: var(--shared-panel-body-display, block);
+      overflow: var(--shared-panel-body-overflow, visible);
     }
 
     @media (max-width: 560px) {
-      .panel-header {
+      .panel-header.panel-header--with-actions {
         grid-template-columns: minmax(0, 1fr) auto;
         grid-template-areas:
           'title close'
@@ -372,6 +379,8 @@ class SharedPanelElement extends LitElement {
   }
 
   render() {
+    const hasHeaderActions = Boolean(this.querySelector('[slot="header-actions"]'));
+
     return html`
       <section
         class="panel-shell"
@@ -380,11 +389,16 @@ class SharedPanelElement extends LitElement {
         aria-label=${this.panelTitle}
         @transitionend=${this.handleShellTransitionEnd}
       >
-        <header class="panel-header" part="header">
+        <header
+          class=${hasHeaderActions ? 'panel-header panel-header--with-actions' : 'panel-header'}
+          part="header"
+        >
           <h2 class="panel-title">${this.panelTitle}</h2>
-          <div class="panel-header-actions">
-            <slot name="header-actions"></slot>
-          </div>
+          ${hasHeaderActions ? html`
+            <div class="panel-header-actions">
+              <slot name="header-actions"></slot>
+            </div>
+          ` : null}
           <button
             class="close-button"
             type="button"

@@ -108,41 +108,55 @@
       close-label="Fermer les captures"
       hidden
     >
-      <div class="collection-panel-toolbar" slot="header-actions">
-        <div
-          class="collection-view-toggle"
-          role="group"
-          aria-label="Mode d'affichage des captures"
-        >
-          <button
-            class="collection-view-toggle-button"
-            id="collectionViewListButton"
-            type="button"
-            aria-label="Afficher les captures en liste"
-            aria-pressed="true"
-          >
-            <img src="/icons/capture-list.svg" alt="" />
-          </button>
-          <button
-            class="collection-view-toggle-button"
-            id="collectionViewGridButton"
-            type="button"
-            aria-label="Afficher les captures en grille"
-            aria-pressed="false"
-          >
-            <img src="/icons/capture-grid.svg" alt="" />
-          </button>
+      <div class="collection-panel-content">
+        <div class="collection-panel-body">
+          <div class="collection-grid" id="collectionGrid">
+            <!-- Palettes will be dynamically added here -->
+          </div>
         </div>
-        <button
-          class="collection-toolbar-button"
-          id="collectionCollapseAllButton"
-          type="button"
-        >
-          Tout replier
-        </button>
-      </div>
-      <div class="collection-grid" id="collectionGrid">
-        <!-- Palettes will be dynamically added here -->
+        <div class="collection-panel-footer">
+          <div class="collection-panel-toolbar">
+            <button
+              class="collection-toolbar-button"
+              id="collectionCollapseAllButton"
+              type="button"
+            >
+              Tout replier
+            </button>
+
+            <div
+              class="collection-view-actions"
+              role="group"
+              aria-label="Mode d'affichage des captures"
+            >
+              <div class="collection-view-action">
+                <button
+                  class="button-round collection-view-toggle-button"
+                  id="collectionViewListButton"
+                  type="button"
+                  aria-label="Afficher les captures en liste"
+                  aria-pressed="true"
+                >
+                  <img src="/icons/capture-list.svg" alt="" />
+                </button>
+                <span class="collection-view-toggle-legend">Liste</span>
+              </div>
+
+              <div class="collection-view-action">
+                <button
+                  class="button-round collection-view-toggle-button"
+                  id="collectionViewGridButton"
+                  type="button"
+                  aria-label="Afficher les captures en grille"
+                  aria-pressed="false"
+                >
+                  <img src="/icons/capture-grid.svg" alt="" />
+                </button>
+                <span class="collection-view-toggle-legend">Grille</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </shared-panel>
 
@@ -1005,28 +1019,31 @@
         ></div>
         <div class="palette-viewer-actions">
           <button
-            class="button-round palette-action-share"
-            id="catchDetailsShareButton"
+            class="button-round palette-action-delete"
+            id="catchDetailsDeleteButton"
             type="button"
-            aria-label="Partager la palette"
+            aria-label="Supprimer la palette"
           ></button>
-          <button
-            class="button-round palette-action-export"
-            id="catchDetailsExportButton"
-            type="button"
-            aria-label="Exporter la palette"
-          ></button>
+
           <button
             class="button-round palette-action-publish"
             id="catchDetailsPublishButton"
             type="button"
             aria-label="Publier la palette"
           ></button>
+
           <button
-            class="button-round palette-action-delete"
-            id="catchDetailsDeleteButton"
+            class="button-round palette-action-export"
+            id="catchDetailsExportButton"
             type="button"
-            aria-label="Supprimer la palette"
+            aria-label="Exporter la palette"
+          ></button>
+
+          <button
+            class="button-round palette-action-share"
+            id="catchDetailsShareButton"
+            type="button"
+            aria-label="Partager la palette"
           ></button>
         </div>
       </div>
