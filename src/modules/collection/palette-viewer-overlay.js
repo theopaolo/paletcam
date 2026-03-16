@@ -6,14 +6,10 @@ import {
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
-import {
-  getViewerDragDelta,
-  getViewerGestureAxis,
-  getViewerPreloadIndices,
-  getViewerRenderIndices,
-  getViewerSlideLayout,
-} from "./palette-viewer-track-layout.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
+
+const PRELOAD_BACKWARD_DISTANCE = 1;
+const PRELOAD_FORWARD_DISTANCE = 3;
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
 const shareButton = /** @type {HTMLButtonElement | null} */ (
@@ -24,6 +20,9 @@ const exportButton = /** @type {HTMLButtonElement | null} */ (
 );
 const publishButton = /** @type {HTMLButtonElement | null} */ (
   document.getElementById("catchDetailsPublishButton")
+);
+const cameraButton = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("catchDetailsCameraButton")
 );
 const deleteButton = /** @type {HTMLButtonElement | null} */ (
   document.getElementById("catchDetailsDeleteButton")
@@ -40,6 +39,7 @@ let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
 let pendingTrackAlignmentRaf = 0;
+let pendingTrackScrollRaf = 0;
 
 const PUBLISH_BUTTON_COPY = Object.freeze({
   publish: {
@@ -158,6 +158,15 @@ function clearPendingTrackAlignment() {
 
   window.cancelAnimationFrame(pendingTrackAlignmentRaf);
   pendingTrackAlignmentRaf = 0;
+}
+
+function clearPendingTrackScroll() {
+  if (!pendingTrackScrollRaf) {
+    return;
+  }
+
+  window.cancelAnimationFrame(pendingTrackScrollRaf);
+  pendingTrackScrollRaf = 0;
 }
 
 function hideRalPopover() {
@@ -349,16 +358,6 @@ function createSlideState(palette, index) {
   slide.className = "palette-viewer-slide";
   slide.dataset.index = String(index);
 
-  const rotation = Math.random() * 8 - 4;
-  const offsetX = Math.random() * 8 - 4;
-  const offsetY = Math.random() * 6 - 3;
-
-  slide.style.setProperty("--slide-rotation", `${rotation}deg`);
-  slide.style.setProperty("--slide-offset-x", `${offsetX}px`);
-  slide.style.setProperty("--slide-offset-y", `${offsetY}px`);
-  // Set initial rotation so transition can work when position updates
-  slide.style.rotate = `${rotation}deg`;
-
   const image = document.createElement("img");
   image.className = "palette-viewer-image";
   image.alt = "Aperçu de capture";
@@ -378,9 +377,6 @@ function createSlideState(palette, index) {
     status,
     loadState: canPalettePreview(palette) ? "idle" : "unavailable",
     requestId: 0,
-    rotation,
-    offsetX,
-    offsetY,
   };
 }
 
@@ -395,15 +391,6 @@ function renderViewerTrack() {
     viewerTrack.appendChild(slideState.slide);
     return slideState;
   });
-  activeSession.renderedIndices = [];
-}
-
-function getActiveSlideElement() {
-  if (!activeSession) {
-    return null;
-  }
-
-  return activeSession.slideStates[activeSession.activeIndex]?.slide ?? null;
 }
 
 async function loadSlideAsset(index) {
@@ -473,107 +460,77 @@ function preloadNearbySlides() {
     return;
   }
 
-  for (const index of getViewerPreloadIndices(
-    activeSession.activeIndex,
-    activeSession.palettes.length,
-  )) {
+  const queue = [activeSession.activeIndex];
+  for (let offset = 1; offset <= PRELOAD_FORWARD_DISTANCE; offset += 1) {
+    queue.push(activeSession.activeIndex + offset);
+  }
+  for (let offset = 1; offset <= PRELOAD_BACKWARD_DISTANCE; offset += 1) {
+    queue.push(activeSession.activeIndex - offset);
+  }
+
+  const visited = new Set();
+  queue.forEach((index) => {
+    if (visited.has(index)) {
+      return;
+    }
+    visited.add(index);
+
+    if (index < 0 || index >= activeSession.palettes.length) {
+      return;
+    }
+
     void loadSlideAsset(index);
-  }
+  });
 }
 
-function applySlideLayout(slideState, layout) {
-  const { slide } = slideState;
-
-  if (slide.style.zIndex !== layout.zIndex) {
-    slide.style.zIndex = layout.zIndex;
-  }
-  if (slide.style.transform !== layout.transform) {
-    slide.style.transform = layout.transform;
-  }
-  if (slide.style.rotate !== layout.rotate) {
-    slide.style.rotate = layout.rotate;
-  }
-  if (slide.style.pointerEvents !== layout.pointerEvents) {
-    slide.style.pointerEvents = layout.pointerEvents;
-  }
-}
-
-function renderSlidePositions(dragDelta = 0) {
+function scrollToActiveSlide(behavior = "auto") {
   if (!viewerTrack || !activeSession) {
     return;
   }
 
-  const renderIndices = getViewerRenderIndices(
-    activeSession.activeIndex,
-    activeSession.slideStates.length,
-    activeSession.renderedIndices,
-  );
-  const visibleIndices = [];
-
-  for (const index of renderIndices) {
-    const slideState = activeSession.slideStates[index];
-    if (!slideState) {
-      continue;
-    }
-
-    const relativeIndex = index - activeSession.activeIndex;
-    const layout = getViewerSlideLayout(relativeIndex, slideState, dragDelta);
-    applySlideLayout(slideState, layout);
-
-    if (relativeIndex >= 0 && relativeIndex <= 2) {
-      visibleIndices.push(index);
-    }
-  }
-
-  activeSession.renderedIndices = visibleIndices;
-}
-
-function renderActiveSlideDragPosition(dragDelta) {
-  if (!activeSession) {
+  const left = viewerTrack.clientWidth * activeSession.activeIndex;
+  if (typeof viewerTrack.scrollTo === "function") {
+    viewerTrack.scrollTo({ left, behavior });
     return;
   }
 
-  const slideState = activeSession.slideStates[activeSession.activeIndex];
-  if (!slideState) {
-    return;
-  }
-
-  applySlideLayout(slideState, getViewerSlideLayout(0, slideState, dragDelta));
+  viewerTrack.scrollLeft = left;
 }
 
 function scheduleTrackAlignment() {
   clearPendingTrackAlignment();
   pendingTrackAlignmentRaf = window.requestAnimationFrame(() => {
     pendingTrackAlignmentRaf = 0;
-    renderSlidePositions();
+    scrollToActiveSlide();
     preloadNearbySlides();
   });
 }
 
 function updateActiveIndex(nextIndex) {
   if (!activeSession) {
-    return false;
+    return;
   }
 
   const clampedIndex = clampIndex(nextIndex, activeSession.palettes.length);
   if (clampedIndex === activeSession.activeIndex) {
-    return false;
+    return;
   }
 
   activeSession.activeIndex = clampedIndex;
   syncViewerChrome();
-  renderSlidePositions();
   preloadNearbySlides();
-  return true;
 }
 
-let trackGesturePointerId = null;
-let trackGestureStartX = 0;
-let trackGestureStartY = 0;
-let trackGestureActive = false;
-let trackGestureDelta = 0;
-let trackGestureRawDelta = 0;
-let trackGestureAxis = "pending";
+function getTrackActiveIndex() {
+  if (!viewerTrack || !activeSession || viewerTrack.clientWidth <= 0) {
+    return activeSession?.activeIndex ?? 0;
+  }
+
+  return clampIndex(
+    viewerTrack.scrollLeft / viewerTrack.clientWidth,
+    activeSession.palettes.length,
+  );
+}
 
 function syncSessionPalettes({
   preferredPaletteId = null,
@@ -611,6 +568,7 @@ function syncSessionPalettes({
 
 function resetViewerFrame() {
   clearPendingTrackAlignment();
+  clearPendingTrackScroll();
   if (viewerTrack) {
     viewerTrack.innerHTML = "";
     viewerTrack.scrollLeft = 0;
@@ -649,22 +607,6 @@ async function runAction(actionName) {
     }
 
     if (actionName === "onDelete") {
-      const activeSlide = getActiveSlideElement();
-      if (activeSlide) {
-        activeSlide.classList.add("is-discarding");
-        await new Promise((resolve) => {
-          const handleAnimationEnd = () => {
-            activeSlide.removeEventListener("animationend", handleAnimationEnd);
-            resolve(undefined);
-          };
-          activeSlide.addEventListener("animationend", handleAnimationEnd, { once: true });
-          setTimeout(() => {
-            activeSlide.removeEventListener("animationend", handleAnimationEnd);
-            resolve(undefined);
-          }, 800);
-        });
-      }
-
       syncSessionPalettes({
         fallbackIndex,
       });
@@ -679,111 +621,17 @@ async function runAction(actionName) {
   }
 }
 
-function handleTrackPointerDown(event) {
-  if (event.pointerType === "mouse" && event.button !== 0) {
-    return;
-  }
-
-  clearPendingTrackAlignment();
-  trackGesturePointerId = event.pointerId ?? null;
-  trackGestureStartX = event.clientX;
-  trackGestureStartY = event.clientY;
-  trackGestureActive = true;
-  trackGestureDelta = 0;
-  trackGestureRawDelta = 0;
-  trackGestureAxis = "pending";
-  event.currentTarget?.setPointerCapture?.(event.pointerId);
-}
-
-function handleTrackPointerMove(event) {
-  if (
-    !trackGestureActive ||
-    (trackGesturePointerId !== null &&
-      event.pointerId !== undefined &&
-      event.pointerId !== trackGesturePointerId)
-  ) {
-    return;
-  }
-
-  const rawDeltaX = event.clientX - trackGestureStartX;
-  const rawDeltaY = event.clientY - trackGestureStartY;
-
-  if (trackGestureAxis === "pending") {
-    trackGestureAxis = getViewerGestureAxis(rawDeltaX, rawDeltaY);
-
-    if (trackGestureAxis === "horizontal") {
-      const activeSlide = getActiveSlideElement();
-      if (activeSlide) {
-        activeSlide.classList.add("is-dragging");
-      }
-    }
-  }
-
-  if (trackGestureAxis !== "horizontal") {
-    return;
-  }
-
-  trackGestureRawDelta = rawDeltaX;
-  trackGestureDelta = getViewerDragDelta(
-    rawDeltaX,
-    activeSession?.activeIndex ?? 0,
-    activeSession?.palettes.length ?? 0,
-  );
-  renderActiveSlideDragPosition(trackGestureDelta);
-}
-
-function finishTrackGesture(event, { shouldNavigate = true } = {}) {
-  if (
-    !trackGestureActive ||
-    (trackGesturePointerId !== null &&
-      event?.pointerId !== undefined &&
-      event.pointerId !== trackGesturePointerId)
-  ) {
-    return;
-  }
-
-  trackGestureActive = false;
-  if (trackGesturePointerId !== null && event?.type !== "lostpointercapture") {
-    event?.currentTarget?.releasePointerCapture?.(trackGesturePointerId);
-  }
-  trackGesturePointerId = null;
-  const deltaX = trackGestureRawDelta;
-  const absDeltaX = Math.abs(deltaX);
-  const threshold = 50;
-
-  const activeSlide = getActiveSlideElement();
-  if (activeSlide && trackGestureAxis === "horizontal") {
-    activeSlide.classList.remove("is-dragging");
-  }
-
+function handleTrackScroll() {
   hideRalPopover();
 
-  if (trackGestureAxis === "horizontal" && shouldNavigate && absDeltaX > threshold) {
-    let didNavigate = false;
-    if (deltaX > 0) {
-      didNavigate = updateActiveIndex((activeSession?.activeIndex ?? 0) - 1);
-    } else {
-      didNavigate = updateActiveIndex((activeSession?.activeIndex ?? 0) + 1);
-    }
-
-    if (!didNavigate) {
-      renderSlidePositions();
-    }
-  } else {
-    renderSlidePositions();
+  if (pendingTrackScrollRaf) {
+    return;
   }
 
-  trackGestureDelta = 0;
-  trackGestureRawDelta = 0;
-  trackGestureAxis = "pending";
-}
-
-function handleTrackPointerUp(event) {
-  finishTrackGesture(event);
-}
-
-function handleTrackPointerCancel(event) {
-  finishTrackGesture(event, { shouldNavigate: false });
+  pendingTrackScrollRaf = window.requestAnimationFrame(() => {
+    pendingTrackScrollRaf = 0;
+    updateActiveIndex(getTrackActiveIndex());
+  });
 }
 
 function handleWindowResize() {
@@ -805,12 +653,6 @@ function handleAppSettingsChange() {
 function handleViewerPanelClosing() {
   activeRequestId += 1;
   activeSession = undefined;
-  trackGestureActive = false;
-  trackGesturePointerId = null;
-  trackGestureStartY = 0;
-  trackGestureDelta = 0;
-  trackGestureRawDelta = 0;
-  trackGestureAxis = "pending";
   setBusy(false);
   document.removeEventListener("click", hideRalPopover);
   hideRalPopover();
@@ -855,13 +697,12 @@ function bindViewerPanelEvents() {
   deleteButton?.addEventListener("click", () => {
     void runAction("onDelete");
   });
-  viewerTrack?.addEventListener("pointerdown", handleTrackPointerDown, { passive: true });
-  viewerTrack?.addEventListener("pointermove", handleTrackPointerMove, { passive: true });
-  viewerTrack?.addEventListener("pointerup", handleTrackPointerUp, { passive: true });
-  viewerTrack?.addEventListener("pointercancel", handleTrackPointerCancel, { passive: true });
-  viewerTrack?.addEventListener("lostpointercapture", handleTrackPointerCancel, {
-    passive: true,
+  cameraButton?.addEventListener("click", () => {
+    if (!closeSharedPanel("collection")) {
+      closePaletteViewerOverlay();
+    }
   });
+  viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true });
   window.addEventListener("resize", handleWindowResize);
   subscribeAppSettings(handleAppSettingsChange);
   subscribeSharedPanelClosing("catch-details", handleViewerPanelClosing);
@@ -897,7 +738,6 @@ export function openPaletteViewerOverlay({
     requestId,
     palettes: [...palettes],
     activeIndex: clampIndex(initialIndex, palettes.length),
-    renderedIndices: [],
     slideStates: [],
     getPalettes,
     getPreviewAsset,

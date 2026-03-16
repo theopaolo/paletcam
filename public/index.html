@@ -994,9 +994,24 @@
       class="catch-details-panel"
       data-panel-name="catch-details"
       panel-title="Capture"
-      close-label="Fermer la capture"
+      close-label="Retour à la galerie"
+      close-icon-src="icons/capture-panel-back.svg"
       hidden
     >
+      <button
+        class="catch-details-header-button"
+        id="catchDetailsCameraButton"
+        type="button"
+        slot="header-actions"
+        aria-label="Retour à l'appareil photo"
+      >
+        <img
+          class="catch-details-header-icon"
+          src="logo/colorcatchers.png"
+          alt=""
+          aria-hidden="true"
+        />
+      </button>
       <div class="catch-details-content">
         <div class="palette-viewer-frame">
           <div

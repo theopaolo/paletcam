@@ -1000,7 +1000,6 @@ function handleMiniOutputClick() {
   void openCollectionPanel({
     paletteId: getMiniOutputPaletteId(),
     openPaletteViewer: Boolean(getMiniOutputPaletteId()),
-    closeCollectionOnViewerClose: Boolean(getMiniOutputPaletteId()),
   });
 }
 
