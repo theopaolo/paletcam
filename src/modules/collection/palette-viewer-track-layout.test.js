@@ -31,7 +31,7 @@ describe("palette viewer track layout", () => {
     ).toEqual({
       pointerEvents: "auto",
       rotate: "0.6deg",
-      transform: "translateX(43px) translateY(-2px) scale(1)",
+      transform: "translate3d(43px, -2px, 0) scale(1)",
       zIndex: "100",
     });
 
@@ -44,7 +44,7 @@ describe("palette viewer track layout", () => {
     ).toEqual({
       pointerEvents: "none",
       rotate: "-3deg",
-      transform: "translateX(-1px) translateY(22px) scale(0.90)",
+      transform: "translate3d(-1px, 22px, 0) scale(0.90)",
       zIndex: "0",
     });
   });

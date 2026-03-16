@@ -38,7 +38,6 @@ let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
 let pendingTrackAlignmentRaf = 0;
-let pendingTrackDragRaf = 0;
 
 const PUBLISH_BUTTON_COPY = Object.freeze({
   publish: {
@@ -157,15 +156,6 @@ function clearPendingTrackAlignment() {
 
   window.cancelAnimationFrame(pendingTrackAlignmentRaf);
   pendingTrackAlignmentRaf = 0;
-}
-
-function clearPendingTrackDragRender() {
-  if (!pendingTrackDragRaf) {
-    return;
-  }
-
-  window.cancelAnimationFrame(pendingTrackDragRaf);
-  pendingTrackDragRaf = 0;
 }
 
 function hideRalPopover() {
@@ -536,15 +526,17 @@ function renderSlidePositions(dragDelta = 0) {
   activeSession.renderedIndices = visibleIndices;
 }
 
-function scheduleTrackDragRender() {
-  if (pendingTrackDragRaf || !trackGestureActive) {
+function renderActiveSlideDragPosition(dragDelta) {
+  if (!activeSession) {
     return;
   }
 
-  pendingTrackDragRaf = window.requestAnimationFrame(() => {
-    pendingTrackDragRaf = 0;
-    renderSlidePositions(trackGestureDelta);
-  });
+  const slideState = activeSession.slideStates[activeSession.activeIndex];
+  if (!slideState) {
+    return;
+  }
+
+  applySlideLayout(slideState, getViewerSlideLayout(0, slideState, dragDelta));
 }
 
 function scheduleTrackAlignment() {
@@ -614,7 +606,6 @@ function syncSessionPalettes({
 
 function resetViewerFrame() {
   clearPendingTrackAlignment();
-  clearPendingTrackDragRender();
   if (viewerTrack) {
     viewerTrack.innerHTML = "";
     viewerTrack.scrollLeft = 0;
@@ -689,7 +680,6 @@ function handleTrackPointerDown(event) {
   }
 
   clearPendingTrackAlignment();
-  clearPendingTrackDragRender();
   trackGesturePointerId = event.pointerId ?? null;
   trackGestureStartX = event.clientX;
   trackGestureActive = true;
@@ -713,7 +703,7 @@ function handleTrackPointerMove(event) {
   }
 
   trackGestureDelta = event.clientX - trackGestureStartX;
-  scheduleTrackDragRender();
+  renderActiveSlideDragPosition(trackGestureDelta);
 }
 
 function finishTrackGesture(event, { shouldNavigate = true } = {}) {
@@ -731,7 +721,6 @@ function finishTrackGesture(event, { shouldNavigate = true } = {}) {
     event?.currentTarget?.releasePointerCapture?.(trackGesturePointerId);
   }
   trackGesturePointerId = null;
-  clearPendingTrackDragRender();
   const deltaX = trackGestureDelta;
   const absDeltaX = Math.abs(deltaX);
   const threshold = 50;
@@ -791,7 +780,6 @@ function handleViewerPanelClosing() {
   trackGestureActive = false;
   trackGesturePointerId = null;
   trackGestureDelta = 0;
-  clearPendingTrackDragRender();
   setBusy(false);
   document.removeEventListener("click", hideRalPopover);
   hideRalPopover();

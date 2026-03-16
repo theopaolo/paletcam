@@ -44,7 +44,7 @@ export function getViewerSlideLayout(relativeIndex, slideState, dragDelta = 0) {
     return {
       pointerEvents: "auto",
       rotate: `${dragRotation}deg`,
-      transform: `translateX(${dragDelta + offsetX}px) translateY(${offsetY}px) scale(1)`,
+      transform: `translate3d(${dragDelta + offsetX}px, ${offsetY}px, 0) scale(1)`,
       zIndex: "100",
     };
   }
@@ -53,7 +53,7 @@ export function getViewerSlideLayout(relativeIndex, slideState, dragDelta = 0) {
     return {
       pointerEvents: "none",
       rotate: `${rotation}deg`,
-      transform: `translateX(${offsetX}px) translateY(${6 + offsetY}px) scale(0.97)`,
+      transform: `translate3d(${offsetX}px, ${6 + offsetY}px, 0) scale(0.97)`,
       zIndex: "90",
     };
   }
@@ -62,7 +62,7 @@ export function getViewerSlideLayout(relativeIndex, slideState, dragDelta = 0) {
     return {
       pointerEvents: "none",
       rotate: `${rotation}deg`,
-      transform: `translateX(${offsetX}px) translateY(${12 + offsetY}px) scale(0.94)`,
+      transform: `translate3d(${offsetX}px, ${12 + offsetY}px, 0) scale(0.94)`,
       zIndex: "80",
     };
   }
@@ -70,7 +70,7 @@ export function getViewerSlideLayout(relativeIndex, slideState, dragDelta = 0) {
   return {
     pointerEvents: "none",
     rotate: `${rotation}deg`,
-    transform: `translateX(${offsetX}px) translateY(${20 + offsetY}px) scale(0.90)`,
+    transform: `translate3d(${offsetX}px, ${20 + offsetY}px, 0) scale(0.90)`,
     zIndex: "0",
   };
 }
