@@ -1,6 +1,8 @@
 const VISIBLE_SLIDE_AHEAD_COUNT = 2;
 const PRELOAD_SLIDE_BEHIND_COUNT = 1;
 const PRELOAD_SLIDE_AHEAD_COUNT = 2;
+const EDGE_RESISTANCE_FACTOR = 0.35;
+const GESTURE_LOCK_THRESHOLD = 12;
 
 function isValidIndex(index, totalSlides) {
   return Number.isInteger(index) && index >= 0 && index < totalSlides;
@@ -34,6 +36,33 @@ export function getViewerPreloadIndices(activeIndex, totalSlides) {
   }
 
   return toSortedUniqueIndices(indices, totalSlides);
+}
+
+export function getViewerGestureAxis(deltaX, deltaY) {
+  const absDeltaX = Math.abs(deltaX);
+  const absDeltaY = Math.abs(deltaY);
+
+  if (Math.max(absDeltaX, absDeltaY) < GESTURE_LOCK_THRESHOLD) {
+    return "pending";
+  }
+
+  return absDeltaX >= absDeltaY ? "horizontal" : "vertical";
+}
+
+export function getViewerDragDelta(deltaX, activeIndex, totalSlides) {
+  if (totalSlides <= 1) {
+    return deltaX * EDGE_RESISTANCE_FACTOR;
+  }
+
+  if (activeIndex <= 0 && deltaX > 0) {
+    return deltaX * EDGE_RESISTANCE_FACTOR;
+  }
+
+  if (activeIndex >= totalSlides - 1 && deltaX < 0) {
+    return deltaX * EDGE_RESISTANCE_FACTOR;
+  }
+
+  return deltaX;
 }
 
 export function getViewerSlideLayout(relativeIndex, slideState, dragDelta = 0) {

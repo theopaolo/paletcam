@@ -7,6 +7,8 @@ import {
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
 import {
+  getViewerDragDelta,
+  getViewerGestureAxis,
   getViewerPreloadIndices,
   getViewerRenderIndices,
   getViewerSlideLayout,
@@ -567,8 +569,11 @@ function updateActiveIndex(nextIndex) {
 
 let trackGesturePointerId = null;
 let trackGestureStartX = 0;
+let trackGestureStartY = 0;
 let trackGestureActive = false;
 let trackGestureDelta = 0;
+let trackGestureRawDelta = 0;
+let trackGestureAxis = "pending";
 
 function syncSessionPalettes({
   preferredPaletteId = null,
@@ -682,14 +687,12 @@ function handleTrackPointerDown(event) {
   clearPendingTrackAlignment();
   trackGesturePointerId = event.pointerId ?? null;
   trackGestureStartX = event.clientX;
+  trackGestureStartY = event.clientY;
   trackGestureActive = true;
   trackGestureDelta = 0;
+  trackGestureRawDelta = 0;
+  trackGestureAxis = "pending";
   event.currentTarget?.setPointerCapture?.(event.pointerId);
-
-  const activeSlide = getActiveSlideElement();
-  if (activeSlide) {
-    activeSlide.classList.add("is-dragging");
-  }
 }
 
 function handleTrackPointerMove(event) {
@@ -702,7 +705,30 @@ function handleTrackPointerMove(event) {
     return;
   }
 
-  trackGestureDelta = event.clientX - trackGestureStartX;
+  const rawDeltaX = event.clientX - trackGestureStartX;
+  const rawDeltaY = event.clientY - trackGestureStartY;
+
+  if (trackGestureAxis === "pending") {
+    trackGestureAxis = getViewerGestureAxis(rawDeltaX, rawDeltaY);
+
+    if (trackGestureAxis === "horizontal") {
+      const activeSlide = getActiveSlideElement();
+      if (activeSlide) {
+        activeSlide.classList.add("is-dragging");
+      }
+    }
+  }
+
+  if (trackGestureAxis !== "horizontal") {
+    return;
+  }
+
+  trackGestureRawDelta = rawDeltaX;
+  trackGestureDelta = getViewerDragDelta(
+    rawDeltaX,
+    activeSession?.activeIndex ?? 0,
+    activeSession?.palettes.length ?? 0,
+  );
   renderActiveSlideDragPosition(trackGestureDelta);
 }
 
@@ -721,18 +747,18 @@ function finishTrackGesture(event, { shouldNavigate = true } = {}) {
     event?.currentTarget?.releasePointerCapture?.(trackGesturePointerId);
   }
   trackGesturePointerId = null;
-  const deltaX = trackGestureDelta;
+  const deltaX = trackGestureRawDelta;
   const absDeltaX = Math.abs(deltaX);
   const threshold = 50;
 
   const activeSlide = getActiveSlideElement();
-  if (activeSlide) {
+  if (activeSlide && trackGestureAxis === "horizontal") {
     activeSlide.classList.remove("is-dragging");
   }
 
   hideRalPopover();
 
-  if (shouldNavigate && absDeltaX > threshold) {
+  if (trackGestureAxis === "horizontal" && shouldNavigate && absDeltaX > threshold) {
     let didNavigate = false;
     if (deltaX > 0) {
       didNavigate = updateActiveIndex((activeSession?.activeIndex ?? 0) - 1);
@@ -748,6 +774,8 @@ function finishTrackGesture(event, { shouldNavigate = true } = {}) {
   }
 
   trackGestureDelta = 0;
+  trackGestureRawDelta = 0;
+  trackGestureAxis = "pending";
 }
 
 function handleTrackPointerUp(event) {
@@ -779,7 +807,10 @@ function handleViewerPanelClosing() {
   activeSession = undefined;
   trackGestureActive = false;
   trackGesturePointerId = null;
+  trackGestureStartY = 0;
   trackGestureDelta = 0;
+  trackGestureRawDelta = 0;
+  trackGestureAxis = "pending";
   setBusy(false);
   document.removeEventListener("click", hideRalPopover);
   hideRalPopover();

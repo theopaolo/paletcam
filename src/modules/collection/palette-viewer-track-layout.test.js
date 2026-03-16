@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  getViewerDragDelta,
+  getViewerGestureAxis,
   getViewerPreloadIndices,
   getViewerRenderIndices,
   getViewerSlideLayout,
@@ -15,6 +17,18 @@ describe("palette viewer track layout", () => {
   test("preloads the adjacent previous slide as well as upcoming slides", () => {
     expect(getViewerPreloadIndices(4, 10)).toEqual([3, 4, 5, 6]);
     expect(getViewerPreloadIndices(0, 3)).toEqual([0, 1, 2]);
+  });
+
+  test("locks touch gestures to a dominant axis after a short activation distance", () => {
+    expect(getViewerGestureAxis(4, 3)).toBe("pending");
+    expect(getViewerGestureAxis(18, 5)).toBe("horizontal");
+    expect(getViewerGestureAxis(6, 16)).toBe("vertical");
+  });
+
+  test("applies edge resistance when dragging beyond the first or last capture", () => {
+    expect(getViewerDragDelta(80, 0, 5)).toBe(28);
+    expect(getViewerDragDelta(-80, 4, 5)).toBe(-28);
+    expect(getViewerDragDelta(-80, 2, 5)).toBe(-80);
   });
 
   test("computes active slide drag transforms without reading styles back from the dom", () => {
