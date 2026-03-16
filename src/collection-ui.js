@@ -1,3 +1,4 @@
+import { buildCommunityUrl } from "./config.js";
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
 import {
   enqueueCommunityDeletionCleanupRetry,
@@ -548,7 +549,7 @@ async function handlePublishPalette(palette, action = "publish") {
     if (action === 'publish') {
       toastOptions.actionLabel = 'my catches';
       toastOptions.onAction = () => {
-        window.open('https://colorcatchers.co/my/catches');
+        window.open(buildCommunityUrl("/my/catches"));
       };
     }
     showToast(actionConfig.successMessage, toastOptions);

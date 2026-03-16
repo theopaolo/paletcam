@@ -6,6 +6,7 @@ import {
   verifyCommunityLoginOtp,
 } from './community-service.js';
 import { clientLog } from './modules/client-log.js';
+import { BRAND, buildCommunityUrl } from './config.js';
 import { formatErrorDetails } from './modules/error-format.js';
 import {
   closeSharedPanel,
@@ -25,6 +26,12 @@ const communityCodeInput = /** @type {HTMLInputElement | null} */ (document.getE
 const communityVerifyCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityVerifyCodeButton'));
 const communityLogoutButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityLogoutButton'));
 const communityMyCatchesLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityMyCatchesLink'));
+
+const communityHomepageLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityHomepageLink'));
+const communityBrandLabel = document.getElementById('communityBrandLabel');
+if (communityBrandLabel) communityBrandLabel.textContent = BRAND;
+if (communityHomepageLink) communityHomepageLink.href = buildCommunityUrl("/");
+if (communityMyCatchesLink) communityMyCatchesLink.href = buildCommunityUrl("/my/catches");
 let pendingCommunityEmail = '';
 let isCommunityAuthBusy = false;
 
