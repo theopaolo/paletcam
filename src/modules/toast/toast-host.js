@@ -203,14 +203,19 @@ class ToastHostElement extends LitElement {
   }
 
   _handleSwipeStart(event) {
+    const toastElement = event.target.closest(".toast");
+    if (!toastElement) {
+      return;
+    }
+
     const touch = event.touches[0];
     this._swipeStartX = touch.clientX;
     this._swipeStartY = touch.clientY;
-    this._swipeToastElement = event.target.closest(".toast");
+    this._swipeToastElement = toastElement;
   }
 
   _handleSwipeMove(event) {
-    if (!this._swipeStartX || !this._swipeToastElement) {
+    if (this._swipeStartX == null || !this._swipeToastElement) {
       return;
     }
 
@@ -221,6 +226,7 @@ class ToastHostElement extends LitElement {
     // Only allow horizontal swiping (not vertical scrolling)
     if (deltaY > 10) {
       this._swipeStartX = null;
+      this._swipeToastElement = null;
       return;
     }
 
@@ -230,31 +236,37 @@ class ToastHostElement extends LitElement {
   }
 
   _handleSwipeEnd(event) {
-    if (!this._swipeStartX || !this._swipeToastElement) {
+    if (this._swipeStartX == null || !this._swipeToastElement) {
       return;
     }
 
     const touch = event.changedTouches[0];
     const deltaX = touch.clientX - this._swipeStartX;
     const swipeThreshold = 80;
+    const toastElement = this._swipeToastElement;
 
-    this._swipeToastElement.classList.remove("is-swiping");
+    toastElement.classList.remove("is-swiping");
 
     // Dismiss if swiped more than threshold
     if (Math.abs(deltaX) > swipeThreshold) {
       const entry =
-        this._undoEntries.find((e) => e.id === this._swipeToastElement.dataset.toastId) ||
-        (this._activeStandardEntry?.id === this._swipeToastElement.dataset.toastId
+        this._undoEntries.find((e) => e.id === toastElement.dataset.toastId) ||
+        (this._activeStandardEntry?.id === toastElement.dataset.toastId
           ? this._activeStandardEntry
           : null);
 
       if (entry) {
+        const swipeDirection = deltaX < 0 ? -1 : 1;
+        window.requestAnimationFrame(() => {
+          toastElement.style.transform = `translateX(${swipeDirection * 120}%)`;
+          toastElement.style.opacity = "0";
+        });
         this._beginDismiss(entry, "swipe");
       }
     } else {
       // Snap back
-      this._swipeToastElement.style.transform = "";
-      this._swipeToastElement.style.opacity = "";
+      toastElement.style.transform = "";
+      toastElement.style.opacity = "";
     }
 
     this._swipeStartX = null;

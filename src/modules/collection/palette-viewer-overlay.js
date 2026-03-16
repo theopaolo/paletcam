@@ -6,9 +6,12 @@ import {
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
+import {
+  getViewerPreloadIndices,
+  getViewerRenderIndices,
+  getViewerSlideLayout,
+} from "./palette-viewer-track-layout.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
-
-const PRELOAD_COUNT = 3;
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
 const shareButton = /** @type {HTMLButtonElement | null} */ (
@@ -35,6 +38,7 @@ let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
 let pendingTrackAlignmentRaf = 0;
+let pendingTrackDragRaf = 0;
 
 const PUBLISH_BUTTON_COPY = Object.freeze({
   publish: {
@@ -153,6 +157,15 @@ function clearPendingTrackAlignment() {
 
   window.cancelAnimationFrame(pendingTrackAlignmentRaf);
   pendingTrackAlignmentRaf = 0;
+}
+
+function clearPendingTrackDragRender() {
+  if (!pendingTrackDragRaf) {
+    return;
+  }
+
+  window.cancelAnimationFrame(pendingTrackDragRaf);
+  pendingTrackDragRaf = 0;
 }
 
 function hideRalPopover() {
@@ -390,14 +403,7 @@ function renderViewerTrack() {
     viewerTrack.appendChild(slideState.slide);
     return slideState;
   });
-}
-
-function getSlideElements() {
-  if (!activeSession) {
-    return [];
-  }
-
-  return activeSession.slideStates.map((slideState) => slideState.slide);
+  activeSession.renderedIndices = [];
 }
 
 function getActiveSlideElement() {
@@ -475,94 +481,69 @@ function preloadNearbySlides() {
     return;
   }
 
-  for (let i = 0; i < PRELOAD_COUNT; i += 1) {
-    const index = activeSession.activeIndex + i;
-    if (index >= 0 && index < activeSession.palettes.length) {
-      void loadSlideAsset(index);
-    }
+  for (const index of getViewerPreloadIndices(
+    activeSession.activeIndex,
+    activeSession.palettes.length,
+  )) {
+    void loadSlideAsset(index);
   }
 }
 
-function updateSlidePositionsWithDrag(dragDelta) {
+function applySlideLayout(slideState, layout) {
+  const { slide } = slideState;
+
+  if (slide.style.zIndex !== layout.zIndex) {
+    slide.style.zIndex = layout.zIndex;
+  }
+  if (slide.style.transform !== layout.transform) {
+    slide.style.transform = layout.transform;
+  }
+  if (slide.style.rotate !== layout.rotate) {
+    slide.style.rotate = layout.rotate;
+  }
+  if (slide.style.pointerEvents !== layout.pointerEvents) {
+    slide.style.pointerEvents = layout.pointerEvents;
+  }
+}
+
+function renderSlidePositions(dragDelta = 0) {
   if (!viewerTrack || !activeSession) {
     return;
   }
 
-  const slides = getSlideElements();
+  const renderIndices = getViewerRenderIndices(
+    activeSession.activeIndex,
+    activeSession.slideStates.length,
+    activeSession.renderedIndices,
+  );
+  const visibleIndices = [];
 
-  slides.forEach((slide, index) => {
-    const offset = index - activeSession.activeIndex;
-    const rotation = parseFloat(slide.style.getPropertyValue("--slide-rotation")) || 0;
-    const offsetX = parseFloat(slide.style.getPropertyValue("--slide-offset-x")) || 0;
-    const offsetY = parseFloat(slide.style.getPropertyValue("--slide-offset-y")) || 0;
-
-    if (offset === 0) {
-      // Active card follows the drag with subtle rotation based on drag direction
-      const dragRotation = (dragDelta / 200) * 3; // Subtle rotation from drag
-      slide.style.zIndex = "100";
-      slide.style.transform = `translateX(${dragDelta + offsetX}px) translateY(${offsetY}px) scale(1)`;
-      slide.style.rotate = `${dragRotation}deg`;
-      slide.style.pointerEvents = "auto";
-    } else if (offset === 1) {
-      // Next card peeking underneath
-      slide.style.zIndex = "90";
-      slide.style.transform = `translateX(${offsetX}px) translateY(${6 + offsetY}px) scale(0.97)`;
-      slide.style.rotate = `${rotation}deg`;
-      slide.style.pointerEvents = "none";
-    } else if (offset === 2) {
-      // Second next card barely visible
-      slide.style.zIndex = "80";
-      slide.style.transform = `translateX(${offsetX}px) translateY(${12 + offsetY}px) scale(0.94)`;
-      slide.style.rotate = `${rotation}deg`;
-      slide.style.pointerEvents = "none";
-    } else {
-      // Hidden cards
-      slide.style.zIndex = "0";
-      slide.style.transform = `translateX(${offsetX}px) translateY(${20 + offsetY}px) scale(0.90)`;
-      slide.style.rotate = `${rotation}deg`;
-      slide.style.pointerEvents = "none";
+  for (const index of renderIndices) {
+    const slideState = activeSession.slideStates[index];
+    if (!slideState) {
+      continue;
     }
-  });
+
+    const relativeIndex = index - activeSession.activeIndex;
+    const layout = getViewerSlideLayout(relativeIndex, slideState, dragDelta);
+    applySlideLayout(slideState, layout);
+
+    if (relativeIndex >= 0 && relativeIndex <= 2) {
+      visibleIndices.push(index);
+    }
+  }
+
+  activeSession.renderedIndices = visibleIndices;
 }
 
-function updateSlidePositions() {
-  if (!viewerTrack || !activeSession) {
+function scheduleTrackDragRender() {
+  if (pendingTrackDragRaf || !trackGestureActive) {
     return;
   }
 
-  const slides = getSlideElements();
-
-  slides.forEach((slide, index) => {
-    const offset = index - activeSession.activeIndex;
-    const rotation = parseFloat(slide.style.getPropertyValue("--slide-rotation")) || 0;
-    const offsetX = parseFloat(slide.style.getPropertyValue("--slide-offset-x")) || 0;
-    const offsetY = parseFloat(slide.style.getPropertyValue("--slide-offset-y")) || 0;
-
-    if (offset === 0) {
-      // Active card (on top, front) - always straight
-      slide.style.zIndex = "100";
-      slide.style.transform = `translateX(${offsetX}px) translateY(${offsetY}px) scale(1)`;
-      slide.style.rotate = "0deg";
-      slide.style.pointerEvents = "auto";
-    } else if (offset === 1) {
-      // Next card peeking underneath
-      slide.style.zIndex = "90";
-      slide.style.transform = `translateX(${offsetX}px) translateY(${6 + offsetY}px) scale(0.97)`;
-      slide.style.rotate = `${rotation}deg`;
-      slide.style.pointerEvents = "none";
-    } else if (offset === 2) {
-      // Second next card barely visible
-      slide.style.zIndex = "80";
-      slide.style.transform = `translateX(${offsetX}px) translateY(${12 + offsetY}px) scale(0.94)`;
-      slide.style.rotate = `${rotation}deg`;
-      slide.style.pointerEvents = "none";
-    } else {
-      // Hidden cards
-      slide.style.zIndex = "0";
-      slide.style.transform = `translateX(${offsetX}px) translateY(${20 + offsetY}px) scale(0.90)`;
-      slide.style.rotate = `${rotation}deg`;
-      slide.style.pointerEvents = "none";
-    }
+  pendingTrackDragRaf = window.requestAnimationFrame(() => {
+    pendingTrackDragRaf = 0;
+    renderSlidePositions(trackGestureDelta);
   });
 }
 
@@ -570,28 +551,30 @@ function scheduleTrackAlignment() {
   clearPendingTrackAlignment();
   pendingTrackAlignmentRaf = window.requestAnimationFrame(() => {
     pendingTrackAlignmentRaf = 0;
-    updateSlidePositions();
+    renderSlidePositions();
     preloadNearbySlides();
   });
 }
 
 function updateActiveIndex(nextIndex) {
   if (!activeSession) {
-    return;
+    return false;
   }
 
   const clampedIndex = clampIndex(nextIndex, activeSession.palettes.length);
   if (clampedIndex === activeSession.activeIndex) {
-    return;
+    return false;
   }
 
   activeSession.activeIndex = clampedIndex;
   syncViewerChrome();
-  updateSlidePositions();
+  renderSlidePositions();
   preloadNearbySlides();
+  return true;
 }
 
-let trackGestureStart = { x: 0, y: 0 };
+let trackGesturePointerId = null;
+let trackGestureStartX = 0;
 let trackGestureActive = false;
 let trackGestureDelta = 0;
 
@@ -631,6 +614,7 @@ function syncSessionPalettes({
 
 function resetViewerFrame() {
   clearPendingTrackAlignment();
+  clearPendingTrackDragRender();
   if (viewerTrack) {
     viewerTrack.innerHTML = "";
     viewerTrack.scrollLeft = 0;
@@ -704,9 +688,13 @@ function handleTrackPointerDown(event) {
     return;
   }
 
-  trackGestureStart = { x: event.clientX, y: event.clientY };
+  clearPendingTrackAlignment();
+  clearPendingTrackDragRender();
+  trackGesturePointerId = event.pointerId ?? null;
+  trackGestureStartX = event.clientX;
   trackGestureActive = true;
   trackGestureDelta = 0;
+  event.currentTarget?.setPointerCapture?.(event.pointerId);
 
   const activeSlide = getActiveSlideElement();
   if (activeSlide) {
@@ -715,20 +703,35 @@ function handleTrackPointerDown(event) {
 }
 
 function handleTrackPointerMove(event) {
-  if (!trackGestureActive) {
+  if (
+    !trackGestureActive ||
+    (trackGesturePointerId !== null &&
+      event.pointerId !== undefined &&
+      event.pointerId !== trackGesturePointerId)
+  ) {
     return;
   }
 
-  trackGestureDelta = event.clientX - trackGestureStart.x;
-  updateSlidePositionsWithDrag(trackGestureDelta);
+  trackGestureDelta = event.clientX - trackGestureStartX;
+  scheduleTrackDragRender();
 }
 
-function handleTrackPointerUp() {
-  if (!trackGestureActive) {
+function finishTrackGesture(event, { shouldNavigate = true } = {}) {
+  if (
+    !trackGestureActive ||
+    (trackGesturePointerId !== null &&
+      event?.pointerId !== undefined &&
+      event.pointerId !== trackGesturePointerId)
+  ) {
     return;
   }
 
   trackGestureActive = false;
+  if (trackGesturePointerId !== null && event?.type !== "lostpointercapture") {
+    event?.currentTarget?.releasePointerCapture?.(trackGesturePointerId);
+  }
+  trackGesturePointerId = null;
+  clearPendingTrackDragRender();
   const deltaX = trackGestureDelta;
   const absDeltaX = Math.abs(deltaX);
   const threshold = 50;
@@ -740,16 +743,30 @@ function handleTrackPointerUp() {
 
   hideRalPopover();
 
-  if (absDeltaX > threshold) {
+  if (shouldNavigate && absDeltaX > threshold) {
+    let didNavigate = false;
     if (deltaX > 0) {
-      updateActiveIndex((activeSession?.activeIndex ?? 0) - 1);
+      didNavigate = updateActiveIndex((activeSession?.activeIndex ?? 0) - 1);
     } else {
-      updateActiveIndex((activeSession?.activeIndex ?? 0) + 1);
+      didNavigate = updateActiveIndex((activeSession?.activeIndex ?? 0) + 1);
     }
-    scheduleTrackAlignment();
+
+    if (!didNavigate) {
+      renderSlidePositions();
+    }
   } else {
-    updateSlidePositions();
+    renderSlidePositions();
   }
+
+  trackGestureDelta = 0;
+}
+
+function handleTrackPointerUp(event) {
+  finishTrackGesture(event);
+}
+
+function handleTrackPointerCancel(event) {
+  finishTrackGesture(event, { shouldNavigate: false });
 }
 
 function handleWindowResize() {
@@ -771,6 +788,10 @@ function handleAppSettingsChange() {
 function handleViewerPanelClosing() {
   activeRequestId += 1;
   activeSession = undefined;
+  trackGestureActive = false;
+  trackGesturePointerId = null;
+  trackGestureDelta = 0;
+  clearPendingTrackDragRender();
   setBusy(false);
   document.removeEventListener("click", hideRalPopover);
   hideRalPopover();
@@ -818,6 +839,10 @@ function bindViewerPanelEvents() {
   viewerTrack?.addEventListener("pointerdown", handleTrackPointerDown, { passive: true });
   viewerTrack?.addEventListener("pointermove", handleTrackPointerMove, { passive: true });
   viewerTrack?.addEventListener("pointerup", handleTrackPointerUp, { passive: true });
+  viewerTrack?.addEventListener("pointercancel", handleTrackPointerCancel, { passive: true });
+  viewerTrack?.addEventListener("lostpointercapture", handleTrackPointerCancel, {
+    passive: true,
+  });
   window.addEventListener("resize", handleWindowResize);
   subscribeAppSettings(handleAppSettingsChange);
   subscribeSharedPanelClosing("catch-details", handleViewerPanelClosing);
@@ -853,6 +878,7 @@ export function openPaletteViewerOverlay({
     requestId,
     palettes: [...palettes],
     activeIndex: clampIndex(initialIndex, palettes.length),
+    renderedIndices: [],
     slideStates: [],
     getPalettes,
     getPreviewAsset,
