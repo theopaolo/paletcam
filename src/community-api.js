@@ -149,6 +149,21 @@ export function requestCommunityLoginCode({ email }) {
   });
 }
 
+export function requestAccountDeletionCode({ token }) {
+  return requestCommunityApi("/account/deletion-code", {
+    method: "POST",
+    token,
+  });
+}
+
+export function deleteAccount({ token, code }) {
+  return requestCommunityApi("/account", {
+    method: "DELETE",
+    token,
+    body: { code },
+  });
+}
+
 export function verifyCommunityLoginCode({ email, code }) {
   return requestCommunityApi("/verify", {
     method: "POST",

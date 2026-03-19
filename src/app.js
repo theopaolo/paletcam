@@ -32,6 +32,7 @@ import { createZoomUiController } from "./modules/zoom-ui.js";
 import { savePalette } from "./palette-storage.js";
 import { trackCaptureStatAsync } from "./capture-stat-service.js";
 import "./settings-ui.js";
+import "./delete-account-ui.js";
 
 const PHOTO_EXPORT_MAX_WIDTH = 2048;
 const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
