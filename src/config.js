@@ -1,4 +1,4 @@
-export const BRAND = "ccs.test";
+export const BRAND = "colorcatchers.io";
 export const COMMUNITY_BASE_URL = `https://${BRAND}`;
 export const LOCAL_API_BASE_URL = `${COMMUNITY_BASE_URL}/api/v1`;
 export const LIVE_API_BASE_URL = `${COMMUNITY_BASE_URL}/api/v1`;
