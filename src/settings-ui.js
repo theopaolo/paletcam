@@ -519,10 +519,23 @@ function bindExportButton() {
     try {
       const json = await exportAllPalettes();
       const blob = new Blob([json], { type: "application/json" });
+      const filename = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+      // iOS Safari ignores the `download` attribute on <a> — use Web Share API with File instead
+      if (typeof navigator.canShare === "function") {
+        const file = new File([blob], filename, { type: "application/json" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          showToast("Export terminé.", { duration: 1400 });
+          return;
+        }
+      }
+
+      // Fallback: standard anchor download (desktop)
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.download = filename;
       anchor.click();
       URL.revokeObjectURL(url);
       showToast("Export terminé.", { duration: 1400 });

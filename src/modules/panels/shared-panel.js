@@ -29,8 +29,10 @@ class SharedPanelElement extends LitElement {
       display: grid;
       grid-template-rows: auto 1fr;
       gap: 0.5rem;
+      overflow-y: var(--shared-panel-shell-overflow-y, auto);
       overscroll-behavior: contain;
       box-sizing: border-box;
+      padding: var(--shared-panel-padding, 0.5rem);
       background-color: #1b1b1b;
       color: var(--secondary-color, #f0f0f0);
       transform: translateX(100%);
