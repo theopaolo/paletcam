@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 const OUTBOX_STORAGE_KEY = "paletcam:community:delete-cleanup-outbox:v1";
+const communityApiModuleUrl = new URL("./community-api.js", import.meta.url).href;
 const communityServiceModuleUrl = new URL("./community-service.js", import.meta.url).href;
 const communitySessionModuleUrl = new URL("./community-session.js", import.meta.url).href;
 const communityDeleteOutboxModuleUrl = new URL("./community-delete-outbox.js", import.meta.url).href;
@@ -41,6 +42,12 @@ async function loadCommunityDeleteOutbox({
 } = {}) {
   const cleanupRemoteCatchForDeletionByRemoteCatchId = mock(cleanupImplementation);
   let sessionListener = null;
+
+  // community-service.js imports deleteAccount from community-api.js — mock it to avoid link errors
+  mock.module(communityApiModuleUrl, () => ({
+    deleteAccount: mock(async () => ({})),
+    requestAccountDeletionCode: mock(async () => ({})),
+  }));
 
   mock.module(communityServiceModuleUrl, () => ({
     cleanupRemoteCatchForDeletionByRemoteCatchId,
