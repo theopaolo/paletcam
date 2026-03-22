@@ -123,6 +123,7 @@ let lastExtractedColors = null;
 let lastChosenIndices = [];
 let lastVisiblePaletteColors = [];
 let currentCaptureMode = "palette";
+let oneMoreColor = Boolean(getAppSettings().oneMoreColor);
 let photoExportQuality = getAppSettings().photoExportQuality;
 let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
@@ -842,6 +843,24 @@ function syncCaptureMode(mode) {
   schedulePreviewRefresh();
 }
 
+function getEffectiveSwatchCount() {
+  return swatchCount + (oneMoreColor ? 1 : 0);
+}
+
+function removeDarkestColor(colors) {
+  if (colors.length <= 1) return colors;
+  let darkestIndex = 0;
+  let lowestLuma = Infinity;
+  for (let i = 0; i < colors.length; i++) {
+    const luma = 0.2126 * colors[i].r + 0.7152 * colors[i].g + 0.0722 * colors[i].b;
+    if (luma < lowestLuma) {
+      lowestLuma = luma;
+      darkestIndex = i;
+    }
+  }
+  return colors.filter((_, i) => i !== darkestIndex);
+}
+
 function getCapturePaletteColors() {
   if (lastVisiblePaletteColors.length === swatchCount) {
     return clonePaletteColors(lastVisiblePaletteColors);
@@ -853,12 +872,14 @@ function getCapturePaletteColors() {
 function applyAppSettings({
   captureMode,
   performanceHudEnabled,
+  oneMoreColor: nextOneMoreColor,
   photoExportQuality: nextPhotoExportQuality,
   paletteExtractionAlgorithm,
   grid,
   medianCut,
   paletteScoring,
 }) {
+  oneMoreColor = Boolean(nextOneMoreColor);
   photoExportQuality = nextPhotoExportQuality;
   performanceHud.setEnabled(performanceHudEnabled);
   gridExtractionSettings = { ...grid };
@@ -1488,7 +1509,7 @@ function refreshPreview(rafTimestamp = 0) {
           imageData: frameImageData,
           width: analysisWidth,
           height: analysisHeight,
-          swatchCount,
+          swatchCount: getEffectiveSwatchCount(),
           options: getPaletteExtractionOptions(),
         });
 
@@ -1497,7 +1518,7 @@ function refreshPreview(rafTimestamp = 0) {
             frameImageData,
             analysisWidth,
             analysisHeight,
-            swatchCount,
+            getEffectiveSwatchCount(),
             getPaletteExtractionOptions(),
           );
 
@@ -1517,10 +1538,11 @@ function refreshPreview(rafTimestamp = 0) {
     }
 
     const smoothedColors = smoothColors(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
-    lastVisiblePaletteColors = clonePaletteColors(smoothedColors);
-    const dominantColor = getDominantColor(smoothedColors);
+    const displayColors = oneMoreColor ? removeDarkestColor(smoothedColors) : smoothedColors;
+    lastVisiblePaletteColors = clonePaletteColors(displayColors);
+    const dominantColor = getDominantColor(displayColors);
 
-    renderPaletteBars(paletteContext, smoothedColors, paletteCanvas.width, paletteCanvas.height);
+    renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
 
     if (dominantColor) {
       visualEffects.setCaptureButtonGlowColor(dominantColor);
@@ -1611,10 +1633,12 @@ async function captureCurrentFrame() {
         imageData,
         frameWidth,
         frameHeight,
-        swatchCount,
+        getEffectiveSwatchCount(),
         getPaletteExtractionOptions(),
       );
-      paletteColors = clonePaletteColors(extractedPaletteColors);
+      paletteColors = clonePaletteColors(
+        oneMoreColor ? removeDarkestColor(extractedPaletteColors) : extractedPaletteColors
+      );
     }
   }
 
@@ -1895,13 +1919,14 @@ function _loadTestImage(src) {
       sampleGridOverlay.setVisible(false);
     }
 
-    const { colors, chosenIndices } = extractPaletteColors(
+    const { colors: rawTestColors, chosenIndices } = extractPaletteColors(
       imageData,
       frameWidth,
       frameHeight,
-      swatchCount,
+      getEffectiveSwatchCount(),
       getPaletteExtractionOptions(),
     );
+    const colors = oneMoreColor ? removeDarkestColor(rawTestColors) : rawTestColors;
 
     if (isGridMode) {
       sampleGridOverlay.markChosenSquares(chosenIndices);

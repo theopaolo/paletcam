@@ -26,6 +26,9 @@ const captureModeButtons = Array.from(document.querySelectorAll("[data-settings-
 const performanceHudButtons = Array.from(
   document.querySelectorAll("[data-settings-performance-hud]"),
 );
+const oneMoreColorButtons = Array.from(
+  document.querySelectorAll("[data-settings-one-more-color]"),
+);
 const paletteModeGroup = document.getElementById("settingsPaletteModeGroup");
 const settingsVersionTrigger = /** @type {HTMLButtonElement | null} */ (
   document.getElementById("settingsVersionTrigger")
@@ -333,6 +336,14 @@ function syncPerformanceHudButtons(isEnabled) {
   });
 }
 
+function syncOneMoreColorButtons(isEnabled) {
+  oneMoreColorButtons.forEach((button) => {
+    const nextValue = button.getAttribute("data-settings-one-more-color");
+    const shouldBeActive = (nextValue === "on") === Boolean(isEnabled);
+    button.setAttribute("aria-pressed", String(shouldBeActive));
+  });
+}
+
 function syncPaletteModeGroupVisibility(captureMode) {
   if (paletteModeGroup) {
     paletteModeGroup.hidden = captureMode === "ral";
@@ -358,6 +369,7 @@ function renderSettingsUi(settings) {
   syncColorSpaceButtons(settings?.medianCut?.colorSpace ?? defaultAppSettings.medianCut.colorSpace);
   syncCaptureModeButtons(settings.captureMode);
   syncPerformanceHudButtons(settings.performanceHudEnabled);
+  syncOneMoreColorButtons(settings.oneMoreColor);
   syncPaletteModeGroupVisibility(settings.captureMode);
   syncAdvancedSettingsVisibility();
 }
@@ -488,6 +500,25 @@ function bindPerformanceHudControls() {
   });
 }
 
+function bindOneMoreColorControls() {
+  if (oneMoreColorButtons.length === 0) {
+    return;
+  }
+
+  oneMoreColorButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextValue = button.getAttribute("data-settings-one-more-color");
+      if (nextValue !== "on" && nextValue !== "off") {
+        return;
+      }
+
+      updateAppSettings({
+        oneMoreColor: nextValue === "on",
+      });
+    });
+  });
+}
+
 function bindRangeControls() {
   rangeControls.forEach((control) => {
     control.bindEvents();
@@ -586,6 +617,7 @@ bindAnalysisProfileControls();
 bindAlgorithmControls();
 bindColorSpaceControls();
 bindPerformanceHudControls();
+bindOneMoreColorControls();
 bindRangeControls();
 bindResetButton();
 bindExportButton();
