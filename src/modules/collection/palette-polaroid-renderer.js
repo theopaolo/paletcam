@@ -51,6 +51,16 @@ function loadImageFromBlob(blob) {
     const image = new Image();
     const photoUrl = URL.createObjectURL(blob);
     let settled = false;
+    let released = false;
+
+    const release = () => {
+      if (released) {
+        return;
+      }
+
+      released = true;
+      URL.revokeObjectURL(photoUrl);
+    };
 
     const cleanup = () => {
       image.onload = null;
@@ -65,20 +75,25 @@ function loadImageFromBlob(blob) {
 
       settled = true;
       cleanup();
-      URL.revokeObjectURL(photoUrl);
       callback();
     };
 
     image.decoding = "async";
     image.onload = () => {
-      finalize(() => resolve(image));
+      finalize(() => resolve({ image, release }));
     };
     image.onerror = () => {
-      finalize(() => reject(new Error("Unable to load preview image")));
+      finalize(() => {
+        release();
+        reject(new Error("Unable to load preview image"));
+      });
     };
     const timeoutId = setTimeout(() => {
       image.src = "";
-      finalize(() => reject(new Error("Timed out loading preview image")));
+      finalize(() => {
+        release();
+        reject(new Error("Timed out loading preview image"));
+      });
     }, PREVIEW_IMAGE_LOAD_TIMEOUT_MS);
     image.src = photoUrl;
   });
@@ -452,25 +467,30 @@ export async function renderPalettePolaroidBlob(
     return null;
   }
 
-  const image = await loadImageFromBlob(palette.photoBlob);
-  await waitForBrandFont();
+  const { image, release } = await loadImageFromBlob(palette.photoBlob);
 
-  renderPolaroidCanvas({
-    canvas,
-    context,
-    image,
-    colors: palette.colors,
-    brandLabel: getBrandLabel(),
-    photoAspectRatio: getPalettePhotoAspectRatioValue(palette),
-    photoSourceRect: resolvePalettePhotoSourceRect(image, palette),
-    expandCardForLegacyRawAspect: !palette?.captureAspectRatio && !palette?.captureCropRect,
-    darkFrameShell,
-    maxWidth,
-    scale,
-  });
+  try {
+    await waitForBrandFont();
 
-  return canvasToBlob(canvas, {
-    type: "image/webp",
-    quality,
-  });
+    renderPolaroidCanvas({
+      canvas,
+      context,
+      image,
+      colors: palette.colors,
+      brandLabel: getBrandLabel(),
+      photoAspectRatio: getPalettePhotoAspectRatioValue(palette),
+      photoSourceRect: resolvePalettePhotoSourceRect(image, palette),
+      expandCardForLegacyRawAspect: !palette?.captureAspectRatio && !palette?.captureCropRect,
+      darkFrameShell,
+      maxWidth,
+      scale,
+    });
+
+    return canvasToBlob(canvas, {
+      type: "image/webp",
+      quality,
+    });
+  } finally {
+    release();
+  }
 }
