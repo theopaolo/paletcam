@@ -134,9 +134,7 @@ function canPalettePreview(palette) {
     return false;
   }
 
-  return typeof activeSession.canExport === "function"
-    ? Boolean(activeSession.canExport(palette))
-    : true;
+  return true;
 }
 
 function isRalCapture(palette = getActivePalette()) {

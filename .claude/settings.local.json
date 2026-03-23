@@ -19,7 +19,8 @@
       "Bash(grep -n \"hide-zoom\\\\|use-canvas\\\\|is-ios\" /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/*.css)",
       "Bash(ls -la /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/modules/*.js)",
       "Bash(npm run:*)",
-      "Bash(bunx bun:*)"
+      "Bash(bunx bun:*)",
+      "Bash(git show:*)"
     ]
   }
 }
