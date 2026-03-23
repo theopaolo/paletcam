@@ -90,6 +90,7 @@ interface AppSettings {
   captureMode: CaptureMode;
   collectionViewMode: CollectionViewMode;
   performanceHudEnabled: boolean;
+  oneMoreColor: boolean;
   photoExportQuality: number;
   paletteExtractionAlgorithm: PaletteExtractionAlgorithm;
   grid: GridSettings;
@@ -102,6 +103,7 @@ interface AppSettingsPatch {
   captureMode?: CaptureMode;
   collectionViewMode?: CollectionViewMode;
   performanceHudEnabled?: boolean;
+  oneMoreColor?: boolean;
   photoExportQuality?: number;
   paletteExtractionAlgorithm?: PaletteExtractionAlgorithm;
   grid?: Partial<GridSettings>;
