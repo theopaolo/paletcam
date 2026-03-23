@@ -517,10 +517,13 @@
 }
 
 .collection-view-toggle-legend {
+  display: block;
+  width: 100%;
   color: rgba(240, 240, 240, 0.72);
   font-family: monospace;
   font-size: 0.72rem;
   line-height: 1;
+  text-align: center;
   text-transform: uppercase;
 }
 
@@ -552,7 +555,6 @@
   color: var(--secondary-color);
   font: inherit;
   cursor: pointer;
-  margin-right: auto;
   transition:
     border-color 0.2s ease,
     background-color 0.2s ease,
@@ -596,6 +598,7 @@
 
 .collection-toolbar-button {
   min-height: 44px;
+  margin-right: auto;
   padding: 0.5rem 0.8rem;
   text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.12);
