@@ -1,4 +1,5 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
+import { loadImageElementSource } from "../image-element-loader.js";
 import { getPalettePreviewPolaroidAsset, hasPaletteMasterPhoto } from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
@@ -33,40 +34,6 @@ function schedulePreviewStart(start, order) {
 
   schedule(() => {
     flushPendingPreviewStarts();
-  });
-}
-
-function loadPreviewImageElement(image, src) {
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      image.removeEventListener("load", handleLoad);
-      image.removeEventListener("error", handleError);
-    };
-
-    const handleLoad = () => {
-      cleanup();
-      resolve();
-    };
-
-    const handleError = () => {
-      cleanup();
-      reject(new Error("Unable to load preview image element"));
-    };
-
-    image.addEventListener("load", handleLoad);
-    image.addEventListener("error", handleError);
-    image.src = src;
-
-    if (image.complete) {
-      if (image.naturalWidth > 0) {
-        cleanup();
-        resolve();
-        return;
-      }
-
-      cleanup();
-      reject(new Error("Unable to load preview image element"));
-    }
   });
 }
 
@@ -151,7 +118,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 
       previewLoader.hidden = false;
       previewStatus.textContent = "";
-      await loadPreviewImageElement(previewImage, asset.objectUrl);
+      await loadImageElementSource(previewImage, asset.objectUrl);
       if (!card.isConnected) {
         return;
       }

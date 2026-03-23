@@ -1,5 +1,6 @@
 import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
+import { loadImageElementSource } from "../image-element-loader.js";
 import {
   closeSharedPanel,
   openSharedPanel,
@@ -321,40 +322,6 @@ function setBusy(nextBusy) {
   syncActionButtons();
 }
 
-function loadImageElement(image, src) {
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      image.removeEventListener("load", handleLoad);
-      image.removeEventListener("error", handleError);
-    };
-
-    const handleLoad = () => {
-      cleanup();
-      resolve();
-    };
-
-    const handleError = () => {
-      cleanup();
-      reject(new Error("Unable to load preview image element"));
-    };
-
-    image.addEventListener("load", handleLoad);
-    image.addEventListener("error", handleError);
-    image.src = src;
-
-    if (image.complete) {
-      if (image.naturalWidth > 0) {
-        cleanup();
-        resolve();
-        return;
-      }
-
-      cleanup();
-      reject(new Error("Unable to load preview image element"));
-    }
-  });
-}
-
 function createSlideState(palette, index) {
   const slide = document.createElement("article");
   slide.className = "palette-viewer-slide";
@@ -428,7 +395,7 @@ async function loadSlideAsset(index) {
       return;
     }
 
-    await loadImageElement(slideState.image, asset.objectUrl);
+    await loadImageElementSource(slideState.image, asset.objectUrl);
     if (
       activeSession !== session ||
       session.slideStates[index] !== slideState ||
