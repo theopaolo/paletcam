@@ -1,4 +1,5 @@
 import { extname, join, normalize } from 'node:path';
+import { withSecurityHeaders } from './security-headers.js';
 
 const projectRoot = process.cwd();
 const publicRoot = join(projectRoot, 'public');
@@ -36,6 +37,10 @@ function resolveRequestCandidates(urlPathname) {
   const normalizedPath = normalize(requestedPath);
 
   if (normalizedPath.startsWith('..') || normalizedPath.includes('\0')) {
+    return [];
+  }
+
+  if (normalizedPath === '_headers' || normalizedPath === '_redirects') {
     return [];
   }
 
@@ -112,7 +117,10 @@ async function proxyCommunityApiRequest(request, urlPathname, searchParams) {
   if (!response) {
     return new Response(
       `Community API proxy failed: ${lastProxyError?.message || 'unknown error'}`,
-      { status: 502 }
+      {
+        status: 502,
+        headers: withSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8' }),
+      }
     );
   }
 
@@ -127,7 +135,7 @@ async function proxyCommunityApiRequest(request, urlPathname, searchParams) {
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: responseHeaders,
+    headers: withSecurityHeaders(responseHeaders),
   });
 }
 
@@ -145,7 +153,7 @@ async function serveFile(filePath) {
     headers.set('Content-Type', contentType);
   }
 
-  return new Response(file, { headers });
+  return new Response(file, { headers: withSecurityHeaders(headers) });
 }
 
 function isSourceJavaScriptFile(filePath) {
@@ -182,17 +190,23 @@ async function bundleSourceModule(filePath) {
 
     return new Response(
       errorLogs || `Failed to bundle ${filePath}`,
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      {
+        status: 500,
+        headers: withSecurityHeaders({
+          'Cache-Control': 'no-store',
+          'Content-Type': 'text/plain; charset=utf-8',
+        }),
+      }
     );
   }
 
   const bundledCode = await buildResult.outputs[0].text();
 
   return new Response(bundledCode, {
-    headers: {
+    headers: withSecurityHeaders({
       'Cache-Control': 'no-store',
       'Content-Type': 'text/javascript; charset=utf-8',
-    },
+    }),
   });
 }
 
@@ -220,7 +234,10 @@ async function handleRequest(request) {
     }
   }
 
-  return new Response('Not found', { status: 404 });
+  return new Response('Not found', {
+    status: 404,
+    headers: withSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8' }),
+  });
 }
 
 function startServer() {

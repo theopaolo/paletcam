@@ -193,7 +193,7 @@
     <div class="header">
       <h1>Component Showcase</h1>
       <div class="pause-control">
-        <button type="button" id="pauseBtn" onclick="window.demo.togglePause()">Pause Animations</button>
+        <button type="button" id="pauseBtn" data-demo-action="togglePause">Pause Animations</button>
         <div class="pause-badge" id="pauseBadge">⏸ PAUSED</div>
       </div>
     </div>
@@ -209,10 +209,10 @@
       <div class="variant-group">
         <h3>Standard Toast</h3>
         <div class="controls">
-          <button type="button" onclick="window.demo.showStandardDefault()">Default</button>
-          <button type="button" onclick="window.demo.showStandardError()">Error</button>
-          <button type="button" onclick="window.demo.showStandardWithDetails()">With Details</button>
-          <button type="button" onclick="window.demo.showStandardWithAction()">With Action</button>
+          <button type="button" data-demo-action="showStandardDefault">Default</button>
+          <button type="button" data-demo-action="showStandardError">Error</button>
+          <button type="button" data-demo-action="showStandardWithDetails">With Details</button>
+          <button type="button" data-demo-action="showStandardWithAction">With Action</button>
         </div>
       </div>
 
@@ -222,8 +222,8 @@
       <div class="variant-group">
         <h3>Undo Toast</h3>
         <div class="controls">
-          <button type="button" onclick="window.demo.showUndo()">Basic Undo</button>
-          <button type="button" onclick="window.demo.showUndoWithCallback()">With Callback</button>
+          <button type="button" data-demo-action="showUndo">Basic Undo</button>
+          <button type="button" data-demo-action="showUndoWithCallback">With Callback</button>
         </div>
       </div>
 
@@ -233,9 +233,9 @@
       <div class="variant-group">
         <h3>Multiple Toasts</h3>
         <div class="controls">
-          <button type="button" onclick="window.demo.showMultiple()">Queue Multiple</button>
-          <button type="button" onclick="window.demo.showMixed()">Mixed Types</button>
-          <button type="button" onclick="window.demo.clearAll()">Clear All (manual test)</button>
+          <button type="button" data-demo-action="showMultiple">Queue Multiple</button>
+          <button type="button" data-demo-action="showMixed">Mixed Types</button>
+          <button type="button" data-demo-action="clearAll">Clear All (manual test)</button>
         </div>
       </div>
 
@@ -245,109 +245,6 @@
     </div>
   </div>
 
-  <script type="module">
-    import '/modules/toast/toast-host.js';
-    import { showToast, showUndoToast } from '/modules/toast-ui.js';
-
-    // Pause state
-    let isPaused = false;
-    const pausedTimers = new Set();
-
-    // Override window.setTimeout to track timers when paused
-    const originalSetTimeout = window.setTimeout;
-    window.setTimeout = function(...args) {
-      const timerId = originalSetTimeout.apply(this, args);
-      if (isPaused) {
-        pausedTimers.add(timerId);
-        window.clearTimeout(timerId);
-      }
-      return timerId;
-    };
-
-    // Move toast-host into demo container
-    setTimeout(() => {
-      const toastHost = document.querySelector('toast-host');
-      const demoContainer = document.querySelector('.toast-demo-container');
-      if (toastHost && demoContainer) {
-        demoContainer.appendChild(toastHost);
-      }
-    }, 100);
-
-    // Demo API
-    window.demo = {
-      togglePause() {
-        isPaused = !isPaused;
-        const body = document.body;
-        const pauseBtn = document.getElementById('pauseBtn');
-        const pauseBadge = document.getElementById('pauseBadge');
-
-        if (isPaused) {
-          body.classList.add('paused');
-          pauseBtn.textContent = 'Resume Animations';
-          pauseBadge.classList.add('active');
-        } else {
-          body.classList.remove('paused');
-          pauseBtn.textContent = 'Pause Animations';
-          pauseBadge.classList.remove('active');
-          pausedTimers.clear();
-        }
-      },
-
-      showStandardDefault() {
-        showToast('This is a standard toast notification');
-      },
-
-      showStandardError() {
-        showToast('Something went wrong!', { variant: 'error' });
-      },
-
-      showStandardWithDetails() {
-        showToast('Palette saved', {
-          details: 'Your palette has been saved to your library',
-        });
-      },
-
-      showStandardWithAction() {
-        showToast('Palette published', {
-          actionLabel: 'View',
-          onAction: () => console.log('Action clicked!'),
-        });
-      },
-
-      showUndo() {
-        showUndoToast('Item deleted', {
-          onUndo: () => console.log('Undo clicked!'),
-        });
-      },
-
-      showUndoWithCallback() {
-        showUndoToast('Palette removed from collection', {
-          onUndo: () => console.log('Undo executed'),
-          onExpire: () => console.log('Undo expired'),
-        });
-      },
-
-      showMultiple() {
-        const messages = [
-          'First notification',
-          'Second notification',
-          'Third notification',
-        ];
-        messages.forEach((msg, i) => {
-          setTimeout(() => showToast(msg), i * 500);
-        });
-      },
-
-      showMixed() {
-        showToast('Default message');
-        setTimeout(() => showUndoToast('Item deleted'), 800);
-        setTimeout(() => showToast('All done!', { variant: 'error' }), 1600);
-      },
-
-      clearAll() {
-        console.log('To clear toasts, you would need to manually dispatch events or add a clear method to toast-host');
-      },
-    };
-  </script>
+  <script type="module" src="/components.js"></script>
 </body>
 </html>

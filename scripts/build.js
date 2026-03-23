@@ -1,11 +1,13 @@
 import { execSync } from "node:child_process";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
+import { createNetlifyHeadersFile } from "./security-headers.js";
 
 const projectRoot = process.cwd();
 const sourceRoot = join(projectRoot, "src");
 const publicRoot = join(projectRoot, "public");
 const outDir = join(projectRoot, "dist");
+const netlifyHeadersFilename = "_headers";
 const precacheManifestFilename = "precache-manifest.json";
 const serviceWorkerFilename = "service-worker.js";
 const appVersionPlaceholder = "__APP_VERSION__";
@@ -117,6 +119,12 @@ async function stampServiceWorkerBuildId(buildId) {
   await writeFile(serviceWorkerPath, stampedSource, "utf8");
 }
 
+async function writeNetlifyHeaders() {
+  const headersFile = createNetlifyHeadersFile();
+  await writeFile(join(publicRoot, netlifyHeadersFilename), headersFile, "utf8");
+  await writeFile(join(outDir, netlifyHeadersFilename), headersFile, "utf8");
+}
+
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 
@@ -140,6 +148,7 @@ if (!buildResult.success) {
 }
 
 await copyPublicAssets();
+await writeNetlifyHeaders();
 await stampAppVersion();
 await stampServiceWorkerBuildId(createBuildId());
 await writePrecacheManifest();
