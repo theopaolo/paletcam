@@ -7,6 +7,7 @@ const projectRoot = process.cwd();
 const sourceRoot = join(projectRoot, "src");
 const publicRoot = join(projectRoot, "public");
 const outDir = join(projectRoot, "dist");
+const workersOutDir = join(outDir, "workers");
 const netlifyHeadersFilename = "_headers";
 const precacheManifestFilename = "precache-manifest.json";
 const serviceWorkerFilename = "service-worker.js";
@@ -17,6 +18,16 @@ const unknownCommitHash = "unknown";
 const precacheExcludedFiles = new Set(["service-worker.js", precacheManifestFilename]);
 const precacheExcludedExtensions = new Set([".map"]);
 const bundleNodeEnv = "production";
+const browserBuildConfig = {
+  target: "browser",
+  format: "esm",
+  splitting: false,
+  minify: true,
+  sourcemap: "external",
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(bundleNodeEnv),
+  },
+};
 
 function exitWithBuildErrors(logs) {
   for (const log of logs) {
@@ -125,27 +136,27 @@ async function writeNetlifyHeaders() {
   await writeFile(join(outDir, netlifyHeadersFilename), headersFile, "utf8");
 }
 
+async function buildBrowserEntrypoints(entrypoints, buildOutDir) {
+  const buildResult = await Bun.build({
+    entrypoints,
+    outdir: buildOutDir,
+    ...browserBuildConfig,
+  });
+
+  if (!buildResult.success) {
+    exitWithBuildErrors(buildResult.logs);
+  }
+}
+
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
+await mkdir(workersOutDir, { recursive: true });
 
-const buildResult = await Bun.build({
-  entrypoints: [
-    join(sourceRoot, "app.js"),
-  ],
-  outdir: outDir,
-  target: "browser",
-  format: "esm",
-  splitting: false,
-  minify: true,
-  sourcemap: "external",
-  define: {
-    "process.env.NODE_ENV": JSON.stringify(bundleNodeEnv),
-  },
-});
-
-if (!buildResult.success) {
-  exitWithBuildErrors(buildResult.logs);
-}
+await buildBrowserEntrypoints([join(sourceRoot, "app.js")], outDir);
+await buildBrowserEntrypoints(
+  [join(sourceRoot, "workers", "palette-extraction.worker.js")],
+  workersOutDir,
+);
 
 await copyPublicAssets();
 await writeNetlifyHeaders();
