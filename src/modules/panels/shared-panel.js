@@ -13,8 +13,14 @@ class SharedPanelElement extends LitElement {
   static styles = css`
     :host {
       position: fixed;
-      inset: 0;
+      inset-block: 0;
+      left: 50%;
+      width: min(100vw, var(--app-shell-max-width, 500px));
+      height: 100%;
+      transform: translateX(-50%);
       display: block;
+      box-sizing: border-box;
+      overflow: hidden;
       z-index: var(--shared-panel-z-index, 1000);
       pointer-events: none;
     }

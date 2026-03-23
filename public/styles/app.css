@@ -4,6 +4,7 @@
   --secondary-color: #f0f0f0;
   --accent-color: #ffc800;
   --app-height: 100vh;
+  --app-shell-max-width: 500px;
 }
 
 html {
@@ -18,7 +19,7 @@ img {
 body {
   font-family: "Museum", Arial, sans-serif;
   background-color: var(--primary-color);
-  max-width: 500px;
+  max-width: var(--app-shell-max-width);
   width: 100%;
   height: var(--app-height);
   margin: 0 auto;
