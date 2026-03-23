@@ -26,6 +26,7 @@ const communityCodeInput = /** @type {HTMLInputElement | null} */ (document.getE
 const communityVerifyCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityVerifyCodeButton'));
 const communityLogoutButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityLogoutButton'));
 const communityMyCatchesLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityMyCatchesLink'));
+const communityDeleteAccountButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityDeleteAccountButton'));
 
 const communityHomepageLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityHomepageLink'));
 const communityBrandLabel = document.getElementById('communityBrandLabel');
@@ -126,6 +127,10 @@ function syncCommunitySessionUi(session = getCurrentCommunitySession()) {
 
   if (communityMyCatchesLink) {
     communityMyCatchesLink.hidden = !isConnected;
+  }
+
+  if (communityDeleteAccountButton) {
+    communityDeleteAccountButton.hidden = !isConnected;
   }
 }
 

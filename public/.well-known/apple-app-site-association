@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["773539QMJS.co.colorcatchers.co"],
+        "components": [
+          { "/": "/*" }
+        ]
+      }
+    ]
+  }
+}

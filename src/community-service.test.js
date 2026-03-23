@@ -39,6 +39,8 @@ async function loadCommunityService({
         status: "PUBLIC",
       },
     })),
+    deleteAccount: mock(async () => ({})),
+    requestAccountDeletionCode: mock(async () => ({})),
     requestCommunityLoginCode: mock(async () => ({})),
     unpublishCatchFromCommunity,
     verifyCommunityLoginCode: mock(async () => ({
