@@ -39,6 +39,7 @@ import {
 } from "./modules/collection/panel-state.js";
 import { clientLog } from "./modules/client-log.js";
 import { formatErrorDetails } from "./modules/error-format.js";
+import { isIOSDevice } from "./modules/platform.js";
 import {
   closeSharedPanel,
   openSharedPanel,
@@ -101,7 +102,7 @@ function canSharePalette(palette) {
 }
 
 function canExportPalette(palette) {
-  return hasPaletteMasterPhoto(palette);
+  return hasPaletteMasterPhoto(palette) && !isIOSDevice();
 }
 
 function isRalCapture(palette) {

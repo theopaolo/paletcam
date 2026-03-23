@@ -294,7 +294,9 @@ function syncActionButtons() {
   }
 
   if (exportButton) {
-    exportButton.disabled = isBusy || !getCapability("canExport");
+    const hideExportButton = !getCapability("canExport");
+    exportButton.hidden = hideExportButton;
+    exportButton.disabled = hideExportButton || isBusy;
   }
 
   if (publishButton) {
