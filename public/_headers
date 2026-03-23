@@ -10,6 +10,9 @@
   X-Frame-Options: DENY
   X-Permitted-Cross-Domain-Policies: none
 
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+
 /service-worker.js
   Cache-Control: no-cache, no-store, must-revalidate
 

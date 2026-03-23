@@ -1,8 +1,10 @@
 import {
   CATCH_MODERATION_STATUSES,
+  deleteAccount,
   fetchCatchModerationStatuses,
   normalizeCatchStatus,
   postCatchToCommunity,
+  requestAccountDeletionCode,
   requestCommunityLoginCode,
   unpublishCatchFromCommunity,
   verifyCommunityLoginCode,
@@ -233,6 +235,54 @@ export async function verifyCommunityLoginOtp({ email, code }) {
 
 export function logoutCommunity() {
   clearCommunitySession();
+}
+
+export async function sendAccountDeletionCode() {
+  const token = getAuthTokenOrThrow();
+
+  try {
+    await requestAccountDeletionCode({ token });
+  } catch (error) {
+    throw mapApiError(error);
+  }
+}
+
+export async function confirmAccountDeletion({ code }) {
+  const token = getAuthTokenOrThrow();
+  const normalizedCode = String(code || "").trim();
+
+  if (!normalizedCode) {
+    throw createCommunityServiceError(
+      "Code is required.",
+      { code: "MISSING_CODE" },
+    );
+  }
+
+  try {
+    await deleteAccount({ token, code: normalizedCode });
+
+    const palettes = await getSavedPalettes();
+    const publishedPalettes = palettes.filter((p) => getPaletteRemoteCatchId(p));
+    await Promise.all(
+      publishedPalettes.map((p) =>
+        updatePaletteRemoteState(p.id, {
+          remoteCatchId: null,
+          moderationStatus: null,
+          postedAt: null,
+          moderationUpdatedAt: null,
+          lastModerationCheckAt: null,
+        }),
+      ),
+    );
+
+    clearCommunitySession();
+  } catch (error) {
+    if (error?.name === "CommunityServiceError") {
+      throw error;
+    }
+
+    throw mapApiError(error);
+  }
 }
 
 export function getCurrentCommunitySession() {

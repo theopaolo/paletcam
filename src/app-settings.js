@@ -171,6 +171,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   captureMode: "palette",
   collectionViewMode: "list",
   performanceHudEnabled: false,
+  oneMoreColor: false,
   photoExportQuality: 0.95,
   paletteAnalysisProfile: PALETTE_ANALYSIS_PROFILES.EXPRESSIVE,
   paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
@@ -307,6 +308,7 @@ function buildNormalizedSettings(candidate) {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
+    oneMoreColor: Boolean(candidate?.oneMoreColor),
     photoExportQuality: clampPhotoExportQuality(candidate?.photoExportQuality),
     paletteExtractionAlgorithm: normalizeAlgorithm(candidate?.paletteExtractionAlgorithm),
     grid: normalizeGridSettings(candidate?.grid),
@@ -337,6 +339,7 @@ function areSettingsEqual(firstSettings, secondSettings) {
     firstSettings.captureMode === secondSettings.captureMode &&
     firstSettings.collectionViewMode === secondSettings.collectionViewMode &&
     firstSettings.performanceHudEnabled === secondSettings.performanceHudEnabled &&
+    firstSettings.oneMoreColor === secondSettings.oneMoreColor &&
     firstSettings.photoExportQuality === secondSettings.photoExportQuality &&
     firstSettings.paletteAnalysisProfile === secondSettings.paletteAnalysisProfile &&
     firstSettings.paletteExtractionAlgorithm === secondSettings.paletteExtractionAlgorithm &&
@@ -431,6 +434,7 @@ export function getDefaultAppSettingsResetPatch() {
     captureMode: defaults.captureMode,
     collectionViewMode: defaults.collectionViewMode,
     performanceHudEnabled: defaults.performanceHudEnabled,
+    oneMoreColor: defaults.oneMoreColor,
     paletteAnalysisProfile: defaults.paletteAnalysisProfile,
     grid: defaults.grid,
     medianCut: defaults.medianCut,

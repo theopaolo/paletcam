@@ -796,6 +796,39 @@
               </div>
             </div>
           </section>
+          <section
+            class="settings-section"
+            aria-labelledby="settingsOneMoreColorTitle"
+          >
+            <div class="settings-section-header">
+              <h3 id="settingsOneMoreColorTitle">Moins de couleurs sombre</h3>
+            </div>
+
+            <div class="settings-field">
+              <div
+                class="settings-segment"
+                role="group"
+                aria-label="Moins de couleurs sombre"
+              >
+                <button
+                  class="settings-segment-button"
+                  type="button"
+                  data-settings-one-more-color="off"
+                  aria-pressed="true"
+                >
+                  Off
+                </button>
+                <button
+                  class="settings-segment-button"
+                  type="button"
+                  data-settings-one-more-color="on"
+                  aria-pressed="false"
+                >
+                  On
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
         <!-- end settingsPaletteModeGroup -->
 
@@ -985,6 +1018,67 @@
             >
               Mon espace personnel
             </a>
+          </div>
+
+          <div class="settings-danger-zone">
+            <button
+              class="settings-secondary-button settings-danger-button"
+              id="communityDeleteAccountButton"
+              type="button"
+              hidden
+            >
+              Supprimer mon compte
+            </button>
+          </div>
+        </section>
+      </div>
+    </shared-panel>
+
+    <!-- Delete Account Panel -->
+    <shared-panel
+      class="login-panel"
+      data-panel-name="delete-account"
+      panel-title="Suppression du compte"
+      close-label="Fermer le panneau suppression"
+      hidden
+    >
+      <div class="login-content">
+        <section class="settings-section" aria-labelledby="deleteAccountTitle">
+          <div class="settings-section-header">
+            <h3 id="deleteAccountTitle">Supprimer mon compte</h3>
+            <p>Cette action est irréversible. Ton compte et tes captures seront supprimés.</p>
+          </div>
+
+          <div class="settings-field" id="deleteAccountRequestStep">
+            <button
+              class="settings-action-button settings-danger-button"
+              id="deleteAccountRequestCodeButton"
+              type="button"
+            >
+              Recevoir le code de suppression
+            </button>
+            <p class="settings-hint" id="deleteAccountHint" hidden></p>
+          </div>
+
+          <div class="settings-field" id="deleteAccountVerifyStep" hidden>
+            <div class="settings-field-header">
+              <label class="settings-label" for="deleteAccountCodeInput">Code reçu par email</label>
+            </div>
+            <input
+              class="settings-text-input"
+              id="deleteAccountCodeInput"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              placeholder="123456"
+            />
+            <button
+              class="settings-action-button settings-danger-button"
+              id="deleteAccountConfirmButton"
+              type="button"
+            >
+              Confirmer la suppression
+            </button>
           </div>
         </section>
       </div>

@@ -39,6 +39,12 @@ export const SECURITY_HEADERS = {
 
 const NETLIFY_ROUTE_HEADERS = [
   {
+    path: '/.well-known/apple-app-site-association',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  },
+  {
     path: '/service-worker.js',
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
