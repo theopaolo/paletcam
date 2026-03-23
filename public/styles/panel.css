@@ -23,6 +23,9 @@
 .catch-details-panel {
   --shared-panel-z-index: 1102;
   --shared-panel-padding: 0;
+  --shared-panel-shell-overflow-y: hidden;
+  --shared-panel-body-display: grid;
+  --shared-panel-body-overflow: hidden;
   --shared-panel-header-padding: 0.5rem;
   --shared-panel-close-icon-filter: invert(1);
 }
@@ -983,7 +986,8 @@
 .catch-details-content {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto auto;
-  min-height: calc(var(--app-height, 100vh) - 4rem);
+  min-height: 0;
+  height: 100%;
   background: #1b1b1b;
 }
 
