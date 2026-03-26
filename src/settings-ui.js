@@ -553,12 +553,21 @@ function bindExportButton() {
       const filename = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
 
       // iOS Safari ignores the `download` attribute on <a> — use Web Share API with File instead
+      // Note: navigator.share() may throw NotAllowedError on iOS when called after an await
+      // (user gesture expires). In that case fall through to the anchor download.
       if (typeof navigator.canShare === "function") {
         const file = new File([blob], filename, { type: "application/json" });
         if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: filename });
-          showToast("Export terminé.", { duration: 1400 });
-          return;
+          try {
+            await navigator.share({ files: [file], title: filename });
+            showToast("Export terminé.", { duration: 1400 });
+            return;
+          } catch (shareErr) {
+            if (shareErr instanceof Error && shareErr.name === "AbortError") {
+              return;
+            }
+            // NotAllowedError or other — fall through to anchor download
+          }
         }
       }
 
