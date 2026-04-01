@@ -23,8 +23,9 @@ import {
 import {
   buildCommunityCatchPublishPayload,
 } from "./modules/community-publish-payload.js";
+import { reportAppError } from "./modules/error-reporting.js";
 
-function createCommunityServiceError(message, { code = "UNKNOWN", cause = /** @type {any} */ (undefined) } = {}) {
+function createCommunityServiceError(message, { code = "UNKNOWN", cause = undefined } = {}) {
   const error = /** @type {Error & CommunityServiceError} */ (new Error(message));
   error.name = "CommunityServiceError";
   error.code = code;
@@ -315,11 +316,13 @@ async function persistPalettePrivateRemoteState(palette) {
   try {
     await updatePaletteRemoteState(palette.id, nextRemoteState);
   } catch (error) {
-    clientLog("Failed to persist palette private remote state.", {
-      paletteId: palette?.id,
-      remoteCatchId: getPaletteRemoteCatchId(palette),
-      error: error?.name,
-      message: error?.message,
+    reportAppError(error, {
+      logMessage: "Failed to persist palette private remote state.",
+      includeConsole: false,
+      context: {
+        paletteId: palette?.id,
+        remoteCatchId: getPaletteRemoteCatchId(palette),
+      },
     });
   }
 

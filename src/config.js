@@ -8,7 +8,7 @@ function getPlatformRef() {
   const isIos = /iPhone|iPad|iPod/.test(ua);
   const isAndroid = /Android/.test(ua);
   const isStandalone =
-    /** @type {any} */ (globalThis.navigator)?.standalone === true ||
+    globalThis.navigator?.standalone === true ||
     globalThis.matchMedia?.("(display-mode: standalone)").matches === true;
 
   if (isStandalone && isIos) return "pwa_ios";

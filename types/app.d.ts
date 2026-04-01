@@ -61,6 +61,7 @@ type CopyMode = "rgb" | "hex" | "hsl";
 
 type CaptureMode = "palette" | "ral";
 type CollectionViewMode = "list" | "grid";
+type PaletteAnalysisProfile = "expressive" | "perceptual" | "custom";
 
 type PaletteExtractionAlgorithm = "grid" | "median-cut";
 
@@ -92,6 +93,7 @@ interface AppSettings {
   performanceHudEnabled: boolean;
   oneMoreColor: boolean;
   photoExportQuality: number;
+  paletteAnalysisProfile: PaletteAnalysisProfile;
   paletteExtractionAlgorithm: PaletteExtractionAlgorithm;
   grid: GridSettings;
   medianCut: MedianCutSettings;
@@ -105,10 +107,16 @@ interface AppSettingsPatch {
   performanceHudEnabled?: boolean;
   oneMoreColor?: boolean;
   photoExportQuality?: number;
+  paletteAnalysisProfile?: PaletteAnalysisProfile;
   paletteExtractionAlgorithm?: PaletteExtractionAlgorithm;
   grid?: Partial<GridSettings>;
   medianCut?: Partial<MedianCutSettings>;
   paletteScoring?: Partial<PaletteScoringWeights>;
+}
+
+interface AppSettingsStore {
+  currentSettings: AppSettings;
+  listeners: Set<(settings: AppSettings) => void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -306,6 +314,39 @@ interface DayGroup {
 /** Camera facing mode. */
 type FacingMode = "environment" | "user";
 
+interface CameraPoint {
+  x: number;
+  y: number;
+}
+
+interface CameraNumericRangeCapability {
+  min: number;
+  max: number;
+  step?: number;
+}
+
+interface CameraTrackCapabilities {
+  zoom?: CameraNumericRangeCapability;
+  exposureCompensation?: CameraNumericRangeCapability;
+  exposureMode?: string[];
+  focusMode?: string[];
+  pointsOfInterest?: boolean | CameraPoint[];
+}
+
+interface CameraTrackSettings {
+  zoom?: number;
+  exposureCompensation?: number;
+  frameRate?: number;
+}
+
+interface CameraTrackConstraintSet {
+  zoom?: number;
+  exposureCompensation?: number;
+  exposureMode?: string;
+  focusMode?: string;
+  pointsOfInterest?: CameraPoint[];
+}
+
 /** Zoom capability range reported by the camera track. */
 interface ZoomCapabilities {
   min: number;
@@ -320,6 +361,23 @@ interface ExposureCapabilities {
   step: number;
 }
 
+interface CameraStreamInterruptedEvent {
+  type: string;
+  trackReadyState: MediaStreamTrackState;
+}
+
+interface CameraStreamState {
+  hasStream: boolean;
+  hasVideoTrack: boolean;
+  trackReadyState: MediaStreamTrackState;
+  videoReadyState: number;
+  videoPaused: boolean;
+  videoEnded: boolean;
+  videoWidth: number;
+  videoHeight: number;
+  currentTime: number;
+}
+
 /** Options accepted by createCameraController. */
 interface CameraControllerOptions {
   cameraFeed: HTMLVideoElement | null;
@@ -327,6 +385,7 @@ interface CameraControllerOptions {
   onExposureChange?: (exposure: number) => void;
   onZoomChange?: (zoom: number) => void;
   onError?: (error: unknown) => void;
+  onStreamInterrupted?: (event: CameraStreamInterruptedEvent) => void;
   initialFacingMode?: FacingMode;
   zoomStep?: number;
 }
@@ -341,8 +400,9 @@ interface CameraController {
   getExposureCapabilities(): ExposureCapabilities | null;
   getZoomCapabilities(): ZoomCapabilities | null;
   getFacingMode(): FacingMode;
+  getStreamState(): CameraStreamState;
   startStream(): Promise<boolean>;
-  setMeteringPoint(point: { x: number; y: number }): Promise<boolean>;
+  setMeteringPoint(point: CameraPoint): Promise<boolean>;
   stopStream(): void;
   supportsMeteringPointSelection(): boolean;
   toggleFacingMode(): Promise<boolean>;
@@ -449,6 +509,14 @@ interface PaletteViewerOpenOptions {
 //  Error types
 // ---------------------------------------------------------------------------
 
+interface ErrorLike {
+  name?: string;
+  message?: string;
+  code?: string;
+  status?: number;
+  cause?: unknown;
+}
+
 interface CommunityApiError extends Error {
   name: "CommunityApiError";
   status: number;
@@ -484,6 +552,20 @@ interface PaletcamDb {
     };
   };
   palettes: PaletcamDexieTable;
+}
+
+interface CapacitorLike {
+  isNativePlatform?: () => boolean;
+  getPlatform?: () => string;
+}
+
+interface GlobalThis {
+  Capacitor?: CapacitorLike;
+  __paletcamAppSettingsStore__?: AppSettingsStore;
+}
+
+interface Navigator {
+  standalone?: boolean;
 }
 
 declare module "bun:test" {

@@ -1,3 +1,5 @@
+import { reportAppError } from "./error-reporting.js";
+
 const DEFAULT_ZOOM_STEP = 0.1;
 const DEFAULT_EXPOSURE_STEP = 0.1;
 const IDEAL_CAMERA_WIDTH = 1600;
@@ -18,12 +20,16 @@ export function createCameraController({
   zoomStep = DEFAULT_ZOOM_STEP,
 }) {
   let facingMode = initialFacingMode;
+  /** @type {MediaStreamTrack | null} */
   let videoTrack = null;
   let currentZoom = 1;
   let currentExposureCompensation = 0;
+  /** @type {CameraPoint | null} */
   let currentMeteringPoint = null;
+  /** @type {Promise<boolean> | null} */
   let activeStartPromise = null;
   let streamRevision = 0;
+  /** @type {Array<() => void>} */
   const trackEventCleanups = [];
 
   function notifyZoomChange() {
@@ -39,12 +45,19 @@ export function createCameraController({
   }
 
   function reportError(message, error) {
-    console.error(message, error);
+    reportAppError(error, {
+      consoleMessage: message,
+      includeClientLog: false,
+    });
     onError?.(error);
   }
 
   function reportControlError(message, error) {
-    console.warn(message, error);
+    reportAppError(error, {
+      consoleMessage: message,
+      consoleLevel: "warn",
+      includeClientLog: false,
+    });
   }
 
   function clearTrackEventListeners() {
@@ -167,9 +180,38 @@ export function createCameraController({
     };
   }
 
+  function getTrackCapabilities() {
+    return videoTrack?.getCapabilities
+      ? /** @type {CameraTrackCapabilities} */ (videoTrack.getCapabilities())
+      : null;
+  }
+
+  function getTrackSettings() {
+    return videoTrack?.getSettings
+      ? /** @type {CameraTrackSettings} */ (videoTrack.getSettings())
+      : null;
+  }
+
+  /**
+   * @param {unknown} error
+   * @returns {string}
+   */
+  function getErrorName(error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      typeof error.name === "string"
+    ) {
+      return error.name;
+    }
+
+    return "";
+  }
+
   function syncTrackControlsFromSettings() {
-    const capabilities = /** @type {any} */ (videoTrack?.getCapabilities?.());
-    const settings = /** @type {any} */ (videoTrack?.getSettings?.());
+    const capabilities = getTrackCapabilities();
+    const settings = getTrackSettings();
 
     const zoomCapabilities = capabilities?.zoom;
     if (zoomCapabilities) {
@@ -196,8 +238,13 @@ export function createCameraController({
       return false;
     }
 
-    const capabilities = /** @type {any} */ (videoTrack.getCapabilities());
+    const capabilities = getTrackCapabilities();
+    /** @type {CameraTrackConstraintSet} */
     const nextConstraintSet = {};
+
+    if (!capabilities) {
+      return false;
+    }
 
     if (capabilities.zoom) {
       currentZoom = clampZoom(currentZoom, capabilities.zoom);
@@ -248,11 +295,7 @@ export function createCameraController({
   }
 
   async function applyZoom(zoomValue) {
-    if (!videoTrack?.getCapabilities) {
-      return false;
-    }
-
-    const zoomCapabilities = /** @type {any} */ (videoTrack.getCapabilities()).zoom;
+    const zoomCapabilities = getTrackCapabilities()?.zoom;
     if (!zoomCapabilities) {
       return false;
     }
@@ -263,12 +306,7 @@ export function createCameraController({
   }
 
   async function applyExposureCompensation(exposureValue) {
-    if (!videoTrack?.getCapabilities) {
-      return false;
-    }
-
-    const exposureCapabilities = /** @type {any} */ (videoTrack.getCapabilities())
-      .exposureCompensation;
+    const exposureCapabilities = getTrackCapabilities()?.exposureCompensation;
     if (!exposureCapabilities) {
       return false;
     }
@@ -279,11 +317,7 @@ export function createCameraController({
   }
 
   async function setMeteringPoint(point) {
-    if (!videoTrack?.getCapabilities) {
-      return false;
-    }
-
-    const capabilities = /** @type {any} */ (videoTrack.getCapabilities());
+    const capabilities = getTrackCapabilities();
     if (!supportsPointsOfInterest(capabilities)) {
       return false;
     }
@@ -342,7 +376,7 @@ export function createCameraController({
             stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
             break;
           } catch (err) {
-            if (/** @type {any} */ (err)?.name !== "OverconstrainedError") {
+            if (getErrorName(err) !== "OverconstrainedError") {
               throw err;
             }
           }
@@ -380,7 +414,7 @@ export function createCameraController({
         return true;
       } catch (error) {
         notifyCameraActiveChange(false);
-        const name = /** @type {any} */ (error)?.name;
+        const name = getErrorName(error);
         if (name === "NotAllowedError" || name === "OverconstrainedError") {
           // Expected: permission denied or camera unavailable — notify without console noise.
           onError?.(error);
@@ -426,7 +460,7 @@ export function createCameraController({
   }
 
   function getZoomCapabilities() {
-    const zoomCapabilities = /** @type {any} */ (videoTrack?.getCapabilities?.())?.zoom;
+    const zoomCapabilities = getTrackCapabilities()?.zoom;
     if (!zoomCapabilities) {
       return null;
     }
@@ -439,8 +473,7 @@ export function createCameraController({
   }
 
   function getExposureCapabilities() {
-    const exposureCapabilities = /** @type {any} */ (videoTrack?.getCapabilities?.())
-      ?.exposureCompensation;
+    const exposureCapabilities = getTrackCapabilities()?.exposureCompensation;
     if (!exposureCapabilities) {
       return null;
     }
@@ -453,7 +486,7 @@ export function createCameraController({
   }
 
   function supportsMeteringPointSelection() {
-    return supportsPointsOfInterest(/** @type {any} */ (videoTrack?.getCapabilities?.()));
+    return supportsPointsOfInterest(getTrackCapabilities());
   }
 
   function getStreamState() {

@@ -185,11 +185,11 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 
 function getGlobalSettingsStore() {
-  const host = /** @type {any} */ (globalThis);
+  const host = globalThis;
 
   if (!host[GLOBAL_SETTINGS_STORE_KEY]) {
     host[GLOBAL_SETTINGS_STORE_KEY] = {
-      currentSettings: null,
+      currentSettings: loadSettings(),
       listeners: new Set(),
     };
   }
@@ -198,9 +198,6 @@ function getGlobalSettingsStore() {
 }
 
 const settingsStore = getGlobalSettingsStore();
-if (!settingsStore.currentSettings) {
-  settingsStore.currentSettings = loadSettings();
-}
 
 /**
  * Test-only helper to reload settings from storage and clear listeners.
@@ -381,7 +378,7 @@ function persistSettings(nextSettings) {
 
 function loadSettings() {
   const storedSettings = readStoredSettings();
-  const hasStoredPaletteAnalysisProfile = Object.prototype.hasOwnProperty.call(
+  const hasStoredPaletteAnalysisProfile = Object.hasOwn(
     storedSettings ?? {},
     "paletteAnalysisProfile",
   );
@@ -447,7 +444,6 @@ export function getDefaultAppSettingsResetPatch() {
 export function getAppSettings() {
   return {
     ...settingsStore.currentSettings,
-    paletteAnalysisProfile: settingsStore.currentSettings.paletteAnalysisProfile,
     grid: { ...settingsStore.currentSettings.grid },
     medianCut: { ...settingsStore.currentSettings.medianCut },
     paletteScoring: { ...settingsStore.currentSettings.paletteScoring },
@@ -459,7 +455,7 @@ export function getAppSettings() {
  * @returns {AppSettings}
  */
 export function updateAppSettings(partialSettings) {
-  const hasExplicitPaletteAnalysisProfile = Object.prototype.hasOwnProperty.call(
+  const hasExplicitPaletteAnalysisProfile = Object.hasOwn(
     partialSettings ?? {},
     "paletteAnalysisProfile",
   );

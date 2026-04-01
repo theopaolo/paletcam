@@ -36,8 +36,7 @@ import {
   getCollectionSessionIds,
   toggleAllCollectionSessions,
 } from "./modules/collection/panel-state.js";
-import { clientLog } from "./modules/client-log.js";
-import { formatErrorDetails } from "./modules/error-format.js";
+import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import { isIOSDevice } from "./modules/platform.js";
 import {
   openSharedPanel,
@@ -325,15 +324,22 @@ async function handleDeletePalette(palette) {
           notifyDeleteRemoteCleanupIssue(fallbackResult, { wasQueued });
         }
       } catch (error) {
-        console.error(`Failed to delete palette ${palette.id}:`, error);
+        reportAppError(error, {
+          logMessage: "Failed to delete palette.",
+          context: { paletteId: palette.id },
+          consoleMessage: `Failed to delete palette ${palette.id}:`,
+        });
         pendingDeletionIds.delete(palette.id);
         if (shouldTrackCollectionState || collectionPanel?.classList.contains("visible")) {
           await loadCollectionUi();
         }
-        showToast("Suppression échouée", {
-          variant: "error",
-          duration: 1800,
-        });
+        showToast(
+          "Suppression échouée",
+          createErrorToastOptions(error, {
+            variant: "error",
+            duration: 1800,
+          }),
+        );
         refreshPaletteViewerOverlay({
           preferredPaletteId: palette.id,
           fallbackIndex: removedIndex < 0 ? 0 : removedIndex,
@@ -361,11 +367,13 @@ function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
     return;
   }
 
-  clientLog("Failed to clean up palette publication during delete.", {
-    code: result?.error?.code,
-    message: result?.error?.message,
-    remoteCatchId: result?.remoteCatchId,
-    status: result?.status,
+  reportAppError(result?.error, {
+    logMessage: "Failed to clean up palette publication during delete.",
+    includeConsole: false,
+    context: {
+      remoteCatchId: result?.remoteCatchId,
+      status: result?.status,
+    },
   });
 
   let message = result.status === "authentication_required"
@@ -380,11 +388,13 @@ function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
     variant = "default";
   }
 
-  showToast(message, {
-    variant,
-    duration: 4200,
-    details: formatErrorDetails(result.error),
-  });
+  showToast(
+    message,
+    createErrorToastOptions(result.error, {
+      variant,
+      duration: 4200,
+    }),
+  );
 }
 
 function openCollectionPaletteViewer(paletteId) {
@@ -480,15 +490,16 @@ async function loadCollectionUi() {
     collectionGrid.innerHTML = `<p class="empty-message">Erreur de chargement des palettes.</p>`;
     collectionGrid.dataset.viewMode = currentCollectionViewMode;
     syncCollectionPanelChrome([]);
-    clientLog("Failed to load palette collection.", {
-      error: error?.name,
-      message: error?.message,
+    reportAppError(error, {
+      logMessage: "Failed to load palette collection.",
     });
-    showToast("Impossible de charger la collection.", {
-      variant: "error",
-      duration: 3000,
-      details: formatErrorDetails(error),
-    });
+    showToast(
+      "Impossible de charger la collection.",
+      createErrorToastOptions(error, {
+        variant: "error",
+        duration: 3000,
+      }),
+    );
     refreshPaletteViewerOverlay();
   }
 }
@@ -623,18 +634,17 @@ async function handlePublishPalette(palette, action = "publish") {
       return;
     }
 
-    clientLog("Failed to update palette publication.", {
-      action,
-      code: error?.code,
-      message: error?.message,
-      status: error?.status,
+    reportAppError(error, {
+      logMessage: "Failed to update palette publication.",
+      context: { action },
     });
-    showToast(getPublicationErrorMessage(error, actionConfig.failureMessage), {
-      variant: "error",
-      duration: 4000,
-      details: formatErrorDetails(error),
-    });
-    console.error("Failed to update palette publication:", error);
+    showToast(
+      getPublicationErrorMessage(error, actionConfig.failureMessage),
+      createErrorToastOptions(error, {
+        variant: "error",
+        duration: 4000,
+      }),
+    );
   }
 }
 
@@ -660,7 +670,10 @@ async function syncModerationStatuses() {
       scheduleModerationSync();
     }
   } catch (error) {
-    console.error("Failed to sync moderation statuses:", error);
+    reportAppError(error, {
+      logMessage: "Failed to sync moderation statuses.",
+      includeClientLog: false,
+    });
   } finally {
     isModerationSyncInProgress = false;
   }

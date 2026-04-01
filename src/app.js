@@ -7,6 +7,7 @@ import {
 } from "./modules/camera-resume-policy.js";
 import { drawFrameToCanvas, renderOutputSwatches } from "./modules/camera-ui.js";
 import { clientLog } from "./modules/client-log.js";
+import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import { findClosestRAL, getRalQualityLabel } from "./modules/color-matching-ral.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
@@ -116,7 +117,6 @@ let frameHeight = 0;
 let analysisWidth = 0;
 let analysisHeight = 0;
 let isStreaming = false;
-let _testImageMode = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
 let _isPreviewExpanded = false;
 let extractionFrame = 0;
@@ -166,8 +166,9 @@ const sampleGridOverlay = createSampleGridOverlayController({
 });
 const paletteExtractionWorker = createPaletteExtractionWorkerController({
   onError: (error) => {
-    clientLog("Palette extraction worker unavailable.", {
-      message: error?.message,
+    reportAppError(error, {
+      logMessage: "Palette extraction worker unavailable.",
+      consoleLevel: "warn",
     });
   },
   onResult: ({ colors, chosenIndices, durationMs }) => {
@@ -315,7 +316,7 @@ function finalizeStartedCameraStream(started) {
 }
 
 async function runCameraStartOperation(startOperation) {
-  if (_testImageMode || !supportsCameraStartup()) {
+  if (!supportsCameraStartup()) {
     syncCameraActionAvailability();
     return false;
   }
@@ -331,12 +332,6 @@ async function runCameraStartOperation(startOperation) {
     cancelPreviewRefresh();
 
     const started = await startOperation();
-
-    // loadTestImage may have activated test mode while we were awaiting the stream
-    if (_testImageMode) {
-      stopCurrentStream({ preserveResumeIntent: false });
-      return false;
-    }
 
     return finalizeStartedCameraStream(started);
   })();
@@ -948,16 +943,19 @@ function setPreviewExpanded(shouldExpand) {
 let zoomUi = null;
 let exposureUi = null;
 
+/** @param {ErrorLike | null | undefined} error */
+function handleCameraControllerError(error) {
+  reportAppError(error, {
+    logMessage: "Camera unavailable.",
+    includeConsole: false,
+  });
+
+  handleCameraStartError(error);
+}
+
 const cameraController = createCameraController({
   cameraFeed,
-  onError: (/** @type {any} */ error) => {
-    clientLog("Camera unavailable.", {
-      error: error?.name,
-      message: error?.message,
-    });
-
-    handleCameraStartError(error);
-  },
+  onError: handleCameraControllerError,
   onCameraActiveChange: (isCameraActive) => {
     syncCameraFeedOrientation();
     if (!isCameraActive) {
@@ -1039,10 +1037,6 @@ async function handleMiniOutputClick() {
 }
 
 async function handleRotateButtonClick() {
-  if (_testImageMode) {
-    return;
-  }
-
   stopCurrentStream({ preserveResumeIntent: true });
   await runCameraStartOperation(() => cameraController.toggleFacingMode());
 }
@@ -1120,7 +1114,7 @@ function pauseCameraPreview() {
 }
 
 function shouldHandleCameraLifecycle() {
-  return !isAppDestroyed && !_testImageMode && Boolean(cameraFeed);
+  return !isAppDestroyed && Boolean(cameraFeed);
 }
 
 function getShouldKeepCameraWarmInBackground() {
@@ -1329,7 +1323,10 @@ function initializeApp() {
     !cameraStageMount ||
     !cameraPreviewDock
   ) {
-    console.error("Missing required DOM elements for camera app initialization.");
+    reportAppError(null, {
+      consoleMessage: "Missing required DOM elements for camera app initialization.",
+      includeClientLog: false,
+    });
     return;
   }
 
@@ -1431,10 +1428,6 @@ async function startCameraStream() {
 }
 
 function handleCameraCanPlay() {
-  if (_testImageMode) {
-    return;
-  }
-
   if (cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
     return;
   }
@@ -1701,22 +1694,22 @@ async function captureCurrentFrame() {
     }
   } catch (error) {
     photoOutput?.removeAttribute("data-palette-id");
-    console.error("Failed to save palette:", error);
-    clientLog("Failed to save palette.", {
-      error: error?.name,
-      message: error?.message,
+    reportAppError(error, {
+      logMessage: "Failed to save palette.",
     });
-    showToast("Sauvegarde échouée.", {
-      variant: "error",
-      duration: 2500,
-      details: formatErrorDetails(error),
-    });
+    showToast(
+      "Sauvegarde échouée.",
+      createErrorToastOptions(error, {
+        variant: "error",
+        duration: 2500,
+      }),
+    );
   } finally {
     isCaptureSavePending = false;
   }
 }
 
-function exportPhotoData({
+function createPhotoExportCanvas({
   fallbackCanvas,
   fallbackWidth,
   fallbackHeight,
@@ -1729,7 +1722,7 @@ function exportPhotoData({
   const photoContext = photoCanvas.getContext("2d");
 
   if (!photoContext) {
-    return fallbackCanvas.toDataURL("image/jpeg", photoExportQuality);
+    return null;
   }
 
   const hasNativeVideoFrame = Boolean(
@@ -1745,7 +1738,7 @@ function exportPhotoData({
   const exportSourceHeight = effectiveSourceRect?.height ?? sourceHeight;
 
   if (exportSourceWidth <= 0 || exportSourceHeight <= 0) {
-    return fallbackCanvas.toDataURL("image/jpeg", photoExportQuality);
+    return null;
   }
 
   const photoWidth = Math.min(exportSourceWidth, PHOTO_EXPORT_MAX_WIDTH);
@@ -1783,13 +1776,7 @@ function exportPhotoData({
     );
   }
 
-  const dataUrl = photoCanvas.toDataURL("image/webp", photoExportQuality);
-
-  if (dataUrl.startsWith("data:image/webp")) {
-    return dataUrl;
-  }
-
-  return photoCanvas.toDataURL("image/jpeg", photoExportQuality);
+  return photoCanvas;
 }
 
 function canvasToBlob(canvas, type) {
@@ -1807,62 +1794,18 @@ async function exportPhotoBlob({
   shouldMirrorUserFacing,
   sourceRect = undefined,
 }) {
-  const photoCanvas = document.createElement("canvas");
-  const photoContext = photoCanvas.getContext("2d");
+  const photoCanvas = createPhotoExportCanvas({
+    fallbackCanvas,
+    fallbackWidth,
+    fallbackHeight,
+    cameraFeed,
+    facingMode,
+    shouldMirrorUserFacing,
+    sourceRect,
+  });
 
-  if (!photoContext) {
+  if (!photoCanvas) {
     return canvasToBlob(fallbackCanvas, "image/jpeg");
-  }
-
-  const hasNativeVideoFrame = Boolean(
-    cameraFeed && cameraFeed.videoWidth > 0 && cameraFeed.videoHeight > 0,
-  );
-  const sourceWidth = hasNativeVideoFrame ? cameraFeed.videoWidth : fallbackWidth;
-  const sourceHeight = hasNativeVideoFrame ? cameraFeed.videoHeight : fallbackHeight;
-  const defaultSourceRect = hasNativeVideoFrame
-    ? getCenteredAspectCropRect(sourceWidth, sourceHeight)
-    : null;
-  const effectiveSourceRect = sourceRect === undefined ? defaultSourceRect : sourceRect;
-  const exportSourceWidth = effectiveSourceRect?.width ?? sourceWidth;
-  const exportSourceHeight = effectiveSourceRect?.height ?? sourceHeight;
-
-  if (exportSourceWidth <= 0 || exportSourceHeight <= 0) {
-    return canvasToBlob(fallbackCanvas, "image/jpeg");
-  }
-
-  const photoWidth = Math.min(exportSourceWidth, PHOTO_EXPORT_MAX_WIDTH);
-  const photoHeight = Math.max(
-    1,
-    Math.round((exportSourceHeight / exportSourceWidth) * photoWidth),
-  );
-
-  photoCanvas.width = photoWidth;
-  photoCanvas.height = photoHeight;
-  photoContext.imageSmoothingEnabled = true;
-  photoContext.imageSmoothingQuality = "high";
-
-  if (hasNativeVideoFrame) {
-    drawFrameToCanvas({
-      context: photoContext,
-      cameraFeed,
-      width: photoWidth,
-      height: photoHeight,
-      facingMode,
-      shouldMirrorUserFacing,
-      sourceRect: effectiveSourceRect,
-    });
-  } else {
-    photoContext.drawImage(
-      fallbackCanvas,
-      0,
-      0,
-      fallbackWidth,
-      fallbackHeight,
-      0,
-      0,
-      photoWidth,
-      photoHeight,
-    );
   }
 
   const webpBlob = await canvasToBlob(photoCanvas, "image/webp");
@@ -1902,81 +1845,3 @@ function destroyApp() {
 }
 
 initializeApp();
-
-// DEV: test palette extraction with a static image instead of the camera feed
-function _loadTestImage(src) {
-  if (!frameContext || !paletteContext || !frameCanvas || !paletteCanvas) {
-    return;
-  }
-
-  // Prevent the camera from starting (or restarting) while testing with a static image
-  _testImageMode = true;
-  resetPalettePreviewState();
-  stopCurrentStream({ preserveResumeIntent: false });
-  cameraFeed?.removeEventListener("canplay", handleCameraCanPlay);
-
-  const img = new Image();
-  img.src = src;
-
-  img.onload = () => {
-    const { width: paletteWidth, height: paletteHeight } = getPaletteViewportSize();
-
-    frameWidth = img.naturalWidth;
-    frameHeight = img.naturalHeight;
-
-    frameCanvas.width = frameWidth;
-    frameCanvas.height = frameHeight;
-    paletteCanvas.width = paletteWidth;
-    paletteCanvas.height = paletteHeight;
-
-    frameContext.drawImage(img, 0, 0, frameWidth, frameHeight);
-
-    const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-
-    const isGridMode = isGridExtractionMode();
-
-    if (isGridMode) {
-      sampleGridOverlay.setVisible(true);
-      sampleGridOverlay.ensureBuilt();
-      sampleGridOverlay.updatePointSizes();
-    } else {
-      sampleGridOverlay.setVisible(false);
-    }
-
-    const { colors: rawTestColors, chosenIndices } = extractPaletteColors(
-      imageData,
-      frameWidth,
-      frameHeight,
-      getEffectiveSwatchCount(),
-      getPaletteExtractionOptions(),
-    );
-    const colors = oneMoreColor ? removeDarkestColor(rawTestColors) : rawTestColors;
-
-    if (isGridMode) {
-      sampleGridOverlay.markChosenSquares(chosenIndices);
-    }
-    lastVisiblePaletteColors = clonePaletteColors(colors);
-    renderPaletteBars(paletteContext, colors, paletteCanvas.width, paletteCanvas.height);
-    renderOutputSwatches(outputPalette, colors);
-
-    // Show the test image in the camera preview and output photo
-    cameraFeed.setAttribute("poster", src);
-    cameraFeed.style.objectFit = "cover";
-    revokePhotoOutputObjectUrl();
-    photoOutput.setAttribute(
-      "src",
-      exportPhotoData({
-        fallbackCanvas: frameCanvas,
-        fallbackWidth: frameWidth,
-        fallbackHeight: frameHeight,
-        cameraFeed,
-        facingMode: cameraController.getFacingMode(),
-        shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
-      }),
-    );
-
-    console.log("Test image palette:", colors);
-  };
-}
-
-// loadTestImage('assets/img/test-img.webp');

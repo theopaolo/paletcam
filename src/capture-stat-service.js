@@ -9,7 +9,7 @@ const API_EVENT = "local_capture";
  * @returns {typeof globalThis.Capacitor | null}
  */
 function getCapacitor() {
-  const cap = /** @type {any} */ (globalThis).Capacitor;
+  const cap = globalThis.Capacitor;
   return cap?.isNativePlatform?.() ? cap : null;
 }
 

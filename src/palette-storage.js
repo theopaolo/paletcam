@@ -1,7 +1,8 @@
 import Dexie from './vendor/dexie.mjs';
+import { reportAppError } from './modules/error-reporting.js';
 
 /** @type {PaletcamDb} */
-const db = /** @type {any} */ (new Dexie('PaletcamDB'));
+const db = /** @type {PaletcamDb} */ (new Dexie('PaletcamDB'));
 const KNOWN_MODERATION_STATUSES = new Set([
   'TO_MODERATE',
   'PUBLIC',
@@ -93,7 +94,10 @@ export async function getSavedPalettes() {
   try {
     return await db.palettes.reverse().toArray();
   } catch (error) {
-    console.error('Failed to read saved palettes:', error);
+    reportAppError(error, {
+      consoleMessage: 'Failed to read saved palettes:',
+      includeClientLog: false,
+    });
     throw error;
   }
 }
@@ -111,7 +115,10 @@ export async function getSavedPaletteById(id) {
   try {
     return await db.palettes.get(paletteId);
   } catch (error) {
-    console.error(`Failed to read palette ${paletteId}:`, error);
+    reportAppError(error, {
+      consoleMessage: `Failed to read palette ${paletteId}:`,
+      includeClientLog: false,
+    });
     throw error;
   }
 }
@@ -187,8 +194,11 @@ export async function savePalette(
       lastModerationCheckAt: null,
     };
   } catch (error) {
-    console.error('Failed to save palette:', error);
-    throw new Error('Unable to save palette.');
+    reportAppError(error, {
+      consoleMessage: 'Failed to save palette:',
+      includeClientLog: false,
+    });
+    throw new Error('Unable to save palette.', { cause: error });
   }
 }
 
@@ -233,8 +243,11 @@ export async function updatePaletteRemoteState(id, patch = {}) {
     await db.palettes.update(paletteId, nextPatch);
     return await db.palettes.get(paletteId);
   } catch (error) {
-    console.error(`Failed to update remote state for palette ${paletteId}:`, error);
-    throw new Error('Unable to update palette remote state.');
+    reportAppError(error, {
+      consoleMessage: `Failed to update remote state for palette ${paletteId}:`,
+      includeClientLog: false,
+    });
+    throw new Error('Unable to update palette remote state.', { cause: error });
   }
 }
 
@@ -242,8 +255,11 @@ export async function deletePalette(id) {
   try {
     await db.palettes.delete(id);
   } catch (error) {
-    console.error(`Failed to delete palette ${id}:`, error);
-    throw new Error('Unable to delete palette.');
+    reportAppError(error, {
+      consoleMessage: `Failed to delete palette ${id}:`,
+      includeClientLog: false,
+    });
+    throw new Error('Unable to delete palette.', { cause: error });
   }
 }
 
