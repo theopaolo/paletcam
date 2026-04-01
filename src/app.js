@@ -1,5 +1,5 @@
 import { getAppSettings, subscribeAppSettings } from "./app-settings.js";
-import { openCollectionPanel } from "./collection-ui.js";
+import { openDirectPaletteViewer, PALETTE_DELETED_EVENT } from "./collection-ui.js";
 import { createCameraController } from "./modules/camera-controller.js";
 import {
   DEFAULT_CAMERA_RESUME_DELAY_MS,
@@ -1014,14 +1014,27 @@ function handleCaptureButtonClick(event) {
   void captureCurrentFrame();
 }
 
-function handleMiniOutputClick() {
-  if (!photoOutput?.getAttribute("src")) {
+async function handleMiniOutputClick() {
+  const paletteId = getMiniOutputPaletteId();
+  if (!photoOutput?.getAttribute("src") || paletteId === null) {
     return;
   }
 
-  void openCollectionPanel({
-    paletteId: getMiniOutputPaletteId(),
-    openPaletteViewer: Boolean(getMiniOutputPaletteId()),
+  const viewerOpenState = await openDirectPaletteViewer(paletteId);
+  if (viewerOpenState === "opened") {
+    return;
+  }
+
+  if (viewerOpenState === "pending-delete") {
+    showToast("Cette capture est en cours de suppression.", {
+      duration: 1800,
+    });
+    return;
+  }
+
+  clearPhotoOutput();
+  showToast("Cette capture n'est plus disponible.", {
+    duration: 1800,
   });
 }
 
@@ -1383,6 +1396,15 @@ function getMiniOutputPaletteId() {
   return Number.isFinite(paletteId) ? paletteId : null;
 }
 
+function handlePaletteDeleted(event) {
+  const deletedPaletteId = Number(event?.detail?.paletteId);
+  if (!Number.isFinite(deletedPaletteId) || getMiniOutputPaletteId() !== deletedPaletteId) {
+    return;
+  }
+
+  clearPhotoOutput();
+}
+
 function bindMiniOutputEvents() {
   if (!photoOutput) {
     return;
@@ -1397,6 +1419,7 @@ function bindMiniOutputEvents() {
     }
   });
   bindManagedEventListener(photoOutput, "click", handleMiniOutputClick);
+  bindManagedEventListener(window, PALETTE_DELETED_EVENT, handlePaletteDeleted);
 }
 
 function bindRotationEvents() {

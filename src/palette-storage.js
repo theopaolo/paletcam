@@ -99,6 +99,24 @@ export async function getSavedPalettes() {
 }
 
 /**
+ * @param {number | string} id
+ * @returns {Promise<Palette | undefined>}
+ */
+export async function getSavedPaletteById(id) {
+  const paletteId = Number(id);
+  if (!Number.isFinite(paletteId)) {
+    throw new Error('Invalid palette id.');
+  }
+
+  try {
+    return await db.palettes.get(paletteId);
+  } catch (error) {
+    console.error(`Failed to read palette ${paletteId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * @param {RgbColor[]} colors
  * @param {object} [options]
  * @param {string} [options.photoDataUrl]

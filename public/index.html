@@ -89,7 +89,7 @@
           <span class="swatch-count-indicator" aria-live="polite"
             >4 couleurs</span
           >
-          <span class="swatch-scale-label swatch-scale-label-max">24</span>
+          <span class="swatch-scale-label swatch-scale-label-max">7</span>
         </div>
       </div>
     </div>
@@ -163,6 +163,7 @@
       </div>
     </shared-panel>
 
+    <!-- Settings Panel -->
     <shared-panel
       class="settings-panel"
       data-panel-name="settings"
@@ -1049,7 +1050,10 @@
         <section class="settings-section" aria-labelledby="deleteAccountTitle">
           <div class="settings-section-header">
             <h3 id="deleteAccountTitle">Supprimer mon compte</h3>
-            <p>Cette action est irréversible. Ton compte et tes captures seront supprimés.</p>
+            <p>
+              Cette action est irréversible. Ton compte et tes captures seront
+              supprimés.
+            </p>
           </div>
 
           <div class="settings-field" id="deleteAccountRequestStep">
@@ -1065,7 +1069,9 @@
 
           <div class="settings-field" id="deleteAccountVerifyStep" hidden>
             <div class="settings-field-header">
-              <label class="settings-label" for="deleteAccountCodeInput">Code reçu par email</label>
+              <label class="settings-label" for="deleteAccountCodeInput"
+                >Code reçu par email</label
+              >
             </div>
             <input
               class="settings-text-input"
@@ -1087,6 +1093,7 @@
       </div>
     </shared-panel>
 
+    <!-- Catch Details Panel -->
     <shared-panel
       class="catch-details-panel"
       data-panel-name="catch-details"
@@ -1109,6 +1116,7 @@
           aria-hidden="true"
         />
       </button>
+
       <div class="catch-details-content">
         <div class="palette-viewer-frame">
           <div
@@ -1117,6 +1125,7 @@
             aria-label="Captures enregistrées"
           ></div>
         </div>
+
         <div class="ral-popover" id="ralPopover" hidden>
           <div class="ral-popover-color" id="ralPopoverColor"></div>
           <div class="ral-popover-info">
@@ -1125,6 +1134,7 @@
             <p class="ral-popover-quality" id="ralPopoverQuality"></p>
           </div>
         </div>
+
         <div
           class="palette-viewer-swatch-strip"
           id="catchDetailsSwatchStrip"
@@ -1161,6 +1171,7 @@
       </div>
     </shared-panel>
 
+    <!-- Btn containers -->
     <div class="btn-containers">
       <div class="camera-preview-dock" id="cameraPreviewDock">
         <video

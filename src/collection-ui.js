@@ -5,7 +5,7 @@ import {
   flushCommunityDeletionCleanupOutbox,
   initializeCommunityDeletionCleanupOutbox,
 } from "./community-delete-outbox.js";
-import { deletePalette, getSavedPalettes } from "./palette-storage.js";
+import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
 import {
   cleanupPaletteRemoteCatchForDeletion,
   getCurrentCommunitySession,
@@ -20,7 +20,6 @@ import {
   closePaletteViewerOverlay,
   openPaletteViewerOverlay,
   refreshPaletteViewerOverlay,
-  subscribePaletteViewerOverlayClose,
 } from "./modules/collection/palette-viewer-overlay.js";
 import {
   disposePalettePreviewPolaroidAsset,
@@ -41,12 +40,13 @@ import { clientLog } from "./modules/client-log.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import { isIOSDevice } from "./modules/platform.js";
 import {
-  closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosing,
 } from "./modules/panels/panel-manager.js";
 import { showToast, showUndoToast } from "./modules/toast-ui.js";
 import { openLoginPanel } from "./login-ui.js";
+
+export const PALETTE_DELETED_EVENT = "paletcam:palette-deleted";
 
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
@@ -84,7 +84,6 @@ const PUBLICATION_ACTIONS = Object.freeze({
 });
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
-let shouldCloseCollectionOnViewerClose = false;
 let moderationSyncTimeoutId = 0;
 let isModerationSyncInProgress = false;
 let currentPalettes = [];
@@ -119,6 +118,10 @@ function canPublishPalette(palette) {
 
 function getCurrentPalettes() {
   return [...currentPalettes];
+}
+
+function isPalettePendingDeletion(paletteId) {
+  return pendingDeletionIds.has(Number(paletteId));
 }
 
 function getCurrentDayGroups() {
@@ -170,6 +173,21 @@ function getCollectionCardByPaletteId(paletteId) {
   return /** @type {HTMLElement | null} */ (
     collectionGrid?.querySelector(`.palette-card[data-palette-id="${String(paletteId)}"]`)
   );
+}
+
+function syncCollectionUiAfterPaletteRemoval() {
+  if (collectionPanel?.classList.contains("visible")) {
+    renderCollectionUi(currentPalettes);
+    return;
+  }
+
+  syncCollectionPanelChrome();
+}
+
+function dispatchPaletteDeletedEvent(paletteId) {
+  window.dispatchEvent(new CustomEvent(PALETTE_DELETED_EVENT, {
+    detail: { paletteId },
+  }));
 }
 
 function insertPaletteAtIndex(palette, index) {
@@ -228,26 +246,43 @@ async function handleDeletePalette(palette) {
   }
 
   const card = getCollectionCardByPaletteId(palette.id);
-  if (!(card instanceof HTMLElement)) {
-    return;
-  }
+  const snapshot = card instanceof HTMLElement
+    ? cardLifecycle.takeCardPositionSnapshot(card)
+    : null;
+  const removedIndex = currentPalettes.findIndex((entry) => entry.id === palette.id);
+  const shouldTrackCollectionState = removedIndex >= 0;
 
   pendingDeletionIds.add(palette.id);
-  const snapshot = cardLifecycle.takeCardPositionSnapshot(card);
-  const removedIndex = currentPalettes.findIndex((entry) => entry.id === palette.id);
 
-  card.remove();
-  cardLifecycle.syncSessionStateFromCardContainer(snapshot.parent);
-  currentPalettes = currentPalettes.filter((entry) => entry.id !== palette.id);
-  syncCollectionPanelChrome();
+  if (card instanceof HTMLElement && snapshot) {
+    card.remove();
+    cardLifecycle.syncSessionStateFromCardContainer(snapshot.parent);
+  }
+
+  if (shouldTrackCollectionState) {
+    currentPalettes = currentPalettes.filter((entry) => entry.id !== palette.id);
+    syncCollectionUiAfterPaletteRemoval();
+  }
 
   showUndoToast("Palette supprimee", {
     duration: DELETE_UNDO_DURATION_MS,
     onUndo: () => {
       pendingDeletionIds.delete(palette.id);
-      insertPaletteAtIndex(palette, removedIndex < 0 ? currentPalettes.length : removedIndex);
-      cardLifecycle.restoreCardFromSnapshot(card, snapshot);
-      syncCollectionPanelChrome();
+
+      if (shouldTrackCollectionState) {
+        insertPaletteAtIndex(palette, removedIndex < 0 ? currentPalettes.length : removedIndex);
+      }
+
+      if (card instanceof HTMLElement && snapshot) {
+        cardLifecycle.restoreCardFromSnapshot(card, snapshot);
+      } else if (shouldTrackCollectionState) {
+        syncCollectionUiAfterPaletteRemoval();
+      }
+
+      if (shouldTrackCollectionState) {
+        syncCollectionPanelChrome();
+      }
+
       refreshPaletteViewerOverlay({
         preferredPaletteId: palette.id,
         fallbackIndex: removedIndex < 0 ? 0 : removedIndex,
@@ -268,8 +303,12 @@ async function handleDeletePalette(palette) {
 
         pendingDeletionIds.delete(palette.id);
         disposePalettePreviewPolaroidAsset(palette);
-        cardLifecycle.ensureEmptyMessage();
-        syncCollectionPanelChrome();
+        if (card instanceof HTMLElement) {
+          cardLifecycle.ensureEmptyMessage();
+        } else if (shouldTrackCollectionState) {
+          syncCollectionUiAfterPaletteRemoval();
+        }
+        dispatchPaletteDeletedEvent(palette.id);
 
         if (remoteCleanupResult.status === "fulfilled") {
           const wasQueued = enqueueDeleteRemoteCleanupRetry(remoteCleanupResult.value, palette);
@@ -288,7 +327,9 @@ async function handleDeletePalette(palette) {
       } catch (error) {
         console.error(`Failed to delete palette ${palette.id}:`, error);
         pendingDeletionIds.delete(palette.id);
-        await loadCollectionUi();
+        if (shouldTrackCollectionState || collectionPanel?.classList.contains("visible")) {
+          await loadCollectionUi();
+        }
         showToast("Suppression échouée", {
           variant: "error",
           duration: 1800,
@@ -625,54 +666,54 @@ async function syncModerationStatuses() {
   }
 }
 
-/**
- * @param {object} [options]
- * @param {number | string | null} [options.paletteId]
- * @param {boolean} [options.openPaletteViewer]
- * @param {boolean} [options.closeCollectionOnViewerClose]
- */
-export async function openCollectionPanel({
-  paletteId,
-  openPaletteViewer = false,
-  closeCollectionOnViewerClose = false,
-} = {}) {
+export async function openCollectionPanel() {
   if (!collectionPanel || !collectionGrid) {
     return false;
   }
 
-  shouldCloseCollectionOnViewerClose = false;
   openSharedPanel("collection");
   await loadCollectionUi();
   void flushCommunityDeletionCleanupOutbox();
   void syncModerationStatuses();
-
-  if (paletteId === undefined || paletteId === null) {
-    return true;
-  }
-
-  const paletteIdString = String(paletteId);
-  const targetCard = /** @type {HTMLElement[]} */ ([
-    ...collectionGrid.querySelectorAll(".palette-card"),
-  ]).find((card) => card.dataset.paletteId === paletteIdString);
-
-  if (!targetCard) {
-    return false;
-  }
-
-  targetCard.scrollIntoView({
-    block: "center",
-    behavior: "smooth",
-  });
-
-  if (openPaletteViewer) {
-    const trigger = targetCard.querySelector(".palette-card-trigger");
-    if (trigger instanceof HTMLButtonElement) {
-      shouldCloseCollectionOnViewerClose = Boolean(closeCollectionOnViewerClose);
-      trigger.click();
-    }
-  }
-
   return true;
+}
+
+/**
+ * Opens the palette viewer overlay directly for a single palette,
+ * without opening the collection panel first.
+ * @param {number | string} paletteId
+ * @returns {Promise<"opened" | "missing" | "pending-delete">}
+ */
+export async function openDirectPaletteViewer(paletteId) {
+  if (isPalettePendingDeletion(paletteId)) {
+    return "pending-delete";
+  }
+
+  const palette = await getSavedPaletteById(paletteId);
+  if (!palette) {
+    return "missing";
+  }
+
+  if (isPalettePendingDeletion(palette.id)) {
+    return "pending-delete";
+  }
+
+  openPaletteViewerOverlay({
+    palettes: [palette],
+    initialIndex: 0,
+    getPalettes: () => (isPalettePendingDeletion(palette.id) ? [] : [palette]),
+    getPreviewAsset: getPalettePreviewPolaroidAsset,
+    getPublishAction: getPalettePublicationAction,
+    canShare: canSharePalette,
+    canExport: canExportPalette,
+    canPublish: canPublishPalette,
+    canDelete: () => true,
+    onShare: handleSharePalette,
+    onExport: handleExportPalette,
+    onPublish: (p) => handlePublishPalette(p, getPalettePublicationAction(p)),
+    onDelete: handleDeletePalette,
+  });
+  return "opened";
 }
 
 function bindCollectionUiEvents() {
@@ -696,17 +737,7 @@ function bindCollectionUiEvents() {
     handleCollapseAllSessions();
   });
 
-  subscribePaletteViewerOverlayClose(() => {
-    if (!shouldCloseCollectionOnViewerClose) {
-      return;
-    }
-
-    shouldCloseCollectionOnViewerClose = false;
-    closeSharedPanel("collection");
-  });
-
   subscribeSharedPanelClosing("collection", () => {
-    shouldCloseCollectionOnViewerClose = false;
     clearModerationSyncLoop();
     closePaletteViewerOverlay();
   });

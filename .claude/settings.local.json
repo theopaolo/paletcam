@@ -20,7 +20,9 @@
       "Bash(ls -la /Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/src/modules/*.js)",
       "Bash(npm run:*)",
       "Bash(bunx bun:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "mcp__plugin_Notion_notion__notion-search",
+      "mcp__plugin_Notion_notion__notion-fetch"
     ]
   }
 }

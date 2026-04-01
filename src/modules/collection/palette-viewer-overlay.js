@@ -665,9 +665,8 @@ function bindViewerPanelEvents() {
     void runAction("onDelete");
   });
   cameraButton?.addEventListener("click", () => {
-    if (!closeSharedPanel("collection")) {
-      closePaletteViewerOverlay();
-    }
+    closePaletteViewerOverlay();
+    closeSharedPanel("collection");
   });
   viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true });
   window.addEventListener("resize", handleWindowResize);
