@@ -118,14 +118,14 @@ self.addEventListener('fetch', (event) => {
           cache.put(INDEX_FALLBACK_URL, networkResponse.clone());
           return networkResponse;
         } catch (error) {
-          const fallbackResponse = await caches.match(OFFLINE_FALLBACK_URL);
-          if (fallbackResponse) {
-            return fallbackResponse;
-          }
-
           const appShellFallback = await caches.match(INDEX_FALLBACK_URL);
           if (appShellFallback) {
             return appShellFallback;
+          }
+
+          const fallbackResponse = await caches.match(OFFLINE_FALLBACK_URL);
+          if (fallbackResponse) {
+            return fallbackResponse;
           }
 
           throw error;
