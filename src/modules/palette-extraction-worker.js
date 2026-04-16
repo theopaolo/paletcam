@@ -81,7 +81,6 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
       payload.generation === currentGeneration
     ) {
       onResult?.({
-        chosenIndices: Array.isArray(payload.chosenIndices) ? payload.chosenIndices : [],
         colors: Array.isArray(payload.colors) ? payload.colors : [],
         durationMs: Number(payload.durationMs) || 0,
       });

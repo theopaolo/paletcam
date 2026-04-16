@@ -15,24 +15,20 @@ import { createCaptureMicroInteractions } from "./modules/micro-interactions.js"
 import {
   extractPaletteColors,
   getDominantColor,
-  getPaletteExtractionAlgorithm,
-  PALETTE_EXTRACTION_ALGORITHMS,
   renderPaletteBars,
   resetColorSmoothing,
-  setPaletteExtractionAlgorithm,
   smoothColors,
 } from "./modules/palette-extraction.js";
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudController } from "./modules/performance-hud.js";
 import { sampleColorFromContextAtPoint } from "./modules/ral-live-sampling.js";
-import { createSampleGridOverlayController } from "./modules/sample-grid-overlay.js";
 import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
 import { showToast } from "./modules/toast-ui.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
 import { savePalette } from "./palette-storage.js";
 import { trackCaptureStatAsync } from "./capture-stat-service.js";
-import "./settings-ui.js";
+import "./modules/panels/settings-panel.js";
 import "./delete-account-ui.js";
 
 const PHOTO_EXPORT_MAX_WIDTH = 2048;
@@ -86,7 +82,6 @@ function isIOSDevice() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
 }
 
-const sampleRowOverlay = document.getElementById("sampleRowOverlay");
 const cameraViewportFrame = document.createElement("div");
 const cameraSourceMount = document.createElement("div");
 const isIOS = isIOSDevice();
@@ -121,12 +116,10 @@ let swatchCount = Number(swatchSlider?.value) || 4;
 let _isPreviewExpanded = false;
 let extractionFrame = 0;
 let lastExtractedColors = null;
-let lastChosenIndices = [];
 let lastVisiblePaletteColors = [];
 let currentCaptureMode = "palette";
 let oneMoreColor = Boolean(getAppSettings().oneMoreColor);
 let photoExportQuality = getAppSettings().photoExportQuality;
-let gridExtractionSettings = { ...getAppSettings().grid };
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let paletteScoringSettings = { ...getAppSettings().paletteScoring };
 const EXTRACTION_INTERVAL = 4;
@@ -160,10 +153,6 @@ const captureMicroInteractions = createCaptureMicroInteractions({
 const visualEffects = createVisualEffects({
   captureButton,
 });
-const sampleGridOverlay = createSampleGridOverlayController({
-  overlayElement: sampleRowOverlay,
-  cameraFeed,
-});
 const paletteExtractionWorker = createPaletteExtractionWorkerController({
   onError: (error) => {
     reportAppError(error, {
@@ -171,14 +160,9 @@ const paletteExtractionWorker = createPaletteExtractionWorkerController({
       consoleLevel: "warn",
     });
   },
-  onResult: ({ colors, chosenIndices, durationMs }) => {
+  onResult: ({ colors, durationMs }) => {
     latestPaletteWorkerDurationMs = durationMs;
     lastExtractedColors = colors;
-    lastChosenIndices = chosenIndices;
-
-    if (isGridExtractionMode()) {
-      sampleGridOverlay.markChosenSquares(lastChosenIndices);
-    }
   },
 });
 const swatchSliderUi = createSwatchSliderUiController({
@@ -499,7 +483,6 @@ function updateCachedPreviewDimensions() {
   }
 
   updateAnalysisDimensions();
-  sampleGridOverlay.updatePointSizes();
   return true;
 }
 
@@ -696,14 +679,8 @@ function syncCameraViewportLayout() {
   lastCameraViewportLayout = nextLayoutKey;
 }
 
-function isGridExtractionMode() {
-  return getPaletteExtractionAlgorithm() === PALETTE_EXTRACTION_ALGORITHMS.GRID;
-}
-
 function getPaletteExtractionOptions() {
   return {
-    algorithm: getPaletteExtractionAlgorithm(),
-    grid: { ...gridExtractionSettings },
     medianCut: { ...medianCutExtractionSettings },
     scoring: { ...paletteScoringSettings },
   };
@@ -810,7 +787,6 @@ function readCurrentRalMatch(context = frameContext, width = frameWidth, height 
 function resetPalettePreviewState() {
   extractionFrame = 0;
   lastExtractedColors = null;
-  lastChosenIndices = [];
   lastVisiblePaletteColors = [];
   latestPaletteWorkerDurationMs = null;
   clearRalPreviewState();
@@ -829,7 +805,6 @@ function syncCaptureMode(mode) {
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
   if (slidersContainer) slidersContainer.hidden = isRal;
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
-  sampleGridOverlay.setVisible(!isRal && isGridExtractionMode());
 
   syncCameraViewportLayout();
   updateCachedPreviewDimensions();
@@ -870,24 +845,14 @@ function applyAppSettings({
   performanceHudEnabled,
   oneMoreColor: nextOneMoreColor,
   photoExportQuality: nextPhotoExportQuality,
-  paletteExtractionAlgorithm,
-  grid,
   medianCut,
   paletteScoring,
 }) {
   oneMoreColor = Boolean(nextOneMoreColor);
   photoExportQuality = nextPhotoExportQuality;
   performanceHud.setEnabled(performanceHudEnabled);
-  gridExtractionSettings = { ...grid };
   medianCutExtractionSettings = { ...medianCut };
   paletteScoringSettings = { ...paletteScoring };
-  setPaletteExtractionAlgorithm(paletteExtractionAlgorithm);
-  sampleGridOverlay.configureGrid({
-    sampleColCount: gridExtractionSettings.sampleColCount,
-    sampleRowCount: gridExtractionSettings.sampleRowCount,
-    sampleDiameter: gridExtractionSettings.sampleRadius * 2 + 1,
-  });
-  sampleGridOverlay.setVisible(captureMode !== "ral" && isGridExtractionMode());
   resetPalettePreviewState();
   syncCaptureMode(captureMode);
 }
@@ -908,10 +873,6 @@ function mountCameraFeed(targetElement) {
 
   if (shouldUseCanvasPreview && cameraFeed && cameraFeed.parentElement !== cameraSourceMount) {
     cameraSourceMount.appendChild(cameraFeed);
-  }
-
-  if (sampleRowOverlay && sampleRowOverlay.parentElement !== cameraViewportFrame) {
-    cameraViewportFrame.appendChild(sampleRowOverlay);
   }
 
   if (ralReticle && ralReticle.parentElement !== cameraViewportFrame) {
@@ -1108,7 +1069,6 @@ function pauseCameraPreview() {
   captureMicroInteractions.cleanup();
   performanceHud.recordFrame({
     captureMode: currentCaptureMode,
-    paletteAlgorithm: getPaletteExtractionAlgorithm(),
     streaming: false,
   });
 }
@@ -1483,10 +1443,8 @@ function refreshPreview(rafTimestamp = 0) {
   }
 
   if (isCaptureSavePending) {
-    sampleGridOverlay.setVisible(false);
     visualEffects.setCaptureGlowActive(false);
   } else if (currentCaptureMode === "ral") {
-    sampleGridOverlay.setVisible(false);
     const analysisStartTime = performance.now();
     if (!shouldUseCanvasPreview) {
       drawCurrentFrameToAnalysisCanvas();
@@ -1499,15 +1457,6 @@ function refreshPreview(rafTimestamp = 0) {
     );
     analysisDurationMs = performance.now() - analysisStartTime;
   } else {
-    const isGridMode = isGridExtractionMode();
-
-    if (isGridMode) {
-      sampleGridOverlay.setVisible(true);
-      sampleGridOverlay.ensureBuilt();
-    } else {
-      sampleGridOverlay.setVisible(false);
-    }
-
     extractionFrame += 1;
     if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
       const analysisStartTime = performance.now();
@@ -1540,10 +1489,6 @@ function refreshPreview(rafTimestamp = 0) {
           );
 
           lastExtractedColors = result.colors;
-          lastChosenIndices = result.chosenIndices;
-          if (isGridMode) {
-            sampleGridOverlay.markChosenSquares(lastChosenIndices);
-          }
           analysisDurationMs = performance.now() - analysisStartTime;
         }
       }
@@ -1579,7 +1524,6 @@ function refreshPreview(rafTimestamp = 0) {
     cameraFps: Number(cameraTrackSettings?.frameRate) || null,
     captureMode: currentCaptureMode,
     extractionInterval: currentCaptureMode === "ral" ? 1 : EXTRACTION_INTERVAL,
-    paletteAlgorithm: getPaletteExtractionAlgorithm(),
     rafTimestamp,
     refreshDurationMs: performance.now() - frameStartTime,
     sourceHeight: cameraFeed.videoHeight,

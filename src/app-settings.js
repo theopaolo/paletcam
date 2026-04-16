@@ -1,67 +1,31 @@
 import {
-  SAMPLE_COL_COUNT,
-  SAMPLE_RADIUS,
-  SAMPLE_ROW_COUNT,
-} from "./modules/palette-extract-grid.js";
-import {
   DEFAULT_MAX_QUANTIZER_PIXELS,
   DEFAULT_QUANTIZED_POOL_SIZE,
 } from "./modules/palette-extract-median-cut.js";
-import { PALETTE_EXTRACTION_ALGORITHMS } from "./modules/palette-extraction.js";
 
 const SETTINGS_STORAGE_KEY = "paletcam:settings:v1";
 const GLOBAL_SETTINGS_STORE_KEY = "__paletcamAppSettingsStore__";
-const GRID_ROW_COUNT_RANGE = { min: 2, max: 12 };
-const GRID_COL_COUNT_RANGE = { min: 2, max: 20 };
-const GRID_SAMPLE_RADIUS_RANGE = { min: 1, max: 12 };
 const MEDIAN_CUT_POOL_SIZE_RANGE = { min: 4, max: 64 };
 const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid"]);
-export const PALETTE_ANALYSIS_PROFILES = Object.freeze({
-  EXPRESSIVE: "expressive",
-  PERCEPTUAL: "perceptual",
-  CUSTOM: "custom",
-});
 
-const EXPRESSIVE_PALETTE_SCORING_SETTINGS = Object.freeze({
+const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
   chromaWeight: 25,
   lumaSpreadWeight: 15,
   rarityWeight: 20,
   diversityWeight: 40,
 });
-const PERCEPTUAL_PALETTE_SCORING_SETTINGS = Object.freeze({
-  chromaWeight: 24,
-  lumaSpreadWeight: 14,
-  rarityWeight: 14,
-  diversityWeight: 48,
-});
-const EXPRESSIVE_MEDIAN_CUT_SETTINGS = Object.freeze({
+
+const DEFAULT_MEDIAN_CUT_SETTINGS = Object.freeze({
   quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
   maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
   colorSpace: "rgb",
 });
-const PERCEPTUAL_MEDIAN_CUT_SETTINGS = Object.freeze({
-  quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
-  maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
-  colorSpace: "oklch",
-});
-const PALETTE_ANALYSIS_PROFILE_PRESETS = Object.freeze({
-  [PALETTE_ANALYSIS_PROFILES.EXPRESSIVE]: Object.freeze({
-    paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
-    medianCut: EXPRESSIVE_MEDIAN_CUT_SETTINGS,
-    paletteScoring: EXPRESSIVE_PALETTE_SCORING_SETTINGS,
-  }),
-  [PALETTE_ANALYSIS_PROFILES.PERCEPTUAL]: Object.freeze({
-    paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
-    medianCut: PERCEPTUAL_MEDIAN_CUT_SETTINGS,
-    paletteScoring: PERCEPTUAL_PALETTE_SCORING_SETTINGS,
-  }),
-});
 
-function normalizeQuantizationColorSpace(value) {
-  return value === "oklch" ? "oklch" : "rgb";
+function normalizeQuantizationColorSpace(_value) {
+  return "rgb";
 }
 
 function normalizeCaptureMode(value) {
@@ -70,14 +34,6 @@ function normalizeCaptureMode(value) {
 
 function normalizeCollectionViewMode(value) {
   return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "list";
-}
-
-function normalizePaletteAnalysisProfile(value) {
-  return value === PALETTE_ANALYSIS_PROFILES.EXPRESSIVE ||
-      value === PALETTE_ANALYSIS_PROFILES.PERCEPTUAL ||
-      value === PALETTE_ANALYSIS_PROFILES.CUSTOM
-    ? value
-    : null;
 }
 
 function cloneMedianCutSettings(settings) {
@@ -97,91 +53,14 @@ function clonePaletteScoringSettings(settings) {
   };
 }
 
-function getPaletteAnalysisProfilePreset(profile) {
-  const preset = PALETTE_ANALYSIS_PROFILE_PRESETS[profile];
-  if (!preset) {
-    return null;
-  }
-
-  return {
-    paletteExtractionAlgorithm: preset.paletteExtractionAlgorithm,
-    medianCut: cloneMedianCutSettings(preset.medianCut),
-    paletteScoring: clonePaletteScoringSettings(preset.paletteScoring),
-  };
-}
-
-function doMedianCutSettingsMatch(firstSettings, secondSettings) {
-  return (
-    firstSettings.quantizedPoolSize === secondSettings.quantizedPoolSize &&
-    firstSettings.maxQuantizerPixels === secondSettings.maxQuantizerPixels &&
-    firstSettings.colorSpace === secondSettings.colorSpace
-  );
-}
-
-function doPaletteScoringSettingsMatch(firstSettings, secondSettings) {
-  return (
-    firstSettings.chromaWeight === secondSettings.chromaWeight &&
-    firstSettings.lumaSpreadWeight === secondSettings.lumaSpreadWeight &&
-    firstSettings.rarityWeight === secondSettings.rarityWeight &&
-    firstSettings.diversityWeight === secondSettings.diversityWeight
-  );
-}
-
-function inferPaletteAnalysisProfile(settings) {
-  const expressivePreset = getPaletteAnalysisProfilePreset(PALETTE_ANALYSIS_PROFILES.EXPRESSIVE);
-  if (
-    expressivePreset &&
-    doMedianCutSettingsMatch(settings.medianCut, expressivePreset.medianCut) &&
-    doPaletteScoringSettingsMatch(settings.paletteScoring, expressivePreset.paletteScoring)
-  ) {
-    return PALETTE_ANALYSIS_PROFILES.EXPRESSIVE;
-  }
-
-  const perceptualPreset = getPaletteAnalysisProfilePreset(PALETTE_ANALYSIS_PROFILES.PERCEPTUAL);
-  if (
-    perceptualPreset &&
-    doMedianCutSettingsMatch(settings.medianCut, perceptualPreset.medianCut) &&
-    doPaletteScoringSettingsMatch(settings.paletteScoring, perceptualPreset.paletteScoring)
-  ) {
-    return PALETTE_ANALYSIS_PROFILES.PERCEPTUAL;
-  }
-
-  return PALETTE_ANALYSIS_PROFILES.CUSTOM;
-}
-
-function applyPaletteAnalysisProfilePreset(settings, profile) {
-  const preset = getPaletteAnalysisProfilePreset(profile);
-  if (!preset) {
-    return {
-      ...settings,
-      paletteAnalysisProfile: inferPaletteAnalysisProfile(settings),
-    };
-  }
-
-  return {
-    ...settings,
-    paletteAnalysisProfile: profile,
-    paletteExtractionAlgorithm: preset.paletteExtractionAlgorithm,
-    medianCut: preset.medianCut,
-    paletteScoring: preset.paletteScoring,
-  };
-}
-
 const DEFAULT_SETTINGS = Object.freeze({
   captureMode: "palette",
   collectionViewMode: "list",
   performanceHudEnabled: false,
   oneMoreColor: false,
   photoExportQuality: 0.95,
-  paletteAnalysisProfile: PALETTE_ANALYSIS_PROFILES.EXPRESSIVE,
-  paletteExtractionAlgorithm: PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT,
-  grid: Object.freeze({
-    sampleRowCount: SAMPLE_ROW_COUNT,
-    sampleColCount: SAMPLE_COL_COUNT,
-    sampleRadius: SAMPLE_RADIUS,
-  }),
-  medianCut: EXPRESSIVE_MEDIAN_CUT_SETTINGS,
-  paletteScoring: EXPRESSIVE_PALETTE_SCORING_SETTINGS,
+  medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
+  paletteScoring: DEFAULT_PALETTE_SCORING_SETTINGS,
 });
 
 function getGlobalSettingsStore() {
@@ -225,34 +104,6 @@ function clampIntegerInRange(value, fallbackValue, { min, max }) {
   }
 
   return Math.min(max, Math.max(min, Math.round(numericValue)));
-}
-
-function normalizeAlgorithm(value) {
-  return value === PALETTE_EXTRACTION_ALGORITHMS.GRID
-    ? PALETTE_EXTRACTION_ALGORITHMS.GRID
-    : PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT;
-}
-
-function normalizeGridSettings(candidate) {
-  const fallback = DEFAULT_SETTINGS.grid;
-
-  return {
-    sampleRowCount: clampIntegerInRange(
-      candidate?.sampleRowCount,
-      fallback.sampleRowCount,
-      GRID_ROW_COUNT_RANGE,
-    ),
-    sampleColCount: clampIntegerInRange(
-      candidate?.sampleColCount,
-      fallback.sampleColCount,
-      GRID_COL_COUNT_RANGE,
-    ),
-    sampleRadius: clampIntegerInRange(
-      candidate?.sampleRadius,
-      fallback.sampleRadius,
-      GRID_SAMPLE_RADIUS_RANGE,
-    ),
-  };
 }
 
 function normalizeMedianCutSettings(candidate) {
@@ -307,28 +158,13 @@ function buildNormalizedSettings(candidate) {
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),
     photoExportQuality: clampPhotoExportQuality(candidate?.photoExportQuality),
-    paletteExtractionAlgorithm: normalizeAlgorithm(candidate?.paletteExtractionAlgorithm),
-    grid: normalizeGridSettings(candidate?.grid),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
     paletteScoring: normalizePaletteScoringSettings(candidate?.paletteScoring),
   };
 }
 
-function normalizeSettings(candidate, explicitPaletteAnalysisProfile = undefined) {
-  const normalizedSettings = buildNormalizedSettings(candidate);
-  const requestedProfile = normalizePaletteAnalysisProfile(explicitPaletteAnalysisProfile);
-
-  if (
-    requestedProfile === PALETTE_ANALYSIS_PROFILES.EXPRESSIVE ||
-    requestedProfile === PALETTE_ANALYSIS_PROFILES.PERCEPTUAL
-  ) {
-    return applyPaletteAnalysisProfilePreset(normalizedSettings, requestedProfile);
-  }
-
-  return {
-    ...normalizedSettings,
-    paletteAnalysisProfile: inferPaletteAnalysisProfile(normalizedSettings),
-  };
+function normalizeSettings(candidate) {
+  return buildNormalizedSettings(candidate);
 }
 
 function areSettingsEqual(firstSettings, secondSettings) {
@@ -338,11 +174,6 @@ function areSettingsEqual(firstSettings, secondSettings) {
     firstSettings.performanceHudEnabled === secondSettings.performanceHudEnabled &&
     firstSettings.oneMoreColor === secondSettings.oneMoreColor &&
     firstSettings.photoExportQuality === secondSettings.photoExportQuality &&
-    firstSettings.paletteAnalysisProfile === secondSettings.paletteAnalysisProfile &&
-    firstSettings.paletteExtractionAlgorithm === secondSettings.paletteExtractionAlgorithm &&
-    firstSettings.grid.sampleRowCount === secondSettings.grid.sampleRowCount &&
-    firstSettings.grid.sampleColCount === secondSettings.grid.sampleColCount &&
-    firstSettings.grid.sampleRadius === secondSettings.grid.sampleRadius &&
     firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&
     firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
     firstSettings.medianCut.colorSpace === secondSettings.medianCut.colorSpace &&
@@ -378,18 +209,10 @@ function persistSettings(nextSettings) {
 
 function loadSettings() {
   const storedSettings = readStoredSettings();
-  const hasStoredPaletteAnalysisProfile = Object.hasOwn(
-    storedSettings ?? {},
-    "paletteAnalysisProfile",
-  );
 
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
     ...storedSettings,
-    grid: {
-      ...DEFAULT_SETTINGS.grid,
-      ...(storedSettings?.grid ?? {}),
-    },
     medianCut: {
       ...DEFAULT_SETTINGS.medianCut,
       ...(storedSettings?.medianCut ?? {}),
@@ -398,7 +221,7 @@ function loadSettings() {
       ...DEFAULT_SETTINGS.paletteScoring,
       ...(storedSettings?.paletteScoring ?? {}),
     },
-  }, hasStoredPaletteAnalysisProfile ? storedSettings?.paletteAnalysisProfile : undefined);
+  });
 }
 
 function notifySettingsListeners() {
@@ -416,10 +239,8 @@ function notifySettingsListeners() {
 export function getDefaultAppSettings() {
   return {
     ...DEFAULT_SETTINGS,
-    paletteAnalysisProfile: DEFAULT_SETTINGS.paletteAnalysisProfile,
-    grid: { ...DEFAULT_SETTINGS.grid },
-    medianCut: { ...DEFAULT_SETTINGS.medianCut },
-    paletteScoring: { ...DEFAULT_SETTINGS.paletteScoring },
+    medianCut: cloneMedianCutSettings(DEFAULT_SETTINGS.medianCut),
+    paletteScoring: clonePaletteScoringSettings(DEFAULT_SETTINGS.paletteScoring),
   };
 }
 
@@ -432,10 +253,8 @@ export function getDefaultAppSettingsResetPatch() {
     collectionViewMode: defaults.collectionViewMode,
     performanceHudEnabled: defaults.performanceHudEnabled,
     oneMoreColor: defaults.oneMoreColor,
-    paletteAnalysisProfile: defaults.paletteAnalysisProfile,
-    grid: defaults.grid,
+    photoExportQuality: defaults.photoExportQuality,
     medianCut: defaults.medianCut,
-    paletteExtractionAlgorithm: defaults.paletteExtractionAlgorithm,
     paletteScoring: defaults.paletteScoring,
   };
 }
@@ -444,9 +263,8 @@ export function getDefaultAppSettingsResetPatch() {
 export function getAppSettings() {
   return {
     ...settingsStore.currentSettings,
-    grid: { ...settingsStore.currentSettings.grid },
-    medianCut: { ...settingsStore.currentSettings.medianCut },
-    paletteScoring: { ...settingsStore.currentSettings.paletteScoring },
+    medianCut: cloneMedianCutSettings(settingsStore.currentSettings.medianCut),
+    paletteScoring: clonePaletteScoringSettings(settingsStore.currentSettings.paletteScoring),
   };
 }
 
@@ -455,17 +273,9 @@ export function getAppSettings() {
  * @returns {AppSettings}
  */
 export function updateAppSettings(partialSettings) {
-  const hasExplicitPaletteAnalysisProfile = Object.hasOwn(
-    partialSettings ?? {},
-    "paletteAnalysisProfile",
-  );
   const nextSettings = normalizeSettings({
     ...settingsStore.currentSettings,
     ...partialSettings,
-    grid: {
-      ...settingsStore.currentSettings.grid,
-      ...(partialSettings?.grid ?? {}),
-    },
     medianCut: {
       ...settingsStore.currentSettings.medianCut,
       ...(partialSettings?.medianCut ?? {}),
@@ -474,7 +284,7 @@ export function updateAppSettings(partialSettings) {
       ...settingsStore.currentSettings.paletteScoring,
       ...(partialSettings?.paletteScoring ?? {}),
     },
-  }, hasExplicitPaletteAnalysisProfile ? partialSettings?.paletteAnalysisProfile : undefined);
+  });
 
   if (areSettingsEqual(nextSettings, settingsStore.currentSettings)) {
     return getAppSettings();
@@ -503,11 +313,6 @@ export function subscribeAppSettings(listener) {
 }
 
 export const APP_SETTINGS_LIMITS = Object.freeze({
-  grid: Object.freeze({
-    sampleRowCount: Object.freeze({ ...GRID_ROW_COUNT_RANGE }),
-    sampleColCount: Object.freeze({ ...GRID_COL_COUNT_RANGE }),
-    sampleRadius: Object.freeze({ ...GRID_SAMPLE_RADIUS_RANGE }),
-  }),
   medianCut: Object.freeze({
     quantizedPoolSize: Object.freeze({ ...MEDIAN_CUT_POOL_SIZE_RANGE }),
     maxQuantizerPixels: Object.freeze({ ...MEDIAN_CUT_MAX_PIXELS_RANGE }),

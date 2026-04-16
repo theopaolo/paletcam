@@ -16,15 +16,15 @@ describe('extractMedianCutPaletteColors', () => {
   test('returns empty results for invalid input', () => {
     expect(
       extractMedianCutPaletteColors(null, 4, 4, 4)
-    ).toEqual({ colors: [], chosenIndices: [] });
+    ).toEqual({ colors: [] });
 
     expect(
       extractMedianCutPaletteColors(new Uint8ClampedArray([255, 0, 0, 255]), 0, 1, 4)
-    ).toEqual({ colors: [], chosenIndices: [] });
+    ).toEqual({ colors: [] });
 
     expect(
       extractMedianCutPaletteColors(new Uint8ClampedArray([255, 0, 0, 255]), 1, 0, 4)
-    ).toEqual({ colors: [], chosenIndices: [] });
+    ).toEqual({ colors: [] });
   });
 
   test('returns empty results when all pixels are fully transparent', () => {
@@ -37,7 +37,7 @@ describe('extractMedianCutPaletteColors', () => {
 
     expect(
       extractMedianCutPaletteColors(imageData, 2, 2, 4)
-    ).toEqual({ colors: [], chosenIndices: [] });
+    ).toEqual({ colors: [] });
   });
 
   test('returns deterministic quantized colors for a small fixed fixture', () => {
@@ -53,7 +53,6 @@ describe('extractMedianCutPaletteColors', () => {
       maxQuantizerPixels: 12_000,
     });
 
-    expect(result.chosenIndices).toEqual([]);
     expect(result.colors.length).toBe(2);
 
     const rgbKeys = result.colors
@@ -80,7 +79,6 @@ describe('extractMedianCutPaletteColors', () => {
       maxQuantizerPixels: 12_000,
     });
 
-    expect(result.chosenIndices).toEqual([]);
     expect(result.colors.length).toBe(1);
   });
 
@@ -103,9 +101,7 @@ describe('extractMedianCutPaletteColors', () => {
       colorSpace: 'oklch',
     });
 
-    expect(zeroBudgetResult.chosenIndices).toEqual([]);
     expect(zeroBudgetResult.colors.length).toBeGreaterThan(0);
-    expect(fractionalBudgetResult.chosenIndices).toEqual([]);
     expect(fractionalBudgetResult.colors.length).toBeGreaterThan(0);
   });
 });

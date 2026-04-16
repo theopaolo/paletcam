@@ -46,7 +46,7 @@ describe("smoothColors", () => {
 });
 
 describe("extractPaletteColors", () => {
-  test("keeps rgb as the median-cut default and honors nested colorSpace overrides", () => {
+  test("keeps rgb as the median-cut default and honors colorSpace overrides", () => {
     const imageData = createRgbaData([
       [255, 0, 0, 255],
       [255, 128, 0, 255],
@@ -59,14 +59,12 @@ describe("extractPaletteColors", () => {
     ]);
 
     const defaultResult = extractPaletteColors(imageData, 4, 2, 4, {
-      algorithm: "median-cut",
       medianCut: {
         quantizedPoolSize: 8,
         maxQuantizerPixels: 12_000,
       },
     });
     const nestedOklchResult = extractPaletteColors(imageData, 4, 2, 4, {
-      algorithm: "median-cut",
       medianCut: {
         quantizedPoolSize: 8,
         maxQuantizerPixels: 12_000,
@@ -74,7 +72,6 @@ describe("extractPaletteColors", () => {
       },
     });
     const aliasOverrideResult = extractPaletteColors(imageData, 4, 2, 4, {
-      algorithm: "median-cut",
       colorSpace: "rgb",
       medianCut: {
         quantizedPoolSize: 8,

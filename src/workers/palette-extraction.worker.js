@@ -21,7 +21,6 @@ globalThis.addEventListener("message", (event) => {
       type: "palette-extraction-result",
       requestId: payload.requestId,
       generation: payload.generation,
-      chosenIndices: result.chosenIndices,
       colors: result.colors,
       durationMs: performance.now() - startedAt,
     });

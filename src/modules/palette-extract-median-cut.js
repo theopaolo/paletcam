@@ -1,11 +1,11 @@
 import { ColorCutQuantizer } from './color-cut-quantizer.js';
-import { packImageDataToArgb8888, computePixelStride } from './palette-pixel-pack.js';
+import { packImageDataToOklchArgb, swatchOklchToRgb } from './color-space-oklch.js';
+import { computePixelStride, packImageDataToArgb8888 } from './palette-pixel-pack.js';
 import {
   buildHueRarityMap,
   createPaletteScoringProfile,
   scoreCandidate,
 } from './palette-scoring.js';
-import { packImageDataToOklchArgb, swatchOklchToRgb } from './color-space-oklch.js';
 
 const MIN_SWATCH_COUNT = 1;
 export const DEFAULT_QUANTIZED_POOL_SIZE = 24;
@@ -131,7 +131,7 @@ export function extractMedianCutPaletteColors(
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
 
   if (!imageData || frameWidth <= 0 || frameHeight <= 0) {
-    return { colors: [], chosenIndices: [] };
+    return { colors: [] };
   }
 
   const useOklch = colorSpace === 'oklch';
@@ -152,7 +152,7 @@ export function extractMedianCutPaletteColors(
   }
 
   if (packedPixels.length === 0) {
-    return { colors: [], chosenIndices: [] };
+    return { colors: [] };
   }
 
   const targetQuantizedSwatchCount = Math.max(
@@ -164,7 +164,7 @@ export function extractMedianCutPaletteColors(
   const quantizedSwatches = quantizer.getQuantizedColors?.() ?? [];
 
   if (!Array.isArray(quantizedSwatches) || quantizedSwatches.length === 0) {
-    return { colors: [], chosenIndices: [] };
+    return { colors: [] };
   }
 
   // Build candidate pool — convert swatches back to RGB
@@ -190,5 +190,5 @@ export function extractMedianCutPaletteColors(
 
   const scoringProfile = createPaletteScoringProfile(scoringOptions);
   const colors = rankQuantizedCandidates(candidatePool, normalizedSwatchCount, scoringProfile);
-  return { colors, chosenIndices: [] };
+  return { colors };
 }

@@ -176,6 +176,32 @@ describe("app-settings performanceHudEnabled", () => {
   });
 });
 
+describe("app-settings photoExportQuality", () => {
+  test("defaults to 0.95", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    expect(module.getDefaultAppSettings().photoExportQuality).toBe(0.95);
+    expect(module.getAppSettings().photoExportQuality).toBe(0.95);
+  });
+
+  test("clamps persisted values into the supported range", async () => {
+    const { module } = await loadAppSettingsModule({
+      photoExportQuality: 1.5,
+    });
+
+    expect(module.getAppSettings().photoExportQuality).toBe(1);
+  });
+
+  test("default reset patch restores the photo quality", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    module.updateAppSettings({ photoExportQuality: 0.61 });
+    module.updateAppSettings(module.getDefaultAppSettingsResetPatch());
+
+    expect(module.getAppSettings().photoExportQuality).toBe(0.95);
+  });
+});
+
 describe("app-settings medianCut.colorSpace", () => {
   test("defaults to rgb", async () => {
     const { module } = await loadAppSettingsModule();
@@ -184,89 +210,44 @@ describe("app-settings medianCut.colorSpace", () => {
     expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
   });
 
-  test("loads a persisted oklch setting", async () => {
+  test("normalizes a persisted oklch setting back to rgb", async () => {
     const { module } = await loadAppSettingsModule({
       medianCut: { colorSpace: "oklch" },
     });
 
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
+    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
   });
 
-  test("persists updates and resets to rgb", async () => {
+  test("ignores oklch updates and persists rgb", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
 
     module.updateAppSettings({
       medianCut: { colorSpace: "oklch" },
     });
 
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).medianCut.colorSpace).toBe(
-      "oklch",
-    );
+    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
+    expect(localStorageMock.dump(SETTINGS_STORAGE_KEY)).toBeNull();
 
     module.updateAppSettings({
       medianCut: module.getDefaultAppSettings().medianCut,
     });
 
     expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).medianCut.colorSpace).toBe("rgb");
+    expect(localStorageMock.dump(SETTINGS_STORAGE_KEY)).toBeNull();
   });
 });
 
-describe("app-settings paletteAnalysisProfile", () => {
-  test("defaults to expressive", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().paletteAnalysisProfile).toBe("expressive");
-    expect(module.getAppSettings().paletteAnalysisProfile).toBe("expressive");
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
-  });
-
-  test("infers perceptual from perceptual-like settings", async () => {
-    const { module } = await loadAppSettingsModule({
-      medianCut: {
-        quantizedPoolSize: 24,
-        maxQuantizerPixels: 40000,
-        colorSpace: "oklch",
-      },
-      paletteScoring: {
-        chromaWeight: 24,
-        lumaSpreadWeight: 14,
-        rarityWeight: 14,
-        diversityWeight: 48,
-      },
-    });
-
-    expect(module.getAppSettings().paletteAnalysisProfile).toBe("perceptual");
-  });
-
-  test("applies the perceptual profile and persists it", async () => {
+describe("app-settings paletteScoring", () => {
+  test("persists manual scoring updates", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
 
-    module.updateAppSettings({
-      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PERCEPTUAL,
-    });
-
-    expect(module.getAppSettings().paletteAnalysisProfile).toBe("perceptual");
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
-    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(14);
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).paletteAnalysisProfile).toBe(
-      "perceptual",
-    );
-  });
-
-  test("switches to custom when manual tuning diverges from the active profile", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    module.updateAppSettings({
-      paletteAnalysisProfile: module.PALETTE_ANALYSIS_PROFILES.PERCEPTUAL,
-    });
     module.updateAppSettings({
       paletteScoring: { rarityWeight: 18 },
     });
 
-    expect(module.getAppSettings().paletteAnalysisProfile).toBe("custom");
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("oklch");
     expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(18);
+    expect(
+      JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).paletteScoring.rarityWeight,
+    ).toBe(18);
   });
 });

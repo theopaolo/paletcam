@@ -1,12 +1,5 @@
 import { toRgbCss } from "./color-format.js";
 import { extractMedianCutPaletteColors } from "./palette-extract-median-cut.js";
-import {
-  extractGridPaletteColors,
-  SAMPLE_COL_COUNT,
-  SAMPLE_DIAMETER,
-  SAMPLE_RADIUS,
-  SAMPLE_ROW_COUNT,
-} from "./palette-extract-grid.js";
 
 export { createPaletteColor, enrichPaletteColors } from "./palette-color.js";
 export { findClosestRAL, matchPaletteToRAL, sampleColorAtPoint, RAL_CLASSIC } from "./color-matching-ral.js";
@@ -53,13 +46,6 @@ function reorderToMatchReference(incoming, reference) {
   return matched;
 }
 
-export const PALETTE_EXTRACTION_ALGORITHMS = Object.freeze({
-  GRID: "grid",
-  MEDIAN_CUT: "median-cut",
-});
-/** @type {PaletteExtractionAlgorithm} */
-let activePaletteExtractionAlgorithm = PALETTE_EXTRACTION_ALGORITHMS.GRID;
-
 function buildRgbColor(red, green, blue) {
   return { r: red, g: green, b: blue };
 }
@@ -76,73 +62,33 @@ function getColorLuma(color) {
   return (0.2126 * color.r) + (0.7152 * color.g) + (0.0722 * color.b);
 }
 
-// Orchestrator entrypoint for switchable extraction strategies.
-// Grid remains the default so preview + overlay behavior stays unchanged.
-function normalizePaletteExtractionAlgorithm(nextAlgorithm) {
-  return nextAlgorithm === PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT
-    ? PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT
-    : PALETTE_EXTRACTION_ALGORITHMS.GRID;
-}
-
-export function getPaletteExtractionAlgorithm() {
-  return activePaletteExtractionAlgorithm;
-}
-
-export function setPaletteExtractionAlgorithm(nextAlgorithm) {
-  activePaletteExtractionAlgorithm = normalizePaletteExtractionAlgorithm(nextAlgorithm);
-  return activePaletteExtractionAlgorithm;
-}
-
 /**
  * @param {Uint8ClampedArray} imageData
  * @param {number} frameWidth
  * @param {number} frameHeight
  * @param {number} swatchCount
- * @param {PaletteExtractionOptions | string | null} [options]
+ * @param {PaletteExtractionOptions | null} [options]
  * @returns {PaletteExtractionResult}
  */
 export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount, options = null) {
-  const requestedAlgorithm = typeof options === "string"
-    ? options
-    : options?.algorithm;
   const requestedColorSpace = typeof options === "object" && options
     ? (options.colorSpace ?? options.medianCut?.colorSpace)
     : undefined;
-  const algorithm = normalizePaletteExtractionAlgorithm(
-    requestedAlgorithm ?? activePaletteExtractionAlgorithm
-  );
 
-  if (algorithm === PALETTE_EXTRACTION_ALGORITHMS.MEDIAN_CUT) {
-    return extractMedianCutPaletteColors(
-      imageData,
-      frameWidth,
-      frameHeight,
-      swatchCount,
-      typeof options === "object" && options
-        ? {
-            ...(options.medianCut ?? {}),
-            colorSpace: requestedColorSpace,
-            scoring: options.scoring,
-          }
-        : undefined
-    );
-  }
-
-  return extractGridPaletteColors(
+  return extractMedianCutPaletteColors(
     imageData,
     frameWidth,
     frameHeight,
     swatchCount,
     typeof options === "object" && options
       ? {
-          ...(options.grid ?? {}),
+          ...(options.medianCut ?? {}),
+          colorSpace: requestedColorSpace,
           scoring: options.scoring,
         }
       : undefined
   );
 }
-
-export { SAMPLE_COL_COUNT, SAMPLE_DIAMETER, SAMPLE_RADIUS, SAMPLE_ROW_COUNT };
 
 // Draw palette colors as equal-width vertical bars across the canvas
 export function renderPaletteBars(context, colors, canvasWidth, canvasHeight) {
