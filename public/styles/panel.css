@@ -6,6 +6,199 @@
   --shared-panel-z-index: 1000;
 }
 
+config-panel {
+  display: block;
+  position: relative;
+  z-index: 4;
+}
+
+.config-drawer {
+  display: grid;
+  gap: 0.25rem;
+  padding:
+    0.5rem calc(0.5rem + env(safe-area-inset-right, 0px))
+    calc(0.5rem + env(safe-area-inset-bottom, 0px))
+    calc(0.5rem + env(safe-area-inset-left, 0px));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+    rgba(18, 18, 18, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 14px 30px rgba(0, 0, 0, 0.32);
+}
+
+.config-drawer[hidden] {
+  display: none;
+}
+
+.config-drawer-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.config-drawer-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  appearance: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: rgba(240, 240, 240, 0.72);
+  padding-bottom: 0.5rem;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.config-drawer-tab[aria-selected="true"],
+.config-drawer-tab.is-active {
+  color: rgba(255, 200, 0, 0.92);
+  border-bottom-color: rgba(255, 200, 0, 0.92);
+}
+
+.config-drawer-tab:focus-visible {
+  outline: 2px solid rgba(255, 200, 0, 0.72);
+  outline-offset: 2px;
+}
+
+.config-drawer-tab-label,
+.config-drawer-action-label {
+  display: block;
+  white-space: nowrap;
+}
+
+.config-drawer-icon {
+  display: inline-block;
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  background-color: currentColor;
+  -webkit-mask-image: var(--config-icon-url);
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-image: var(--config-icon-url);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.config-drawer-action-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.config-drawer-icon-analysis {
+  --config-icon-url: url("/icons/microscope.svg");
+}
+
+.config-drawer-icon-colors {
+  --config-icon-url: url("/icons/swatches.svg");
+}
+
+.config-drawer-icon-balance {
+  --config-icon-url: url("/icons/contrast.svg");
+}
+
+.config-drawer-icon-undo {
+  --config-icon-url: url("/icons/arrow-bend-left.svg");
+}
+
+.config-drawer-icon-redo {
+  --config-icon-url: url("/icons/arrow-bend-right.svg");
+}
+
+.config-drawer-icon-reset {
+  --config-icon-url: url("/icons/arrow-counterclock.svg");
+}
+
+.config-drawer-panels {
+  display: grid;
+}
+
+.config-drawer-panel {
+  display: grid;
+  gap: .5rem;
+}
+
+.config-drawer-panel[hidden] {
+  display: none;
+}
+
+.config-drawer-slider {
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+.config-drawer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.config-drawer-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.config-drawer-history-button,
+.config-drawer-reset-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(240, 240, 240, 0.9);
+  padding: 0.15rem 0;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 0.14s ease,
+    opacity 0.14s ease;
+}
+
+.config-drawer-reset-button {
+  margin-left: auto;
+}
+
+.config-drawer-history-button:not(:disabled):hover,
+.config-drawer-reset-button:not(:disabled):hover {
+  color: #fff;
+}
+
+.config-drawer-history-button:disabled,
+.config-drawer-reset-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.config-drawer-history-button:focus-visible,
+.config-drawer-reset-button:focus-visible {
+  outline: 2px solid rgba(255, 200, 0, 0.72);
+  outline-offset: 2px;
+}
+
 .collection-panel {
   --shared-panel-shell-overflow-y: hidden;
   --shared-panel-body-display: grid;
@@ -62,8 +255,8 @@
 
 .catch-details-header-icon {
   display: block;
-  width: 1.8rem;
-  height: 1.8rem;
+  width: 1.5rem;
+  height: 1.5rem;
   object-fit: contain;
 }
 
@@ -219,17 +412,21 @@
   gap: 0.2rem;
 }
 
-.settings-section-header h3 {
+.settings-section-header h3,
+.settings-subsection-label {
   margin: 0;
+  font-weight: 600;
+  display: inline-block;
+  text-align: center;
+  width: 100%;
+  text-transform: UPPERCASE;
   font-size: 1.25rem;
-  font-weight: 400;
 }
 
 .settings-section-header p {
   margin: 0;
   color: rgb(240, 240, 240);
-  font-size: 1rem;
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.2;
 }
 
@@ -261,15 +458,15 @@
 
 .settings-field-header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 0.6rem;
 }
 
 .settings-label {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 300;
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
   color: var(--secondary-color);
 }
 
@@ -300,7 +497,7 @@
 }
 
 .settings-hint.is-error {
-  color: #ff9f9f;
+  color: #ffd08f;
 }
 
 .settings-file-input {
@@ -316,21 +513,6 @@
 .settings-file-label {
   display: block;
   cursor: pointer;
-}
-
-.settings-file-label-text {
-  display: block;
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(180deg, #1f1f1f 0%, #111111 100%);
-  color: #f0f0f0;
-  min-height: 2.45rem;
-  padding: 0.5rem 0.75rem;
-  font: inherit;
-  font-size: 0.88rem;
-  text-transform: uppercase;
-  text-align: center;
-  pointer-events: none;
 }
 
 .settings-file-input:focus-visible + .settings-file-label-text {
@@ -381,16 +563,20 @@
 }
 
 .settings-action-button,
+.settings-file-label,
 .settings-secondary-button {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: .5rem;
   background: linear-gradient(180deg, #1f1f1f 0%, #111111 100%);
   color: #f0f0f0;
   min-height: 2.45rem;
   padding: 0.5rem 0.75rem;
   font: inherit;
   font-size: 0.88rem;
+  font-weight: 600;
   text-transform: uppercase;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -405,7 +591,7 @@
 }
 
 .settings-danger-button {
-  color: #ff9f9f;
+  color: #ffd08f;
 }
 
 .settings-danger-zone {
@@ -430,12 +616,14 @@
 .settings-segment-button {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: .5rem;
   background: linear-gradient(180deg, #191919 0%, #0f0f0f 100%);
   color: rgba(240, 240, 240, 0.82);
   padding: 0.55rem 0.6rem;
   font: inherit;
   font-size: 0.9rem;
-  font-weight: 300;
+  font-weight: 600;
+  text-transform: uppercase;
   text-align: center;
   cursor: pointer;
   user-select: none;
@@ -476,6 +664,16 @@
 .settings-algorithm-panel[hidden] {
   display: none;
 }
+.settings-subsection span {
+  font-weight: 600;
+  display: inline-block;
+  text-align: center;
+  width: 100%;
+  text-transform: UPPERCASE;
+  margin-bottom: .25rem;
+  font-size: 1.25rem;
+}
+
 
 .settings-subsection-header {
   display: grid;
@@ -492,7 +690,7 @@
 .settings-subsection-header p {
   margin: 0;
   font-size: 0.85rem;
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.2;
   color: rgba(255, 240, 184, 1);
 }
@@ -516,15 +714,15 @@
   display: grid;
   justify-items: center;
   gap: 0.35rem;
-  min-width: 4.25rem;
 }
 
 .collection-view-toggle-legend {
   display: block;
   width: 100%;
   color: rgba(240, 240, 240, 0.72);
-  font-family: monospace;
-  font-size: 0.72rem;
+  font-family: "SNPro", sans-serif;
+  font-weight: 600;
+  font-size: 0.5rem;
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
@@ -557,6 +755,8 @@
   background: rgba(15, 15, 15, 0.88);
   color: var(--secondary-color);
   font: inherit;
+  font-weight: 600;
+  border-radius: .25rem;
   cursor: pointer;
   transition:
     border-color 0.2s ease,
@@ -565,12 +765,13 @@
 }
 
 .collection-view-toggle-button {
-  min-width: 3.5rem;
-  min-height: 3.5rem;
+  min-width: 3rem;
+  min-height: 3rem;
   padding: 0.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: 100vh;
 }
 
 .collection-view-toggle-button:last-child {
@@ -703,6 +904,7 @@
 
 .collection-session-title {
   font-size: clamp(0.85rem, 3.8vw, 1rem);
+  font-weight: 600;
   line-height: 1.1;
   opacity: 1;
   padding: 0.25rem;
@@ -938,8 +1140,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3rem;
+  height: 3rem;
   color: var(--secondary-color);
   cursor: pointer;
   user-select: none;
@@ -947,34 +1149,38 @@
 }
 
 .palette-viewer-actions .button-round svg {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
   fill: currentColor;
   flex-shrink: 0;
 }
 
 .palette-quick-action-label {
-  font-size: 0.85rem;
+  font-size: 0.5rem;
+  font-weight: 600;
   line-height: 1;
   text-transform: capitalize;
-  letter-spacing: -0.5px;
   pointer-events: none;
   position: absolute;
   color: rgba(240, 240, 240, 0.8);
-  bottom: -2rem;
-  font-family: monospace;
+  bottom: -1.25rem;
+  font-family: "SNPro", sans-serif;
 }
 
 .palette-viewer-actions .button-round:active {
   background-color: #0c0c0c;
 }
 
-.palette-action-delete {
+.palette-viewer-actions .button-round.palette-action-delete  {
+  width: 2.5rem;
+  height: 2.5rem;
   color: #ff4a4a;
   background: rgba(42, 11, 11, 0.92);
 }
 
 .palette-viewer-actions .palette-action-delete svg {
+  width: 1rem;
+  height: 1rem;
   fill: #ff4a4a;
 }
 
@@ -1142,6 +1348,7 @@
   display: flex;
   gap: 0.5rem;
   justify-content: space-between;
+  align-items: end;
   width: 100%;
   background: linear-gradient(
       180deg,

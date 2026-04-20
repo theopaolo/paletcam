@@ -1,16 +1,12 @@
 import {
   getAppSettings,
-  getDefaultAppSettings,
-  getDefaultAppSettingsResetPatch,
   subscribeAppSettings,
   updateAppSettings,
 } from "../../app-settings.js";
 import { exportAllPalettes, importAllPalettes } from "../../palette-storage.js";
 import { showToast } from "../toast-ui.js";
 import { openSharedPanel } from "./panel-manager.js";
-
-const integerFormatter = new Intl.NumberFormat("en-US");
-const defaultAppSettings = getDefaultAppSettings();
+import { createRangeControl } from "./settings-range-control.js";
 
 function queryById(root, id) {
   if (!id) {
@@ -20,123 +16,17 @@ function queryById(root, id) {
   return root.querySelector(`#${id}`);
 }
 
-function clampInteger(value, fallbackValue) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return fallbackValue;
-  }
-
-  return Math.round(numericValue);
-}
-
-function formatThousands(value) {
-  return integerFormatter.format(clampInteger(value, 0));
-}
-
-function formatCompactThousands(value) {
-  const safeValue = clampInteger(value, 0);
-  if (safeValue >= 1000) {
-    return `${Math.round(safeValue / 1000)}k`;
-  }
-
-  return String(safeValue);
-}
-
-function updateSliderShellTicks(shell, rangeInput) {
-  if (!shell || !rangeInput) {
-    return;
-  }
-
-  const minValue = Number(rangeInput.min) || 0;
-  const maxValue = Number(rangeInput.max) || minValue;
-  const stepValue = Number(rangeInput.step) || 1;
-  const currentValue = Number(rangeInput.value) || minValue;
-  const tickCount =
-    Math.max(1, Math.floor((maxValue - minValue) / stepValue + Number.EPSILON) + 1);
-  const tickIndex =
-    Math.max(0, Math.floor((currentValue - minValue) / stepValue + Number.EPSILON));
-
-  shell.style.setProperty("--tick-count", String(tickCount));
-  shell.style.setProperty("--tick-index", String(tickIndex));
-  shell.style.setProperty("--tick-intervals", String(Math.max(1, tickCount - 1)));
-}
-
 function getSettingsDom(root) {
   return {
     captureModeButtons: Array.from(root.querySelectorAll("[data-settings-capture-mode]")),
     oneMoreColorButtons: Array.from(root.querySelectorAll("[data-settings-one-more-color]")),
     paletteModeGroup: queryById(root, "settingsPaletteModeGroup"),
-    resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "settingsResetButton")),
     exportButton: /** @type {HTMLButtonElement | null} */ (
       queryById(root, "settingsExportButton")
     ),
     importInput: /** @type {HTMLInputElement | null} */ (
       queryById(root, "settingsImportInput")
     ),
-  };
-}
-
-function createRangeControl({
-  root,
-  shellId,
-  inputId,
-  inlineValueId,
-  displaySelector,
-  getValueFromSettings,
-  buildSettingsPatch,
-  getAriaLabel,
-  formatInlineValue = (value) => String(value),
-  formatDisplayValue = formatInlineValue,
-}) {
-  const shell = queryById(root, shellId);
-  const input = /** @type {HTMLInputElement | null} */ (queryById(root, inputId));
-  const inlineValue = queryById(root, inlineValueId);
-  const displayValue = displaySelector ? root.querySelector(displaySelector) : null;
-
-  if (!input) {
-    return null;
-  }
-
-  function renderFromSettings(settings) {
-    const value = getValueFromSettings(settings);
-    input.value = String(value);
-    input.setAttribute("aria-label", getAriaLabel(value));
-    if (inlineValue) {
-      inlineValue.textContent = formatInlineValue(value);
-    }
-    if (displayValue) {
-      displayValue.textContent = formatDisplayValue(value);
-    }
-    updateSliderShellTicks(shell, input);
-  }
-
-  function bindEvents(on) {
-    on(input, "input", () => {
-      const numericValue = Number(input.value);
-      updateAppSettings(buildSettingsPatch(numericValue));
-    });
-
-    if (!shell) {
-      return;
-    }
-
-    const activate = () => {
-      shell.classList.add("is-active");
-    };
-    const deactivate = () => {
-      shell.classList.remove("is-active");
-    };
-
-    on(input, "pointerdown", activate);
-    on(input, "pointerup", deactivate);
-    on(input, "pointercancel", deactivate);
-    on(input, "blur", deactivate);
-    on(input, "keyup", deactivate);
-  }
-
-  return {
-    bindEvents,
-    renderFromSettings,
   };
 }
 
@@ -176,127 +66,25 @@ export function mountSettingsPanel({ root, openButton }) {
     });
   };
 
-  const rangeControls = [
-    createRangeControl({
-      root,
-      shellId: "settingsPhotoQualitySlider",
-      inputId: "settingsPhotoQualityRange",
-      inlineValueId: "settingsPhotoQualityValue",
-      displaySelector: "[data-settings-quality-display]",
-      getValueFromSettings: (settings) =>
-        Math.round((settings.photoExportQuality || 0) * 100),
-      buildSettingsPatch: (percentValue) => ({
+  const photoQualityControl = createRangeControl({
+    root,
+    shellId: "settingsPhotoQualitySlider",
+    inputId: "settingsPhotoQualityRange",
+    displaySelector: "[data-settings-quality-display]",
+    getValueFromSettings: (settings) =>
+      Math.round((settings.photoExportQuality || 0) * 100),
+    onValueInput: (percentValue) => {
+      updateAppSettings({
         photoExportQuality: percentValue / 100,
-      }),
-      getAriaLabel: (value) => `Qualité d'image : ${value}%`,
-      formatInlineValue: (value) => `${value}%`,
-      formatDisplayValue: (value) => `${value}%`,
-    }),
-    createRangeControl({
-      root,
-      shellId: "settingsMedianCutPoolSlider",
-      inputId: "settingsMedianCutPoolRange",
-      inlineValueId: "settingsMedianCutPoolValue",
-      displaySelector: "[data-settings-median-cut-pool-display]",
-      getValueFromSettings: (settings) => settings.medianCut.quantizedPoolSize,
-      buildSettingsPatch: (value) => ({
-        medianCut: {
-          quantizedPoolSize: clampInteger(
-            value,
-            defaultAppSettings.medianCut.quantizedPoolSize,
-          ),
-        },
-      }),
-      getAriaLabel: (value) => `Nombre de couleurs analysées : ${value}`,
-    }),
-    createRangeControl({
-      root,
-      shellId: "settingsMedianCutPixelsSlider",
-      inputId: "settingsMedianCutPixelsRange",
-      inlineValueId: "settingsMedianCutPixelsValue",
-      displaySelector: "[data-settings-median-cut-pixels-display]",
-      getValueFromSettings: (settings) => settings.medianCut.maxQuantizerPixels,
-      buildSettingsPatch: (value) => ({
-        medianCut: {
-          maxQuantizerPixels: clampInteger(
-            value,
-            defaultAppSettings.medianCut.maxQuantizerPixels,
-          ),
-        },
-      }),
-      getAriaLabel: (value) => `Pixels analysés max : ${value}`,
-      formatInlineValue: (value) => formatThousands(value),
-      formatDisplayValue: (value) => formatCompactThousands(value),
-    }),
-    createRangeControl({
-      root,
-      shellId: "settingsScoringVibrancySlider",
-      inputId: "settingsScoringVibrancyRange",
-      inlineValueId: "settingsScoringVibrancyValue",
-      displaySelector: "[data-settings-scoring-vibrancy-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.chromaWeight,
-      buildSettingsPatch: (value) => ({
-        paletteScoring: {
-          chromaWeight: clampInteger(value, defaultAppSettings.paletteScoring.chromaWeight),
-        },
-      }),
-      getAriaLabel: (value) => `Préférence pour les couleurs vives : ${value}`,
-    }),
-    createRangeControl({
-      root,
-      shellId: "settingsScoringContrastSlider",
-      inputId: "settingsScoringContrastRange",
-      inlineValueId: "settingsScoringContrastValue",
-      displaySelector: "[data-settings-scoring-contrast-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.lumaSpreadWeight,
-      buildSettingsPatch: (value) => ({
-        paletteScoring: {
-          lumaSpreadWeight: clampInteger(
-            value,
-            defaultAppSettings.paletteScoring.lumaSpreadWeight,
-          ),
-        },
-      }),
-      getAriaLabel: (value) => `Contraste clair/foncé : ${value}`,
-    }),
-    createRangeControl({
-      root,
-      shellId: "settingsScoringRaritySlider",
-      inputId: "settingsScoringRarityRange",
-      inlineValueId: "settingsScoringRarityValue",
-      displaySelector: "[data-settings-scoring-rarity-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.rarityWeight,
-      buildSettingsPatch: (value) => ({
-        paletteScoring: {
-          rarityWeight: clampInteger(value, defaultAppSettings.paletteScoring.rarityWeight),
-        },
-      }),
-      getAriaLabel: (value) => `Bonus aux teintes rares : ${value}`,
-    }),
-    createRangeControl({
-      root,
-      shellId: "settingsScoringDiversitySlider",
-      inputId: "settingsScoringDiversityRange",
-      inlineValueId: "settingsScoringDiversityValue",
-      displaySelector: "[data-settings-scoring-diversity-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.diversityWeight,
-      buildSettingsPatch: (value) => ({
-        paletteScoring: {
-          diversityWeight: clampInteger(
-            value,
-            defaultAppSettings.paletteScoring.diversityWeight,
-          ),
-        },
-      }),
-      getAriaLabel: (value) => `Écart entre les couleurs : ${value}`,
-    }),
-  ].filter(Boolean);
+      });
+    },
+    getAriaLabel: (value) => `Qualité d'image : ${value}%`,
+    formatInlineValue: (value) => `${value}%`,
+    formatDisplayValue: (value) => `${value}%`,
+  });
 
   function renderSettingsUi(settings) {
-    rangeControls.forEach((control) => {
-      control.renderFromSettings(settings);
-    });
-
+    photoQualityControl?.renderFromSettings(settings);
     syncCaptureModeButtons(dom, settings.captureMode);
     syncOneMoreColorButtons(dom, settings.oneMoreColor);
     syncPaletteModeGroupVisibility(dom, settings.captureMode);
@@ -328,14 +116,7 @@ export function mountSettingsPanel({ root, openButton }) {
     });
   });
 
-  rangeControls.forEach((control) => {
-    control.bindEvents(on);
-  });
-
-  on(dom.resetButton, "click", () => {
-    updateAppSettings(getDefaultAppSettingsResetPatch());
-    showToast("Réglages réinitialisés.", { duration: 1400 });
-  });
+  photoQualityControl?.bindEvents(on);
 
   on(dom.exportButton, "click", async () => {
     if (!dom.exportButton) {
@@ -412,6 +193,8 @@ export function mountSettingsPanel({ root, openButton }) {
 
   return () => {
     unsubscribe();
-    cleanups.forEach((cleanup) => cleanup());
+    cleanups.forEach((cleanup) => {
+      cleanup();
+    });
   };
 }

@@ -648,7 +648,7 @@ function bindViewerPanelEvents() {
   hydrateViewerActionButton(deleteButton, {
     label: "Supprimer la palette",
     iconName: "delete",
-    visibleLabel: "supprimer",
+    visibleLabel: "",
   });
   syncPublishButtonCopy();
 

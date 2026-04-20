@@ -28,6 +28,7 @@ import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
 import { savePalette } from "./palette-storage.js";
 import { trackCaptureStatAsync } from "./capture-stat-service.js";
+import "./modules/panels/config-panel.js";
 import "./modules/panels/settings-panel.js";
 import "./delete-account-ui.js";
 

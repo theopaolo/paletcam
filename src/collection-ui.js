@@ -141,7 +141,7 @@ function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
   const sessionIds = getCollectionSessionIds(dayGroups);
   const hasSessions = isListView && sessionIds.length > 0;
   const areAllSessionsCollapsed = areAllCollectionSessionsCollapsed(dayGroups, collapsedSessionIds);
-  const collapseAllLabel = areAllSessionsCollapsed ? "Tout déplier" : "Tout replier";
+  const collapseAllLabel = areAllSessionsCollapsed ? "déplier" : "collapser";
 
   if (collectionViewListButton instanceof HTMLButtonElement) {
     const isActive = isListView;

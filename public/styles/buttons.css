@@ -114,7 +114,8 @@
 }
 
 .btn-containers .mini-output {
-  border-radius: 100vw;
+  border-radius: .25rem;
+  border: 4px solid #0c0c0c;
   height: 4rem;
   width: 4rem;
 }
@@ -126,8 +127,8 @@
   place-content: center;
   overflow: hidden;
   padding: 0;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3rem;
+  height: 3rem;
   border-radius: 9999px;
   border: 4px solid #0f0f0f;
   box-shadow:
@@ -163,8 +164,8 @@
 }
 
 .btn-containers .camera-action-icon {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   min-width: 1.25rem;
   min-height: 1.25rem;
   flex: none;
@@ -198,7 +199,7 @@
   width: 4rem;
   height: 4rem;
   border-radius: 100vw;
-  border: 2px solid #0f0f0f;
+  border: 4px solid rgb(var(--capture-glow-rgb));
   box-shadow:
     inset 0px 2px 5px #5757578a,
     0px 2px 4px #303030,
@@ -375,6 +376,69 @@ body.is-preview-expanded .camera-preview-dock {
   transition: all 0.2s;
   flex: 1;
   min-height: 44px;
+}
+
+.config-section {
+  position: absolute;
+  bottom: .5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+}
+
+.btn-config {
+  --name-rgba: 255, 255, 255, 0.65;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  appearance: none;
+  color: rgba(var(--name-rgba));
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #1f1f1f 0%, #111111 100%);
+  padding: 0.25rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.btn-config-icon {
+  display: inline-block;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  background-color: currentColor;
+  -webkit-mask-image: url("/icons/settings.svg");
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-image: url("/icons/settings.svg");
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.btn-config.is-active {
+  --name-rgba: 255, 200, 0, 1;
+  border-color: rgba(255, 200, 0, 0.9);
+}
+
+.btn-config:active {
+  transform: translateY(.5rem);
+}
+
+.btn-config:focus-visible {
+  outline: 2px solid rgba(255, 200, 0, 0.75);
+  outline-offset: 2px;
 }
 
 .btn-open-settings,

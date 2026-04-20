@@ -240,7 +240,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
 
   function updateScrubberProgress(zoomValue) {
     const { min, max } = getZoomRange();
-    const normalizedValue = max > min ? (zoomValue - min) / (max - min) : 0.5;
+    const normalizedValue = max > min ? (zoomValue - min) / (max - min) : 0.495;
     scrubberTrack.style.setProperty("--zoom-progress", String(clampValue(normalizedValue, 0, 1)));
     updateScrubberA11y(zoomValue);
   }

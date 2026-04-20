@@ -50,10 +50,10 @@
 }
 
 .swatch-scale-label {
-  color: rgba(208, 208, 208, 0.68);
-  font-family: monospace;
-  font-size: 0.72rem;
-  text-shadow: 0 1px 0 #000;
+  color: #acacac;
+  font-weight: 700;
+  font-family: "SNPro", sans-serif;
+  font-size: 0.75rem;
 }
 
 .swatch-scale-label-min {
@@ -66,15 +66,14 @@
 
 .swatch-count-indicator {
   display: inline-block;
-  min-width: 4.2ch;
-  padding: 0.07rem 0.45rem 0.1rem;
+  padding-top: 0.5rem;
   text-align: center;
+  text-transform: uppercase;
+  font-weight: 700;
   color: #ebebeb;
-  font-family: monospace;
-  font-size: 0.9rem;
-  font-variant-numeric: tabular-nums;
+  font-family: "SNPro", sans-serif;
+  font-size: .75rem;
   line-height: 1;
-  text-shadow: 0 1px 0 #000;
 }
 
 .swatch-slider::before {

@@ -71,8 +71,22 @@
       <div class="capture-palette-stage">
         <canvas id="canvas-palette"></canvas>
       </div>
+
+      <section class="config-section">
+        <button
+          class="btn-config"
+          type="button"
+          aria-label="Ouvrir la configuration"
+        >
+          <span class="btn-config-icon" aria-hidden="true"></span>
+          <span class="btn-config-label">Config</span>
+        </button>
+      </section>
+
       <canvas id="canvas"></canvas>
     </div>
+
+    <config-panel></config-panel>
 
     <div class="sliders-container">
       <div class="swatch-slider">
@@ -178,9 +192,7 @@
         <section class="settings-section" aria-labelledby="loginAccountTitle">
           <div class="settings-section-header">
             <h3 id="loginAccountTitle">Connexion</h3>
-            <p id="communityAccountState">
-              Non connecté au compte de publication.
-            </p>
+            <p id="communityAccountState"></p>
           </div>
 
           <div class="settings-field" id="communityEmailField">

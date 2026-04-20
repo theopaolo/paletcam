@@ -5,8 +5,8 @@ import {
   subscribeCommunitySession,
   verifyCommunityLoginOtp,
 } from './community-service.js';
-import { clientLog } from './modules/client-log.js';
 import { BRAND, buildCommunityUrl } from './config.js';
+import { clientLog } from './modules/client-log.js';
 import { formatErrorDetails } from './modules/error-format.js';
 import {
   closeSharedPanel,
@@ -109,11 +109,11 @@ function syncCommunitySessionUi(session = getCurrentCommunitySession()) {
     setCommunityCodeFieldVisible(false);
     setCommunityAuthHintMessage('');
     communityAccountState.textContent = sessionEmail
-      ? `Connecté en tant que ${sessionEmail}`
+      ? `Status: connecté en tant que ${sessionEmail}`
       : 'Connecté';
     communityAccountState.classList.add('is-connected');
   } else {
-    communityAccountState.textContent = 'Non connecté au compte de publication.';
+    communityAccountState.textContent = 'Status: pas encore connecté';
     communityAccountState.classList.remove('is-connected');
   }
 

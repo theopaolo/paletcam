@@ -59,8 +59,8 @@ class SettingsPanel extends LitElement {
             </div>
           </section>
 
-          <div class="settings-subsection" id="settingsCaptureModeSection">
-            <label class="settings-subsection-label">Mode</label>
+          <div class="settings-section" id="settingsCaptureModeSection">
+            <span class="settings-subsection-label">Mode</span>
             <div
               class="settings-segment"
               role="group"
@@ -84,237 +84,16 @@ class SettingsPanel extends LitElement {
           </div>
 
           <div id="settingsPaletteModeGroup">
-            <section class="settings-section" aria-labelledby="settingsPaletteTitle">
-
-              <div class="settings-field">
-                <div class="settings-field-header">
-
-                  <details>
-                    <summary class="settings-label" for="settingsMedianCutPoolRange"
-                    >Nombre de couleurs analysées</summary
-                  >
-                    <p class="settings-hint">
-                      Plus la valeur est élevée, plus la palette sera variée, mais
-                      l'analyse sera plus lente.
-                      </p>
-                  </details>
-                </div>
-
-                <div
-                  class="swatch-slider settings-quality-slider"
-                  id="settingsMedianCutPoolSlider"
-                >
-                  <input
-                    id="settingsMedianCutPoolRange"
-                    type="range"
-                    min="4"
-                    max="64"
-                    value="16"
-                    step="1"
-                    aria-label="Nombre de couleurs analysées : 16"
-                  />
-                  <div class="swatch-meta">
-                    <span class="swatch-scale-label swatch-scale-label-min">4</span>
-                    <span
-                      class="swatch-count-indicator"
-                      data-settings-median-cut-pool-display
-                      >16</span
-                    >
-                    <span class="swatch-scale-label swatch-scale-label-max">64</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-field">
-                <details class="settings-field-header">
-                  <summary class="settings-label" for="settingsMedianCutPixelsRange"
-                    >Pixels analysés </summary
-                  >
-             <p class="settings-hint">
-                  Améliore la précision pour les scènes complexes, mais ralentit
-                  le traitement.
-                </p>
-                </details>
-
-                <div
-                  class="swatch-slider settings-quality-slider"
-                  id="settingsMedianCutPixelsSlider"
-                >
-                  <input
-                    id="settingsMedianCutPixelsRange"
-                    type="range"
-                    min="1000"
-                    max="60000"
-                    value="12000"
-                    step="1000"
-                    aria-label="Pixels analysés max : 12000"
-                  />
-                  <div class="swatch-meta">
-                    <span class="swatch-scale-label swatch-scale-label-min">1k</span>
-                    <span
-                      class="swatch-count-indicator"
-                      data-settings-median-cut-pixels-display
-                      >12k</span
-                    >
-                    <span class="swatch-scale-label swatch-scale-label-max">60k</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section class="settings-section" aria-labelledby="settingsScoringTitle">
-              <div class="settings-field">
-                <details class="settings-field-header">
-                  <summary class="settings-label" for="settingsScoringVibrancyRange"
-                    >Préférence pour les couleurs vives</summary
-                  >
-                      <p class="settings-hint">
-                  Plus la valeur est élevée, plus les couleurs éclatantes et
-                  saturées seront privilégiées.
-                </p>
-                </details>
-
-                <div
-                  class="swatch-slider settings-quality-slider"
-                  id="settingsScoringVibrancySlider"
-                >
-                  <input
-                    id="settingsScoringVibrancyRange"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="25"
-                    step="1"
-                    aria-label="Préférence pour les couleurs vives : 25"
-                  />
-                  <div class="swatch-meta">
-                    <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                    <span
-                      class="swatch-count-indicator"
-                      data-settings-scoring-vibrancy-display
-                      >25</span
-                    >
-                    <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-field">
-                <details class="settings-field-header">
-                  <summary class="settings-label" for="settingsScoringContrastRange"
-                    >Contraste clair/foncé</summary
-                  >
-                       <p class="settings-hint">
-                  0 favorise les couleurs très claires - 100 les couleurs très foncées.
-                </p>
-                </details>
-
-                <div
-                  class="swatch-slider settings-quality-slider"
-                  id="settingsScoringContrastSlider"
-                >
-                  <input
-                    id="settingsScoringContrastRange"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="15"
-                    step="1"
-                    aria-label="Contraste clair/foncé : 15"
-                  />
-                  <div class="swatch-meta">
-                    <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                    <span
-                      class="swatch-count-indicator"
-                      data-settings-scoring-contrast-display
-                      >15</span
-                    >
-                    <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-field">
-                <details class="settings-field-header">
-                  <summary class="settings-label" for="settingsScoringRarityRange" >Bonus aux teintes rares</summary>
-                    <p class="settings-hint">
-                      Met en avant les teintes peu présentes dans l'image pour une
-                      palette plus originale.
-                    </p>
-                </details>
-
-                <div
-                  class="swatch-slider settings-quality-slider"
-                  id="settingsScoringRaritySlider"
-                >
-                  <input
-                    id="settingsScoringRarityRange"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="20"
-                    step="1"
-                    aria-label="Bonus aux teintes rares : 20"
-                  />
-                  <div class="swatch-meta">
-                    <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                    <span
-                      class="swatch-count-indicator"
-                      data-settings-scoring-rarity-display
-                      >20</span
-                    >
-                    <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-field">
-                <details class="settings-field-header">
-                  <summary class="settings-label" for="settingsScoringDiversityRange"
-                    >Écart entre les couleurs</summary
-                  >
-                  <p class="settings-hint">
-                      Plus la valeur est élevée, plus les couleurs choisies seront
-                      différentes les unes des autres.
-                  </p>
-                </details>
-
-                <div
-                  class="swatch-slider settings-quality-slider"
-                  id="settingsScoringDiversitySlider"
-                >
-                  <input
-                    id="settingsScoringDiversityRange"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="40"
-                    step="1"
-                    aria-label="Écart entre les couleurs : 40"
-                  />
-                  <div class="swatch-meta">
-                    <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                    <span
-                      class="swatch-count-indicator"
-                      data-settings-scoring-diversity-display
-                      >40</span
-                    >
-                    <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
             <section class="settings-section" aria-labelledby="settingsOneMoreColorTitle">
               <div class="settings-section-header">
-                <h3 id="settingsOneMoreColorTitle">Moins de couleurs sombre</h3>
+                <h3 id="settingsOneMoreColorTitle">Remove the darkest color</h3>
               </div>
 
               <div class="settings-field">
                 <div
                   class="settings-segment"
                   role="group"
-                  aria-label="Moins de couleurs sombre"
+                  aria-label="Remove the darkest color"
                 >
                   <button
                     class="settings-segment-button"
@@ -322,7 +101,7 @@ class SettingsPanel extends LitElement {
                     data-settings-one-more-color="off"
                     aria-pressed="true"
                   >
-                    Off
+                    No
                   </button>
                   <button
                     class="settings-segment-button"
@@ -330,7 +109,7 @@ class SettingsPanel extends LitElement {
                     data-settings-one-more-color="on"
                     aria-pressed="false"
                   >
-                    On
+                    Yes
                   </button>
                 </div>
               </div>
@@ -377,13 +156,6 @@ class SettingsPanel extends LitElement {
             </div>
           </section>
 
-          <button
-            class="settings-secondary-button"
-            id="settingsResetButton"
-            type="button"
-          >
-            Reset réglages
-          </button>
         </div>
         <button
           class="settings-version"

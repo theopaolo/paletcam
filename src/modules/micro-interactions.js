@@ -1,5 +1,5 @@
 const DEFAULT_CAPTURE_POP_MS = 170;
-const DEFAULT_CAPTURE_FLASH_MS = 120;
+const DEFAULT_CAPTURE_FLASH_MS = 250;
 
 /**
  * @param {object} [options]
