@@ -202,6 +202,44 @@ describe("app-settings photoExportQuality", () => {
   });
 });
 
+describe("app-settings polaroidFooterLabel", () => {
+  test("defaults to colorcatchers.co", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    expect(module.getDefaultAppSettings().polaroidFooterLabel).toBe("colorcatchers.co");
+    expect(module.getAppSettings().polaroidFooterLabel).toBe("colorcatchers.co");
+  });
+
+  test("loads a persisted custom label", async () => {
+    const { module } = await loadAppSettingsModule({
+      polaroidFooterLabel: "studio palette",
+    });
+
+    expect(module.getAppSettings().polaroidFooterLabel).toBe("studio palette");
+  });
+
+  test("normalizes blank values back to the default label", async () => {
+    const { module } = await loadAppSettingsModule({
+      polaroidFooterLabel: "   ",
+    });
+
+    expect(module.getAppSettings().polaroidFooterLabel).toBe("colorcatchers.co");
+  });
+
+  test("persists updates and trims whitespace", async () => {
+    const { module, localStorageMock } = await loadAppSettingsModule();
+
+    module.updateAppSettings({
+      polaroidFooterLabel: "  my label  ",
+    });
+
+    expect(module.getAppSettings().polaroidFooterLabel).toBe("my label");
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).polaroidFooterLabel).toBe(
+      "my label",
+    );
+  });
+});
+
 describe("app-settings medianCut.colorSpace", () => {
   test("defaults to rgb", async () => {
     const { module } = await loadAppSettingsModule();

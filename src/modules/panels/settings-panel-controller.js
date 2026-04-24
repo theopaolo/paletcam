@@ -18,9 +18,9 @@ function queryById(root, id) {
 
 function getSettingsDom(root) {
   return {
-    captureModeButtons: Array.from(root.querySelectorAll("[data-settings-capture-mode]")),
-    oneMoreColorButtons: Array.from(root.querySelectorAll("[data-settings-one-more-color]")),
-    paletteModeGroup: queryById(root, "settingsPaletteModeGroup"),
+    polaroidFooterLabelInput: /** @type {HTMLInputElement | null} */ (
+      queryById(root, "settingsPolaroidFooterLabelInput")
+    ),
     exportButton: /** @type {HTMLButtonElement | null} */ (
       queryById(root, "settingsExportButton")
     ),
@@ -30,25 +30,12 @@ function getSettingsDom(root) {
   };
 }
 
-function syncCaptureModeButtons(dom, activeMode) {
-  dom.captureModeButtons.forEach((button) => {
-    const buttonMode = button.getAttribute("data-settings-capture-mode");
-    button.setAttribute("aria-pressed", String(buttonMode === activeMode));
-  });
-}
-
-function syncOneMoreColorButtons(dom, isEnabled) {
-  dom.oneMoreColorButtons.forEach((button) => {
-    const nextValue = button.getAttribute("data-settings-one-more-color");
-    const shouldBeActive = (nextValue === "on") === Boolean(isEnabled);
-    button.setAttribute("aria-pressed", String(shouldBeActive));
-  });
-}
-
-function syncPaletteModeGroupVisibility(dom, captureMode) {
-  if (dom.paletteModeGroup) {
-    dom.paletteModeGroup.hidden = captureMode === "ral";
+function syncPolaroidFooterLabelInput(dom, settings) {
+  if (!dom.polaroidFooterLabelInput || document.activeElement === dom.polaroidFooterLabelInput) {
+    return;
   }
+
+  dom.polaroidFooterLabelInput.value = settings.polaroidFooterLabel;
 }
 
 export function mountSettingsPanel({ root, openButton }) {
@@ -85,36 +72,25 @@ export function mountSettingsPanel({ root, openButton }) {
 
   function renderSettingsUi(settings) {
     photoQualityControl?.renderFromSettings(settings);
-    syncCaptureModeButtons(dom, settings.captureMode);
-    syncOneMoreColorButtons(dom, settings.oneMoreColor);
-    syncPaletteModeGroupVisibility(dom, settings.captureMode);
+    syncPolaroidFooterLabelInput(dom, settings);
   }
 
   on(openButton, "click", () => {
     openSharedPanel("settings");
   });
 
-  dom.captureModeButtons.forEach((button) => {
-    on(button, "click", () => {
-      const nextMode = button.getAttribute("data-settings-capture-mode");
-      if (nextMode === "palette" || nextMode === "ral") {
-        updateAppSettings({ captureMode: nextMode });
-      }
-    });
-  });
+  const commitPolaroidFooterLabel = () => {
+    if (!dom.polaroidFooterLabelInput) {
+      return;
+    }
 
-  dom.oneMoreColorButtons.forEach((button) => {
-    on(button, "click", () => {
-      const nextValue = button.getAttribute("data-settings-one-more-color");
-      if (nextValue !== "on" && nextValue !== "off") {
-        return;
-      }
-
-      updateAppSettings({
-        oneMoreColor: nextValue === "on",
-      });
+    updateAppSettings({
+      polaroidFooterLabel: dom.polaroidFooterLabelInput.value,
     });
-  });
+  };
+
+  on(dom.polaroidFooterLabelInput, "change", commitPolaroidFooterLabel);
+  on(dom.polaroidFooterLabelInput, "blur", commitPolaroidFooterLabel);
 
   photoQualityControl?.bindEvents(on);
 

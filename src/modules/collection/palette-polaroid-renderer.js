@@ -1,7 +1,6 @@
-import { BRAND } from "../../config.js";
+import { getAppSettings } from "../../app-settings.js";
 import { toRgbCss } from "../color-format.js";
 
-const EXPORT_BRAND_LABEL_FALLBACK = BRAND;
 const POLAROID_CARD_ASPECT_RATIO = 1.22;
 const DEFAULT_POLAROID_PHOTO_ASPECT_RATIO = 4 / 3;
 const POLAROID_RENDER_MAX_WIDTH = 1600;
@@ -19,8 +18,7 @@ const PREVIEW_FONT_LOAD_TIMEOUT_MS = 1200;
 const PREVIEW_CANVAS_TO_BLOB_TIMEOUT_MS = 4000;
 
 function getBrandLabel() {
-  return document.querySelector(".ColorCatchers")?.textContent?.trim()
-    || EXPORT_BRAND_LABEL_FALLBACK;
+  return getAppSettings().polaroidFooterLabel;
 }
 
 function getPolaroidCardWidth(
@@ -279,7 +277,7 @@ function drawBrandCaption({
   cardWidth,
   darkFooter = false,
 }) {
-  const safeLabel = label?.trim() || EXPORT_BRAND_LABEL_FALLBACK;
+  const safeLabel = label?.trim() || getBrandLabel();
   let fontSize = Math.max(16, Math.round(cardWidth * 0.065));
 
   context.save();

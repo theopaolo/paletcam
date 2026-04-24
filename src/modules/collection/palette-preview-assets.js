@@ -1,3 +1,4 @@
+import { getAppSettings } from "../../app-settings.js";
 import {
   hasPaletteMasterPhoto,
   renderPalettePolaroidBlob,
@@ -23,6 +24,7 @@ function buildPreviewAssetCacheKey(palette) {
     cropRect?.y ?? "",
     cropRect?.width ?? "",
     cropRect?.height ?? "",
+    getAppSettings().polaroidFooterLabel,
   ]);
 }
 

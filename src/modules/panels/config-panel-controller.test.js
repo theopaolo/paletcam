@@ -295,6 +295,10 @@ function createConfigFixture() {
   colorsPanel.hidden = true;
   const balancePanel = createPanel("configPanelBalance", "balance");
   balancePanel.hidden = true;
+  const oneMoreColorToggle = new FakeElement("input");
+  oneMoreColorToggle.setAttribute("id", "configOneMoreColorToggle");
+  oneMoreColorToggle.type = "checkbox";
+  oneMoreColorToggle.checked = false;
 
   const diversity = createRangeShell({
     displayAttribute: "data-config-scoring-diversity-display",
@@ -352,7 +356,7 @@ function createConfigFixture() {
   });
 
   analysisPanel.append(diversity.shell, contrast.shell);
-  colorsPanel.append(vibrancy.shell, rarity.shell);
+  colorsPanel.append(vibrancy.shell, rarity.shell, oneMoreColorToggle);
   balancePanel.append(pool.shell, pixels.shell);
 
   const undoButton = createButton("configUndoButton");
@@ -376,6 +380,7 @@ function createConfigFixture() {
     drawer,
     diversityDisplay: diversity.display,
     diversityInput: diversity.input,
+    oneMoreColorToggle,
     redoButton,
     root,
     toggleButton,
@@ -501,6 +506,31 @@ describe("mountConfigPanel", () => {
 
     expect(getAppSettings().paletteScoring.diversityWeight).toBe(55);
     expect(fixture.diversityDisplay.textContent).toBe("55");
+
+    cleanup();
+  });
+
+  test("updates one more color toggle from the config panel", () => {
+    const fixture = createConfigFixture();
+    const fakeDocument = new FakeEventTarget();
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: fakeDocument,
+    });
+
+    const cleanup = mountConfigPanel({
+      root: fixture.root,
+      toggleButton: fixture.toggleButton,
+      toggleSection: fixture.toggleSection,
+    });
+
+    expect(fixture.oneMoreColorToggle.checked).toBe(false);
+
+    fixture.oneMoreColorToggle.checked = true;
+    fixture.oneMoreColorToggle.dispatch("change");
+
+    expect(getAppSettings().oneMoreColor).toBe(true);
+    expect(fixture.oneMoreColorToggle.checked).toBe(true);
 
     cleanup();
   });

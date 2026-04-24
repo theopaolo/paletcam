@@ -5,8 +5,9 @@ describe("panel markup regression", () => {
     const source = await Bun.file(new URL("./settings-panel.js", import.meta.url)).text();
 
     expect(source).toContain("settingsPhotoQualityRange");
-    expect(source).toContain("data-settings-capture-mode");
-    expect(source).toContain("data-settings-one-more-color");
+    expect(source).toContain("settingsPolaroidFooterLabelInput");
+    expect(source).not.toContain("data-settings-capture-mode");
+    expect(source).not.toContain("data-settings-one-more-color");
     expect(source).not.toContain("settingsMedianCutPoolRange");
     expect(source).not.toContain("settingsMedianCutPixelsRange");
     expect(source).not.toContain("settingsScoringVibrancyRange");
@@ -32,6 +33,7 @@ describe("panel markup regression", () => {
     expect(source).toContain("configScoringContrastRange");
     expect(source).toContain("configScoringVibrancyRange");
     expect(source).toContain("configScoringRarityRange");
+    expect(source).toContain("configOneMoreColorToggle");
     expect(source).toContain("configMedianCutPoolRange");
     expect(source).toContain("configMedianCutPixelsRange");
     expect(source).toContain("configUndoButton");
@@ -42,6 +44,7 @@ describe("panel markup regression", () => {
     expect(analysisMarkup).not.toContain("configScoringDiversityRange");
     expect(colorsMarkup).toContain("configScoringVibrancyRange");
     expect(colorsMarkup).toContain("configScoringRarityRange");
+    expect(colorsMarkup).toContain("configOneMoreColorToggle");
     expect(balanceMarkup).toContain("configScoringDiversityRange");
     expect(balanceMarkup).toContain("configScoringContrastRange");
     expect(balanceMarkup).not.toContain("configMedianCutPoolRange");

@@ -268,7 +268,7 @@ body.is-ral-mode .camera-stage-mount {
   align-items: center;
   gap: 0.32rem;
   width: min(78vw, 11rem);
-  padding: 0.18rem 0.14rem 0.28rem;
+  padding: 0.18rem 0.14rem 1.28rem;
   opacity: 1;
   transform: none;
   transition:

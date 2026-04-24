@@ -231,6 +231,26 @@ class ConfigPanel extends LitElement {
                 </div>
               </div>
             </div>
+
+            <div class="settings-field">
+              <details class="settings-field-header">
+                <summary class="settings-label">couleur sombre</summary>
+                <p class="settings-hint">
+                  Retire la couleur la plus sombre pour privilégier une palette plus
+                  lumineuse.
+                </p>
+              </details>
+
+              <label class="settings-checkbox" for="configOneMoreColorToggle">
+                <input
+                  class="settings-checkbox-input"
+                  id="configOneMoreColorToggle"
+                  type="checkbox"
+                />
+                <span class="settings-checkbox-box" aria-hidden="true"></span>
+                <span class="settings-checkbox-label">Retirer la plus sombre</span>
+              </label>
+            </div>
           </section>
 
           <section

@@ -30,6 +30,9 @@ function queryById(root, id) {
 function getConfigDom(root) {
   return {
     drawer: queryById(root, "configDrawer"),
+    oneMoreColorToggle: /** @type {HTMLInputElement | null} */ (
+      queryById(root, "configOneMoreColorToggle")
+    ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
     tabButtons: Array.from(root.querySelectorAll("[data-config-tab]")),
@@ -111,6 +114,14 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     if (dom.redoButton) {
       dom.redoButton.disabled = !canRedo;
     }
+  }
+
+  function syncOneMoreColorToggle(settings) {
+    if (!dom.oneMoreColorToggle) {
+      return;
+    }
+
+    dom.oneMoreColorToggle.checked = Boolean(settings.oneMoreColor);
   }
 
   function setActiveTab(nextTabId, { focusButton = false } = {}) {
@@ -330,6 +341,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     rangeControls.forEach((control) => {
       control.renderFromSettings(settings);
     });
+    syncOneMoreColorToggle(settings);
     syncDrawerAvailability(settings);
     syncHistoryButtons();
   }
@@ -351,6 +363,15 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   });
 
   dom.tabButtons.forEach(bindTabButton);
+  on(dom.oneMoreColorToggle, "change", () => {
+    if (!dom.oneMoreColorToggle) {
+      return;
+    }
+
+    updateAppSettings({
+      oneMoreColor: dom.oneMoreColorToggle.checked,
+    });
+  });
   rangeControls.forEach(bindSliderControl);
 
   on(dom.undoButton, "click", () => {

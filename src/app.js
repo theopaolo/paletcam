@@ -1,4 +1,4 @@
-import { getAppSettings, subscribeAppSettings } from "./app-settings.js";
+import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
 import { openDirectPaletteViewer, PALETTE_DELETED_EVENT } from "./collection-ui.js";
 import { createCameraController } from "./modules/camera-controller.js";
 import {
@@ -47,6 +47,9 @@ const RAL_COLOR_DISTANCE_THRESHOLD = 12;
 
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
 const captureButton = /** @type {HTMLButtonElement | null} */ (document.querySelector(".btn-capture"));
+const captureModeButtons = Array.from(
+  document.querySelectorAll("[data-capture-mode-control]"),
+);
 const allowButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-allow-media"));
 const allowText = /** @type {HTMLElement | null} */ (
   document.querySelector(".allow-container span")
@@ -800,6 +803,11 @@ function syncCaptureMode(mode) {
   const isRal = mode === "ral";
   currentCaptureMode = mode;
 
+  captureModeButtons.forEach((button) => {
+    const buttonMode = button.getAttribute("data-capture-mode-control");
+    button.setAttribute("aria-pressed", String(buttonMode === mode));
+  });
+
   // Toggle camera UI elements
   document.body.classList.toggle("is-ral-mode", isRal);
   if (ralReticle) ralReticle.hidden = !isRal;
@@ -857,6 +865,15 @@ function applyAppSettings({
   resetPalettePreviewState();
   syncCaptureMode(captureMode);
 }
+
+captureModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextMode = button.getAttribute("data-capture-mode-control");
+    if (nextMode === "palette" || nextMode === "ral") {
+      updateAppSettings({ captureMode: nextMode });
+    }
+  });
+});
 
 function mountCameraFeed(targetElement) {
   if (!cameraPreviewSurface || !targetElement) {

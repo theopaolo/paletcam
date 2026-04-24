@@ -10,6 +10,7 @@ const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid"]);
+const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
 
 const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
   chromaWeight: 25,
@@ -36,6 +37,15 @@ function normalizeCollectionViewMode(value) {
   return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "list";
 }
 
+function normalizePolaroidFooterLabel(value) {
+  if (typeof value !== "string") {
+    return DEFAULT_POLAROID_FOOTER_LABEL;
+  }
+
+  const normalizedValue = value.trim();
+  return normalizedValue || DEFAULT_POLAROID_FOOTER_LABEL;
+}
+
 function cloneMedianCutSettings(settings) {
   return {
     quantizedPoolSize: settings.quantizedPoolSize,
@@ -59,6 +69,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   performanceHudEnabled: false,
   oneMoreColor: false,
   photoExportQuality: 0.95,
+  polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
   paletteScoring: DEFAULT_PALETTE_SCORING_SETTINGS,
 });
@@ -158,6 +169,7 @@ function buildNormalizedSettings(candidate) {
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),
     photoExportQuality: clampPhotoExportQuality(candidate?.photoExportQuality),
+    polaroidFooterLabel: normalizePolaroidFooterLabel(candidate?.polaroidFooterLabel),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
     paletteScoring: normalizePaletteScoringSettings(candidate?.paletteScoring),
   };
@@ -174,6 +186,7 @@ function areSettingsEqual(firstSettings, secondSettings) {
     firstSettings.performanceHudEnabled === secondSettings.performanceHudEnabled &&
     firstSettings.oneMoreColor === secondSettings.oneMoreColor &&
     firstSettings.photoExportQuality === secondSettings.photoExportQuality &&
+    firstSettings.polaroidFooterLabel === secondSettings.polaroidFooterLabel &&
     firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&
     firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
     firstSettings.medianCut.colorSpace === secondSettings.medianCut.colorSpace &&
@@ -187,7 +200,7 @@ function areSettingsEqual(firstSettings, secondSettings) {
 
 function readStoredSettings() {
   try {
-    const rawValue = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const rawValue = globalThis.localStorage?.getItem(SETTINGS_STORAGE_KEY);
     if (!rawValue) {
       return null;
     }
@@ -201,7 +214,7 @@ function readStoredSettings() {
 
 function persistSettings(nextSettings) {
   try {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings));
+    globalThis.localStorage?.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings));
   } catch (error) {
     console.warn("Unable to persist app settings:", error);
   }
@@ -254,6 +267,7 @@ export function getDefaultAppSettingsResetPatch() {
     performanceHudEnabled: defaults.performanceHudEnabled,
     oneMoreColor: defaults.oneMoreColor,
     photoExportQuality: defaults.photoExportQuality,
+    polaroidFooterLabel: defaults.polaroidFooterLabel,
     medianCut: defaults.medianCut,
     paletteScoring: defaults.paletteScoring,
   };

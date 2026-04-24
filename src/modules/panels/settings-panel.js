@@ -59,62 +59,26 @@ class SettingsPanel extends LitElement {
             </div>
           </section>
 
-          <div class="settings-section" id="settingsCaptureModeSection">
-            <span class="settings-subsection-label">Mode</span>
-            <div
-              class="settings-segment"
-              role="group"
-              aria-label="Mode de capture"
-            >
-              <button
-                class="settings-segment-button"
-                type="button"
-                data-settings-capture-mode="palette"
-              >
-                Palette
-              </button>
-              <button
-                class="settings-segment-button"
-                type="button"
-                data-settings-capture-mode="ral"
-              >
-                RAL
-              </button>
+          <section class="settings-section" aria-labelledby="settingsPolaroidTitle">
+            <div class="settings-section-header">
+              <h3 id="settingsPolaroidTitle">Polaroid</h3>
             </div>
-          </div>
 
-          <div id="settingsPaletteModeGroup">
-            <section class="settings-section" aria-labelledby="settingsOneMoreColorTitle">
-              <div class="settings-section-header">
-                <h3 id="settingsOneMoreColorTitle">Remove the darkest color</h3>
+            <div class="settings-field">
+              <div class="settings-field-header">
+                <label class="settings-label" for="settingsPolaroidFooterLabelInput">
+                  Texte affiché en bas des exports polaroid.
+                </label>
               </div>
-
-              <div class="settings-field">
-                <div
-                  class="settings-segment"
-                  role="group"
-                  aria-label="Remove the darkest color"
-                >
-                  <button
-                    class="settings-segment-button"
-                    type="button"
-                    data-settings-one-more-color="off"
-                    aria-pressed="true"
-                  >
-                    No
-                  </button>
-                  <button
-                    class="settings-segment-button"
-                    type="button"
-                    data-settings-one-more-color="on"
-                    aria-pressed="false"
-                  >
-                    Yes
-                  </button>
-                </div>
-              </div>
-            </section>
-          </div>
+              <input
+                class="settings-text-input"
+                id="settingsPolaroidFooterLabelInput"
+                type="text"
+                placeholder="colorcatchers.co"
+              />
+              <p class="settings-hint">Par défaut : colorcatchers.co</p>
+            </div>
+          </section>
 
           <section class="settings-section" aria-labelledby="settingsDataTitle">
             <div class="settings-section-header">

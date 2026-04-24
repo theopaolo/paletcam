@@ -87,6 +87,7 @@ let moderationSyncTimeoutId = 0;
 let isModerationSyncInProgress = false;
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
+let currentPolaroidFooterLabel = getAppSettings().polaroidFooterLabel;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -526,6 +527,22 @@ function handleCollectionViewModeChange(nextViewMode) {
 
 function handleCollectionSettingsChange(settings) {
   handleCollectionViewModeChange(settings.collectionViewMode);
+
+  if (settings.polaroidFooterLabel === currentPolaroidFooterLabel) {
+    return;
+  }
+
+  currentPolaroidFooterLabel = settings.polaroidFooterLabel;
+  currentPalettes.forEach((palette) => {
+    disposePalettePreviewPolaroidAsset(palette);
+  });
+
+  if (collectionPanel?.classList.contains("visible")) {
+    renderCollectionUi(currentPalettes);
+    return;
+  }
+
+  refreshPaletteViewerOverlay();
 }
 
 function handleCollapseAllSessions() {

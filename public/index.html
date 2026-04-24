@@ -23,13 +23,18 @@
   <body>
     <header>
       <h1 class="ColorCatchers">
-        <a id="communityHomepageLink" href="#" target="_blank" rel="noreferrer">
+        <a
+          id="communityHomepageLink"
+          href="https://colorcatchers.co"
+          target="_blank"
+          rel="noreferrer"
+        >
           <img
             src="logo/colorcatchers.svg"
             alt="Logo de Color Catchers"
             class="logo"
           />
-          <span id="communityBrandLabel"></span>
+          <span>Catchers Community</span>
         </a>
       </h1>
 
@@ -83,10 +88,29 @@
         </button>
       </section>
 
+      <section class="capture-mode-section" aria-label="Mode de capture">
+        <button
+          class="btn-capture-mode"
+          type="button"
+          data-capture-mode-control="palette"
+          aria-pressed="true"
+        >
+          Palette
+        </button>
+        <button
+          class="btn-capture-mode"
+          type="button"
+          data-capture-mode-control="ral"
+          aria-pressed="false"
+        >
+          RAL
+        </button>
+      </section>
+
+      <config-panel></config-panel>
+
       <canvas id="canvas"></canvas>
     </div>
-
-    <config-panel></config-panel>
 
     <div class="sliders-container">
       <div class="swatch-slider">
@@ -99,7 +123,7 @@
           aria-label="Nombre de couleurs : 4"
         />
         <div class="swatch-meta">
-          <span class="swatch-scale-label swatch-scale-label-min">1</span>
+          <span class="swatch-scale-label swatch-scale-label-min">3</span>
           <span class="swatch-count-indicator" aria-live="polite"
             >4 couleurs</span
           >

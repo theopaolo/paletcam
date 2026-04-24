@@ -5,7 +5,7 @@ import {
   subscribeCommunitySession,
   verifyCommunityLoginOtp,
 } from './community-service.js';
-import { BRAND, buildCommunityUrl } from './config.js';
+import { buildCommunityUrl } from './config.js';
 import { clientLog } from './modules/client-log.js';
 import { formatErrorDetails } from './modules/error-format.js';
 import {
@@ -28,10 +28,6 @@ const communityLogoutButton = /** @type {HTMLButtonElement | null} */ (document.
 const communityMyCatchesLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityMyCatchesLink'));
 const communityDeleteAccountButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityDeleteAccountButton'));
 
-const communityHomepageLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityHomepageLink'));
-const communityBrandLabel = document.getElementById('communityBrandLabel');
-if (communityBrandLabel) communityBrandLabel.textContent = BRAND;
-if (communityHomepageLink) communityHomepageLink.href = buildCommunityUrl("/");
 if (communityMyCatchesLink) communityMyCatchesLink.href = buildCommunityUrl("/my/catches");
 let pendingCommunityEmail = '';
 let isCommunityAuthBusy = false;
