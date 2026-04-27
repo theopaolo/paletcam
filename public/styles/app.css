@@ -5,6 +5,19 @@
   --accent-color: #ffc800;
   --app-height: 100vh;
   --app-shell-max-width: 500px;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --overlay-control-height: 24px;
+  --overlay-control-radius: 4px;
+  --overlay-control-padding-x: 8px;
+  --overlay-control-gap: 8px;
+  --overlay-control-border: rgba(255, 255, 255, 0.2);
+  --overlay-control-color: rgba(255, 255, 255, 0.7);
+  --overlay-control-color-active: rgba(255, 200, 0, 1);
+  --overlay-control-border-active: rgba(255, 200, 0, 0.9);
+  --overlay-control-press-offset: 2px;
 }
 
 html {

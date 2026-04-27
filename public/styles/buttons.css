@@ -380,93 +380,60 @@ body.is-preview-expanded .camera-preview-dock {
 
 .config-section {
   position: absolute;
-  bottom: .25rem;
-  right: .25rem;
+  bottom: var(--space-8);
+  right: var(--space-8);
   z-index: 4;
 }
 
 .capture-mode-section {
   position: absolute;
-  bottom: 0.25rem;
-  left: 0.25rem;
+  bottom: var(--space-8);
+  left: var(--space-8);
   z-index: 4;
   display: inline-grid;
   grid-auto-flow: column;
-  gap: 0.3rem;
+  gap: var(--space-8);
 }
 
-.btn-capture-mode {
-  appearance: none;
-  min-width: 4.3rem;
-  min-height: 2rem;
-  padding: 0.35rem 0.6rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01)),
-    rgba(14, 14, 14, 0.92);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 2px 8px rgba(0, 0, 0, 0.24);
-  color: rgba(240, 240, 240, 0.78);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    transform 0.14s ease,
-    border-color 0.14s ease,
-    color 0.14s ease,
-    background-color 0.14s ease;
-}
-
-.btn-capture-mode[aria-pressed="true"] {
-  color: #fff1b8;
-  border-color: rgba(255, 200, 0, 0.56);
-  background:
-    linear-gradient(180deg, rgba(255, 200, 0, 0.16), rgba(255, 200, 0, 0.03)),
-    rgba(18, 16, 8, 0.96);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 200, 0, 0.1),
-    0 0 0 1px rgba(255, 200, 0, 0.06),
-    0 2px 10px rgba(0, 0, 0, 0.28);
-}
-
-.btn-capture-mode:active {
-  transform: translateY(1px);
-}
-
-.btn-capture-mode:focus-visible {
-  outline: 2px solid rgba(255, 200, 0, 0.75);
-  outline-offset: 2px;
-}
-
-.btn-config {
-  --name-rgba: 255, 255, 255, 0.65;
+.btn-overlay-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
+  gap: var(--overlay-control-gap);
   appearance: none;
-  color: rgba(var(--name-rgba));
+  min-height: var(--overlay-control-height);
+  padding: 0 var(--overlay-control-padding-x);
+  border: 1px solid var(--overlay-control-border);
+  border-radius: var(--overlay-control-radius);
+  background: linear-gradient(180deg, #1f1f1f 0%, #111111 100%);
+  color: var(--overlay-control-color);
   letter-spacing: -0.04em;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
-  background: linear-gradient(180deg, #1f1f1f 0%, #111111 100%);
-  padding: 0.25rem 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.25rem;
   cursor: pointer;
   transition:
     border-color 0.18s ease,
     color 0.18s ease,
-    transform 0.18s ease;
+    transform 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.btn-overlay-control:focus-visible {
+  outline: 2px solid rgba(255, 200, 0, 0.75);
+  outline-offset: 2px;
+}
+
+.btn-overlay-control:active {
+  transform: translateY(var(--overlay-control-press-offset));
+}
+
+.btn-overlay-control[aria-pressed="true"],
+.btn-overlay-control.is-active {
+  border-color: var(--overlay-control-border-active);
+  color: var(--overlay-control-color-active);
 }
 
 .btn-config-icon {
@@ -483,20 +450,6 @@ body.is-preview-expanded .camera-preview-dock {
   mask-position: center;
   mask-repeat: no-repeat;
   mask-size: contain;
-}
-
-.btn-config.is-active {
-  --name-rgba: 255, 200, 0, 1;
-  border-color: rgba(255, 200, 0, 0.9);
-}
-
-.btn-config:active {
-  transform: translateY(.5rem);
-}
-
-.btn-config:focus-visible {
-  outline: 2px solid rgba(255, 200, 0, 0.75);
-  outline-offset: 2px;
 }
 
 .btn-open-settings,
