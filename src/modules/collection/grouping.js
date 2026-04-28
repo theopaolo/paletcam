@@ -1,12 +1,6 @@
+import { getIntlLocale, t } from "../../i18n.js";
+
 const DAY_DURATION_MS = 24 * 60 * 60 * 1000;
-const SESSION_WEEKDAY_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "long",
-});
-const DAY_DATE_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
 
 function getPaletteTimestampDate(timestamp) {
   const parsed = new Date(timestamp);
@@ -15,37 +9,37 @@ function getPaletteTimestampDate(timestamp) {
 
 function getDayPeriodInfo(date) {
   if (!date) {
-    return { key: "night", label: "Nuit" };
+    return { key: "night", label: t("collection.period.night") };
   }
 
   const hour = date.getHours();
 
   if (hour < 5) {
-    return { key: "night", label: "Nuit" };
+    return { key: "night", label: t("collection.period.night") };
   }
 
   if (hour < 8) {
-    return { key: "early-morning", label: "Petit matin" };
+    return { key: "early-morning", label: t("collection.period.earlyMorning") };
   }
 
   if (hour < 12) {
-    return { key: "morning", label: "Matin" };
+    return { key: "morning", label: t("collection.period.morning") };
   }
 
   if (hour < 17) {
-    return { key: "afternoon", label: "Après-midi" };
+    return { key: "afternoon", label: t("collection.period.afternoon") };
   }
 
   if (hour < 22) {
-    return { key: "evening", label: "Soirée" };
+    return { key: "evening", label: t("collection.period.evening") };
   }
 
-  return { key: "night", label: "Nuit" };
+  return { key: "night", label: t("collection.period.night") };
 }
 
 function getDayLabel(date) {
   if (!date) {
-    return "Jour inconnu";
+    return t("collection.day.unknown");
   }
 
   const now = new Date();
@@ -60,14 +54,16 @@ function getDayLabel(date) {
   );
 
   if (dayDiff === 0) {
-    return "Aujourd'hui";
+    return t("collection.day.today");
   }
 
   if (dayDiff === 1) {
-    return "Hier";
+    return t("collection.day.yesterday");
   }
 
-  return SESSION_WEEKDAY_FORMATTER.format(date);
+  return new Intl.DateTimeFormat(getIntlLocale(), {
+    weekday: "long",
+  }).format(date);
 }
 
 function getDayDateLabel(date) {
@@ -75,7 +71,11 @@ function getDayDateLabel(date) {
     return "";
   }
 
-  return DAY_DATE_FORMATTER.format(date);
+  return new Intl.DateTimeFormat(getIntlLocale(), {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 }
 
 function getDayKey(date) {

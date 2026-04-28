@@ -1,15 +1,14 @@
 .zoom-btns {
   color: var(--accent-color);
-  font-family: monospace;
+  font-family: var(--font-family-mono);
 }
 
 .swatch-count-btns {
   position: absolute;
-  display: none;
   display: flex;
-  right: .5rem;
+  right: var(--space-8);
   color: var(--accent-color);
-  font-family: monospace;
+  font-family: var(--font-family-mono);
 }
 
 .swatch-count-btns button {
@@ -18,7 +17,7 @@
 }
 
 .swatch-count-btns .swatch-count-display {
-  font-family: monospace;
+  font-family: var(--font-family-mono);
   display: inline-block;
   text-align: center;
 }

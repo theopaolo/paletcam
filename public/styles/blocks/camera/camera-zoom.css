@@ -1,0 +1,175 @@
+.camera-zoom-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + var(--space-4));
+  pointer-events: none;
+}
+
+.camera-zoom-dock {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(86%, 12rem);
+  min-height: 3.5rem;
+}
+
+.camera-zoom-chip-rack {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  padding: var(--space-4) var(--space-8);
+  pointer-events: auto;
+  touch-action: pan-y;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+  background: rgb(0 0 0 / 15%);
+  border-radius: 100vh;
+}
+
+.camera-zoom-chip {
+  position: relative;
+  min-width: 1.5rem;
+  height: 1.75rem;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: rgba(248, 248, 248, 0.76);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  user-select: none;
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard),
+    opacity var(--duration-fast) var(--easing-standard);
+}
+
+.camera-zoom-chip::after {
+  content: "";
+  position: absolute;
+  inset: var(--space-2) calc(var(--space-2) * -1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  opacity: 0;
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    opacity var(--duration-fast) var(--easing-standard);
+}
+
+.camera-zoom-chip.is-active {
+  color: var(--color-camera-accent);
+}
+
+.camera-zoom-chip.is-active::after {
+  border-color: var(--overlay-control-border);
+  opacity: 1;
+}
+
+.camera-zoom-scrubber {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: min(78vw, 11rem);
+  padding: var(--space-4) var(--space-2) var(--space-20);
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  cursor: ew-resize;
+}
+
+.camera-zoom-scrubber.is-active {
+  transform: translateY(calc(var(--space-2) * -1));
+}
+
+.camera-zoom-dock.is-scrubbing .camera-zoom-scrubber {
+  cursor: grabbing;
+}
+
+.camera-zoom-readout {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.7ch;
+  margin: 0;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--color-camera-readout-bg);
+  color: var(--color-camera-readout-fg);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+  letter-spacing: -0.02em;
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+
+.camera-zoom-scrubber.is-active .camera-zoom-readout {
+  transform: translateY(calc(var(--space-2) * -1));
+  background: rgba(255, 248, 214, 0.98);
+}
+
+.camera-zoom-ruler {
+  --zoom-progress: 0.495;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: var(--space-16);
+  overflow: visible;
+}
+
+.camera-zoom-ruler::before,
+.camera-zoom-ruler::after {
+  content: "";
+  position: absolute;
+}
+
+.camera-zoom-ruler::before {
+  inset: var(--space-4) var(--space-12) 0;
+  background:
+    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.82) 0 0px, transparent 1px 6px),
+    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.98) 0 2px, transparent 2px 24px);
+  background-size:
+    12px 62%,
+    18px 100%;
+  background-position:
+    0 bottom,
+    0 bottom;
+  background-repeat: repeat-x;
+  opacity: 0.92;
+}
+
+.camera-zoom-ruler::after {
+  top: calc(var(--space-2) * -1);
+  bottom: calc(var(--space-2) * -0.5);
+  left: calc(var(--zoom-progress) * 100%);
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: var(--radius-pill);
+  background: var(--color-camera-accent);
+}

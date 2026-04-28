@@ -10,6 +10,8 @@ const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid"]);
+const VALID_LOCALES = new Set(["fr", "en"]);
+const VALID_PHOTO_QUALITY_MODES = new Set(["sd", "hd", "fhd"]);
 const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
 
 const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
@@ -35,6 +37,14 @@ function normalizeCaptureMode(value) {
 
 function normalizeCollectionViewMode(value) {
   return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "list";
+}
+
+function normalizeLocale(value) {
+  return VALID_LOCALES.has(value) ? value : "fr";
+}
+
+function normalizePhotoQualityMode(value) {
+  return VALID_PHOTO_QUALITY_MODES.has(value) ? value : "hd";
 }
 
 function normalizePolaroidFooterLabel(value) {
@@ -66,9 +76,10 @@ function clonePaletteScoringSettings(settings) {
 const DEFAULT_SETTINGS = Object.freeze({
   captureMode: "palette",
   collectionViewMode: "list",
+  locale: "fr",
   performanceHudEnabled: false,
   oneMoreColor: false,
-  photoExportQuality: 0.95,
+  photoQualityMode: "hd",
   polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
   paletteScoring: DEFAULT_PALETTE_SCORING_SETTINGS,
@@ -97,15 +108,6 @@ export function resetAppSettingsForTests() {
   settingsStore.listeners.clear();
   settingsStore.currentSettings = loadSettings();
   return getAppSettings();
-}
-
-function clampPhotoExportQuality(value) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return DEFAULT_SETTINGS.photoExportQuality;
-  }
-
-  return Math.max(0.6, Math.min(1.0, Number(numericValue.toFixed(2))));
 }
 
 function clampIntegerInRange(value, fallbackValue, { min, max }) {
@@ -166,9 +168,10 @@ function buildNormalizedSettings(candidate) {
   return {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
+    locale: normalizeLocale(candidate?.locale),
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),
-    photoExportQuality: clampPhotoExportQuality(candidate?.photoExportQuality),
+    photoQualityMode: normalizePhotoQualityMode(candidate?.photoQualityMode),
     polaroidFooterLabel: normalizePolaroidFooterLabel(candidate?.polaroidFooterLabel),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
     paletteScoring: normalizePaletteScoringSettings(candidate?.paletteScoring),
@@ -183,9 +186,10 @@ function areSettingsEqual(firstSettings, secondSettings) {
   return (
     firstSettings.captureMode === secondSettings.captureMode &&
     firstSettings.collectionViewMode === secondSettings.collectionViewMode &&
+    firstSettings.locale === secondSettings.locale &&
     firstSettings.performanceHudEnabled === secondSettings.performanceHudEnabled &&
     firstSettings.oneMoreColor === secondSettings.oneMoreColor &&
-    firstSettings.photoExportQuality === secondSettings.photoExportQuality &&
+    firstSettings.photoQualityMode === secondSettings.photoQualityMode &&
     firstSettings.polaroidFooterLabel === secondSettings.polaroidFooterLabel &&
     firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&
     firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
@@ -264,9 +268,10 @@ export function getDefaultAppSettingsResetPatch() {
   return {
     captureMode: defaults.captureMode,
     collectionViewMode: defaults.collectionViewMode,
+    locale: defaults.locale,
     performanceHudEnabled: defaults.performanceHudEnabled,
     oneMoreColor: defaults.oneMoreColor,
-    photoExportQuality: defaults.photoExportQuality,
+    photoQualityMode: defaults.photoQualityMode,
     polaroidFooterLabel: defaults.polaroidFooterLabel,
     medianCut: defaults.medianCut,
     paletteScoring: defaults.paletteScoring,

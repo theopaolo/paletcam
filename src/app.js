@@ -1,5 +1,6 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
 import { openDirectPaletteViewer, PALETTE_DELETED_EVENT } from "./collection-ui.js";
+import { setLocale, t } from "./i18n.js";
 import { createCameraController } from "./modules/camera-controller.js";
 import {
   DEFAULT_CAMERA_RESUME_DELAY_MS,
@@ -11,6 +12,10 @@ import { createErrorToastOptions, reportAppError } from "./modules/error-reporti
 import { findClosestRAL, getRalQualityLabel } from "./modules/color-matching-ral.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
+import {
+  createPhotoQualityUiController,
+  PHOTO_QUALITY_EXPORT_VALUES,
+} from "./modules/photo-quality-ui.js";
 import { createCaptureMicroInteractions } from "./modules/micro-interactions.js";
 import {
   extractPaletteColors,
@@ -30,7 +35,6 @@ import { savePalette } from "./palette-storage.js";
 import { trackCaptureStatAsync } from "./capture-stat-service.js";
 import "./modules/panels/config-panel.js";
 import "./modules/panels/settings-panel.js";
-import "./delete-account-ui.js";
 
 const PHOTO_EXPORT_MAX_WIDTH = 2048;
 const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
@@ -44,6 +48,7 @@ const PREVIEW_SMOOTHING_FACTOR = 0.16;
 const RAL_SMOOTHING_FACTOR = 0.18;
 const RAL_COLOR_DISTANCE_THRESHOLD = 12;
 
+setLocale(getAppSettings().locale, { force: true });
 
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
 const captureButton = /** @type {HTMLButtonElement | null} */ (document.querySelector(".btn-capture"));
@@ -96,7 +101,7 @@ if (shouldUseCanvasPreview) {
   document.documentElement.classList.add("use-canvas-camera-preview");
   cameraSourceMount.className = "camera-source-mount";
   cameraPreviewSurface?.classList.add("camera-feed-canvas");
-  cameraPreviewSurface?.setAttribute("aria-label", "Aperçu caméra");
+  cameraPreviewSurface?.setAttribute("aria-label", t("capture.cameraPreview"));
   cameraPreviewSurface?.setAttribute("role", "img");
   cameraFeed?.setAttribute("aria-hidden", "true");
   document.body.appendChild(cameraSourceMount);
@@ -123,7 +128,7 @@ let lastExtractedColors = null;
 let lastVisiblePaletteColors = [];
 let currentCaptureMode = "palette";
 let oneMoreColor = Boolean(getAppSettings().oneMoreColor);
-let photoExportQuality = getAppSettings().photoExportQuality;
+let photoExportQuality = PHOTO_QUALITY_EXPORT_VALUES[getAppSettings().photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let paletteScoringSettings = { ...getAppSettings().paletteScoring };
 const EXTRACTION_INTERVAL = 4;
@@ -145,6 +150,7 @@ let currentPhotoObjectUrl = "";
 let isCaptureSavePending = false;
 let latestPaletteWorkerDurationMs = null;
 let activeCameraStartPromise = null;
+let currentLocale = getAppSettings().locale;
 const performanceHud = createPerformanceHudController({
   initialEnabled: getAppSettings().performanceHudEnabled,
 });
@@ -242,34 +248,34 @@ function getCameraStartToastOptions(error) {
 
   if (name === "NotAllowedError" || name === "SecurityError") {
     return {
-      message: "Autorisez l’accès à la caméra pour capturer des palettes.",
+      message: t("camera.start.notAllowed"),
       duration: 4200,
     };
   }
 
   if (name === "NotFoundError" || name === "DevicesNotFoundError") {
     return {
-      message: "Aucune caméra n’a été détectée sur cet appareil.",
+      message: t("camera.start.notFound"),
       duration: 3800,
     };
   }
 
   if (name === "NotReadableError" || name === "TrackStartError" || name === "AbortError") {
     return {
-      message: "La caméra est déjà utilisée ou momentanément indisponible.",
+      message: t("camera.start.notReadable"),
       duration: 3800,
     };
   }
 
   if (name === "OverconstrainedError") {
     return {
-      message: "Impossible de démarrer une caméra compatible.",
+      message: t("camera.start.overconstrained"),
       duration: 3800,
     };
   }
 
   return {
-    message: "Impossible de démarrer la caméra.",
+    message: t("camera.start.generic"),
     duration: 3500,
     details: formatErrorDetails(error),
   };
@@ -736,6 +742,15 @@ let previousRalSampledColor = null;
 /** @type {{ match: RalMatch, sampledColor: { r: number, g: number, b: number } } | null} */
 let currentLiveRalPreview = null;
 
+function syncUserFacingCopy() {
+  cameraPreviewSurface?.setAttribute("aria-label", t("capture.cameraPreview"));
+  swatchSliderUi.initialize(swatchCount);
+
+  if (currentLiveRalPreview) {
+    syncRalPreview(currentLiveRalPreview.match, currentLiveRalPreview.sampledColor);
+  }
+}
+
 function smoothRalSampledColor(raw) {
   if (!previousRalSampledColor) {
     previousRalSampledColor = raw;
@@ -851,14 +866,22 @@ function getCapturePaletteColors() {
 
 function applyAppSettings({
   captureMode,
+  locale,
   performanceHudEnabled,
   oneMoreColor: nextOneMoreColor,
-  photoExportQuality: nextPhotoExportQuality,
+  photoQualityMode,
   medianCut,
   paletteScoring,
 }) {
+  if (locale !== currentLocale) {
+    currentLocale = locale;
+    setLocale(locale);
+    syncUserFacingCopy();
+  }
+
   oneMoreColor = Boolean(nextOneMoreColor);
-  photoExportQuality = nextPhotoExportQuality;
+  photoExportQuality = PHOTO_QUALITY_EXPORT_VALUES[photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
+  photoQualityUi?.syncMode(photoQualityMode);
   performanceHud.setEnabled(performanceHudEnabled);
   medianCutExtractionSettings = { ...medianCut };
   paletteScoringSettings = { ...paletteScoring };
@@ -921,6 +944,7 @@ function setPreviewExpanded(shouldExpand) {
 
 let zoomUi = null;
 let exposureUi = null;
+let photoQualityUi = null;
 
 /** @param {ErrorLike | null | undefined} error */
 function handleCameraControllerError(error) {
@@ -980,6 +1004,11 @@ exposureUi = createExposureUiController({
   overlayHost: cameraViewportFrame,
 });
 
+photoQualityUi = createPhotoQualityUiController({
+  overlayHost: cameraViewportFrame,
+  onModeChange: (mode) => updateAppSettings({ photoQualityMode: mode }),
+});
+
 function handleCaptureButtonClick(event) {
   event.preventDefault();
 
@@ -1003,14 +1032,14 @@ async function handleMiniOutputClick() {
   }
 
   if (viewerOpenState === "pending-delete") {
-    showToast("Cette capture est en cours de suppression.", {
+    showToast(t("collection.viewerPendingDelete"), {
       duration: 1800,
     });
     return;
   }
 
   clearPhotoOutput();
-  showToast("Cette capture n'est plus disponible.", {
+  showToast(t("collection.viewerMissing"), {
     duration: 1800,
   });
 }
@@ -1317,6 +1346,7 @@ function initializeApp() {
   bindMiniOutputEvents();
   zoomUi.bindEvents();
   exposureUi.bindEvents();
+  photoQualityUi.bindEvents();
   bindRotationEvents();
   swatchSliderUi.bindEvents();
   bindManagedEventListener(window, "beforeunload", handleWindowBeforeUnload);
@@ -1328,11 +1358,60 @@ function initializeApp() {
   bindManagedEventListener(window.visualViewport, "resize", handleWindowResize);
   bindManagedEventListener(window.visualViewport, "scroll", handleWindowResize);
   bindManagedEventListener(document, "visibilitychange", handleDocumentVisibilityChange);
+
+  const configPanelEl = /** @type {HTMLElement | null} */ (document.querySelector("config-panel"));
+  let configPipVideo = null;
+  bindManagedEventListener(document, "config-drawer-change", (event) => {
+    if (event.detail.isOpen) {
+      zoomUi?.setDisabled();
+      exposureUi?.setDisabled();
+      photoQualityUi?.hide();
+      const stream = cameraFeed?.srcObject;
+      if (stream && configPanelEl && !configPipVideo && window.innerHeight < 800) {
+        configPipVideo = document.createElement("video");
+        configPipVideo.autoplay = true;
+        configPipVideo.muted = true;
+        configPipVideo.playsInline = true;
+        configPipVideo.className = "config-pip";
+        configPipVideo.setAttribute("aria-hidden", "true");
+        configPipVideo.srcObject = /** @type {MediaStream} */ (stream);
+        configPanelEl.appendChild(configPipVideo);
+        configPipVideo.play().catch(() => {});
+
+        const configDrawer = document.getElementById("configDrawer");
+        if (configDrawer) {
+          const drawerBottom = parseFloat(window.getComputedStyle(configDrawer).bottom) || 0;
+          configPipVideo.style.bottom = `${drawerBottom + configDrawer.offsetHeight + 8}px`;
+        }
+      }
+    } else {
+      if (configPipVideo) {
+        configPipVideo.srcObject = null;
+        configPipVideo.remove();
+        configPipVideo = null;
+      }
+      zoomUi?.syncCapabilities();
+      exposureUi?.syncCapabilities();
+      photoQualityUi?.show();
+    }
+  });
+  bindManagedEventListener(document, 'settings-drawer-change', (event) => {
+    if (event.detail.isOpen) {
+      zoomUi?.setDisabled();
+      exposureUi?.setDisabled();
+      photoQualityUi?.hide();
+    } else {
+      zoomUi?.syncCapabilities();
+      exposureUi?.syncCapabilities();
+      photoQualityUi?.show();
+    }
+  });
   unsubscribeFromAppSettings = subscribeAppSettings(applyAppSettings);
   syncCameraFeedOrientation();
 
   zoomUi.initialize();
   exposureUi.initialize();
+  photoQualityUi.initialize(getAppSettings().photoQualityMode);
   swatchSliderUi.initialize(swatchCount);
   syncCameraActionAvailability();
   clearPhotoOutput();
@@ -1660,7 +1739,7 @@ async function captureCurrentFrame() {
       logMessage: "Failed to save palette.",
     });
     showToast(
-      "Sauvegarde échouée.",
+      t("camera.captureSaveFailed"),
       createErrorToastOptions(error, {
         variant: "error",
         duration: 2500,
@@ -1797,6 +1876,7 @@ function destroyApp() {
   swatchSliderUi.destroy?.();
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
+  photoQualityUi?.destroy?.();
   cameraController.destroy?.();
   paletteExtractionWorker.destroy();
   performanceHud.destroy?.();

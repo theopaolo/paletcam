@@ -137,6 +137,40 @@ describe("app-settings collectionViewMode", () => {
   });
 });
 
+describe("app-settings locale", () => {
+  test("defaults to fr", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    expect(module.getDefaultAppSettings().locale).toBe("fr");
+    expect(module.getAppSettings().locale).toBe("fr");
+  });
+
+  test("loads a persisted en locale", async () => {
+    const { module } = await loadAppSettingsModule({
+      locale: "en",
+    });
+
+    expect(module.getAppSettings().locale).toBe("en");
+  });
+
+  test("normalizes invalid locales to fr", async () => {
+    const { module } = await loadAppSettingsModule({
+      locale: "de",
+    });
+
+    expect(module.getAppSettings().locale).toBe("fr");
+  });
+
+  test("persists locale updates", async () => {
+    const { module, localStorageMock } = await loadAppSettingsModule();
+
+    module.updateAppSettings({ locale: "en" });
+
+    expect(module.getAppSettings().locale).toBe("en");
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).locale).toBe("en");
+  });
+});
+
 describe("app-settings performanceHudEnabled", () => {
   test("defaults to false", async () => {
     const { module } = await loadAppSettingsModule();
@@ -176,29 +210,33 @@ describe("app-settings performanceHudEnabled", () => {
   });
 });
 
-describe("app-settings photoExportQuality", () => {
-  test("defaults to 0.95", async () => {
+describe("app-settings photoQualityMode", () => {
+  test("defaults to hd", async () => {
     const { module } = await loadAppSettingsModule();
 
-    expect(module.getDefaultAppSettings().photoExportQuality).toBe(0.95);
-    expect(module.getAppSettings().photoExportQuality).toBe(0.95);
+    expect(module.getDefaultAppSettings().photoQualityMode).toBe("hd");
+    expect(module.getAppSettings().photoQualityMode).toBe("hd");
   });
 
-  test("clamps persisted values into the supported range", async () => {
-    const { module } = await loadAppSettingsModule({
-      photoExportQuality: 1.5,
-    });
+  test("loads a persisted valid mode", async () => {
+    const { module } = await loadAppSettingsModule({ photoQualityMode: "fhd" });
 
-    expect(module.getAppSettings().photoExportQuality).toBe(1);
+    expect(module.getAppSettings().photoQualityMode).toBe("fhd");
   });
 
-  test("default reset patch restores the photo quality", async () => {
+  test("falls back to hd for invalid persisted values", async () => {
+    const { module } = await loadAppSettingsModule({ photoQualityMode: "4k" });
+
+    expect(module.getAppSettings().photoQualityMode).toBe("hd");
+  });
+
+  test("default reset patch restores the photo quality mode", async () => {
     const { module } = await loadAppSettingsModule();
 
-    module.updateAppSettings({ photoExportQuality: 0.61 });
+    module.updateAppSettings({ photoQualityMode: "sd" });
     module.updateAppSettings(module.getDefaultAppSettingsResetPatch());
 
-    expect(module.getAppSettings().photoExportQuality).toBe(0.95);
+    expect(module.getAppSettings().photoQualityMode).toBe("hd");
   });
 });
 

@@ -4,7 +4,6 @@ describe("panel markup regression", () => {
   test("settings panel keeps app-level controls and drops algorithm sliders", async () => {
     const source = await Bun.file(new URL("./settings-panel.js", import.meta.url)).text();
 
-    expect(source).toContain("settingsPhotoQualityRange");
     expect(source).toContain("settingsPolaroidFooterLabelInput");
     expect(source).not.toContain("data-settings-capture-mode");
     expect(source).not.toContain("data-settings-one-more-color");

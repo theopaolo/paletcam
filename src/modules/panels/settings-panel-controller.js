@@ -3,10 +3,11 @@ import {
   subscribeAppSettings,
   updateAppSettings,
 } from "../../app-settings.js";
+import { t } from "../../i18n.js";
 import { exportAllPalettes, importAllPalettes } from "../../palette-storage.js";
 import { showToast } from "../toast-ui.js";
-import { openSharedPanel } from "./panel-manager.js";
-import { createRangeControl } from "./settings-range-control.js";
+
+const TAB_IDS = ["login", "language", "watermark", "data"];
 
 function queryById(root, id) {
   if (!id) {
@@ -18,8 +19,12 @@ function queryById(root, id) {
 
 function getSettingsDom(root) {
   return {
+    drawer: queryById(root, "settingsDrawer"),
     polaroidFooterLabelInput: /** @type {HTMLInputElement | null} */ (
       queryById(root, "settingsPolaroidFooterLabelInput")
+    ),
+    localeToggle: /** @type {HTMLElement | null} */ (
+      queryById(root, "settingsLocaleToggle")
     ),
     exportButton: /** @type {HTMLButtonElement | null} */ (
       queryById(root, "settingsExportButton")
@@ -27,6 +32,8 @@ function getSettingsDom(root) {
     importInput: /** @type {HTMLInputElement | null} */ (
       queryById(root, "settingsImportInput")
     ),
+    tabButtons: Array.from(root.querySelectorAll("[data-settings-tab]")),
+    tabPanels: Array.from(root.querySelectorAll("[data-settings-tabpanel]")),
   };
 }
 
@@ -38,9 +45,33 @@ function syncPolaroidFooterLabelInput(dom, settings) {
   dom.polaroidFooterLabelInput.value = settings.polaroidFooterLabel;
 }
 
-export function mountSettingsPanel({ root, openButton }) {
+function syncLocaleToggle(dom, settings) {
+  if (!dom.localeToggle) {
+    return;
+  }
+
+  dom.localeToggle.querySelectorAll("[data-locale]").forEach((btn) => {
+    const active = btn.getAttribute("data-locale") === settings.locale;
+    btn.setAttribute("aria-pressed", String(active));
+    btn.classList.toggle("is-active", active);
+  });
+}
+
+function getNextTabId(currentTabId, direction) {
+  const currentIndex = TAB_IDS.indexOf(currentTabId);
+  if (currentIndex < 0) {
+    return TAB_IDS[0];
+  }
+
+  const nextIndex = (currentIndex + direction + TAB_IDS.length) % TAB_IDS.length;
+  return TAB_IDS[nextIndex];
+}
+
+export function mountSettingsPanel({ root, toggleButton }) {
   const dom = getSettingsDom(root);
   const cleanups = [];
+  let activeTabId = "login";
+  let isDrawerOpen = false;
 
   const on = (element, eventName, handler, options) => {
     if (!element) {
@@ -53,31 +84,122 @@ export function mountSettingsPanel({ root, openButton }) {
     });
   };
 
-  const photoQualityControl = createRangeControl({
-    root,
-    shellId: "settingsPhotoQualitySlider",
-    inputId: "settingsPhotoQualityRange",
-    displaySelector: "[data-settings-quality-display]",
-    getValueFromSettings: (settings) =>
-      Math.round((settings.photoExportQuality || 0) * 100),
-    onValueInput: (percentValue) => {
-      updateAppSettings({
-        photoExportQuality: percentValue / 100,
-      });
-    },
-    getAriaLabel: (value) => `Qualité d'image : ${value}%`,
-    formatInlineValue: (value) => `${value}%`,
-    formatDisplayValue: (value) => `${value}%`,
-  });
+  function syncDrawerState() {
+    if (dom.drawer) {
+      dom.drawer.hidden = !isDrawerOpen;
+      dom.drawer.setAttribute("aria-hidden", String(!isDrawerOpen));
+    }
 
-  function renderSettingsUi(settings) {
-    photoQualityControl?.renderFromSettings(settings);
-    syncPolaroidFooterLabelInput(dom, settings);
+    if (toggleButton) {
+      toggleButton.classList.toggle("is-active", isDrawerOpen);
+      toggleButton.setAttribute("aria-expanded", String(isDrawerOpen));
+    }
+
+    root.classList.toggle("is-open", isDrawerOpen);
+    document.dispatchEvent(
+      new CustomEvent("settings-drawer-change", { detail: { isOpen: isDrawerOpen } }),
+    );
   }
 
-  on(openButton, "click", () => {
-    openSharedPanel("settings");
+  function setDrawerOpen(nextOpen, { restoreFocus = false } = {}) {
+    if (isDrawerOpen === nextOpen) {
+      syncDrawerState();
+      return;
+    }
+
+    isDrawerOpen = nextOpen;
+    syncDrawerState();
+
+    if (!isDrawerOpen && restoreFocus && typeof toggleButton?.focus === "function") {
+      toggleButton.focus();
+    }
+  }
+
+  function setActiveTab(nextTabId, { focusButton = false } = {}) {
+    activeTabId = TAB_IDS.includes(nextTabId) ? nextTabId : TAB_IDS[0];
+
+    dom.tabButtons.forEach((button) => {
+      const tabId = button.getAttribute("data-settings-tab");
+      const isActive = tabId === activeTabId;
+      button.setAttribute("aria-selected", String(isActive));
+      button.setAttribute("tabindex", isActive ? "0" : "-1");
+      button.classList.toggle("is-active", isActive);
+
+      if (isActive && focusButton && typeof button.focus === "function") {
+        button.focus();
+      }
+    });
+
+    dom.tabPanels.forEach((panel) => {
+      panel.hidden = panel.getAttribute("data-settings-tabpanel") !== activeTabId;
+    });
+  }
+
+  function renderSettingsUi(settings) {
+    syncPolaroidFooterLabelInput(dom, settings);
+    syncLocaleToggle(dom, settings);
+  }
+
+  function bindTabButton(button) {
+    on(button, "click", () => {
+      const tabId = button.getAttribute("data-settings-tab");
+      if (tabId) {
+        setActiveTab(tabId);
+      }
+    });
+
+    on(button, "keydown", (event) => {
+      const currentTabId = button.getAttribute("data-settings-tab") || activeTabId;
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setActiveTab(getNextTabId(currentTabId, -1), { focusButton: true });
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setActiveTab(getNextTabId(currentTabId, 1), { focusButton: true });
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        setActiveTab(TAB_IDS[0], { focusButton: true });
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        setActiveTab(TAB_IDS[TAB_IDS.length - 1], { focusButton: true });
+      }
+    });
+  }
+
+  if (toggleButton) {
+    toggleButton.setAttribute("aria-controls", "settingsDrawer");
+    toggleButton.setAttribute("aria-expanded", "false");
+  }
+
+  on(toggleButton, "click", () => {
+    setDrawerOpen(!isDrawerOpen);
   });
+
+  on(document, "keydown", (event) => {
+    if (event.key === "Escape" && isDrawerOpen) {
+      event.preventDefault();
+      setDrawerOpen(false, { restoreFocus: true });
+    }
+  });
+
+  on(document, "open-settings-panel", (event) => {
+    const tab = event.detail?.tab;
+    setDrawerOpen(true);
+    if (tab) {
+      setActiveTab(tab);
+    }
+  });
+
+  dom.tabButtons.forEach(bindTabButton);
 
   const commitPolaroidFooterLabel = () => {
     if (!dom.polaroidFooterLabelInput) {
@@ -91,8 +213,14 @@ export function mountSettingsPanel({ root, openButton }) {
 
   on(dom.polaroidFooterLabelInput, "change", commitPolaroidFooterLabel);
   on(dom.polaroidFooterLabelInput, "blur", commitPolaroidFooterLabel);
+  on(dom.localeToggle, "click", (e) => {
+    const btn = /** @type {HTMLElement} */ (e.target).closest("[data-locale]");
+    if (!btn) {
+      return;
+    }
 
-  photoQualityControl?.bindEvents(on);
+    updateAppSettings({ locale: btn.getAttribute("data-locale") });
+  });
 
   on(dom.exportButton, "click", async () => {
     if (!dom.exportButton) {
@@ -110,7 +238,7 @@ export function mountSettingsPanel({ root, openButton }) {
         if (navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ files: [file], title: filename });
-            showToast("Export terminé.", { duration: 1400 });
+            showToast(t("settings.toast.exportDone"), { duration: 1400 });
             return;
           } catch (shareError) {
             if (shareError instanceof Error && shareError.name === "AbortError") {
@@ -126,10 +254,10 @@ export function mountSettingsPanel({ root, openButton }) {
       anchor.download = filename;
       anchor.click();
       URL.revokeObjectURL(url);
-      showToast("Export terminé.", { duration: 1400 });
+      showToast(t("settings.toast.exportDone"), { duration: 1400 });
     } catch (error) {
       console.error("Export failed:", error);
-      showToast("Erreur lors de l'export.", { duration: 2000 });
+      showToast(t("settings.toast.exportFailed"), { duration: 2000 });
     } finally {
       if (dom.exportButton) {
         dom.exportButton.disabled = false;
@@ -151,19 +279,20 @@ export function mountSettingsPanel({ root, openButton }) {
     try {
       const text = await file.text();
       const count = await importAllPalettes(text);
-      showToast(
-        `${count} palette${count > 1 ? "s" : ""} importée${count > 1 ? "s" : ""}.`,
-        { duration: 2000 },
-      );
+      const translationKey =
+        count === 1 ? "settings.toast.imported.one" : "settings.toast.imported.other";
+      showToast(t(translationKey, { count }), { duration: 2000 });
     } catch (error) {
       console.error("Import failed:", error);
-      showToast("Erreur lors de l'import. Vérifiez le fichier.", { duration: 2500 });
+      showToast(t("settings.toast.importFailed"), { duration: 2500 });
     } finally {
       dom.importInput.value = "";
       dom.importInput.disabled = false;
     }
   });
 
+  setActiveTab(activeTabId);
+  syncDrawerState();
   renderSettingsUi(getAppSettings());
   const unsubscribe = subscribeAppSettings(renderSettingsUi);
 

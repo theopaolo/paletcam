@@ -1,4 +1,5 @@
 import { html, LitElement } from "lit";
+import { subscribeLocaleChange, t } from "../../i18n.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
 
 class ConfigPanel extends LitElement {
@@ -12,10 +13,15 @@ class ConfigPanel extends LitElement {
       toggleButton: document.querySelector(".btn-config"),
       toggleSection: document.querySelector(".config-section"),
     });
+    this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
+      this.requestUpdate();
+    });
+    this.requestUpdate();
   }
 
   disconnectedCallback() {
     this.cleanupConfigPanel?.();
+    this.unsubscribeLocaleChange?.();
     super.disconnectedCallback();
   }
 
@@ -24,11 +30,11 @@ class ConfigPanel extends LitElement {
       <section
         class="config-drawer"
         id="configDrawer"
-        aria-label="Configuration de l'algorithme"
+        aria-label=${t("config.drawerAria")}
         aria-hidden="true"
         hidden
       >
-        <div class="config-drawer-tabs" role="tablist" aria-label="Catégories d'analyse">
+        <div class="config-drawer-tabs" role="tablist" aria-label=${t("config.tabsAria")}>
           <button
             class="config-drawer-tab"
             id="configTabAnalysis"
@@ -43,7 +49,7 @@ class ConfigPanel extends LitElement {
               class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-analysis"
               aria-hidden="true"
             ></span>
-            <span class="config-drawer-tab-label">Analyse</span>
+            <span class="config-drawer-tab-label">${t("config.tab.analysis")}</span>
           </button>
           <button
             class="config-drawer-tab"
@@ -59,7 +65,7 @@ class ConfigPanel extends LitElement {
               class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-colors"
               aria-hidden="true"
             ></span>
-            <span class="config-drawer-tab-label">Couleur</span>
+            <span class="config-drawer-tab-label">${t("config.tab.colors")}</span>
           </button>
           <button
             class="config-drawer-tab"
@@ -75,7 +81,7 @@ class ConfigPanel extends LitElement {
               class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-balance"
               aria-hidden="true"
             ></span>
-            <span class="config-drawer-tab-label">Balance</span>
+            <span class="config-drawer-tab-label">${t("config.tab.balance")}</span>
           </button>
         </div>
 
@@ -87,19 +93,18 @@ class ConfigPanel extends LitElement {
             aria-labelledby="configTabAnalysis"
             data-config-tabpanel="analysis"
           >
-            <div class="settings-field">
-              <details class="settings-field-header">
-                <summary class="settings-label" for="configMedianCutPoolRange">
-                  couleurs analysées
+            <div class="panel-form-field">
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configMedianCutPoolRange">
+                  ${t("config.analysis.pool.title")}
                 </summary>
-                <p class="settings-hint">
-                  Plus la valeur est élevée, plus la palette sera variée, mais l'analyse
-                  sera plus lente.
+                <p class="panel-form-hint">
+                  ${t("config.analysis.pool.hint")}
                 </p>
               </details>
 
               <div
-                class="swatch-slider settings-quality-slider config-drawer-slider"
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
                 id="configMedianCutPoolSlider"
               >
                 <input
@@ -109,7 +114,7 @@ class ConfigPanel extends LitElement {
                   max="64"
                   value="16"
                   step="1"
-                  aria-label="Nombre de couleurs analysées : 16"
+                  aria-label=${t("config.analysis.pool.aria", { value: 16 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">4</span>
@@ -121,19 +126,18 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="settings-field">
-              <details class="settings-field-header">
-                <summary class="settings-label" for="configMedianCutPixelsRange">
-                  Densité pixels
+            <div class="panel-form-field">
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configMedianCutPixelsRange">
+                  ${t("config.analysis.pixels.title")}
                 </summary>
-                <p class="settings-hint">
-                  Améliore la précision pour les scènes complexes, mais ralentit le
-                  traitement.
+                <p class="panel-form-hint">
+                  ${t("config.analysis.pixels.hint")}
                 </p>
               </details>
 
               <div
-                class="swatch-slider settings-quality-slider config-drawer-slider"
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
                 id="configMedianCutPixelsSlider"
               >
                 <input
@@ -143,7 +147,7 @@ class ConfigPanel extends LitElement {
                   max="60000"
                   value="12000"
                   step="1000"
-                  aria-label="Pixels analysés max : 12000"
+                  aria-label=${t("config.analysis.pixels.aria", { value: 12000 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">1k</span>
@@ -164,19 +168,18 @@ class ConfigPanel extends LitElement {
             data-config-tabpanel="colors"
             hidden
           >
-            <div class="settings-field">
-              <details class="settings-field-header">
-                <summary class="settings-label" for="configScoringVibrancyRange">
-                  couleurs vives
+            <div class="panel-form-field">
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configScoringVibrancyRange">
+                  ${t("config.colors.vibrancy.title")}
                 </summary>
-                <p class="settings-hint">
-                  Plus la valeur est élevée, plus les couleurs éclatantes et saturées
-                  seront privilégiées.
+                <p class="panel-form-hint">
+                  ${t("config.colors.vibrancy.hint")}
                 </p>
               </details>
 
               <div
-                class="swatch-slider settings-quality-slider config-drawer-slider"
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
                 id="configScoringVibrancySlider"
               >
                 <input
@@ -186,7 +189,7 @@ class ConfigPanel extends LitElement {
                   max="100"
                   value="25"
                   step="1"
-                  aria-label="Préférence pour les couleurs vives : 25"
+                  aria-label=${t("config.colors.vibrancy.aria", { value: 25 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
@@ -198,19 +201,18 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="settings-field">
-              <details class="settings-field-header">
-                <summary class="settings-label" for="configScoringRarityRange">
-                 teintes rares
+            <div class="panel-form-field">
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configScoringRarityRange">
+                  ${t("config.colors.rarity.title")}
                 </summary>
-                <p class="settings-hint">
-                  Met en avant les teintes peu présentes dans l'image pour une palette
-                  plus originale.
+                <p class="panel-form-hint">
+                  ${t("config.colors.rarity.hint")}
                 </p>
               </details>
 
               <div
-                class="swatch-slider settings-quality-slider config-drawer-slider"
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
                 id="configScoringRaritySlider"
               >
                 <input
@@ -220,7 +222,7 @@ class ConfigPanel extends LitElement {
                   max="100"
                   value="20"
                   step="1"
-                  aria-label="Bonus aux teintes rares : 20"
+                  aria-label=${t("config.colors.rarity.aria", { value: 20 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
@@ -232,23 +234,22 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="settings-field">
-              <details class="settings-field-header">
-                <summary class="settings-label">couleur sombre</summary>
-                <p class="settings-hint">
-                  Retire la couleur la plus sombre pour privilégier une palette plus
-                  lumineuse.
+            <div class="panel-form-field">
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label">${t("config.colors.darkest.title")}</summary>
+                <p class="panel-form-hint">
+                  ${t("config.colors.darkest.hint")}
                 </p>
               </details>
 
-              <label class="settings-checkbox" for="configOneMoreColorToggle">
+              <label class="panel-form-checkbox" for="configOneMoreColorToggle">
                 <input
-                  class="settings-checkbox-input"
+                  class="panel-form-checkbox-input"
                   id="configOneMoreColorToggle"
                   type="checkbox"
                 />
-                <span class="settings-checkbox-box" aria-hidden="true"></span>
-                <span class="settings-checkbox-label">Retirer la plus sombre</span>
+                <span class="panel-form-checkbox-box" aria-hidden="true"></span>
+                <span class="panel-form-checkbox-label">${t("config.colors.darkest.checkbox")}</span>
               </label>
             </div>
           </section>
@@ -261,19 +262,18 @@ class ConfigPanel extends LitElement {
             data-config-tabpanel="balance"
             hidden
           >
-            <div class="settings-field">
-              <details class="settings-field-header">
-                <summary class="settings-label" for="configScoringDiversityRange">
-                  Écart couleurs
+            <div class="panel-form-field">
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configScoringDiversityRange">
+                  ${t("config.balance.diversity.title")}
                 </summary>
-                <p class="settings-hint">
-                  Plus la valeur est élevée, plus les couleurs choisies seront
-                  différentes les unes des autres.
+                <p class="panel-form-hint">
+                  ${t("config.balance.diversity.hint")}
                 </p>
               </details>
 
               <div
-                class="swatch-slider settings-quality-slider config-drawer-slider"
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
                 id="configScoringDiversitySlider"
               >
                 <input
@@ -283,7 +283,7 @@ class ConfigPanel extends LitElement {
                   max="100"
                   value="40"
                   step="1"
-                  aria-label="Écart couleurs : 40"
+                  aria-label=${t("config.balance.diversity.aria", { value: 40 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
@@ -295,18 +295,18 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="settings-field">
-              <details class="settings-field-header">
-                <summary class="settings-label" for="configScoringContrastRange">
-                  Claire / Foncé
+            <div class="panel-form-field">
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configScoringContrastRange">
+                  ${t("config.balance.contrast.title")}
                 </summary>
-                <p class="settings-hint">
-                  0 favorise les couleurs très claires, 100 les couleurs très foncées.
+                <p class="panel-form-hint">
+                  ${t("config.balance.contrast.hint")}
                 </p>
               </details>
 
               <div
-                class="swatch-slider settings-quality-slider config-drawer-slider"
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
                 id="configScoringContrastSlider"
               >
                 <input
@@ -316,7 +316,7 @@ class ConfigPanel extends LitElement {
                   max="100"
                   value="15"
                   step="1"
-                  aria-label="Claire / Foncé : 15"
+                  aria-label=${t("config.balance.contrast.aria", { value: 15 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
@@ -330,10 +330,10 @@ class ConfigPanel extends LitElement {
           </section>
         </div>
 
-        <div class="config-drawer-footer">
-          <div class="config-drawer-history" role="group" aria-label="Historique">
+        <div class="config-drawer-footer dock">
+          <div class="config-drawer-history toolbar" role="group" aria-label=${t("config.history.aria")}>
             <button
-              class="config-drawer-history-button"
+              class="config-drawer-history-button panel-inline-action"
               id="configUndoButton"
               type="button"
               disabled
@@ -342,10 +342,10 @@ class ConfigPanel extends LitElement {
                 class="config-drawer-icon config-drawer-action-icon config-drawer-icon-undo"
                 aria-hidden="true"
               ></span>
-              <span class="config-drawer-action-label">Undo</span>
+              <span class="config-drawer-action-label">${t("config.history.undo")}</span>
             </button>
             <button
-              class="config-drawer-history-button"
+              class="config-drawer-history-button panel-inline-action"
               id="configRedoButton"
               type="button"
               disabled
@@ -354,12 +354,12 @@ class ConfigPanel extends LitElement {
                 class="config-drawer-icon config-drawer-action-icon config-drawer-icon-redo"
                 aria-hidden="true"
               ></span>
-              <span class="config-drawer-action-label">Redo</span>
+              <span class="config-drawer-action-label">${t("config.history.redo")}</span>
             </button>
           </div>
 
           <button
-            class="config-drawer-reset-button"
+            class="config-drawer-reset-button panel-inline-action"
             id="configResetButton"
             type="button"
           >
@@ -367,7 +367,7 @@ class ConfigPanel extends LitElement {
               class="config-drawer-icon config-drawer-action-icon config-drawer-icon-reset"
               aria-hidden="true"
             ></span>
-            <span class="config-drawer-action-label">Reset</span>
+            <span class="config-drawer-action-label">${t("config.history.reset")}</span>
           </button>
         </div>
       </section>

@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title>Color Catchers - Hors ligne</title>
+    <title data-i18n="offline.title">Color Catchers - Hors ligne</title>
     <style>
       :root {
         --bg: #0f0f0f;
@@ -73,14 +73,13 @@
   <body>
     <main>
       <img src="/logo/colorcatchers.svg" alt="" />
-      <h1>Vous êtes hors ligne</h1>
-      <p>
-        Color Catchers a besoin d'une connexion pour charger les pages camera.
-        Vous pouvez réessayer maintenant ou vous reconnecter, puis rouvrir
-        l'app.
+      <h1 data-i18n="offline.heading">Vous êtes hors ligne</h1>
+      <p data-i18n="offline.body">
+        Color Catchers a besoin d'une connexion pour charger les écrans caméra.
+        Réessayez maintenant ou reconnectez-vous, puis rouvrez l'app.
       </p>
-      <button type="button" id="retryButton">Réessayer</button>
+      <button type="button" id="retryButton" data-i18n="offline.retry">Réessayer</button>
     </main>
-    <script src="/offline.js"></script>
+    <script type="module" src="/offline.js"></script>
   </body>
 </html>

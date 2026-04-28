@@ -6,8 +6,8 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title>Color Catchers</title>
-    <meta name="description" content="Capturer des couleurs 📸🌈 !" />
+    <title data-i18n="meta.title">Color Catchers</title>
+    <meta name="description" content="Capturer des couleurs 📸🌈 !" data-i18n-content="meta.description" />
     <meta name="theme-color" content="#2d2d2d" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" href="icons/icon-192-framed.png" />
@@ -15,13 +15,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    <meta name="apple-mobile-web-app-title" content="ColorCatcher" />
+    <meta
+      name="apple-mobile-web-app-title"
+      content="Color Catchers"
+      data-i18n-content="meta.appleTitle"
+    />
 
     <link rel="stylesheet" href="styles/index.css" />
     <link rel="stylesheet" href="pwa-install.css" />
   </head>
   <body>
-    <header>
+    <header class="shell-header dock">
       <h1 class="ColorCatchers">
         <a
           id="communityHomepageLink"
@@ -32,34 +36,22 @@
           <img
             src="logo/colorcatchers.svg"
             alt="Logo de Color Catchers"
+            data-i18n-alt="header.logoAlt"
             class="logo"
           />
-          <span>Catchers Community</span>
+          <span data-i18n="header.community">Communauté Color Catchers</span>
         </a>
       </h1>
 
-      <div class="header-actions">
-        <button
-          class="btn-open-login"
-          type="button"
-          aria-label="Ouvrir le panneau compte"
-        >
-          <img
-            src="icons/user-card.svg"
-            width="24"
-            height="24"
-            alt=""
-            aria-hidden="true"
-          />
-        </button>
-
+      <div class="header-actions toolbar">
         <button
           class="btn-open-settings"
           type="button"
           aria-label="Ouvrir les réglages"
+          data-i18n-aria-label="header.settingsOpen"
         >
           <img
-            src="icons/sliders.svg"
+            src="icons/menu.svg"
             width="24"
             height="24"
             alt=""
@@ -82,20 +74,25 @@
           class="btn-overlay-control btn-config"
           type="button"
           aria-label="Ouvrir la configuration"
+          data-i18n-aria-label="capture.configOpen"
         >
           <span class="btn-config-icon" aria-hidden="true"></span>
-          <span class="btn-config-label">Config</span>
+          <span class="btn-config-label" data-i18n="capture.configLabel">Config</span>
         </button>
       </section>
 
-      <section class="capture-mode-section" aria-label="Mode de capture">
+      <section
+        class="capture-mode-section"
+        aria-label="Mode de capture"
+        data-i18n-aria-label="capture.modeSection"
+      >
         <button
           class="btn-overlay-control btn-capture-mode"
           type="button"
           data-capture-mode-control="palette"
           aria-pressed="true"
         >
-          Palette
+          <span data-i18n="capture.mode.palette">Palette</span>
         </button>
         <button
           class="btn-overlay-control btn-capture-mode"
@@ -103,11 +100,13 @@
           data-capture-mode-control="ral"
           aria-pressed="false"
         >
-          RAL
+          <span data-i18n="capture.mode.ral">RAL</span>
         </button>
       </section>
 
       <config-panel></config-panel>
+
+      <settings-panel></settings-panel>
 
       <canvas id="canvas"></canvas>
     </div>
@@ -142,13 +141,15 @@
     </div>
 
     <!-- Palette Collection Panel -->
-    <shared-panel
-      class="collection-panel"
-      data-panel-name="collection"
-      panel-title="Captures"
-      close-label="Fermer les captures"
-      hidden
-    >
+      <shared-panel
+        class="collection-panel"
+        data-panel-name="collection"
+        panel-title="Captures"
+        close-label="Fermer les captures"
+        data-i18n-panel-title="collection.panelTitle"
+        data-i18n-close-label="collection.panelClose"
+        hidden
+      >
       <div class="collection-panel-content">
         <div class="collection-panel-body">
           <div class="collection-grid" id="collectionGrid">
@@ -156,146 +157,51 @@
           </div>
         </div>
         <div class="collection-panel-footer">
-          <div class="collection-panel-toolbar">
+          <div class="collection-panel-toolbar toolbar">
             <button
-              class="collection-toolbar-button"
+              class="collection-toolbar-button panel-action-button"
               id="collectionCollapseAllButton"
               type="button"
             >
-              Tout replier
+              <span data-i18n="collection.collapseAll">Tout replier</span>
             </button>
 
             <div
-              class="collection-view-actions"
+              class="collection-view-actions toolbar"
               role="group"
               aria-label="Mode d'affichage des captures"
+              data-i18n-aria-label="collection.viewModeGroup"
             >
               <div class="collection-view-action">
                 <button
-                  class="button-round collection-view-toggle-button"
+                  class="panel-icon-button panel-icon-button--toolbar collection-view-toggle-button"
                   id="collectionViewListButton"
                   type="button"
                   aria-label="Afficher les captures en liste"
+                  data-i18n-aria-label="collection.view.listAria"
                   aria-pressed="true"
                 >
                   <img src="/icons/capture-list.svg" alt="" />
                 </button>
-                <span class="collection-view-toggle-legend">Liste</span>
+                <span class="collection-view-toggle-legend" data-i18n="collection.view.listLabel">Liste</span>
               </div>
 
               <div class="collection-view-action">
                 <button
-                  class="button-round collection-view-toggle-button"
+                  class="panel-icon-button panel-icon-button--toolbar collection-view-toggle-button"
                   id="collectionViewGridButton"
                   type="button"
                   aria-label="Afficher les captures en grille"
+                  data-i18n-aria-label="collection.view.gridAria"
                   aria-pressed="false"
                 >
                   <img src="/icons/capture-grid.svg" alt="" />
                 </button>
-                <span class="collection-view-toggle-legend">Grille</span>
+                <span class="collection-view-toggle-legend" data-i18n="collection.view.gridLabel">Grille</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </shared-panel>
-
-    <!-- Settings Panel -->
-    <settings-panel></settings-panel>
-
-    <!-- Login Panel -->
-    <shared-panel
-      class="login-panel"
-      data-panel-name="login"
-      panel-title="Compte"
-      close-label="Fermer le panneau compte"
-      hidden
-    >
-      <div class="login-content">
-        <section class="settings-section" aria-labelledby="loginAccountTitle">
-          <div class="settings-section-header">
-            <h3 id="loginAccountTitle">Connexion</h3>
-            <p id="communityAccountState"></p>
-          </div>
-
-          <div class="settings-field" id="communityEmailField">
-            <div class="settings-field-header">
-              <label class="settings-label" for="communityEmailInput"
-                >Email</label
-              >
-            </div>
-            <input
-              class="settings-text-input"
-              id="communityEmailInput"
-              type="email"
-              autocomplete="email"
-              placeholder="votre email"
-            />
-            <button
-              class="settings-action-button"
-              id="communityRequestCodeButton"
-              type="button"
-            >
-              Recevoir un code
-            </button>
-            <p class="settings-hint" id="communityAuthHint" hidden></p>
-          </div>
-
-          <div class="settings-field" id="communityCodeField" hidden>
-            <div class="settings-field-header">
-              <label class="settings-label" for="communityCodeInput"
-                >Code reçu par email</label
-              >
-            </div>
-            <input
-              class="settings-text-input"
-              id="communityCodeInput"
-              type="text"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              placeholder="123456"
-            />
-            <button
-              class="settings-action-button"
-              id="communityVerifyCodeButton"
-              type="button"
-            >
-              Se connecter
-            </button>
-          </div>
-
-          <div>
-            <button
-              class="settings-secondary-button"
-              id="communityLogoutButton"
-              type="button"
-              hidden
-            >
-              Se déconnecter
-            </button>
-
-            <a
-              class="settings-secondary-button settings-link-button"
-              id="communityMyCatchesLink"
-              href="#"
-              hidden
-            >
-              Mon espace personnel
-            </a>
-          </div>
-
-          <div class="settings-danger-zone">
-            <button
-              class="settings-secondary-button settings-danger-button"
-              id="communityDeleteAccountButton"
-              type="button"
-              hidden
-            >
-              Supprimer mon compte
-            </button>
-          </div>
-        </section>
       </div>
     </shared-panel>
 
@@ -305,49 +211,52 @@
       data-panel-name="delete-account"
       panel-title="Suppression du compte"
       close-label="Fermer le panneau suppression"
+      data-i18n-panel-title="delete.panelTitle"
+      data-i18n-close-label="delete.panelClose"
       hidden
     >
-      <div class="login-content">
-        <section class="settings-section" aria-labelledby="deleteAccountTitle">
-          <div class="settings-section-header">
-            <h3 id="deleteAccountTitle">Supprimer mon compte</h3>
-            <p>
-              Cette action est irréversible. Ton compte et tes captures seront
-              supprimés.
+      <div class="panel-form-content">
+        <section class="panel-form-section" aria-labelledby="deleteAccountTitle">
+          <div class="panel-form-section-header stack">
+            <h3 id="deleteAccountTitle" data-i18n="delete.title">Supprimer mon compte</h3>
+            <p data-i18n="delete.body">
+              Cette action est irréversible. Votre compte et vos captures seront supprimés.
             </p>
           </div>
 
-          <div class="settings-field" id="deleteAccountRequestStep">
+          <div class="panel-form-field" id="deleteAccountRequestStep">
             <button
-              class="settings-action-button settings-danger-button"
+              class="panel-form-action-button panel-form-danger-button panel-action-button"
               id="deleteAccountRequestCodeButton"
               type="button"
             >
-              Recevoir le code de suppression
+              <span data-i18n="delete.requestCode">Recevoir le code de suppression</span>
             </button>
-            <p class="settings-hint" id="deleteAccountHint" hidden></p>
+            <p class="panel-form-hint" id="deleteAccountHint" hidden></p>
           </div>
 
-          <div class="settings-field" id="deleteAccountVerifyStep" hidden>
-            <div class="settings-field-header">
-              <label class="settings-label" for="deleteAccountCodeInput"
+          <div class="panel-form-field" id="deleteAccountVerifyStep" hidden>
+            <div class="panel-form-field-header">
+              <label class="panel-form-label" for="deleteAccountCodeInput"
+                data-i18n="delete.codeLabel"
                 >Code reçu par email</label
               >
             </div>
             <input
-              class="settings-text-input"
+              class="panel-form-text-input"
               id="deleteAccountCodeInput"
               type="text"
               inputmode="numeric"
               autocomplete="one-time-code"
               placeholder="123456"
+              data-i18n-placeholder="delete.codePlaceholder"
             />
             <button
-              class="settings-action-button settings-danger-button"
+              class="panel-form-action-button panel-form-danger-button panel-action-button"
               id="deleteAccountConfirmButton"
               type="button"
             >
-              Confirmer la suppression
+              <span data-i18n="delete.confirm">Confirmer la suppression</span>
             </button>
           </div>
         </section>
@@ -361,14 +270,17 @@
       panel-title="Capture"
       close-label="Retour à la galerie"
       close-icon-src="icons/capture-panel-back.svg"
+      data-i18n-panel-title="viewer.panelTitle"
+      data-i18n-close-label="viewer.panelClose"
       hidden
     >
       <button
-        class="catch-details-header-button"
+        class="catch-details-header-button panel-icon-button panel-icon-button--framed"
         id="catchDetailsCameraButton"
         type="button"
         slot="header-actions"
         aria-label="Retour à l'appareil photo"
+        data-i18n-aria-label="viewer.backToCamera"
       >
         <img
           class="catch-details-header-icon"
@@ -384,6 +296,7 @@
             class="palette-viewer-track"
             id="catchDetailsTrack"
             aria-label="Captures enregistrées"
+            data-i18n-aria-label="viewer.trackLabel"
           ></div>
         </div>
 
@@ -402,31 +315,35 @@
         ></div>
         <div class="palette-viewer-actions">
           <button
-            class="button-round palette-action-delete"
+            class="panel-icon-button panel-icon-button--viewer-action palette-action-delete"
             id="catchDetailsDeleteButton"
             type="button"
             aria-label="Supprimer la palette"
+            data-i18n-aria-label="viewer.action.deleteAria"
           ></button>
 
           <button
-            class="button-round palette-action-publish"
+            class="panel-icon-button panel-icon-button--viewer-action palette-action-publish"
             id="catchDetailsPublishButton"
             type="button"
             aria-label="Publier la palette"
+            data-i18n-aria-label="viewer.action.publishAria"
           ></button>
 
           <button
-            class="button-round palette-action-export"
+            class="panel-icon-button panel-icon-button--viewer-action palette-action-export"
             id="catchDetailsExportButton"
             type="button"
             aria-label="Exporter la palette"
+            data-i18n-aria-label="viewer.action.exportAria"
           ></button>
 
           <button
-            class="button-round palette-action-share"
+            class="panel-icon-button panel-icon-button--viewer-action palette-action-share"
             id="catchDetailsShareButton"
             type="button"
             aria-label="Partager la palette"
+            data-i18n-aria-label="viewer.action.shareAria"
           ></button>
         </div>
       </div>
@@ -443,6 +360,7 @@
           webkit-playsinline
           disablepictureinpicture
           aria-label="Aperçu caméra"
+          data-i18n-aria-label="capture.cameraPreview"
         ></video>
         <div
           class="ral-reticle"
@@ -457,41 +375,52 @@
         <!-- <div class="output-palette" id="outputPalette"></div> -->
       </div>
 
-      <div class="btns-camera">
-        <div class="camera-actions">
-          <button class="btn-rotate ml-auto" type="button">
-            <img
-              class="camera-action-icon"
-              src="icons/camera-rotate.svg"
-              alt=""
-              aria-hidden="true"
-            />
-          </button>
+      <div class="camera-actions toolbar">
+        <button
+          class="btn-rotate ml-auto"
+          type="button"
+          aria-label="Changer de caméra"
+          data-i18n-aria-label="capture.rotate"
+        >
+          <img
+            class="camera-action-icon"
+            src="icons/camera-rotate.svg"
+            alt=""
+            aria-hidden="true"
+          />
+        </button>
 
-          <button class="btn-capture" type="button">
-            <img
-              src="logo/colorcatchers.svg"
-              alt=""
-              class="btn-shoot"
-              aria-hidden="true"
-            />
-          </button>
+        <button
+          class="btn-capture"
+          type="button"
+          aria-label="Capturer une palette"
+          data-i18n-aria-label="capture.capture"
+        >
+          <img
+            src="logo/colorcatchers.svg"
+            alt=""
+            class="btn-shoot"
+            aria-hidden="true"
+          />
+        </button>
 
-          <div class="btns-actions">
-            <button class="btn-view-collection" type="button">
-              <img
-                class="camera-action-icon"
-                src="icons/gallery.svg"
-                alt=""
-                aria-hidden="true"
-              />
-            </button>
-          </div>
-        </div>
+        <button
+          class="btn-view-collection ml-auto"
+          type="button"
+          aria-label="Ouvrir les captures"
+          data-i18n-aria-label="capture.collectionOpen"
+        >
+          <img
+            class="camera-action-icon"
+            src="icons/gallery.svg"
+            alt=""
+            aria-hidden="true"
+          />
+        </button>
       </div>
     </div>
 
     <script type="module" src="app.js"></script>
-    <script src="pwa-install.js"></script>
+    <script type="module" src="pwa-install.js"></script>
   </body>
 </html>

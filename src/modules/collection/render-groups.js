@@ -228,7 +228,7 @@ export function createDayGroup({
   daySection.dataset.viewMode = viewMode;
 
   const dayHeader = document.createElement("div");
-  dayHeader.className = "collection-day-header";
+  dayHeader.className = "collection-day-header dock";
 
   const dayTitle = document.createElement("p");
   dayTitle.className = "collection-day-title";

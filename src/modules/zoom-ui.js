@@ -1,3 +1,5 @@
+import { subscribeLocaleChange, t } from "../i18n.js";
+
 const DEFAULT_ZOOM_STEP = 0.1;
 const ACTIVE_FEEDBACK_HIDE_DELAY_MS = 240;
 const HAPTIC_DURATION_MS = 10;
@@ -60,7 +62,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   scrubber.className = "camera-zoom-scrubber";
   scrubber.tabIndex = -1;
   scrubber.setAttribute("aria-disabled", "true");
-  scrubber.setAttribute("aria-label", "Zoom");
+  scrubber.setAttribute("aria-label", t("camera.zoom.label"));
   scrubber.setAttribute("aria-orientation", "horizontal");
   scrubber.setAttribute("role", "slider");
 
@@ -87,6 +89,10 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   let lastBoundaryKey = null;
   let activePointerId = null;
   let activeFeedbackTimeoutId = 0;
+  const unsubscribeLocaleChange = subscribeLocaleChange(() => {
+    scrubber.setAttribute("aria-label", t("camera.zoom.label"));
+    updateScrubberA11y(currentZoom);
+  });
 
   function getStepValue() {
     const stepValue = Number(currentCapabilities?.step);
@@ -235,7 +241,10 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     scrubber.setAttribute("aria-valuemin", formatZoomNumber(min));
     scrubber.setAttribute("aria-valuemax", formatZoomNumber(max));
     scrubber.setAttribute("aria-valuenow", formatZoomNumber(zoomValue));
-    scrubber.setAttribute("aria-valuetext", `Zoom ${formatZoomReadout(zoomValue)}`);
+    scrubber.setAttribute(
+      "aria-valuetext",
+      t("camera.zoom.valueText", { value: formatZoomReadout(zoomValue) }),
+    );
   }
 
   function updateScrubberProgress(zoomValue) {
@@ -420,6 +429,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     }
 
     clearActiveFeedbackTimer();
+    unsubscribeLocaleChange();
     overlayLayer.remove();
   }
 

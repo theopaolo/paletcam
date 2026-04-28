@@ -152,7 +152,14 @@ await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 await mkdir(workersOutDir, { recursive: true });
 
-await buildBrowserEntrypoints([join(sourceRoot, "app.js")], outDir);
+await buildBrowserEntrypoints(
+  [
+    join(sourceRoot, "app.js"),
+    join(sourceRoot, "offline.js"),
+    join(sourceRoot, "pwa-install.js"),
+  ],
+  outDir,
+);
 await buildBrowserEntrypoints(
   [join(sourceRoot, "workers", "palette-extraction.worker.js")],
   workersOutDir,

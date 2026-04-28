@@ -1,0 +1,38 @@
+.stack {
+  display: grid;
+  gap: var(--stack-gap, var(--space-control-gap));
+}
+
+.cluster {
+  display: flex;
+  align-items: var(--cluster-align, center);
+  justify-content: var(--cluster-justify, flex-start);
+  gap: var(--cluster-gap, var(--space-control-gap));
+  flex-wrap: var(--cluster-wrap, nowrap);
+}
+
+.toolbar {
+  display: flex;
+  align-items: var(--toolbar-align, center);
+  justify-content: var(--toolbar-justify, flex-start);
+  gap: var(--toolbar-gap, var(--space-control-gap));
+  flex-wrap: var(--toolbar-wrap, nowrap);
+}
+
+.dock {
+  display: flex;
+  align-items: var(--dock-align, center);
+  justify-content: space-between;
+  gap: var(--dock-gap, var(--space-control-gap));
+}
+
+.stack > *,
+.cluster > *,
+.toolbar > *,
+.dock > * {
+  min-width: 0;
+}
+
+.ml-auto {
+  margin-left: auto;
+}

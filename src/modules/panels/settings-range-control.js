@@ -1,3 +1,5 @@
+import { getIntlLocale } from "../../i18n.js";
+
 const RANGE_INTERACTION_KEYS = new Set([
   "ArrowDown",
   "ArrowLeft",
@@ -8,7 +10,6 @@ const RANGE_INTERACTION_KEYS = new Set([
   "PageDown",
   "PageUp",
 ]);
-const integerFormatter = new Intl.NumberFormat("en-US");
 
 function queryById(root, id) {
   if (!id) {
@@ -28,7 +29,7 @@ export function clampInteger(value, fallbackValue) {
 }
 
 export function formatThousands(value) {
-  return integerFormatter.format(clampInteger(value, 0));
+  return new Intl.NumberFormat(getIntlLocale()).format(clampInteger(value, 0));
 }
 
 export function formatCompactThousands(value) {

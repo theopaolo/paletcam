@@ -1,0 +1,176 @@
+config-panel {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.config-drawer {
+  position: absolute;
+  left: var(--space-6);
+  right: var(--space-6);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
+  display: grid;
+  gap: var(--space-control-padding);
+  max-height: calc(100% - 4rem);
+  overflow-y: auto;
+  padding: var(--space-control-gap) calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
+    calc(var(--space-control-gap) + env(safe-area-inset-bottom, 0px))
+    calc(var(--space-control-gap) + env(safe-area-inset-left, 0px));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--space-control-gap);
+  background:
+    var(--gradient-surface-panel-strong),
+    var(--color-surface-overlay);
+  pointer-events: auto;
+}
+
+.config-drawer[hidden] {
+  display: none;
+}
+
+config-panel.is-open .config-drawer {
+  animation: config-drawer-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes config-drawer-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-12));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.config-drawer-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--space-6);
+}
+
+.config-drawer-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-control-padding);
+  appearance: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  padding-bottom: var(--space-control-gap);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.14s var(--easing-standard),
+    border-color 0.14s var(--easing-standard);
+}
+
+.config-drawer-tab[aria-selected="true"],
+.config-drawer-tab.is-active {
+  color: var(--color-accent-active);
+  border-bottom-color: var(--color-accent-active);
+}
+
+
+.config-drawer-tab-label,
+.config-drawer-action-label {
+  display: block;
+  white-space: nowrap;
+}
+
+.config-drawer-icon {
+  display: inline-block;
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  background-color: currentColor;
+  -webkit-mask-image: var(--config-icon-url);
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-image: var(--config-icon-url);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.config-drawer-action-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.config-drawer-icon-analysis {
+  --config-icon-url: url("/icons/microscope.svg");
+}
+
+.config-drawer-icon-colors {
+  --config-icon-url: url("/icons/swatches.svg");
+}
+
+.config-drawer-icon-balance {
+  --config-icon-url: url("/icons/contrast.svg");
+}
+
+.config-drawer-icon-undo {
+  --config-icon-url: url("/icons/arrow-bend-left.svg");
+}
+
+.config-drawer-icon-redo {
+  --config-icon-url: url("/icons/arrow-bend-right.svg");
+}
+
+.config-drawer-icon-reset {
+  --config-icon-url: url("/icons/arrow-counterclock.svg");
+}
+
+.config-drawer-panels {
+  display: grid;
+}
+
+.config-drawer-panel {
+  display: grid;
+  gap: var(--space-control-gap);
+}
+
+.config-drawer-panel[hidden] {
+  display: none;
+}
+
+.config-drawer-slider {
+  border-color: var(--color-surface-tint-soft);
+}
+
+.config-drawer-footer {
+  --dock-gap: var(--space-12);
+}
+
+.config-drawer-history {
+  --toolbar-gap: var(--space-8);
+}
+
+.config-drawer-reset-button {
+  margin-left: auto;
+}
+
+.config-pip {
+  position: absolute;
+  right: var(--space-6);
+  width: 5.75rem;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--space-2);
+  overflow: hidden;
+  object-fit: cover;
+  pointer-events: none;
+}

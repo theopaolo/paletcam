@@ -8,6 +8,7 @@
  * Also includes a point-sampling utility for precise single-color capture.
  */
 
+import { t } from "../i18n.js";
 import { RAL_CLASSIC } from './ral-classic-data.js';
 
 // ---------------------------------------------------------------------------
@@ -280,5 +281,5 @@ export function getRalQualityLabel(deltaE) {
 
   const similarityPercentage = Math.max(0, Math.round(100 - deltaE * 10));
 
-  return `RAL similarity ${similarityPercentage}%` ;
+  return t("ral.quality", { percentage: similarityPercentage });
 }
