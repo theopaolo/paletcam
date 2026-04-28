@@ -8,8 +8,17 @@ import {
 
 const originalImageDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Image");
 const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+const originalGetComputedStyleDescriptor = Object.getOwnPropertyDescriptor(globalThis, "getComputedStyle");
 const originalCreateObjectURL = globalThis.URL.createObjectURL;
 const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
+const POLAROID_TOKEN_VALUES = Object.freeze({
+  "--color-polaroid-footer-dark": "#121416",
+  "--color-polaroid-footer-light": "#f5f5f5",
+  "--color-polaroid-footer-text-dark": "rgba(250, 250, 250, 0.96)",
+  "--color-polaroid-footer-text-light": "rgba(44, 44, 44, 0.88)",
+  "--color-polaroid-shell-dark": "#090b0d",
+  "--color-polaroid-shell-light": "#fefefe",
+});
 
 function setGlobalProperty(name, value) {
   Object.defineProperty(globalThis, name, {
@@ -19,6 +28,14 @@ function setGlobalProperty(name, value) {
   });
 }
 
+function installPolaroidTokenMocks(tokenValues = POLAROID_TOKEN_VALUES) {
+  setGlobalProperty("getComputedStyle", () => ({
+    getPropertyValue(name) {
+      return tokenValues[name] ?? "";
+    },
+  }));
+}
+
 afterEach(() => {
   if (originalImageDescriptor) {
     Object.defineProperty(globalThis, "Image", originalImageDescriptor);
@@ -26,6 +43,12 @@ afterEach(() => {
 
   if (originalDocumentDescriptor) {
     Object.defineProperty(globalThis, "document", originalDocumentDescriptor);
+  }
+
+  if (originalGetComputedStyleDescriptor) {
+    Object.defineProperty(globalThis, "getComputedStyle", originalGetComputedStyleDescriptor);
+  } else {
+    delete globalThis.getComputedStyle;
   }
 
   globalThis.URL.createObjectURL = originalCreateObjectURL;
@@ -82,16 +105,32 @@ describe("renderPalettePolaroidBlob", () => {
   test("keeps the source blob URL alive until after the canvas draw completes", async () => {
     const revokedUrls = [];
     const drawStates = [];
+    const loadedFonts = [];
+    const fillTextCalls = [];
+    const clipCalls = [];
     const photoUrl = "blob:palette-preview-source";
     const fakeContext = {
+      font: "",
+      textAlign: "left",
+      beginPath() {},
+      clearRect() {},
+      clip() {
+        clipCalls.push(true);
+      },
       drawImage() {
         drawStates.push(revokedUrls.length);
       },
       fillRect() {},
-      fillText() {},
+      fillText(text, x, y) {
+        fillTextCalls.push({ text, x, y });
+      },
+      closePath() {},
+      lineTo() {},
       measureText() {
         return { width: 120 };
       },
+      moveTo() {},
+      quadraticCurveTo() {},
       restore() {},
       save() {},
     };
@@ -114,8 +153,10 @@ describe("renderPalettePolaroidBlob", () => {
 
         throw new Error(`Unexpected element creation: ${tagName}`);
       },
+      documentElement: { nodeName: "HTML" },
       fonts: {
-        load() {
+        load(descriptor) {
+          loadedFonts.push(descriptor);
           return Promise.resolve();
         },
       },
@@ -123,6 +164,7 @@ describe("renderPalettePolaroidBlob", () => {
         return null;
       },
     });
+    installPolaroidTokenMocks();
     globalThis.URL.createObjectURL = () => photoUrl;
     globalThis.URL.revokeObjectURL = (url) => {
       revokedUrls.push(url);
@@ -159,6 +201,104 @@ describe("renderPalettePolaroidBlob", () => {
 
     expect(result).toBeInstanceOf(Blob);
     expect(drawStates).toEqual([0]);
+    expect(loadedFonts).toEqual(['400 16px "SNPro"']);
+    expect(fakeContext.font).toContain('"SNPro"');
+    expect(fakeContext.textAlign).toBe("right");
+    expect(clipCalls).toHaveLength(1);
+    expect(fillTextCalls).toHaveLength(1);
+    expect(fillTextCalls[0]?.x).toBe(fakeCanvas.width - 88);
     expect(revokedUrls).toEqual([photoUrl]);
+  });
+
+  test("uses design tokens for frame and footer colors when root styles are available", async () => {
+    const fillRectCalls = [];
+    const fillTextCalls = [];
+    const photoUrl = "blob:palette-preview-source";
+    const fakeContext = {
+      fillStyle: "",
+      font: "",
+      textAlign: "left",
+      beginPath() {},
+      clearRect() {},
+      clip() {},
+      closePath() {},
+      drawImage() {},
+      fillRect(x, y, width, height) {
+        fillRectCalls.push({ fillStyle: this.fillStyle, height, width, x, y });
+      },
+      fillText(text, x, y) {
+        fillTextCalls.push({ fillStyle: this.fillStyle, text, x, y });
+      },
+      lineTo() {},
+      measureText() {
+        return { width: 120 };
+      },
+      moveTo() {},
+      quadraticCurveTo() {},
+      restore() {},
+      save() {},
+    };
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext() {
+        return fakeContext;
+      },
+      toBlob(callback, type) {
+        callback(new Blob(["preview"], { type }));
+      },
+    };
+
+    setGlobalProperty("document", {
+      createElement(tagName) {
+        if (tagName === "canvas") {
+          return fakeCanvas;
+        }
+
+        throw new Error(`Unexpected element creation: ${tagName}`);
+      },
+      documentElement: { nodeName: "HTML" },
+      fonts: {
+        load() {
+          return Promise.resolve();
+        },
+      },
+      querySelector() {
+        return null;
+      },
+    });
+    installPolaroidTokenMocks();
+    globalThis.URL.createObjectURL = () => photoUrl;
+    globalThis.URL.revokeObjectURL = () => {};
+    setGlobalProperty("Image", class MockImage {
+      constructor() {
+        this.width = 1600;
+        this.height = 1200;
+        this.onload = null;
+      }
+
+      set src(value) {
+        this._src = value;
+
+        if (!value) {
+          return;
+        }
+
+        queueMicrotask(() => {
+          this.onload?.();
+        });
+      }
+    });
+
+    await renderPalettePolaroidBlob({
+      colors: [{ r: 255, g: 106, b: 0 }],
+      photoBlob: new Blob(["source"], { type: "image/webp" }),
+    }, {
+      darkFrameShell: true,
+    });
+
+    expect(fillRectCalls[0]?.fillStyle).toBe(POLAROID_TOKEN_VALUES["--color-polaroid-shell-dark"]);
+    expect(fillRectCalls[1]?.fillStyle).toBe(POLAROID_TOKEN_VALUES["--color-polaroid-footer-dark"]);
+    expect(fillTextCalls[0]?.fillStyle).toBe(POLAROID_TOKEN_VALUES["--color-polaroid-footer-text-dark"]);
   });
 });

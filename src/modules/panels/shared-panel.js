@@ -1,4 +1,5 @@
 import { css, html, LitElement } from 'lit';
+import { t } from "../../i18n.js";
 
 const PANEL_HIDE_DELAY_MS = 260;
 
@@ -34,15 +35,15 @@ class SharedPanelElement extends LitElement {
       inset: 0;
       display: grid;
       grid-template-rows: auto 1fr;
-      gap: 0.5rem;
+      gap: var(--space-control-gap);
       overflow-y: var(--shared-panel-shell-overflow-y, auto);
       overscroll-behavior: contain;
       box-sizing: border-box;
-      padding: var(--shared-panel-padding, 0.5rem);
+      padding: var(--shared-panel-padding, var(--space-control-gap));
       background-color: #1b1b1b;
       color: var(--secondary-color, #f0f0f0);
-      transform: translateX(100%);
-      transition: transform 0.2s cubic-bezier(0.65, 0.05, 0.36, 1);
+      transform: translateX(var(--panel-slide-from, 100%));
+      transition: transform var(--duration-fast) cubic-bezier(0.65, 0.05, 0.36, 1);
       pointer-events: auto;
     }
 
@@ -52,19 +53,17 @@ class SharedPanelElement extends LitElement {
 
     .panel-header {
       display: flex;
-      justify-content: space-betwwen;
-      padding: .5rem;
+      align-items: flex-start;
+      gap: var(--space-control-gap);
+      padding: var(--shared-panel-header-padding, var(--space-control-gap));
       color: inherit;
     }
 
     .panel-header.panel-header--with-actions {
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      grid-template-areas: 'title actions close';
-      gap: 0.5rem;
+      align-items: flex-start;
     }
 
     .panel-title {
-      grid-area: title;
       min-width: 0;
       margin: 0;
       font-size: 1.5rem;
@@ -74,12 +73,22 @@ class SharedPanelElement extends LitElement {
     }
 
     .panel-header-actions {
-      grid-area: actions;
       min-width: 0;
+      --toolbar-align: flex-start;
+      --toolbar-justify: flex-end;
+      --toolbar-gap: var(--space-control-gap);
+    }
+
+    .toolbar {
       display: flex;
-      align-items: flex-start;
-      justify-content: flex-end;
-      gap: 0.5rem;
+      align-items: var(--toolbar-align, center);
+      justify-content: var(--toolbar-justify, flex-start);
+      gap: var(--toolbar-gap, var(--space-control-gap));
+      flex-wrap: var(--toolbar-wrap, nowrap);
+    }
+
+    .toolbar > * {
+      min-width: 0;
     }
 
     ::slotted([slot="header-actions"]) {
@@ -89,28 +98,20 @@ class SharedPanelElement extends LitElement {
     .close-button {
       display: grid;
       place-content: center;
-      margin-left: auto;
+      order: var(--panel-close-button-order, 0);
+      margin-left: var(--panel-close-button-margin-left, auto);
       overflow: hidden;
       padding: 0;
       width: 3rem;
       height: 3rem;
       color: var(--color-text);
       font-size: 2rem;
-      border-radius: 9999px;
-      border: 4px solid #0f0f0f;
-      box-shadow:
-        inset 0px 2px 5px #5757578a,
-        0px 2px 4px #303030;
-      background: linear-gradient(
-        #181818,
-        #141414 8%,
-        #131313 20%,
-        #0c0c0c 50%,
-        #131313bd 80%,
-        #161616
-    );
-    appearance: none;
-    -webkit-appearance: none;
+      border-radius: var(--radius-pill);
+      border: 4px solid var(--color-surface-ink);
+      box-shadow: var(--shadow-control-bevel);
+      background: var(--gradient-control-shell);
+      appearance: none;
+      -webkit-appearance: none;
     }
 
     .close-button-icon {
@@ -128,7 +129,7 @@ class SharedPanelElement extends LitElement {
 
     @media (hover: hover) {
       .close-button:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: var(--color-border-subtle);
       }
     }
 
@@ -138,19 +139,11 @@ class SharedPanelElement extends LitElement {
       overflow: var(--shared-panel-body-overflow, visible);
     }
 
-    @media (max-width: 560px) {
-      .panel-header.panel-header--with-actions {
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas:
-          'title close'
-          'actions actions';
-      }
-    }
   `;
 
   constructor() {
     super();
-    this.closeLabel = 'Fermer le panneau';
+    this.closeLabel = t("common.closePanel");
     this.closeIconSrc = '';
     this.open = false;
     this.panelTitle = '';
@@ -420,7 +413,7 @@ class SharedPanelElement extends LitElement {
         >
           <h2 class="panel-title">${this.panelTitle}</h2>
           ${hasHeaderActions ? html`
-            <div class="panel-header-actions">
+            <div class="panel-header-actions toolbar">
               <slot name="header-actions"></slot>
             </div>
           ` : null}

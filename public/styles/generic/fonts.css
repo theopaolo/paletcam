@@ -1,0 +1,59 @@
+@font-face {
+  font-family: "Museum";
+  src:
+    url("../../assets/fonts/museum/PPMuseum-Light.woff") format("woff"),
+    url("../../assets/fonts/museum/PPMuseum-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Museum";
+  src:
+    url("../../assets/fonts/museum/PPMuseum-Regular.woff") format("woff"),
+    url("../../assets/fonts/museum/PPMuseum-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Museum";
+  src:
+    url("../../assets/fonts/museum/PPMuseum-Ultrabold.woff") format("woff"),
+    url("../../assets/fonts/museum/PPMuseum-Ultrabold.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SNPro";
+  src:
+    url("../../assets/fonts/snpro/SNPro-Light.woff") format("woff"),
+    url("../../assets/fonts/snpro/SNPro-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SNPro";
+  src:
+    url("../../assets/fonts/snpro/SNPro-Regular.woff") format("woff"),
+    url("../../assets/fonts/snpro/SNPro-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SNPro";
+  src:
+    url("../../assets/fonts/snpro/SNPro-Semibold.woff") format("woff"),
+    url("../../assets/fonts/snpro/SNPro-Semibold.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}

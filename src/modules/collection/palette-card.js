@@ -1,4 +1,5 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
+import { t } from "../../i18n.js";
 import { loadImageElementSource } from "../image-element-loader.js";
 import { getPalettePreviewPolaroidAsset, hasPaletteMasterPhoto } from "./palette-preview-assets.js";
 
@@ -53,11 +54,11 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.className = "palette-card-trigger";
-  trigger.setAttribute("aria-label", "Ouvrir la capture");
+  trigger.setAttribute("aria-label", t("viewer.openCapture"));
 
   const previewImage = document.createElement("img");
   previewImage.className = "palette-card-image";
-  previewImage.alt = "Aperçu polaroid";
+  previewImage.alt = t("viewer.previewAlt");
   previewImage.decoding = "async";
   previewImage.hidden = true;
 
@@ -67,10 +68,10 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 
   const previewStatus = document.createElement("p");
   previewStatus.className = "palette-card-status";
-  previewStatus.textContent = hasMasterPhoto ? "" : "Aperçu indisponible";
+  previewStatus.textContent = hasMasterPhoto ? "" : t("viewer.previewUnavailable");
 
   const publicationBadge = document.createElement("span");
-  publicationBadge.className = "palette-card-publication-badge";
+  publicationBadge.className = "palette-card-publication-badge panel-status-chip";
   const publicationMeta = getPalettePublicationMeta(palette);
   if (publicationMeta) {
     publicationBadge.hidden = false;
@@ -86,7 +87,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 
   if (palette.captureMode === "ral") {
     const ralIndicator = document.createElement("span");
-    ralIndicator.className = "palette-card-ral-indicator";
+    ralIndicator.className = "palette-card-ral-indicator panel-status-chip";
     ralIndicator.textContent = "RAL";
     card.appendChild(ralIndicator);
   }
@@ -136,7 +137,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
       previewImage.hidden = true;
       previewImage.removeAttribute("src");
       previewLoader.hidden = true;
-      previewStatus.textContent = "Aperçu indisponible";
+      previewStatus.textContent = t("viewer.previewUnavailable");
       console.error(`Failed to render preview for palette ${palette.id}:`, error);
     }
   };

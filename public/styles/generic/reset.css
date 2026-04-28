@@ -1,5 +1,7 @@
 /* 1. Use a more-intuitive box-sizing model */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -29,12 +31,18 @@ body {
 }
 
 /* 5b. Disable default iOS tap highlight */
-a, button, input, select, textarea, [role="button"] {
+a,
+button,
+input,
+select,
+textarea,
+[role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
 /* 5c. Prevent text selection on interactive elements */
-button, [role="button"] {
+button,
+[role="button"] {
   user-select: none;
 }
 
@@ -45,18 +53,31 @@ button, [role="button"] {
 }
 
 /* 6. Improve media defaults */
-img, picture, video, canvas, svg {
+img,
+picture,
+video,
+canvas,
+svg {
   display: block;
   max-width: 100%;
 }
 
 /* 7. Inherit fonts for form controls */
-input, button, textarea, select {
+input,
+button,
+textarea,
+select {
   font: inherit;
 }
 
 /* 8. Avoid text overflows */
-p, h1, h2, h3, h4, h5, h6 {
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   overflow-wrap: break-word;
 }
 
@@ -65,10 +86,15 @@ p {
   text-wrap: pretty;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   text-wrap: balance;
 }
 
 [hidden] {
-  display: none;
+  display: none !important;
 }

@@ -7,18 +7,65 @@ const POLAROID_RENDER_MAX_WIDTH = 1600;
 const POLAROID_RENDER_SCALE = 1;
 const POLAROID_RENDER_QUALITY = 0.95;
 const LEGACY_MIN_PALETTE_PANEL_HEIGHT = 40;
-const POLAROID_FRAME_SHELL_LIGHT = "#ffffff";
-const POLAROID_FRAME_SHELL_DARK = "#101214";
-const POLAROID_FRAME_FOOTER_LIGHT = "#f7f7f7";
-const POLAROID_FRAME_FOOTER_DARK = "#101214";
-const POLAROID_FOOTER_TEXT_LIGHT = "rgba(34, 34, 34, 0.9)";
-const POLAROID_FOOTER_TEXT_DARK = "rgba(255, 255, 255, 0.94)";
+const POLAROID_COLOR_TOKEN_NAMES = Object.freeze({
+  footerDark: "--color-polaroid-footer-dark",
+  footerLight: "--color-polaroid-footer-light",
+  footerTextDark: "--color-polaroid-footer-text-dark",
+  footerTextLight: "--color-polaroid-footer-text-light",
+  shellDark: "--color-polaroid-shell-dark",
+  shellLight: "--color-polaroid-shell-light",
+});
+const POLAROID_CARD_RADIUS = 4;
+const POLAROID_BRAND_FONT_LOAD = '400 16px "SNPro"';
+const POLAROID_BRAND_FONT_FAMILY = '"SNPro", Arial, sans-serif';
 const PREVIEW_IMAGE_LOAD_TIMEOUT_MS = 8000;
 const PREVIEW_FONT_LOAD_TIMEOUT_MS = 1200;
 const PREVIEW_CANVAS_TO_BLOB_TIMEOUT_MS = 4000;
 
 function getBrandLabel() {
   return getAppSettings().polaroidFooterLabel;
+}
+
+function getComputedStyleReader() {
+  if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+    return window.getComputedStyle.bind(window);
+  }
+
+  if (typeof globalThis.getComputedStyle === "function") {
+    return globalThis.getComputedStyle.bind(globalThis);
+  }
+
+  return null;
+}
+
+function readRequiredRootToken(styles, tokenName) {
+  const value = styles.getPropertyValue(tokenName).trim();
+
+  if (!value) {
+    throw new Error(`Missing required design token: ${tokenName}`);
+  }
+
+  return value;
+}
+
+function resolvePolaroidColorTokens() {
+  const rootElement = document?.documentElement;
+  const readComputedStyle = getComputedStyleReader();
+
+  if (!rootElement || !readComputedStyle) {
+    throw new Error("Polaroid rendering requires document root styles to resolve design tokens");
+  }
+
+  const styles = readComputedStyle(rootElement);
+
+  return {
+    footerDark: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.footerDark),
+    footerLight: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.footerLight),
+    footerTextDark: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.footerTextDark),
+    footerTextLight: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.footerTextLight),
+    shellDark: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.shellDark),
+    shellLight: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.shellLight),
+  };
 }
 
 function getPolaroidCardWidth(
@@ -105,7 +152,7 @@ async function waitForBrandFont() {
   }
 
   await Promise.race([
-    fontLoader.call(document.fonts, '400 16px Museum').catch(() => undefined),
+    fontLoader.call(document.fonts, POLAROID_BRAND_FONT_LOAD).catch(() => undefined),
     new Promise((resolve) => {
       setTimeout(resolve, PREVIEW_FONT_LOAD_TIMEOUT_MS);
     }),
@@ -267,6 +314,22 @@ function drawPaletteStrip({
   });
 }
 
+function addRoundedRectPath(context, x, y, width, height, radius) {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
+}
+
 function drawBrandCaption({
   context,
   label,
@@ -275,27 +338,25 @@ function drawBrandCaption({
   width,
   height,
   cardWidth,
-  darkFooter = false,
+  footerTextColor,
 }) {
   const safeLabel = label?.trim() || getBrandLabel();
-  let fontSize = Math.max(16, Math.round(cardWidth * 0.065));
+  let fontSize = Math.max(16, Math.round(cardWidth * 0.045));
 
   context.save();
-  context.textAlign = "left";
+  context.textAlign = "right";
   context.textBaseline = "middle";
 
   for (; fontSize >= 16; fontSize -= 1) {
-    context.font = `400 ${fontSize}px Museum, Arial, sans-serif`;
+    context.font = `600 ${fontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
     if (context.measureText(safeLabel).width <= width * 0.92) {
       break;
     }
   }
 
   context.letterSpacing = "-1px";
-  context.fillStyle = darkFooter
-    ? POLAROID_FOOTER_TEXT_DARK
-    : POLAROID_FOOTER_TEXT_LIGHT;
-  context.fillText(safeLabel, x + (width / 2), y + (height * 0.58));
+  context.fillStyle = footerTextColor;
+  context.fillText(safeLabel, x + width, y + (height * 0.58));
   context.restore();
 }
 
@@ -312,6 +373,7 @@ function renderPolaroidCanvas({
   maxWidth = POLAROID_RENDER_MAX_WIDTH,
   scale = POLAROID_RENDER_SCALE,
 }) {
+  const polaroidColors = resolvePolaroidColorTokens();
   const photoSourceWidth = photoSourceRect?.width ?? image.width;
   const cardWidth = getPolaroidCardWidth(photoSourceWidth, { maxWidth, scale });
   const baseCardHeight = Math.round(cardWidth * POLAROID_CARD_ASPECT_RATIO);
@@ -348,6 +410,7 @@ function renderPolaroidCanvas({
   canvas.height = cardHeight;
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
+  context.clearRect(0, 0, cardWidth, cardHeight);
 
   const availablePanelsHeight = Math.max(2, innerHeight);
   const photoPanelHeight = Math.max(
@@ -359,14 +422,19 @@ function renderPolaroidCanvas({
   const photoPanelY = innerY;
   const palettePanelX = innerX;
   const palettePanelY = innerY + photoPanelHeight;
+
+  context.save();
+  addRoundedRectPath(context, 0, 0, cardWidth, cardHeight, POLAROID_CARD_RADIUS);
+  context.clip();
+
   context.fillStyle = darkFrameShell
-    ? POLAROID_FRAME_SHELL_DARK
-    : POLAROID_FRAME_SHELL_LIGHT;
+    ? polaroidColors.shellDark
+    : polaroidColors.shellLight;
   context.fillRect(0, 0, cardWidth, cardHeight);
 
   context.fillStyle = darkFrameShell
-    ? POLAROID_FRAME_FOOTER_DARK
-    : POLAROID_FRAME_FOOTER_LIGHT;
+    ? polaroidColors.footerDark
+    : polaroidColors.footerLight;
   context.fillRect(0, innerY + innerHeight, cardWidth, frameBottom);
 
   drawImageCover({
@@ -396,8 +464,12 @@ function renderPolaroidCanvas({
     width: innerWidth,
     height: frameBottom,
     cardWidth,
-    darkFooter: darkFrameShell,
+    footerTextColor: darkFrameShell
+      ? polaroidColors.footerTextDark
+      : polaroidColors.footerTextLight,
   });
+
+  context.restore();
 }
 
 function canvasToBlob(canvas, { type = "image/webp", quality = POLAROID_RENDER_QUALITY } = {}) {

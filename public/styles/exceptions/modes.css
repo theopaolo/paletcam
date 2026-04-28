@@ -1,0 +1,40 @@
+body.is-ral-mode .capture {
+  flex: 0 0 auto;
+  aspect-ratio: 4 / 3;
+}
+
+body.is-ral-mode .camera-stage-mount {
+  place-items: start center;
+}
+
+body.is-preview-expanded .camera-preview-dock {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+body.is-ral-mode .ral-live-swatch {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.is-ral-mode .ral-live-swatch-color {
+  flex: 1 1 auto;
+  min-height: clamp(8rem, 22vh, 18rem);
+}
+
+body.is-ral-mode .ral-live-swatch-info {
+  padding: var(--space-16) var(--space-12) var(--space-16);
+}
+
+/* Config drawer open: palette fills capture, camera moves to mini PiP (small screens only) */
+@media (max-height: 799px) {
+  .capture:has(config-panel.is-open) .capture-camera-stage,
+  .capture:has(config-panel.is-open) #canvas {
+    display: none;
+  }
+}

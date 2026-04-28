@@ -1,0 +1,38 @@
+/* Guardrail: one CSS file maps to one feature area. Keep each block near 250-400 lines and split again once a file styles multiple host flows. */
+@import url("panel-controls.css");
+@import url("config-drawer.css");
+@import url("settings-drawer.css");
+@import url("panel-forms.css");
+@import url("collection-panel.css");
+@import url("palette-card.css");
+@import url("palette-viewer.css");
+
+/* Shared panels */
+.collection-panel,
+.login-panel,
+.catch-details-panel {
+  --shared-panel-z-index: 1000;
+}
+
+.collection-panel {
+  --shared-panel-shell-overflow-y: hidden;
+  --shared-panel-body-display: grid;
+  --shared-panel-body-overflow: hidden;
+}
+
+.login-panel {
+  --shared-panel-z-index: 1002;
+  --panel-slide-from: -100%;
+  --panel-close-button-order: -1;
+  --panel-close-button-margin-left: 0;
+}
+
+.catch-details-panel {
+  --shared-panel-z-index: 1102;
+  --shared-panel-padding: 0;
+  --shared-panel-shell-overflow-y: hidden;
+  --shared-panel-body-display: grid;
+  --shared-panel-body-overflow: hidden;
+  --shared-panel-header-padding: var(--space-control-gap);
+  --shared-panel-close-icon-filter: invert(1);
+}

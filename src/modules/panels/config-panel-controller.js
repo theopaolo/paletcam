@@ -4,6 +4,7 @@ import {
   subscribeAppSettings,
   updateAppSettings,
 } from "../../app-settings.js";
+import { t } from "../../i18n.js";
 import {
   areAlgorithmSettingsEqual,
   getAlgorithmSettingsPatch,
@@ -84,6 +85,9 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     }
 
     root.classList.toggle("is-open", isDrawerOpen);
+    root.dispatchEvent?.(
+      new CustomEvent("config-drawer-change", { bubbles: true, detail: { isOpen: isDrawerOpen } }),
+    );
   }
 
   function setDrawerOpen(nextOpen, { restoreFocus = false } = {}) {
@@ -231,7 +235,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => `Écart couleurs : ${value}`,
+      getAriaLabel: (value) => t("config.balance.diversity.aria", { value }),
     }),
     createRangeControl({
       root,
@@ -249,7 +253,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => `Claire / Foncé : ${value}`,
+      getAriaLabel: (value) => t("config.balance.contrast.aria", { value }),
     }),
     createRangeControl({
       root,
@@ -267,7 +271,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => `Préférence pour les couleurs vives : ${value}`,
+      getAriaLabel: (value) => t("config.colors.vibrancy.aria", { value }),
     }),
     createRangeControl({
       root,
@@ -285,7 +289,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => `Bonus aux teintes rares : ${value}`,
+      getAriaLabel: (value) => t("config.colors.rarity.aria", { value }),
     }),
     createRangeControl({
       root,
@@ -303,7 +307,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => `Nombre de couleurs analysées : ${value}`,
+      getAriaLabel: (value) => t("config.analysis.pool.aria", { value }),
     }),
     createRangeControl({
       root,
@@ -321,7 +325,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => `Pixels analysés max : ${value}`,
+      getAriaLabel: (value) => t("config.analysis.pixels.aria", { value }),
       formatInlineValue: (value) => formatThousands(value),
       formatDisplayValue: (value) => formatCompactThousands(value),
     }),

@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 import {
   CATCH_MODERATION_STATUSES,
   deleteAccount,
@@ -142,7 +143,7 @@ export function getPalettePublicationMeta(palette) {
   if (moderationStatus === CATCH_MODERATION_STATUSES.PUBLIC) {
     return {
       tone: "public",
-      label: "publié",
+      label: t("publication.status.public"),
       status: moderationStatus,
     };
   }
@@ -150,7 +151,7 @@ export function getPalettePublicationMeta(palette) {
   if (moderationStatus === CATCH_MODERATION_STATUSES.REJECTED) {
     return {
       tone: "rejected",
-      label: "refuse",
+      label: t("publication.status.rejected"),
       status: moderationStatus,
     };
   }
@@ -158,14 +159,14 @@ export function getPalettePublicationMeta(palette) {
   if (moderationStatus === CATCH_MODERATION_STATUSES.PRIVATE) {
     return {
       tone: "private",
-      label: "privé",
+      label: t("publication.status.private"),
       status: moderationStatus,
     };
   }
 
   return {
     tone: "pending",
-    label: "en modération",
+    label: t("publication.status.pending"),
     status: CATCH_MODERATION_STATUSES.TO_MODERATE,
   };
 }

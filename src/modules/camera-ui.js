@@ -1,6 +1,5 @@
+import { t } from "../i18n.js";
 import { toRgbCss } from "./color-format.js";
-
-const EMPTY_OUTPUT_HINT_TEXT = "Aperçus.";
 
 export function drawFrameToCanvas({
   context,
@@ -60,7 +59,7 @@ export function renderOutputSwatches(container, colors) {
   if (safeColors.length === 0) {
     const hint = document.createElement("p");
     hint.className = "output-empty-hint";
-    hint.textContent = EMPTY_OUTPUT_HINT_TEXT;
+    hint.textContent = t("camera.output.empty");
     container.appendChild(hint);
     return;
   }
@@ -113,7 +112,7 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
   const clampedCount = Math.min(Math.max(swatchCount, minValue), maxValue);
   sliderElement.setAttribute(
     "aria-label",
-    `Nombre de couleurs : ${formatScaleValue(clampedCount)}`,
+    t("slider.colorCountAria", { count: formatScaleValue(clampedCount) }),
   );
   const tickCount = Math.max(1, Math.floor((maxValue - minValue) / step + Number.EPSILON) + 1);
   const tickIndex = Math.max(0, Math.floor((clampedCount - minValue) / step + Number.EPSILON));
@@ -125,7 +124,9 @@ export function updateSliderTooltip(sliderElement, swatchCount) {
 
   const countIndicator = sliderWrapper.querySelector(".swatch-count-indicator");
   if (countIndicator) {
-    countIndicator.textContent = `${formatScaleValue(clampedCount)} couleurs`;
+    countIndicator.textContent = t("slider.colorCount", {
+      count: formatScaleValue(clampedCount),
+    });
   }
 
   const minIndicator = sliderWrapper.querySelector(".swatch-scale-label-min");

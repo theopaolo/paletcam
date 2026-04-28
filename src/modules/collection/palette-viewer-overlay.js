@@ -1,4 +1,5 @@
 import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
+import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { loadImageElementSource } from "../image-element-loader.js";
 import {
@@ -42,24 +43,26 @@ let isBusy = false;
 let pendingTrackAlignmentRaf = 0;
 let pendingTrackScrollRaf = 0;
 
-const PUBLISH_BUTTON_COPY = Object.freeze({
-  publish: {
-    label: "Publier la palette",
-    iconName: "publish",
-    visibleLabel: "publier",
-  },
-  unpublish: {
-    label: "Dépublier la palette",
-    iconName: "unpublish",
-    visibleLabel: "dépublier",
-  },
-});
+function getPublishButtonCopy() {
+  return Object.freeze({
+    publish: {
+      label: t("viewer.action.publishAria"),
+      iconName: "publish",
+      visibleLabel: t("viewer.action.publishLabel"),
+    },
+    unpublish: {
+      label: t("viewer.action.unpublishAria"),
+      iconName: "unpublish",
+      visibleLabel: t("viewer.action.unpublishLabel"),
+    },
+  });
+}
 
 function getActionIconMarkup(iconName) {
   if (iconName === "export") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
-        <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,114.34a8,8,0,0,1,11.32,0L120,132.69V72a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32A8,8,0,0,1,90.34,114.34ZM208,208H48V168H76.69L96,187.32A15.89,15.89,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
+        <path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"></path>
       </svg>
     `;
   }
@@ -73,7 +76,7 @@ function getActionIconMarkup(iconName) {
   if (iconName === "publish") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
-        <path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,98.34l32-32a8,8,0,0,1,11.32,0l32,32a8,8,0,0,1-11.32,11.32L136,91.31V152a8,8,0,0,1-16,0V91.31l-18.34,18.35A8,8,0,0,1,90.34,98.34ZM208,208H48V168H76.69L96,187.31A15.86,15.86,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"></path>
+        <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path>
       </svg>
     `;
   }
@@ -233,7 +236,7 @@ function renderViewerSwatches(colors) {
   colors.forEach((color) => {
     const swatch = createViewerSwatch();
     swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    swatch.setAttribute("aria-label", "Voir correspondance RAL");
+    swatch.setAttribute("aria-label", t("viewer.viewRalMatch"));
     swatch.addEventListener("click", (event) => {
       event.stopPropagation();
       showRalPopover(color, swatch);
@@ -284,7 +287,7 @@ function renderActivePaletteSupplementaryUi() {
 }
 
 function syncPublishButtonCopy() {
-  hydrateViewerActionButton(publishButton, PUBLISH_BUTTON_COPY[getPublishAction()]);
+  hydrateViewerActionButton(publishButton, getPublishButtonCopy()[getPublishAction()]);
 }
 
 function syncActionButtons() {
@@ -327,13 +330,13 @@ function createSlideState(palette, index) {
 
   const image = document.createElement("img");
   image.className = "palette-viewer-image";
-  image.alt = "Aperçu de capture";
+  image.alt = t("viewer.previewAlt");
   image.decoding = "async";
   image.hidden = true;
 
   const status = document.createElement("p");
   status.className = "palette-viewer-status";
-  status.textContent = canPalettePreview(palette) ? "" : "Aperçu indisponible";
+  status.textContent = canPalettePreview(palette) ? "" : t("viewer.previewUnavailable");
 
   slide.append(image, status);
 
@@ -381,7 +384,7 @@ async function loadSlideAsset(index) {
   slideState.loadState = "loading";
   slideState.requestId += 1;
   const requestId = slideState.requestId;
-  slideState.status.textContent = "Chargement...";
+  slideState.status.textContent = t("viewer.loading");
 
   try {
     const asset = await session.getPreviewAsset(palette);
@@ -416,10 +419,25 @@ async function loadSlideAsset(index) {
 
     slideState.image.hidden = true;
     slideState.image.removeAttribute("src");
-    slideState.status.textContent = "Aperçu indisponible";
+    slideState.status.textContent = t("viewer.previewUnavailable");
     slideState.loadState = "error";
     console.error(`Failed to load palette viewer preview for palette ${palette.id}:`, error);
   }
+}
+
+function syncSlideCopy() {
+  activeSession?.slideStates?.forEach((slideState) => {
+    slideState.image.alt = t("viewer.previewAlt");
+
+    if (slideState.loadState === "loading") {
+      slideState.status.textContent = t("viewer.loading");
+      return;
+    }
+
+    if (slideState.loadState === "unavailable" || slideState.loadState === "error") {
+      slideState.status.textContent = t("viewer.previewUnavailable");
+    }
+  });
 }
 
 function preloadNearbySlides() {
@@ -629,28 +647,34 @@ function handleViewerPanelClosed() {
   resetViewerFrame();
 }
 
+function handleLocaleChange() {
+  hydrateViewerActionButton(shareButton, {
+    label: t("viewer.action.shareAria"),
+    iconName: "share",
+    visibleLabel: t("viewer.action.shareLabel"),
+  });
+  hydrateViewerActionButton(exportButton, {
+    label: t("viewer.action.exportAria"),
+    iconName: "export",
+    visibleLabel: t("viewer.action.exportLabel"),
+  });
+  hydrateViewerActionButton(deleteButton, {
+    label: t("viewer.action.deleteAria"),
+    iconName: "delete",
+    visibleLabel: t("viewer.action.deleteLabel"),
+  });
+  syncPublishButtonCopy();
+  syncSlideCopy();
+  renderActivePaletteSupplementaryUi();
+}
+
 function bindViewerPanelEvents() {
   if (hasBoundViewerPanelEvents) {
     return;
   }
 
   hasBoundViewerPanelEvents = true;
-  hydrateViewerActionButton(shareButton, {
-    label: "Partager la palette",
-    iconName: "share",
-    visibleLabel: "partager",
-  });
-  hydrateViewerActionButton(exportButton, {
-    label: "Exporter la palette",
-    iconName: "export",
-    visibleLabel: "télécharger",
-  });
-  hydrateViewerActionButton(deleteButton, {
-    label: "Supprimer la palette",
-    iconName: "delete",
-    visibleLabel: "",
-  });
-  syncPublishButtonCopy();
+  handleLocaleChange();
 
   shareButton?.addEventListener("click", () => {
     void runAction("onShare");
@@ -671,6 +695,7 @@ function bindViewerPanelEvents() {
   viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true });
   window.addEventListener("resize", handleWindowResize);
   subscribeAppSettings(handleAppSettingsChange);
+  subscribeLocaleChange(handleLocaleChange);
   subscribeSharedPanelClosing("catch-details", handleViewerPanelClosing);
   subscribeSharedPanelClosed("catch-details", handleViewerPanelClosed);
 }

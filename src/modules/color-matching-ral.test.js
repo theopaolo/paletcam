@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
+import { setLocale } from '../i18n.js';
 import { findClosestRAL, getRalQualityLabel, matchPaletteToRAL } from './color-matching-ral.js';
 
 describe('color-matching-ral', () => {
@@ -30,16 +31,19 @@ describe('color-matching-ral', () => {
 
 describe('getRalQualityLabel', () => {
   test('returns similarity percentage based on deltaE', () => {
-    expect(getRalQualityLabel(0)).toBe('RAL similarity 100%');
-    expect(getRalQualityLabel(5)).toBe('RAL similarity 50%');
-    expect(getRalQualityLabel(10)).toBe('RAL similarity 0%');
+    setLocale('en', { force: true });
+    expect(getRalQualityLabel(0)).toBe('RAL match 100%');
+    expect(getRalQualityLabel(5)).toBe('RAL match 50%');
+    expect(getRalQualityLabel(10)).toBe('RAL match 0%');
   });
 
   test('clamps at 0% for high deltaE', () => {
-    expect(getRalQualityLabel(15)).toBe('RAL similarity 0%');
+    setLocale('en', { force: true });
+    expect(getRalQualityLabel(15)).toBe('RAL match 0%');
   });
 
   test('returns empty string for non-finite values', () => {
+    setLocale('en', { force: true });
     expect(getRalQualityLabel(NaN)).toBe('');
     expect(getRalQualityLabel(Infinity)).toBe('');
   });

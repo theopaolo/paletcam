@@ -1,5 +1,6 @@
 import { html, LitElement } from "lit";
 import { repeat } from "lit/directives/repeat.js";
+import { t } from "../../i18n.js";
 
 const DEFAULT_TOAST_DURATION = 1200;
 const DEFAULT_UNDO_DURATION = 5000;
@@ -95,7 +96,7 @@ class ToastHostElement extends LitElement {
       details: "",
       duration: normalizeDuration(options.duration, DEFAULT_UNDO_DURATION),
       variant: "undo",
-      actionLabel: "Annuler",
+      actionLabel: t("toast.undo"),
       onAction: typeof options.onUndo === "function" ? options.onUndo : undefined,
       onExpire: typeof options.onExpire === "function" ? options.onExpire : undefined,
     };

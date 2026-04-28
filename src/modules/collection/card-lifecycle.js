@@ -1,7 +1,7 @@
 /**
  * @param {object} config
  * @param {HTMLElement | null} config.collectionGrid
- * @param {string} config.emptyMessageText
+ * @param {string | (() => string)} config.emptyMessageText
  * @param {Set<string>} config.collapsedSessionIds
  * @param {() => Promise<void>} config.reloadCollectionUi
  * @returns {CollectionCardLifecycle}
@@ -12,6 +12,9 @@ export function createCollectionCardLifecycle({
   collapsedSessionIds,
   reloadCollectionUi,
 }) {
+  const readEmptyMessageText =
+    typeof emptyMessageText === "function" ? emptyMessageText : () => emptyMessageText;
+
   function removeEmptyMessage() {
     const message = collectionGrid?.querySelector(".empty-message");
     message?.remove();
@@ -34,7 +37,7 @@ export function createCollectionCardLifecycle({
 
     const message = document.createElement("p");
     message.className = "empty-message";
-    message.textContent = emptyMessageText;
+    message.textContent = readEmptyMessageText();
     collectionGrid.appendChild(message);
   }
 

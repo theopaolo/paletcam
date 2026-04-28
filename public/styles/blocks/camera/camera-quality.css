@@ -1,0 +1,40 @@
+.camera-quality-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 7;
+  padding: var(--space-10) var(--space-10) 0 0;
+  pointer-events: none;
+}
+
+.camera-quality-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: rgba(10, 10, 10, 0.42);
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.camera-quality-chip:active {
+  background: rgba(10, 10, 10, 0.65);
+}
+
+.camera-quality-chip[data-mode="fhd"] {
+  color: var(--color-camera-accent);
+  border-color: var(--color-accent-surface-strong);
+}

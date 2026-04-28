@@ -1,7 +1,7 @@
 .sliders-container {
   display: flex;
   align-items: stretch;
-  gap: 0.5rem;
+  gap: var(--space-control-gap);
 }
 
 /* ── Skeuomorphic Swatch Slider ── */
@@ -16,7 +16,7 @@
   flex-direction: column;
   align-items: center;
   user-select: none;
-  --swatch-inline-pad: 0.9rem;
+  --swatch-inline-pad: var(--space-16);
   --swatch-thumb-width: 18px;
   --tick-count: 6;
   --tick-index: 3;
@@ -26,12 +26,10 @@
   --tick-glow-width: 12px;
   --tick-glow-height: 9px;
   --tick-highlight-width: 0.65px;
-  padding: 1rem var(--swatch-inline-pad) 0.5rem;
+  padding: var(--space-16) var(--swatch-inline-pad) var(--space-control-gap);
   overflow: visible;
-  background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.62);
+  background: var(--gradient-slider-shell);
+  box-shadow: var(--shadow-control-inset);
 }
 
 .swatch-slider.is-active,
@@ -52,8 +50,8 @@
 .swatch-scale-label {
   color: #acacac;
   font-weight: 700;
-  font-family: "SNPro", sans-serif;
-  font-size: 0.75rem;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
 }
 
 .swatch-scale-label-min {
@@ -66,20 +64,20 @@
 
 .swatch-count-indicator {
   display: inline-block;
-  padding-top: 0.5rem;
+  padding-top: var(--space-control-gap);
   text-align: center;
   text-transform: uppercase;
   font-weight: 700;
-  color: #ebebeb;
-  font-family: "SNPro", sans-serif;
-  font-size: .75rem;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 
 .swatch-slider::before {
   content: "";
   position: absolute;
-  top: 0.25rem;
+  top: var(--space-control-padding);
   left: calc(var(--swatch-inline-pad) + (var(--swatch-thumb-width) / 2));
   right: calc(var(--swatch-inline-pad) + (var(--swatch-thumb-width) / 2));
   height: 8px;
@@ -93,8 +91,8 @@
     linear-gradient(
       to right,
       transparent calc(var(--tick-highlight-local) - var(--tick-highlight-width)),
-      #ffe06d calc(var(--tick-highlight-local) - var(--tick-highlight-width)),
-      #ffe06d calc(var(--tick-highlight-local) + var(--tick-highlight-width)),
+      var(--color-accent-soft) calc(var(--tick-highlight-local) - var(--tick-highlight-width)),
+      var(--color-accent-soft) calc(var(--tick-highlight-local) + var(--tick-highlight-width)),
       transparent calc(var(--tick-highlight-local) + var(--tick-highlight-width))
     ),
     repeating-linear-gradient(to right, rgba(210, 210, 210, 0.82) 0 1.25px, transparent 1px 100%),
@@ -115,15 +113,15 @@
     0 0;
   background-repeat: no-repeat, no-repeat, repeat-x, no-repeat;
   transition:
-    background-size 0.16s ease,
-    filter 0.16s ease;
+    background-size 0.16s var(--easing-standard),
+    filter 0.16s var(--easing-standard);
   pointer-events: none;
   z-index: 1;
 }
 
 .swatch-slider.is-active::before,
 .swatch-slider.is-dragging::before {
-  filter: drop-shadow(0 0 6px rgba(255, 224, 109, 0.75));
+  filter: drop-shadow(0 0 6px var(--color-accent-outline));
 }
 
 .swatch-slider input[type="range"] {
@@ -137,9 +135,9 @@
   border-radius: 4px;
   cursor: pointer;
   margin: 0;
-  background: linear-gradient(#111111 30%, #141414 50%, #141414 80%, #141414);
+  background: var(--gradient-slider-track);
   box-shadow:
-    0 -3px 3px #1b1b1ba6 inset,
+    0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent) inset,
     inset 0 1px 8px rgb(0 0 0 / 70%),
     0 0px 1px rgb(86 86 86);
 }
@@ -152,7 +150,7 @@
   margin-top: 2px;
   border-radius: 3px;
   cursor: pointer;
-  border: 1px solid #111111;
+  border: 1px solid var(--color-surface-chrome-strong);
   background:
     linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02)) center 1px / 72%
     1px no-repeat,
@@ -162,33 +160,26 @@
       rgba(86, 86, 86, 0.55) 1.5px 3px
     ),
     linear-gradient(to bottom, #5e5e5e 0%, #3a3a3a 50%, #1a1a1a 100%);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.14),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.72),
-    0 1px 1px rgba(0, 0, 0, 0.64);
+  box-shadow: var(--shadow-slider-thumb);
   transition:
     box-shadow 0.15s,
-    transform 0.15s ease;
+    transform 0.15s var(--easing-standard);
 }
 
 .swatch-slider input[type="range"]::-webkit-slider-thumb:active,
 .swatch-slider.is-active input[type="range"]::-webkit-slider-thumb,
 .swatch-slider.is-dragging input[type="range"]::-webkit-slider-thumb {
   transform: scale(1.08);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.1),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.78),
-    0 1px 1px rgba(0, 0, 0, 0.68),
-    0 0 7px rgba(255, 224, 109, 0.45);
+  box-shadow: var(--shadow-slider-thumb-active);
 }
 
 .swatch-slider input[type="range"]::-moz-range-track {
   height: 10px;
   border-radius: 5px;
   border: none;
-  background: linear-gradient(#111111 30%, #141414 50%, #141414 80%, #141414);
+  background: var(--gradient-slider-track);
   box-shadow:
-    0 -3px 3px #1b1b1ba6 inset,
+    0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent) inset,
     inset 0 1px 8px rgb(0 0 0 / 70%),
     0 0px 1px rgb(86 86 86);
 }
@@ -198,7 +189,7 @@
   height: 16px;
   border-radius: 3px;
   cursor: pointer;
-  border: 1px solid #111111;
+  border: 1px solid var(--color-surface-chrome-strong);
   background:
     linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02)) center 1px / 72%
     1px no-repeat,
@@ -208,22 +199,15 @@
       rgba(86, 86, 86, 0.55) 1.5px 3px
     ),
     linear-gradient(to bottom, #5e5e5e 0%, #3a3a3a 50%, #1a1a1a 100%);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.14),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.72),
-    0 1px 1px rgba(0, 0, 0, 0.64);
+  box-shadow: var(--shadow-slider-thumb);
   transition:
     box-shadow 0.15s,
-    transform 0.15s ease;
+    transform 0.15s var(--easing-standard);
 }
 
 .swatch-slider input[type="range"]::-moz-range-thumb:active,
 .swatch-slider.is-active input[type="range"]::-moz-range-thumb,
 .swatch-slider.is-dragging input[type="range"]::-moz-range-thumb {
   transform: scale(1.08);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.1),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.78),
-    0 1px 1px rgba(0, 0, 0, 0.68),
-    0 0 7px rgba(255, 224, 109, 0.45);
+  box-shadow: var(--shadow-slider-thumb-active);
 }

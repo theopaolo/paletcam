@@ -1,5 +1,6 @@
 import { buildCommunityUrl } from "./config.js";
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
+import { t } from "./i18n.js";
 import {
   enqueueCommunityDeletionCleanupRetry,
   flushCommunityDeletionCleanupOutbox,
@@ -53,48 +54,50 @@ const collectionViewListButton = document.getElementById("collectionViewListButt
 const collectionViewGridButton = document.getElementById("collectionViewGridButton");
 const collectionCollapseAllButton = document.getElementById("collectionCollapseAllButton");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
-const EMPTY_MESSAGE_TEXT =
-  "Aucune capture pour le moment.\nFermez ce panneau et appuyez sur le bouton central pour capturer votre premiere palette !";
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
 const SESSION_REVEAL_STAGGER_MS = 42;
 const MODERATION_SYNC_DELAY_MS = 12000;
-const PUBLICATION_ACTIONS = Object.freeze({
-  publish: Object.freeze({
-    run: publishPaletteToCommunityFeed,
-    authMessage: "Connecte ton email pour publier.",
-    successMessage: "Capture publiée. Modération en cours.",
-    alreadyDoneCode: "ALREADY_PUBLISHED",
-    alreadyDoneMessage: "Capture déjà publiée.",
-    failureMessage: "Publication échouée.",
-    shouldScheduleModerationSync: true,
-    shouldReloadOnAlreadyDone: false,
-  }),
-  unpublish: Object.freeze({
-    run: unpublishPaletteFromCommunityFeed,
-    authMessage: "Connecte ton email pour dépublier.",
-    successMessage: "Capture retirée de la grille publique.",
-    alreadyDoneCode: "NOT_PUBLIC",
-    alreadyDoneMessage: "Capture déjà retirée de la grille publique.",
-    failureMessage: "Dépublication échouée.",
-    shouldScheduleModerationSync: false,
-    shouldReloadOnAlreadyDone: true,
-  }),
-});
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
 let moderationSyncTimeoutId = 0;
 let isModerationSyncInProgress = false;
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
+let currentLocale = getAppSettings().locale;
 let currentPolaroidFooterLabel = getAppSettings().polaroidFooterLabel;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
-  emptyMessageText: EMPTY_MESSAGE_TEXT,
+  emptyMessageText: () => t("collection.empty"),
   collapsedSessionIds,
   reloadCollectionUi: () => loadCollectionUi(),
 });
+
+function getPublicationActions() {
+  return Object.freeze({
+    publish: Object.freeze({
+      run: publishPaletteToCommunityFeed,
+      authMessage: t("collection.publish.auth"),
+      successMessage: t("collection.publish.success"),
+      alreadyDoneCode: "ALREADY_PUBLISHED",
+      alreadyDoneMessage: t("collection.publish.already"),
+      failureMessage: t("collection.publish.failure"),
+      shouldScheduleModerationSync: true,
+      shouldReloadOnAlreadyDone: false,
+    }),
+    unpublish: Object.freeze({
+      run: unpublishPaletteFromCommunityFeed,
+      authMessage: t("collection.unpublish.auth"),
+      successMessage: t("collection.unpublish.success"),
+      alreadyDoneCode: "NOT_PUBLIC",
+      alreadyDoneMessage: t("collection.unpublish.already"),
+      failureMessage: t("collection.unpublish.failure"),
+      shouldScheduleModerationSync: false,
+      shouldReloadOnAlreadyDone: true,
+    }),
+  });
+}
 
 function canSharePalette(palette) {
   return hasPaletteMasterPhoto(palette);
@@ -142,7 +145,9 @@ function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
   const sessionIds = getCollectionSessionIds(dayGroups);
   const hasSessions = isListView && sessionIds.length > 0;
   const areAllSessionsCollapsed = areAllCollectionSessionsCollapsed(dayGroups, collapsedSessionIds);
-  const collapseAllLabel = areAllSessionsCollapsed ? "déplier" : "collapser";
+  const collapseAllLabel = areAllSessionsCollapsed
+    ? t("collection.expandAll")
+    : t("collection.collapseAll");
 
   if (collectionViewListButton instanceof HTMLButtonElement) {
     const isActive = isListView;
@@ -205,7 +210,7 @@ function insertPaletteAtIndex(palette, index) {
 
 async function handleExportPalette(palette) {
   const exported = await exportPalettePolaroidImage(palette);
-  showToast(exported ? "Palette exportée" : "Export échoué", {
+  showToast(exported ? t("collection.exportSuccess") : t("collection.exportFailed"), {
     variant: exported ? "default" : "error",
     duration: exported ? 1400 : 1800,
   });
@@ -215,7 +220,7 @@ async function handleSharePalette(palette) {
   const result = await sharePalettePolaroidImage(palette);
 
   if (result.status === "shared") {
-    showToast("Palette partagee", {
+    showToast(t("collection.shareSuccess"), {
       duration: 1400,
     });
     return;
@@ -227,14 +232,19 @@ async function handleSharePalette(palette) {
 
   if (result.status === "unsupported") {
     const exported = await exportPalettePolaroidImage(palette);
-    showToast(exported ? "Partage indisponible, export lance" : "Partage indisponible", {
-      variant: exported ? "default" : "error",
-      duration: exported ? 1800 : 2000,
-    });
+    showToast(
+      exported
+        ? t("collection.shareUnsupportedWithExport")
+        : t("collection.shareUnsupported"),
+      {
+        variant: exported ? "default" : "error",
+        duration: exported ? 1800 : 2000,
+      },
+    );
     return;
   }
 
-  showToast("Partage échoué", {
+  showToast(t("collection.shareFailed"), {
     variant: "error",
     duration: 1800,
   });
@@ -264,7 +274,7 @@ async function handleDeletePalette(palette) {
     syncCollectionUiAfterPaletteRemoval();
   }
 
-  showUndoToast("Palette supprimee", {
+  showUndoToast(t("collection.deleteUndo"), {
     duration: DELETE_UNDO_DURATION_MS,
     onUndo: () => {
       pendingDeletionIds.delete(palette.id);
@@ -335,7 +345,7 @@ async function handleDeletePalette(palette) {
           await loadCollectionUi();
         }
         showToast(
-          "Suppression échouée",
+          t("collection.deleteFailed"),
           createErrorToastOptions(error, {
             variant: "error",
             duration: 1800,
@@ -378,14 +388,14 @@ function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
   });
 
   let message = result.status === "authentication_required"
-    ? "Capture supprimée localement, mais la publication n'a pas pu être retirée de la communauté."
-    : "Capture supprimée localement, mais le retrait de la communauté a échoué.";
+    ? t("collection.deleteRemoteCleanupAuth")
+    : t("collection.deleteRemoteCleanupFailed");
   let variant = "error";
 
   if (wasQueued) {
     message = result.status === "authentication_required"
-      ? "Capture supprimée localement. La dépublication sera réessayée automatiquement après reconnexion."
-      : "Capture supprimée localement. Le retrait de la communauté sera réessayé automatiquement.";
+      ? t("collection.deleteRemoteCleanupAuthQueued")
+      : t("collection.deleteRemoteCleanupFailedQueued");
     variant = "default";
   }
 
@@ -465,7 +475,7 @@ function renderCollectionUi(palettes) {
   collectionGrid.dataset.viewMode = currentCollectionViewMode;
 
   if (palettes.length === 0) {
-    collectionGrid.innerHTML = `<p class="empty-message">${EMPTY_MESSAGE_TEXT}</p>`;
+    collectionGrid.innerHTML = `<p class="empty-message">${t("collection.empty")}</p>`;
     syncCollectionPanelChrome([]);
     refreshPaletteViewerOverlay();
     return;
@@ -488,14 +498,14 @@ async function loadCollectionUi() {
     renderCollectionUi(palettes);
   } catch (error) {
     currentPalettes = [];
-    collectionGrid.innerHTML = `<p class="empty-message">Erreur de chargement des palettes.</p>`;
+    collectionGrid.innerHTML = `<p class="empty-message">${t("collection.loadErrorInline")}</p>`;
     collectionGrid.dataset.viewMode = currentCollectionViewMode;
     syncCollectionPanelChrome([]);
     reportAppError(error, {
       logMessage: "Failed to load palette collection.",
     });
     showToast(
-      "Impossible de charger la collection.",
+      t("collection.loadErrorToast"),
       createErrorToastOptions(error, {
         variant: "error",
         duration: 3000,
@@ -527,8 +537,19 @@ function handleCollectionViewModeChange(nextViewMode) {
 
 function handleCollectionSettingsChange(settings) {
   handleCollectionViewModeChange(settings.collectionViewMode);
+  const localeChanged = settings.locale !== currentLocale;
+  currentLocale = settings.locale;
 
   if (settings.polaroidFooterLabel === currentPolaroidFooterLabel) {
+    if (localeChanged) {
+      if (collectionPanel?.classList.contains("visible")) {
+        renderCollectionUi(currentPalettes);
+        return;
+      }
+
+      syncCollectionPanelChrome();
+      refreshPaletteViewerOverlay();
+    }
     return;
   }
 
@@ -592,7 +613,8 @@ function getPublicationErrorMessage(error, fallbackMessage) {
 }
 
 function getPublicationActionConfig(action) {
-  return PUBLICATION_ACTIONS[action] ?? PUBLICATION_ACTIONS.publish;
+  const publicationActions = getPublicationActions();
+  return publicationActions[action] ?? publicationActions.publish;
 }
 
 async function handlePublishPalette(palette, action = "publish") {
@@ -602,7 +624,7 @@ async function handlePublishPalette(palette, action = "publish") {
     showToast(actionConfig.authMessage, {
       variant: "error",
       duration: 3500,
-      actionLabel: "Connexion",
+      actionLabel: t("login.verifyCode"),
       onAction: () => {
         closePaletteViewerOverlay();
         openLoginPanel();
@@ -617,7 +639,7 @@ async function handlePublishPalette(palette, action = "publish") {
       duration: 1800,
     };
     if (action === 'publish') {
-      toastOptions.actionLabel = 'my catches';
+      toastOptions.actionLabel = t("collection.publish.cta");
       toastOptions.onAction = () => {
         window.open(buildCommunityUrl("/my/catches"));
       };

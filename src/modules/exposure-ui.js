@@ -1,3 +1,5 @@
+import { subscribeLocaleChange, t } from "../i18n.js";
+
 const DEFAULT_EXPOSURE_STEP = 0.1;
 const DEFAULT_HIDE_DELAY_MS = 1800;
 const HAPTIC_DURATION_MS = 10;
@@ -67,14 +69,14 @@ export function createExposureUiController({
   resetButton.className = "camera-ev-reset";
   resetButton.type = "button";
   resetButton.textContent = "0";
-  resetButton.setAttribute("aria-label", "Réinitialiser l'exposition");
+  resetButton.setAttribute("aria-label", t("camera.exposure.reset"));
 
   const passiveIndicator = document.createElement("button");
   passiveIndicator.className = "camera-ev-indicator";
   passiveIndicator.type = "button";
   passiveIndicator.hidden = true;
   passiveIndicator.textContent = "EV 0.0";
-  passiveIndicator.setAttribute("aria-label", "Réglage de l'exposition");
+  passiveIndicator.setAttribute("aria-label", t("camera.exposure.label"));
 
   rail.append(zeroLine, thumb);
   overlayPanel.append(valueBadge, rail, resetButton);
@@ -91,6 +93,10 @@ export function createExposureUiController({
   let lastBoundaryKey = null;
   let lastAppliedExposure = null;
   let pendingExposure = null;
+  const unsubscribeLocaleChange = subscribeLocaleChange(() => {
+    resetButton.setAttribute("aria-label", t("camera.exposure.reset"));
+    passiveIndicator.setAttribute("aria-label", t("camera.exposure.label"));
+  });
 
   function getStepValue() {
     const stepValue = Number(currentCapabilities?.step);
@@ -356,6 +362,7 @@ export function createExposureUiController({
     }
 
     clearHideTimer();
+    unsubscribeLocaleChange();
     overlayLayer.remove();
   }
 

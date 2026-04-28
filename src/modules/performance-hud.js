@@ -1,4 +1,5 @@
 import { css, html, LitElement } from "lit";
+import { subscribeLocaleChange, t } from "../i18n.js";
 
 const HUD_UPDATE_INTERVAL_MS = 250;
 const MEMORY_SAMPLE_INTERVAL_MS = 2000;
@@ -7,16 +8,16 @@ const PERFORMANCE_HUD_TAG = "performance-hud";
 const POSITION_STORAGE_KEY = "paletcam:performance-hud-position:v1";
 const VIEWPORT_PADDING_PX = 8;
 const HUD_FIELDS = [
-  ["FPS", "fpsLabel"],
-  ["Frame", "frameLabel"],
-  ["Extract", "extractLabel"],
-  ["Every", "intervalLabel"],
-  ["Long", "longTaskLabel"],
-  ["Heap", "heapLabel"],
-  ["Camera", "cameraLabel"],
-  ["Analysis", "analysisLabel"],
-  ["Mode", "modeLabel"],
-  ["Thermal", "thermalLabel"],
+  ["fps", "fpsLabel"],
+  ["frame", "frameLabel"],
+  ["extract", "extractLabel"],
+  ["interval", "intervalLabel"],
+  ["longTask", "longTaskLabel"],
+  ["heap", "heapLabel"],
+  ["camera", "cameraLabel"],
+  ["analysis", "analysisLabel"],
+  ["mode", "modeLabel"],
+  ["thermal", "thermalLabel"],
 ];
 
 function createDefaultMetrics() {
@@ -29,8 +30,8 @@ function createDefaultMetrics() {
     heapLabel: "n/a",
     intervalLabel: "1/4",
     longTaskLabel: "0",
-    modeLabel: "idle",
-    streamLabel: "paused",
+    modeLabel: t("hud.state.idle"),
+    streamLabel: t("hud.state.paused"),
     thermalLabel: "n/a",
   };
 }
@@ -160,11 +161,11 @@ class PerformanceHudElement extends LitElement {
   static styles = css`
     :host {
       position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
-      right: min(1rem, 3vw);
+      top: calc(env(safe-area-inset-top, 0px) + var(--space-12));
+      right: min(var(--space-16), 3vw);
       z-index: 1300;
       display: block;
-      width: min(15rem, calc(100vw - 1.5rem));
+      width: min(15rem, calc(100vw - var(--space-24)));
       pointer-events: none;
     }
 
@@ -173,26 +174,26 @@ class PerformanceHudElement extends LitElement {
     }
 
     .hud-shell {
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 0.8rem;
+      border: 1px solid var(--color-border-muted);
+      border-radius: var(--space-12);
       background:
-        linear-gradient(180deg, rgba(14, 14, 14, 0.92), rgba(0, 0, 0, 0.82)),
-        rgba(0, 0, 0, 0.78);
+        linear-gradient(180deg, var(--color-surface-overlay), rgba(0, 0, 0, 0.82)),
+        var(--color-surface-overlay-strong);
       box-shadow:
         0 0.8rem 2rem rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.04);
-      color: rgba(248, 248, 248, 0.92);
+      color: var(--color-text-secondary);
       backdrop-filter: blur(10px);
-      font-family: monospace;
+      font-family: var(--font-family-mono);
     }
 
     .hud-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.7rem 0.75rem 0.5rem;
-      font-size: 0.74rem;
+      gap: var(--space-12);
+      padding: var(--space-12) var(--space-12) var(--space-8);
+      font-size: var(--font-size-xs);
       letter-spacing: 0.08em;
       text-transform: uppercase;
       cursor: grab;
@@ -206,18 +207,18 @@ class PerformanceHudElement extends LitElement {
     }
 
     .hud-pill {
-      padding: 0.12rem 0.42rem;
-      border-radius: 999px;
-      background: rgba(255, 200, 0, 0.16);
-      color: #ffe37e;
+      padding: var(--space-2) var(--space-6);
+      border-radius: var(--radius-pill);
+      background: var(--color-accent-surface);
+      color: var(--color-accent-soft);
     }
 
     .hud-grid {
       margin: 0;
-      padding: 0 0.75rem 0.75rem;
+      padding: 0 var(--space-12) var(--space-12);
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.45rem 0.8rem;
+      gap: var(--space-8) var(--space-12);
     }
 
     .hud-grid div {
@@ -225,8 +226,8 @@ class PerformanceHudElement extends LitElement {
     }
 
     dt {
-      margin: 0 0 0.08rem;
-      font-size: 0.64rem;
+      margin: 0 0 var(--space-2);
+      font-size: var(--font-size-xs);
       opacity: 0.62;
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -234,7 +235,7 @@ class PerformanceHudElement extends LitElement {
 
     dd {
       margin: 0;
-      font-size: 0.76rem;
+      font-size: var(--font-size-sm);
       line-height: 1.25;
       white-space: nowrap;
       overflow: hidden;
@@ -256,6 +257,9 @@ class PerformanceHudElement extends LitElement {
     this.handleWindowPointerMove = this.handleWindowPointerMove.bind(this);
     this.handleWindowPointerUp = this.handleWindowPointerUp.bind(this);
     this.handleWindowResize = this.handleWindowResize.bind(this);
+    this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
+      this.requestUpdate();
+    });
   }
 
   connectedCallback() {
@@ -278,6 +282,7 @@ class PerformanceHudElement extends LitElement {
     window.removeEventListener("pointerup", this.handleWindowPointerUp);
     window.removeEventListener("pointercancel", this.handleWindowPointerUp);
     window.removeEventListener("resize", this.handleWindowResize);
+    this.unsubscribeLocaleChange?.();
     super.disconnectedCallback();
   }
 
@@ -388,14 +393,14 @@ class PerformanceHudElement extends LitElement {
     return html`
       <section class="hud-shell" aria-hidden="true">
         <div class="hud-header" @pointerdown=${this.handleDragStart}>
-          <strong>Perf</strong>
+          <strong>${t("hud.title")}</strong>
           <span class="hud-pill">${this.metrics.streamLabel}</span>
         </div>
         <dl class="hud-grid">
           ${HUD_FIELDS.map(
-            ([label, key]) => html`
+            ([labelKey, key]) => html`
               <div>
-                <dt>${label}</dt>
+                <dt>${t(`hud.label.${labelKey}`)}</dt>
                 <dd>${this.metrics[key]}</dd>
               </div>
             `,
@@ -433,8 +438,14 @@ export function createPerformanceHudController({ initialEnabled = false } = {}) 
   let cameraResolutionLabel = "n/a";
   let cameraFpsLabel = "n/a";
   let analysisResolutionLabel = "n/a";
-  let modeLabel = "idle";
-  let streamLabel = "paused";
+  let captureModeLabel = "palette";
+  let paletteAlgorithmLabel = "median-cut";
+  let streamStatus = "paused";
+  const unsubscribeLocaleChange = subscribeLocaleChange(() => {
+    if (enabled) {
+      renderHud();
+    }
+  });
 
   function ensureRoot() {
     if (root || !document.body) {
@@ -465,7 +476,7 @@ export function createPerformanceHudController({ initialEnabled = false } = {}) 
           ? cameraResolutionLabel
           : `${cameraResolutionLabel} @ ${cameraFpsLabel}`,
       extractLabel: formatMilliseconds(averageAnalysisDurationMs),
-      fpsLabel: streamLabel === "live" ? formatFps(averageFrameDurationMs) : "0",
+      fpsLabel: streamStatus === "live" ? formatFps(averageFrameDurationMs) : "0",
       frameLabel: formatMilliseconds(averageRefreshDurationMs),
       heapLabel: usedHeapBytes
         ? `${formatMegabytes(usedHeapBytes)}${heapLimitBytes ? ` / ${formatMegabytes(heapLimitBytes)}` : ""}`
@@ -475,8 +486,11 @@ export function createPerformanceHudController({ initialEnabled = false } = {}) 
         longTaskCount > 0
           ? `${longTaskCount} / ${formatMilliseconds(lastLongTaskDurationMs)}`
           : "0",
-      modeLabel,
-      streamLabel,
+      modeLabel:
+        streamStatus === "live"
+          ? `${captureModeLabel} / ${paletteAlgorithmLabel}`
+          : t("hud.state.idle"),
+      streamLabel: t(`hud.state.${streamStatus}`),
       thermalLabel: "n/a",
     };
     lastHudRenderAt = now;
@@ -554,11 +568,12 @@ export function createPerformanceHudController({ initialEnabled = false } = {}) 
       return;
     }
 
-    streamLabel = streaming ? "live" : "paused";
+    streamStatus = streaming ? "live" : "paused";
     cameraResolutionLabel = formatResolution(sourceWidth, sourceHeight);
     cameraFpsLabel = formatCameraFps(cameraFps);
     analysisResolutionLabel = formatResolution(analysisWidth, analysisHeight);
-    modeLabel = `${captureMode} / ${paletteAlgorithm}`;
+    captureModeLabel = captureMode;
+    paletteAlgorithmLabel = paletteAlgorithm;
     frameIntervalLabel = `1/${Math.max(1, Math.round(extractionInterval) || 1)}`;
 
     if (Number.isFinite(rafTimestamp) && rafTimestamp > 0) {
@@ -588,6 +603,7 @@ export function createPerformanceHudController({ initialEnabled = false } = {}) 
     detachLongTaskObserver();
     root?.remove();
     root = null;
+    unsubscribeLocaleChange();
   }
 
   setEnabled(initialEnabled);

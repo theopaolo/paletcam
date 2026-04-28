@@ -13,14 +13,14 @@
 }
 
 .install-toast.show {
-  bottom: 20px;
+  bottom: var(--space-20);
 }
 
 .install-toast-content {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: .5rem;
+  gap: var(--space-16);
+  padding: var(--space-8);
   position: relative;
 }
 
@@ -38,7 +38,7 @@
 
 .install-text p {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-size-md);
   color: #666;
 }
 
@@ -46,9 +46,9 @@
   background: var(--dark-color);
   color: var(--accent-color);
   border: none;
-  padding: .5rem;
-  border-radius: 4px;
-  font-size: .85rem;
+  padding: var(--space-8);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
@@ -64,7 +64,7 @@
 .install-close {
   background: var(--accent-color);
   border: none;
-  font-size: 1rem;
+  font-size: var(--font-size-base);
   color: var(--dark-color);
   cursor: pointer;
   display: flex;
@@ -83,8 +83,8 @@
   }
 
   .install-toast-content {
-    padding: 12px;
-    gap: 8px;
+    padding: var(--space-12);
+    gap: var(--space-8);
   }
 
   .install-icon {
@@ -93,15 +93,15 @@
   }
 
   .install-text strong {
-    font-size: 14px;
+    font-size: var(--font-size-md);
   }
 
   .install-text p {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
   }
 
   .install-btn {
-    padding: 8px 16px;
-    font-size: 13px;
+    padding: var(--space-8) var(--space-16);
+    font-size: var(--font-size-sm);
   }
 }

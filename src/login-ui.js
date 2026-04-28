@@ -6,36 +6,36 @@ import {
   verifyCommunityLoginOtp,
 } from './community-service.js';
 import { buildCommunityUrl } from './config.js';
+import { subscribeLocaleChange, t } from './i18n.js';
 import { clientLog } from './modules/client-log.js';
 import { formatErrorDetails } from './modules/error-format.js';
-import {
-  closeSharedPanel,
-  openSharedPanel,
-} from './modules/panels/panel-manager.js';
 import { showToast } from './modules/toast-ui.js';
 
-const openLoginButton = document.querySelector('.btn-open-login');
-
-const communityAccountState = document.getElementById('communityAccountState');
-const communityEmailField = document.getElementById('communityEmailField');
-const communityEmailInput = /** @type {HTMLInputElement | null} */ (document.getElementById('communityEmailInput'));
-const communityRequestCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityRequestCodeButton'));
-const communityAuthHint = document.getElementById('communityAuthHint');
-const communityCodeField = document.getElementById('communityCodeField');
-const communityCodeInput = /** @type {HTMLInputElement | null} */ (document.getElementById('communityCodeInput'));
-const communityVerifyCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityVerifyCodeButton'));
-const communityLogoutButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityLogoutButton'));
-const communityMyCatchesLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityMyCatchesLink'));
-const communityDeleteAccountButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityDeleteAccountButton'));
-
-if (communityMyCatchesLink) communityMyCatchesLink.href = buildCommunityUrl("/my/catches");
 let pendingCommunityEmail = '';
 let isCommunityAuthBusy = false;
+
+function getCommunityAuthErrorKey(error) {
+  switch (error?.code) {
+    case 'AUTH_EXPIRED':
+      return 'login.error.authExpired';
+    case 'MISSING_EMAIL':
+      return 'login.error.missingEmail';
+    case 'MISSING_CODE':
+      return 'login.error.missingCode';
+    default:
+      return '';
+  }
+}
 
 function resolveCommunityAuthErrorMessage(error, fallbackMessage) {
   const apiPayloadMessage = error?.cause?.payload?.message;
   if (typeof apiPayloadMessage === 'string' && apiPayloadMessage.trim()) {
     return apiPayloadMessage.trim();
+  }
+
+  const errorKey = getCommunityAuthErrorKey(error);
+  if (errorKey) {
+    return t(errorKey);
   }
 
   if (typeof error?.message === 'string' && error.message.trim()) {
@@ -45,7 +45,7 @@ function resolveCommunityAuthErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
-function setCommunityAuthHintMessage(message, { isError = false } = {}) {
+function setCommunityAuthHintMessage(communityAuthHint, message, { isError = false } = {}) {
   if (!communityAuthHint) {
     return;
   }
@@ -62,7 +62,7 @@ function setCommunityAuthHintMessage(message, { isError = false } = {}) {
   communityAuthHint.classList.toggle('is-error', isError);
 }
 
-function setCommunityCodeFieldVisible(shouldShow) {
+function setCommunityCodeFieldVisible(communityCodeField, shouldShow) {
   if (!communityCodeField) {
     return;
   }
@@ -70,24 +70,24 @@ function setCommunityCodeFieldVisible(shouldShow) {
   communityCodeField.hidden = !shouldShow;
 }
 
-function setCommunityAuthBusy(nextBusy) {
+function setCommunityAuthBusy(refs, nextBusy) {
   isCommunityAuthBusy = Boolean(nextBusy);
 
-  if (communityRequestCodeButton) {
-    communityRequestCodeButton.disabled = isCommunityAuthBusy;
+  if (refs.communityRequestCodeButton) {
+    refs.communityRequestCodeButton.disabled = isCommunityAuthBusy;
   }
 
-  if (communityVerifyCodeButton) {
-    communityVerifyCodeButton.disabled = isCommunityAuthBusy;
+  if (refs.communityVerifyCodeButton) {
+    refs.communityVerifyCodeButton.disabled = isCommunityAuthBusy;
   }
 
-  if (communityLogoutButton) {
-    communityLogoutButton.disabled = isCommunityAuthBusy;
+  if (refs.communityLogoutButton) {
+    refs.communityLogoutButton.disabled = isCommunityAuthBusy;
   }
 }
 
-function syncCommunitySessionUi(session = getCurrentCommunitySession()) {
-  if (!communityAccountState) {
+function syncCommunitySessionUi(refs, session = getCurrentCommunitySession()) {
+  if (!refs.communityAccountState) {
     return;
   }
 
@@ -96,67 +96,65 @@ function syncCommunitySessionUi(session = getCurrentCommunitySession()) {
 
   if (isConnected) {
     pendingCommunityEmail = '';
-    if (communityEmailInput && sessionEmail) {
-      communityEmailInput.value = sessionEmail;
+    if (refs.communityEmailInput && sessionEmail) {
+      refs.communityEmailInput.value = sessionEmail;
     }
-    if (communityCodeInput) {
-      communityCodeInput.value = '';
+    if (refs.communityCodeInput) {
+      refs.communityCodeInput.value = '';
     }
-    setCommunityCodeFieldVisible(false);
-    setCommunityAuthHintMessage('');
-    communityAccountState.textContent = sessionEmail
-      ? `Status: connecté en tant que ${sessionEmail}`
-      : 'Connecté';
-    communityAccountState.classList.add('is-connected');
+    setCommunityCodeFieldVisible(refs.communityCodeField, false);
+    setCommunityAuthHintMessage(refs.communityAuthHint, '');
+    refs.communityAccountState.textContent = sessionEmail
+      ? t('login.status.connectedWithEmail', { email: sessionEmail })
+      : t('login.status.connected');
+    refs.communityAccountState.classList.add('is-connected');
   } else {
-    communityAccountState.textContent = 'Status: pas encore connecté';
-    communityAccountState.classList.remove('is-connected');
+    refs.communityAccountState.textContent = t('login.status.disconnected');
+    refs.communityAccountState.classList.remove('is-connected');
   }
 
-  if (communityEmailField) {
-    communityEmailField.hidden = isConnected;
+  if (refs.communityEmailField) {
+    refs.communityEmailField.hidden = isConnected;
   }
 
-  if (communityLogoutButton) {
-    communityLogoutButton.hidden = !isConnected;
+  if (refs.communityLogoutButton) {
+    refs.communityLogoutButton.hidden = !isConnected;
   }
 
-  if (communityMyCatchesLink) {
-    communityMyCatchesLink.hidden = !isConnected;
+  if (refs.communityMyCatchesLink) {
+    refs.communityMyCatchesLink.hidden = !isConnected;
   }
 
-  if (communityDeleteAccountButton) {
-    communityDeleteAccountButton.hidden = !isConnected;
+  if (refs.communityDeleteAccountButton) {
+    refs.communityDeleteAccountButton.hidden = !isConnected;
   }
 }
 
-async function requestCommunityCode() {
+async function requestCommunityCode(refs) {
   if (isCommunityAuthBusy) {
     return;
   }
 
-  const rawEmail = communityEmailInput?.value?.trim() || pendingCommunityEmail;
+  const rawEmail = refs.communityEmailInput?.value?.trim() || pendingCommunityEmail;
   if (!rawEmail) {
-    setCommunityAuthHintMessage('Entre ton email pour recevoir un code.', {
+    setCommunityAuthHintMessage(refs.communityAuthHint, t('login.hint.enterEmail'), {
       isError: true,
     });
     return;
   }
 
-  setCommunityAuthBusy(true);
+  setCommunityAuthBusy(refs, true);
 
   try {
     pendingCommunityEmail = await sendCommunityLoginOtp(rawEmail);
-    if (communityEmailInput) {
-      communityEmailInput.value = pendingCommunityEmail;
+    if (refs.communityEmailInput) {
+      refs.communityEmailInput.value = pendingCommunityEmail;
     }
 
-    setCommunityCodeFieldVisible(true);
-    setCommunityAuthHintMessage(
-      'Tu devrais recevoir un code de connexion par email, saisis-le dans ce champ.',
-    );
-    communityCodeInput?.focus();
-    showToast('Code envoye par email.', {
+    setCommunityCodeFieldVisible(refs.communityCodeField, true);
+    setCommunityAuthHintMessage(refs.communityAuthHint, t('login.hint.codeSent'));
+    refs.communityCodeInput?.focus();
+    showToast(t('login.toast.codeSent'), {
       duration: 1400,
     });
   } catch (error) {
@@ -166,57 +164,57 @@ async function requestCommunityCode() {
       status: error?.status,
     });
     setCommunityAuthHintMessage(
-      resolveCommunityAuthErrorMessage(error, 'Impossible d\'envoyer le code.'),
+      refs.communityAuthHint,
+      resolveCommunityAuthErrorMessage(error, t('login.toast.codeSendFailed')),
       { isError: true },
     );
-    showToast('Envoi du code échoué.', {
+    showToast(t('login.toast.codeSendFailed'), {
       variant: 'error',
       duration: 3000,
       details: formatErrorDetails(error),
     });
   } finally {
-    setCommunityAuthBusy(false);
+    setCommunityAuthBusy(refs, false);
   }
 }
 
-async function verifyCommunityCode() {
+async function verifyCommunityCode(refs) {
   if (isCommunityAuthBusy) {
     return;
   }
 
-  const rawEmail = communityEmailInput?.value?.trim() || pendingCommunityEmail;
-  const code = communityCodeInput?.value?.trim() || '';
+  const rawEmail = refs.communityEmailInput?.value?.trim() || pendingCommunityEmail;
+  const code = refs.communityCodeInput?.value?.trim() || '';
 
   if (!rawEmail) {
-    setCommunityAuthHintMessage('Entre ton email avant de valider le code.', {
+    setCommunityAuthHintMessage(refs.communityAuthHint, t('login.hint.enterEmailBeforeCode'), {
       isError: true,
     });
     return;
   }
 
   if (!code) {
-    setCommunityAuthHintMessage('Entre le code reçu par email.', {
+    setCommunityAuthHintMessage(refs.communityAuthHint, t('login.hint.enterCode'), {
       isError: true,
     });
     return;
   }
 
-  setCommunityAuthBusy(true);
+  setCommunityAuthBusy(refs, true);
 
   try {
     await verifyCommunityLoginOtp({
       email: rawEmail,
       code,
     });
-    if (communityCodeInput) {
-      communityCodeInput.value = '';
+    if (refs.communityCodeInput) {
+      refs.communityCodeInput.value = '';
     }
-    setCommunityAuthHintMessage('Connexion réussie.');
-    showToast('Compte connecté.', {
+    setCommunityAuthHintMessage(refs.communityAuthHint, t('login.hint.success'));
+    showToast(t('login.toast.connected'), {
       duration: 1400,
     });
-    syncCommunitySessionUi();
-    closeSharedPanel('login');
+    syncCommunitySessionUi(refs);
   } catch (error) {
     clientLog("Failed to verify login code.", {
       code: error?.code,
@@ -224,42 +222,71 @@ async function verifyCommunityCode() {
       status: error?.status,
     });
     setCommunityAuthHintMessage(
-      resolveCommunityAuthErrorMessage(error, 'Vérification du code échouée.'),
+      refs.communityAuthHint,
+      resolveCommunityAuthErrorMessage(error, t('login.toast.invalidCode')),
       { isError: true },
     );
-    showToast('Code invalide ou expiré.', {
+    showToast(t('login.toast.invalidCode'), {
       variant: 'error',
       duration: 3000,
       details: formatErrorDetails(error),
     });
   } finally {
-    setCommunityAuthBusy(false);
+    setCommunityAuthBusy(refs, false);
   }
 }
 
-function disconnectCommunityAccount() {
+function disconnectCommunityAccount(refs) {
   logoutCommunity();
   pendingCommunityEmail = '';
-  if (communityCodeInput) {
-    communityCodeInput.value = '';
+  if (refs.communityCodeInput) {
+    refs.communityCodeInput.value = '';
   }
-  setCommunityCodeFieldVisible(false);
-  setCommunityAuthHintMessage('Compte déconnecté.');
-  showToast('Compte déconnecté.', {
+  setCommunityCodeFieldVisible(refs.communityCodeField, false);
+  setCommunityAuthHintMessage(refs.communityAuthHint, t('login.hint.loggedOut'));
+  showToast(t('login.toast.loggedOut'), {
     duration: 1400,
   });
-  syncCommunitySessionUi();
+  syncCommunitySessionUi(refs);
 }
 
 export function openLoginPanel() {
-  openSharedPanel('login');
+  document.dispatchEvent(new CustomEvent('open-settings-panel', { detail: { tab: 'login' } }));
 }
 
-function bindLoginPanelEvents() {
-  openLoginButton?.addEventListener('click', openLoginPanel);
-}
+export function initLoginUi() {
+  const communityAccountState = document.getElementById('communityAccountState');
+  const communityEmailField = document.getElementById('communityEmailField');
+  const communityEmailInput = /** @type {HTMLInputElement | null} */ (document.getElementById('communityEmailInput'));
+  const communityRequestCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityRequestCodeButton'));
+  const communityAuthHint = document.getElementById('communityAuthHint');
+  const communityCodeField = document.getElementById('communityCodeField');
+  const communityCodeInput = /** @type {HTMLInputElement | null} */ (document.getElementById('communityCodeInput'));
+  const communityVerifyCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityVerifyCodeButton'));
+  const communityLogoutButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityLogoutButton'));
+  const communityMyCatchesLink = /** @type {HTMLAnchorElement | null} */ (document.getElementById('communityMyCatchesLink'));
+  const communityDeleteAccountButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityDeleteAccountButton'));
 
-function bindCommunityAuthControls() {
+  if (communityMyCatchesLink) communityMyCatchesLink.href = buildCommunityUrl("/my/catches");
+
+  const refs = {
+    communityAccountState,
+    communityEmailField,
+    communityEmailInput,
+    communityRequestCodeButton,
+    communityAuthHint,
+    communityCodeField,
+    communityCodeInput,
+    communityVerifyCodeButton,
+    communityLogoutButton,
+    communityMyCatchesLink,
+    communityDeleteAccountButton,
+  };
+
+  subscribeLocaleChange(() => {
+    syncCommunitySessionUi(refs);
+  });
+
   if (
     !communityEmailInput ||
     !communityRequestCodeButton ||
@@ -270,15 +297,15 @@ function bindCommunityAuthControls() {
   }
 
   communityRequestCodeButton.addEventListener('click', () => {
-    void requestCommunityCode();
+    void requestCommunityCode(refs);
   });
 
   communityVerifyCodeButton.addEventListener('click', () => {
-    void verifyCommunityCode();
+    void verifyCommunityCode(refs);
   });
 
   communityLogoutButton?.addEventListener('click', () => {
-    disconnectCommunityAccount();
+    disconnectCommunityAccount(refs);
   });
 
   communityEmailInput.addEventListener('keydown', (event) => {
@@ -287,7 +314,7 @@ function bindCommunityAuthControls() {
     }
 
     event.preventDefault();
-    void requestCommunityCode();
+    void requestCommunityCode(refs);
   });
 
   communityCodeInput.addEventListener('keydown', (event) => {
@@ -296,12 +323,9 @@ function bindCommunityAuthControls() {
     }
 
     event.preventDefault();
-    void verifyCommunityCode();
+    void verifyCommunityCode(refs);
   });
 
-  subscribeCommunitySession(syncCommunitySessionUi);
-  syncCommunitySessionUi();
+  subscribeCommunitySession((session) => syncCommunitySessionUi(refs, session));
+  syncCommunitySessionUi(refs);
 }
-
-bindLoginPanelEvents();
-bindCommunityAuthControls();
