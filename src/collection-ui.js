@@ -935,6 +935,16 @@ async function handleSelectionExport() {
 }
 
 async function handleSelectionPublish() {
+  if (!getCurrentCommunitySession()?.token) {
+    showToast(t("collection.publish.auth"), {
+      variant: "error",
+      duration: 3500,
+      actionLabel: t("login.verifyCode"),
+      onAction: () => openLoginPanel(),
+    });
+    return;
+  }
+
   const toPublish = getDisplayPalettes().filter(
     (p) => selectedIds.has(p.id) && canPublishPalette(p) && getPalettePublicationAction(p) !== "unpublish",
   );
@@ -945,6 +955,16 @@ async function handleSelectionPublish() {
 }
 
 async function handleSelectionUnpublish() {
+  if (!getCurrentCommunitySession()?.token) {
+    showToast(t("collection.unpublish.auth"), {
+      variant: "error",
+      duration: 3500,
+      actionLabel: t("login.verifyCode"),
+      onAction: () => openLoginPanel(),
+    });
+    return;
+  }
+
   const toUnpublish = getDisplayPalettes().filter(
     (p) => selectedIds.has(p.id) && getPalettePublicationAction(p) === "unpublish",
   );
