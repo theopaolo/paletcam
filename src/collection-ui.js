@@ -1098,8 +1098,6 @@ function bindCollectionUiEvents() {
   subscribeSharedPanelClosing("collection", () => {
     clearModerationSyncLoop();
     closePaletteViewerOverlay();
-    exitSelectMode();
-    currentFilter = null;
   });
 
   subscribeAppSettings(handleCollectionSettingsChange);
