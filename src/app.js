@@ -12,6 +12,7 @@ import { createErrorToastOptions, reportAppError } from "./modules/error-reporti
 import { findClosestRAL, getRalQualityLabel } from "./modules/color-matching-ral.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
+import { createCameraGridUiController } from "./modules/camera-grid-ui.js";
 import {
   createPhotoQualityUiController,
   PHOTO_QUALITY_EXPORT_VALUES,
@@ -945,6 +946,7 @@ function setPreviewExpanded(shouldExpand) {
 let zoomUi = null;
 let exposureUi = null;
 let photoQualityUi = null;
+let gridUi = null;
 
 /** @param {ErrorLike | null | undefined} error */
 function handleCameraControllerError(error) {
@@ -1007,6 +1009,10 @@ exposureUi = createExposureUiController({
 photoQualityUi = createPhotoQualityUiController({
   overlayHost: cameraViewportFrame,
   onModeChange: (mode) => updateAppSettings({ photoQualityMode: mode }),
+});
+
+gridUi = createCameraGridUiController({
+  overlayHost: cameraViewportFrame,
 });
 
 function handleCaptureButtonClick(event) {
@@ -1347,6 +1353,7 @@ function initializeApp() {
   zoomUi.bindEvents();
   exposureUi.bindEvents();
   photoQualityUi.bindEvents();
+  gridUi.bindEvents();
   bindRotationEvents();
   swatchSliderUi.bindEvents();
   bindManagedEventListener(window, "beforeunload", handleWindowBeforeUnload);
@@ -1366,6 +1373,7 @@ function initializeApp() {
       zoomUi?.setDisabled();
       exposureUi?.setDisabled();
       photoQualityUi?.hide();
+      gridUi?.hide();
       const stream = cameraFeed?.srcObject;
       if (stream && configPanelEl && !configPipVideo && window.innerHeight < 800) {
         configPipVideo = document.createElement("video");
@@ -1393,6 +1401,7 @@ function initializeApp() {
       zoomUi?.syncCapabilities();
       exposureUi?.syncCapabilities();
       photoQualityUi?.show();
+      gridUi?.show();
     }
   });
   bindManagedEventListener(document, 'settings-drawer-change', (event) => {
@@ -1400,10 +1409,12 @@ function initializeApp() {
       zoomUi?.setDisabled();
       exposureUi?.setDisabled();
       photoQualityUi?.hide();
+      gridUi?.hide();
     } else {
       zoomUi?.syncCapabilities();
       exposureUi?.syncCapabilities();
       photoQualityUi?.show();
+      gridUi?.show();
     }
   });
   unsubscribeFromAppSettings = subscribeAppSettings(applyAppSettings);
@@ -1412,6 +1423,7 @@ function initializeApp() {
   zoomUi.initialize();
   exposureUi.initialize();
   photoQualityUi.initialize(getAppSettings().photoQualityMode);
+  gridUi.initialize();
   swatchSliderUi.initialize(swatchCount);
   syncCameraActionAvailability();
   clearPhotoOutput();
@@ -1877,6 +1889,7 @@ function destroyApp() {
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   photoQualityUi?.destroy?.();
+  gridUi?.destroy?.();
   cameraController.destroy?.();
   paletteExtractionWorker.destroy();
   performanceHud.destroy?.();

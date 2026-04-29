@@ -224,6 +224,7 @@ const fr = {
   "camera.exposure.reset": "Réinitialiser l'exposition",
   "camera.exposure.label": "Réglage de l'exposition",
   "camera.quality.aria": "Qualité photo : {mode}",
+  "camera.grid.aria": "Grille de composition",
   "camera.output.empty": "Aucun aperçu.",
   "ral.quality": "Similarité RAL {percentage}%",
   "publication.status.public": "publié",

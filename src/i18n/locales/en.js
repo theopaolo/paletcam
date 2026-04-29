@@ -219,6 +219,7 @@ const en = {
   "camera.exposure.reset": "Reset exposure",
   "camera.exposure.label": "Exposure adjustment",
   "camera.quality.aria": "Photo quality: {mode}",
+  "camera.grid.aria": "Composition grid",
   "camera.output.empty": "No preview yet.",
   "ral.quality": "RAL match {percentage}%",
   "publication.status.public": "published",

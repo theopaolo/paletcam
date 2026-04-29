@@ -1,0 +1,60 @@
+.camera-grid-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.22)),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.22)),
+    linear-gradient(to right, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.22)),
+    linear-gradient(to right, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.22));
+  background-size: 100% 1px, 100% 1px, 1px 100%, 1px 100%;
+  background-position: 0 33.333%, 0 66.667%, 33.333% 0, 66.667% 0;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.camera-grid-overlay.is-visible {
+  opacity: 1;
+}
+
+.camera-grid-toggle-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 7;
+  padding: var(--space-10) 0 0 var(--space-10);
+  pointer-events: none;
+}
+
+.camera-grid-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: rgba(10, 10, 10, 0.42);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
+}
+
+.camera-grid-toggle:active {
+  background: rgba(10, 10, 10, 0.65);
+}
+
+.camera-grid-toggle.is-active {
+  color: var(--color-camera-accent);
+  border-color: var(--color-accent-surface-strong);
+}

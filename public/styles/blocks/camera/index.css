@@ -1,6 +1,7 @@
 @import url("camera-zoom.css");
 @import url("camera-exposure.css");
 @import url("camera-quality.css");
+@import url("camera-grid.css");
 
 .capture-flash {
   position: absolute;
