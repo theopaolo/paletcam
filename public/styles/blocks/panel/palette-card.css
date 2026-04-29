@@ -152,3 +152,79 @@
 .palette-card-status:empty {
   display: none;
 }
+
+/* ── Swatch card ── */
+
+.palette-card--swatch .palette-card-trigger {
+  padding: 0;
+  display: block;
+}
+
+.palette-swatch-strip {
+  display: flex;
+  height: 3.25rem;
+  width: 100%;
+}
+
+.palette-swatch-segment {
+  flex: 1;
+  display: block;
+}
+
+/* ── Selection mode ── */
+
+.palette-card-select-indicator {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s var(--easing-standard), background 0.15s var(--easing-standard), border-color 0.15s var(--easing-standard);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+}
+
+.collection-grid.is-select-mode .palette-card-select-indicator {
+  opacity: 1;
+}
+
+.palette-card.is-selected .palette-card-select-indicator {
+  background: var(--color-accent-active, #ffc800);
+  border-color: var(--color-accent-active, #ffc800);
+}
+
+.palette-card-select-indicator::after {
+  content: "";
+  display: block;
+  width: 0.45rem;
+  height: 0.275rem;
+  border-left: 2px solid white;
+  border-bottom: 2px solid white;
+  transform: rotate(-45deg) translate(1px, -1px);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.palette-card.is-selected .palette-card-select-indicator::after {
+  opacity: 1;
+}
+
+.collection-grid.is-select-mode .palette-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+.collection-grid.is-select-mode .palette-card.is-selected::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--color-accent-active, #ffc800);
+  pointer-events: none;
+  z-index: 3;
+}

@@ -197,10 +197,94 @@
   color: var(--secondary-color);
 }
 
+.collection-filter-button {
+  margin-right: 0;
+  font-size: var(--font-size-sm);
+  transition: background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
+}
+
+.collection-filter-button.is-active {
+  background: var(--color-accent-surface);
+  border-color: var(--color-accent-border);
+  color: var(--color-accent-active);
+}
+
 .collection-view-toggle-button:disabled,
 .collection-toolbar-button:disabled {
   cursor: default;
   opacity: 0.42;
+}
+
+/* ── Selection bar ── */
+
+.collection-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-10) 0;
+  flex-wrap: wrap;
+}
+
+.collection-selection-bar[hidden] {
+  display: none;
+}
+
+.collection-selection-count {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--secondary-color);
+  min-width: 2ch;
+  flex-shrink: 0;
+}
+
+.collection-selection-count::after {
+  content: " ×";
+  opacity: 0.5;
+  font-weight: 400;
+}
+
+.collection-selection-actions {
+  display: flex;
+  gap: var(--space-6);
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.collection-selection-action {
+  appearance: none;
+  min-height: 40px;
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-overlay-strong);
+  color: var(--secondary-color);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.collection-selection-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.collection-selection-action--delete {
+  border-color: rgba(255, 100, 100, 0.4);
+  color: rgba(255, 170, 170, 0.9);
+}
+
+.collection-selection-cancel {
+  appearance: none;
+  min-height: 40px;
+  padding: var(--space-6) var(--space-10);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .collection-grid {
