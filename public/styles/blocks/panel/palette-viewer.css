@@ -269,29 +269,46 @@
 
 .ral-live-swatch-color {
   width: 100%;
-  height: 3rem;
+  height: 100%;
 }
 
 .ral-live-swatch-info {
+  position: absolute;
+  text-align: center;
+  font-size: var(--font-size-base);
   padding: var(--space-8) 0;
 }
 
-.ral-live-swatch-code {
+.ral-live-swatch-code,
+.ral-live-swatch-quality,
+.ral-live-swatch-name  {
   margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: 700;
+  font-size: var(--font-size-base);
+  text-transform: uppercase;
+}
+
+.ral-live-swatch-code {
   color: var(--color-text-primary);
 }
 
 .ral-live-swatch-name {
-  margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   color: var(--color-text-muted);
+  font-weight: 700;
 }
 
 .ral-live-swatch-quality {
-  margin: 0;
-  font-size: var(--font-size-sm);
   color: var(--color-accent);
-  text-transform: uppercase;
+}
+
+.ral-live-swatch.is-light-bg .ral-live-swatch-code {
+  color: color-mix(in srgb, var(--color-camera-readout-fg) 80%, transparent);
+}
+
+.ral-live-swatch.is-light-bg .ral-live-swatch-name {
+  color: var(--color-camera-readout-fg);
+}
+
+.ral-live-swatch.is-light-bg .ral-live-swatch-quality {
+  color: color-mix(in srgb, var(--color-camera-readout-fg) 65%, transparent);
 }

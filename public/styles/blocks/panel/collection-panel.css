@@ -108,9 +108,10 @@
 }
 
 .collection-panel-toolbar {
-  --toolbar-gap: var(--space-12) var(--space-16);
+  --toolbar-gap: var(--space-8);
   --toolbar-justify: flex-end;
   --toolbar-wrap: wrap;
+  padding:var(--space-8) ;
   max-width: 100%;
 }
 
@@ -147,7 +148,6 @@
 .collection-panel-body {
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--space-control-gap) var(--space-control-gap);
   scrollbar-gutter: stable;
 }
 
@@ -189,9 +189,8 @@
 }
 
 .collection-toolbar-button {
-  min-height: 44px;
   margin-right: auto;
-  padding: var(--space-8) var(--space-12);
+  padding: var(--space-8);
   border-color: var(--color-border-muted);
   background: var(--color-surface-overlay-strong);
   color: var(--secondary-color);

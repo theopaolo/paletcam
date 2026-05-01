@@ -14,7 +14,6 @@ settings-panel {
   display: grid;
   width: fit-content;
   gap: var(--space-control-padding);
-  max-height: calc(100% - 4rem);
   overflow-y: auto;
   padding: var(--space-control-gap) calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
     calc(var(--space-control-gap) + env(safe-area-inset-bottom, 0px))

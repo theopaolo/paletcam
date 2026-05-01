@@ -10,6 +10,7 @@ import { drawFrameToCanvas, renderOutputSwatches } from "./modules/camera-ui.js"
 import { clientLog } from "./modules/client-log.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import { findClosestRAL, getRalQualityLabel } from "./modules/color-matching-ral.js";
+import { relativeLuminance } from "./modules/color-space-oklch.js";
 import { formatErrorDetails } from "./modules/error-format.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
 import { createCameraGridUiController } from "./modules/camera-grid-ui.js";
@@ -704,6 +705,7 @@ function clonePaletteColors(colors) {
 }
 
 function clearRalPreviewState() {
+  ralLiveSwatch?.classList.remove("is-light-bg");
   if (ralLiveSwatchColor) {
     ralLiveSwatchColor.style.backgroundColor = "";
   }
@@ -719,6 +721,10 @@ function clearRalPreviewState() {
 }
 
 function syncRalPreview(match, sampledColor) {
+  if (ralLiveSwatch) {
+    const isLight = relativeLuminance(match.ral.r, match.ral.g, match.ral.b) > 0.179;
+    ralLiveSwatch.classList.toggle("is-light-bg", isLight);
+  }
   if (ralLiveSwatchColor) {
     ralLiveSwatchColor.style.backgroundColor = `rgb(${match.ral.r}, ${match.ral.g}, ${match.ral.b})`;
   }
@@ -1677,7 +1683,7 @@ async function captureCurrentFrame() {
     const currentRalMatch = currentLiveRalPreview?.match ?? readCurrentRalMatch();
     if (currentRalMatch) {
       paletteColors = [
-        { r: currentRalMatch.ral.r, g: currentRalMatch.ral.g, b: currentRalMatch.ral.b },
+        { r: currentRalMatch.ral.r, g: currentRalMatch.ral.g, b: currentRalMatch.ral.b, deltaE: currentRalMatch.deltaE },
       ];
       ralMatchData = {
         code: currentRalMatch.ral.code,
