@@ -1,5 +1,5 @@
 .zoom-btns {
-  color: var(--accent-color);
+  color: var(--color-accent);
   font-family: var(--font-family-mono);
 }
 
@@ -7,7 +7,7 @@
   position: absolute;
   display: flex;
   right: var(--space-8);
-  color: var(--accent-color);
+  color: var(--color-accent);
   font-family: var(--font-family-mono);
 }
 

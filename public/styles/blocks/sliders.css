@@ -8,7 +8,6 @@
 
 .swatch-slider {
   position: relative;
-  flex: 1 1 0;
   min-width: 0;
   width: 100%;
   display: flex;
@@ -16,6 +15,7 @@
   flex-direction: column;
   align-items: center;
   user-select: none;
+
   --swatch-inline-pad: var(--space-16);
   --swatch-thumb-width: 18px;
   --tick-count: 6;
@@ -26,6 +26,7 @@
   --tick-glow-width: 12px;
   --tick-glow-height: 9px;
   --tick-highlight-width: 0.65px;
+
   padding: var(--space-16) var(--swatch-inline-pad) var(--space-control-gap);
   overflow: visible;
   background: var(--gradient-slider-shell);
@@ -48,7 +49,7 @@
 }
 
 .swatch-scale-label {
-  color: #acacac;
+  color: var(--color-text-muted);
   font-weight: 700;
   font-family: var(--font-family-body);
   font-size: var(--font-size-sm);
@@ -84,9 +85,9 @@
   background:
     radial-gradient(
       circle at var(--tick-highlight-local) 50%,
-      rgba(255, 224, 109, 0.78) 0%,
-      rgba(255, 224, 109, 0.18) 35%,
-      rgba(255, 224, 109, 0) 72%
+      rgb(255 224 109 / 78%) 0%,
+      rgb(255 224 109 / 18%) 35%,
+      rgb(255 224 109 / 0%) 72%
     ),
     linear-gradient(
       to right,
@@ -95,11 +96,11 @@
       var(--color-accent-soft) calc(var(--tick-highlight-local) + var(--tick-highlight-width)),
       transparent calc(var(--tick-highlight-local) + var(--tick-highlight-width))
     ),
-    repeating-linear-gradient(to right, rgba(210, 210, 210, 0.82) 0 1.25px, transparent 1px 100%),
+    repeating-linear-gradient(to right, rgb(210 210 210 / 82%) 0 1.25px, transparent 1px 100%),
     linear-gradient(
       to right,
       transparent calc(100% - 1.25px),
-      rgba(210, 210, 210, 0.82) calc(100% - 1.25px) 100%
+      rgb(210 210 210 / 82%) calc(100% - 1.25px) 100%
     );
   background-size:
     var(--tick-glow-width) var(--tick-glow-height),
@@ -121,11 +122,10 @@
 
 .swatch-slider.is-active::before,
 .swatch-slider.is-dragging::before {
-  filter: drop-shadow(0 0 6px var(--color-accent-outline));
+  filter: drop-shadow(0 0 6px var(--color-accent-border));
 }
 
 .swatch-slider input[type="range"] {
-  -webkit-appearance: none;
   appearance: none;
   width: 100%;
   align-self: stretch;
@@ -139,25 +139,24 @@
   box-shadow:
     0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent) inset,
     inset 0 1px 8px rgb(0 0 0 / 70%),
-    0 0px 1px rgb(86 86 86);
+    0 0 1px rgb(86 86 86);
 }
 
 .swatch-slider input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
   appearance: none;
   width: var(--swatch-thumb-width);
   height: 16px;
   margin-top: 2px;
   border-radius: 3px;
   cursor: pointer;
-  border: 1px solid var(--color-surface-chrome-strong);
+  border: 1px solid var(--color-surface-ink);
   background:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02)) center 1px / 72%
+    linear-gradient(to bottom, rgb(255 255 255 / 50%), rgb(255 255 255 / 2%)) center 1px / 72%
     1px no-repeat,
     repeating-linear-gradient(
       to right,
-      rgba(18, 18, 18, 0.65) 0 1.5px,
-      rgba(86, 86, 86, 0.55) 1.5px 3px
+      rgb(18 18 18 / 65%) 0 1.5px,
+      rgb(86 86 86 / 55%) 1.5px 3px
     ),
     linear-gradient(to bottom, #5e5e5e 0%, #3a3a3a 50%, #1a1a1a 100%);
   box-shadow: var(--shadow-slider-thumb);
@@ -181,7 +180,7 @@
   box-shadow:
     0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent) inset,
     inset 0 1px 8px rgb(0 0 0 / 70%),
-    0 0px 1px rgb(86 86 86);
+    0 0 1px rgb(86 86 86);
 }
 
 .swatch-slider input[type="range"]::-moz-range-thumb {
@@ -189,14 +188,14 @@
   height: 16px;
   border-radius: 3px;
   cursor: pointer;
-  border: 1px solid var(--color-surface-chrome-strong);
+  border: 1px solid var(--color-surface-ink);
   background:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02)) center 1px / 72%
+    linear-gradient(to bottom, rgb(255 255 255 / 50%), rgb(255 255 255 / 2%)) center 1px / 72%
     1px no-repeat,
     repeating-linear-gradient(
       to right,
-      rgba(18, 18, 18, 0.65) 0 1.5px,
-      rgba(86, 86, 86, 0.55) 1.5px 3px
+      rgb(18 18 18 / 65%) 0 1.5px,
+      rgb(86 86 86 / 55%) 1.5px 3px
     ),
     linear-gradient(to bottom, #5e5e5e 0%, #3a3a3a 50%, #1a1a1a 100%);
   box-shadow: var(--shadow-slider-thumb);

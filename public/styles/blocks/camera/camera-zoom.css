@@ -23,7 +23,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-12);
+  gap: var(--space-16);
   padding: var(--space-4) var(--space-8);
   pointer-events: auto;
   touch-action: pan-y;
@@ -38,11 +38,11 @@
   position: relative;
   min-width: 1.5rem;
   height: 1.75rem;
-  padding: 0 var(--space-2);
+  padding: 0 2px;
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: rgba(248, 248, 248, 0.76);
+  color: rgb(248 248 248 / 76%);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-md);
   font-weight: 500;
@@ -59,7 +59,7 @@
 .camera-zoom-chip::after {
   content: "";
   position: absolute;
-  inset: var(--space-2) calc(var(--space-2) * -1);
+  inset: 2px -2px;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   opacity: 0;
@@ -84,7 +84,7 @@
   align-items: center;
   gap: var(--space-4);
   width: min(78vw, 11rem);
-  padding: var(--space-4) var(--space-2) var(--space-20);
+  padding: var(--space-4) 2px var(--space-24);
   opacity: 1;
   transform: none;
   transition:
@@ -97,7 +97,7 @@
 }
 
 .camera-zoom-scrubber.is-active {
-  transform: translateY(calc(var(--space-2) * -1));
+  transform: translateY(-2px);
 }
 
 .camera-zoom-dock.is-scrubbing .camera-zoom-scrubber {
@@ -130,12 +130,13 @@
 }
 
 .camera-zoom-scrubber.is-active .camera-zoom-readout {
-  transform: translateY(calc(var(--space-2) * -1));
-  background: rgba(255, 248, 214, 0.98);
+  transform: translateY(-2px);
+  background: rgb(255 248 214 / 98%);
 }
 
 .camera-zoom-ruler {
   --zoom-progress: 0.495;
+
   position: relative;
   z-index: 1;
   width: 100%;
@@ -150,10 +151,10 @@
 }
 
 .camera-zoom-ruler::before {
-  inset: var(--space-4) var(--space-12) 0;
+  inset: var(--space-4) var(--space-16) 0;
   background:
-    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.82) 0 0px, transparent 1px 6px),
-    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.98) 0 2px, transparent 2px 24px);
+    repeating-linear-gradient(to right, rgb(255 255 255 / 82%) 0 0, transparent 1px 6px),
+    repeating-linear-gradient(to right, rgb(255 255 255 / 98%) 0 2px, transparent 2px 24px);
   background-size:
     12px 62%,
     18px 100%;
@@ -165,8 +166,8 @@
 }
 
 .camera-zoom-ruler::after {
-  top: calc(var(--space-2) * -1);
-  bottom: calc(var(--space-2) * -0.5);
+  top: -2px;
+  bottom: -1px;
   left: calc(var(--zoom-progress) * 100%);
   width: 2px;
   transform: translateX(-50%);

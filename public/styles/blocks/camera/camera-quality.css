@@ -3,7 +3,7 @@
   top: 0;
   right: 0;
   z-index: 7;
-  padding: var(--space-10) var(--space-10) 0 0;
+  padding: var(--space-8) var(--space-8) 0 0;
   pointer-events: none;
 }
 
@@ -12,9 +12,9 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4) var(--space-8);
-  border: 1px solid var(--color-border-muted);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: rgba(10, 10, 10, 0.42);
+  background: rgb(10 10 10 / 42%);
   color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
@@ -31,10 +31,10 @@
 }
 
 .camera-quality-chip:active {
-  background: rgba(10, 10, 10, 0.65);
+  background: rgb(10 10 10 / 65%);
 }
 
 .camera-quality-chip[data-mode="fhd"] {
   color: var(--color-camera-accent);
-  border-color: var(--color-accent-surface-strong);
+  border-color: var(--color-accent-strong);
 }

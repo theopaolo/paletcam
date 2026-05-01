@@ -1,5 +1,5 @@
 @font-face {
-  font-family: "Museum";
+  font-family: Museum;
   src:
     url("../../assets/fonts/museum/PPMuseum-Light.woff") format("woff"),
     url("../../assets/fonts/museum/PPMuseum-Light.woff2") format("woff2");
@@ -9,7 +9,7 @@
 }
 
 @font-face {
-  font-family: "Museum";
+  font-family: Museum;
   src:
     url("../../assets/fonts/museum/PPMuseum-Regular.woff") format("woff"),
     url("../../assets/fonts/museum/PPMuseum-Regular.woff2") format("woff2");
@@ -19,7 +19,7 @@
 }
 
 @font-face {
-  font-family: "Museum";
+  font-family: Museum;
   src:
     url("../../assets/fonts/museum/PPMuseum-Ultrabold.woff") format("woff"),
     url("../../assets/fonts/museum/PPMuseum-Ultrabold.woff2") format("woff2");
@@ -29,7 +29,7 @@
 }
 
 @font-face {
-  font-family: "SNPro";
+  font-family: SNPro;
   src:
     url("../../assets/fonts/snpro/SNPro-Light.woff") format("woff"),
     url("../../assets/fonts/snpro/SNPro-Light.woff2") format("woff2");
@@ -39,7 +39,7 @@
 }
 
 @font-face {
-  font-family: "SNPro";
+  font-family: SNPro;
   src:
     url("../../assets/fonts/snpro/SNPro-Regular.woff") format("woff"),
     url("../../assets/fonts/snpro/SNPro-Regular.woff2") format("woff2");
@@ -49,7 +49,7 @@
 }
 
 @font-face {
-  font-family: "SNPro";
+  font-family: SNPro;
   src:
     url("../../assets/fonts/snpro/SNPro-Semibold.woff") format("woff"),
     url("../../assets/fonts/snpro/SNPro-Semibold.woff2") format("woff2");

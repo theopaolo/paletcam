@@ -4,7 +4,7 @@
   align-items: center;
   overflow-x: hidden;
   display: flex;
-  background: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
+  background: linear-gradient(to bottom, #171717 0%, #111 55%, #151515 100%);
   box-shadow: var(--shadow-control-inset);
 }
 
@@ -48,14 +48,14 @@
   color: rgb(240 240 240 / 69%);
   font-size: var(--font-size-md);
   text-transform: uppercase;
-  text-shadow: 0px 0px 0px #ffc90c6e;
+  text-shadow: 0 0 0 #ffc90c6e;
   line-height: 1.2;
 }
 
 .counter {
   box-shadow:
-    0px 2px 0px var(--color-accent-depth),
-    inset 0px 0px 19px var(--color-accent-primary);
+    0 2px 0 var(--color-accent-depth),
+    inset 0 0 19px var(--color-accent);
   border: 1px solid #bb9300;
   border-radius: var(--radius-sm);
   width: 2rem;

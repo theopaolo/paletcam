@@ -13,10 +13,10 @@
     radial-gradient(
       circle at 50% 50%,
       rgb(255 255 255 / 95%) 0%,
-      rgba(255, 255, 255, 0.22) 50%,
-      rgba(255, 255, 255, 0) 100%
+      rgb(255 255 255 / 22%) 50%,
+      rgb(255 255 255 / 0%) 100%
     ),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.75));
+    linear-gradient(180deg, rgb(255 255 255 / 75%), rgb(255 255 255 / 75%));
   mix-blend-mode: screen;
 }
 
@@ -64,8 +64,8 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  background: rgb(255 255 255 / 35%);
+  box-shadow: 0 0 4px rgb(0 0 0 / 50%);
   transform: translateY(-0.5px);
 }
 
@@ -74,7 +74,7 @@
   width: var(--sample-size, 6px);
   height: var(--sample-size, 6px);
   border: 1px solid var(--color-border-strong);
-  background: var(--color-surface-tint);
+  background: rgb(255 255 255 / 2%);
   transform: translate(-50%, -50%);
   transition:
     border-color 0.15s ease,
@@ -82,8 +82,8 @@
 }
 
 .sample-row-point.is-chosen {
-  border-color: rgba(255, 200, 0, 0.85);
-  background: var(--color-accent-surface);
+  border-color: rgb(255 200 0 / 85%);
+  background: var(--color-accent-dim);
 }
 
 .camera-preview-dock {
@@ -91,7 +91,7 @@
 }
 
 .camera-preview-dock .sample-row-line {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgb(255 255 255 / 25%);
 }
 
 .camera-feed,
@@ -102,9 +102,10 @@
   object-position: center;
   cursor: default;
   opacity: 1;
-  border: 0px solid var(--color-surface-ink);
-  box-shadow: var(--shadow-control-bevel);
+  border: 0 solid var(--color-surface-ink);
+  box-shadow: var(--shadow-chrome);
   border-radius: var(--space-16);
+  /* stylelint-disable-next-line scale-unlimited/declaration-strict-value */
   background-color: #0b0b0b;
   transition:
     border-radius 0.2s ease,
@@ -112,18 +113,17 @@
     border-width 0.2s ease;
 }
 
+.camera-feed-canvas {
+  -webkit-touch-callout: none;
+  user-select: none;
+  pointer-events: none;
+}
+
 .capture-camera-stage .camera-feed,
 .capture-camera-stage .camera-feed-canvas {
   border-radius: 0;
   border-width: 0;
   box-shadow: none;
-}
-
-
-.camera-feed-canvas {
-  -webkit-touch-callout: none;
-  user-select: none;
-  pointer-events: none;
 }
 
 .camera-source-mount {

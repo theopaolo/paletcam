@@ -8,9 +8,9 @@ settings-panel {
 
 .settings-drawer {
   position: absolute;
-  left: var(--space-6);
-  right: var(--space-6);
-  top: var(--space-6);
+  left: var(--space-8);
+  right: var(--space-8);
+  top: var(--space-8);
   display: grid;
   width: fit-content;
   gap: var(--space-control-padding);
@@ -19,10 +19,10 @@ settings-panel {
   padding: var(--space-control-gap) calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
     calc(var(--space-control-gap) + env(safe-area-inset-bottom, 0px))
     calc(var(--space-control-gap) + env(safe-area-inset-left, 0px));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgb(255 255 255 / 8%);
   border-radius: var(--space-control-gap);
   background:
-    var(--gradient-surface-panel-strong),
+    var(--gradient-surface-panel),
     var(--color-surface-overlay);
   pointer-events: auto;
 }
@@ -38,7 +38,7 @@ settings-panel.is-open .settings-drawer {
 @keyframes settings-drawer-enter {
   from {
     opacity: 0;
-    transform: translateY(calc(-1 * var(--space-12)));
+    transform: translateY(calc(-1 * var(--space-16)));
   }
 
   to {
@@ -49,7 +49,7 @@ settings-panel.is-open .settings-drawer {
 
 .settings-drawer-tabs {
   display: flex;
-  gap: var(--space-6);
+  gap: var(--space-8);
 }
 
 .settings-drawer-tab {
@@ -101,26 +101,28 @@ settings-panel.is-open .settings-drawer {
 }
 
 .settings-login-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   line-height: 1.3;
 }
 
-.settings-login-status.is-connected {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  color: var(--color-text-muted);
+.settings-login-status::before {
+  content: "";
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: 50%;
+  background: var(--color-text-warning);
+  opacity: 0.7;
+  flex-shrink: 0;
 }
 
 .settings-login-status.is-connected::before {
-  content: "";
-  width: var(--space-6);
-  height: var(--space-6);
-  border-radius: 50%;
-  background: rgba(120, 200, 120, 0.6);
-  flex-shrink: 0;
+  background: rgb(120 200 120 / 60%);
+  opacity: 1;
 }
 
 .settings-login-actions {
@@ -140,11 +142,11 @@ settings-panel.is-open .settings-drawer {
   align-items: center;
   justify-content: center;
   appearance: none;
-  border: 1px solid var(--color-border-muted);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--space-control-gap);
   background: transparent;
   color: var(--color-text-secondary);
-  padding: var(--space-6) var(--space-10);
+  padding: var(--space-8) var(--space-8);
   font: inherit;
   font-size: var(--font-size-sm);
   font-weight: 600;

@@ -11,7 +11,9 @@
 
 .toast {
   pointer-events: auto;
+
   --stack-index: 0;
+
   position: absolute;
   left: 0;
   right: 0;
@@ -20,14 +22,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-12);
-  padding: var(--space-12) var(--space-12) var(--space-16);
+  gap: var(--space-16);
+  padding: var(--space-16) var(--space-16) var(--space-16);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   overflow: visible;
   background: var(--color-surface-overlay-accent);
-  color: var(--secondary-color);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  color: var(--color-text-primary);
+  box-shadow: 0 12px 24px rgb(0 0 0 / 35%);
   opacity: 0;
   transform: translate3d(0, calc((var(--stack-index) * -10px) + 18px), 0)
     scale(calc(1 - (var(--stack-index) * 0.02)));
@@ -53,11 +55,11 @@
 }
 
 .toast--undo {
-  border-color: var(--color-accent-outline);
+  border-color: var(--color-accent-border);
 }
 
 .toast--error {
-  border-color: rgba(255, 152, 88, 0.92);
+  border-color: rgb(255 152 88 / 92%);
   color: var(--color-text-warning);
 }
 
@@ -82,29 +84,19 @@
   word-break: break-all;
 }
 
-.toast[data-toast-type="undo"]:not(.is-top) {
-  pointer-events: none;
-}
-
-.toast[data-toast-type="undo"]:not(.is-top) .toast-message,
-.toast[data-toast-type="undo"]:not(.is-top) .toast-action,
-.toast[data-toast-type="undo"]:not(.is-top) .toast-progress {
-  opacity: 0;
-}
-
 .toast-action {
-  padding: var(--space-6) var(--space-10);
-  border: 2px solid var(--color-accent-outline);
+  padding: var(--space-8) var(--space-8);
+  border: 2px solid var(--color-accent-border);
   border-radius: 0;
-  background: var(--color-accent-surface);
-  color: var(--accent-color);
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
   text-transform: uppercase;
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
 .toast-action:active {
-  background: var(--color-accent-surface-strong);
+  background: var(--color-accent-strong);
 }
 
 .toast-dismiss {
@@ -135,8 +127,18 @@
   animation: toast-progress-fill var(--toast-duration) linear forwards;
 }
 
+.toast[data-toast-type="undo"]:not(.is-top) {
+  pointer-events: none;
+}
+
+.toast[data-toast-type="undo"]:not(.is-top) .toast-message,
+.toast[data-toast-type="undo"]:not(.is-top) .toast-action,
+.toast[data-toast-type="undo"]:not(.is-top) .toast-progress {
+  opacity: 0;
+}
+
 .toast--default .toast-progress-bar {
-  background: rgba(255, 255, 255, 0.42);
+  background: rgb(255 255 255 / 42%);
 }
 
 .toast--undo .toast-progress-bar {
@@ -144,7 +146,7 @@
 }
 
 .toast--error .toast-progress-bar {
-  background: rgba(255, 152, 88, 0.92);
+  background: rgb(255 152 88 / 92%);
 }
 
 @keyframes toast-progress-fill {
@@ -165,7 +167,7 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }

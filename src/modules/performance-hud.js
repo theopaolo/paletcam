@@ -161,7 +161,7 @@ class PerformanceHudElement extends LitElement {
   static styles = css`
     :host {
       position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + var(--space-12));
+      top: calc(env(safe-area-inset-top, 0px) + var(--space-16));
       right: min(var(--space-16), 3vw);
       z-index: 1300;
       display: block;
@@ -174,11 +174,11 @@ class PerformanceHudElement extends LitElement {
     }
 
     .hud-shell {
-      border: 1px solid var(--color-border-muted);
-      border-radius: var(--space-12);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
       background:
         linear-gradient(180deg, var(--color-surface-overlay), rgba(0, 0, 0, 0.82)),
-        var(--color-surface-overlay-strong);
+        var(--color-surface-overlay);
       box-shadow:
         0 0.8rem 2rem rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -191,8 +191,8 @@ class PerformanceHudElement extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: var(--space-12);
-      padding: var(--space-12) var(--space-12) var(--space-8);
+      gap: var(--space-16);
+      padding: var(--space-16) var(--space-16) var(--space-8);
       font-size: var(--font-size-xs);
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -207,18 +207,18 @@ class PerformanceHudElement extends LitElement {
     }
 
     .hud-pill {
-      padding: var(--space-2) var(--space-6);
+      padding: 2px var(--space-8);
       border-radius: var(--radius-pill);
-      background: var(--color-accent-surface);
+      background: var(--color-accent-dim);
       color: var(--color-accent-soft);
     }
 
     .hud-grid {
       margin: 0;
-      padding: 0 var(--space-12) var(--space-12);
+      padding: 0 var(--space-16) var(--space-16);
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--space-8) var(--space-12);
+      gap: var(--space-8) var(--space-16);
     }
 
     .hud-grid div {
@@ -226,7 +226,7 @@ class PerformanceHudElement extends LitElement {
     }
 
     dt {
-      margin: 0 0 var(--space-2);
+      margin: 0 0 2px;
       font-size: var(--font-size-xs);
       opacity: 0.62;
       text-transform: uppercase;

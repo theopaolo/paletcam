@@ -19,15 +19,16 @@
 
 /* 3b. Prevent text resizing in landscape on iOS */
 html {
-  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   /* 4. Add accessible line-height */
   line-height: 1.5;
+
   /* 5. Improve text rendering */
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  text-rendering: optimizelegibility;
 }
 
 /* 5b. Disable default iOS tap highlight */
@@ -48,8 +49,8 @@ button,
 
 /* 5d. Document selection styling */
 ::selection {
-  background: rgba(255, 200, 0, 0.35);
-  color: #fff;
+  background: rgb(255 200 0 / 35%);
+  color: var(--color-text-primary);
 }
 
 /* 6. Improve media defaults */

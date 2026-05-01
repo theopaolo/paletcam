@@ -40,6 +40,7 @@ import {
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import { isIOSDevice } from "./modules/platform.js";
 import {
+  closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosing,
 } from "./modules/panels/panel-manager.js";
@@ -698,6 +699,7 @@ async function handlePublishPalette(palette, action = "publish") {
       actionLabel: t("login.verifyCode"),
       onAction: () => {
         closePaletteViewerOverlay();
+        closeSharedPanel("collection");
         openLoginPanel();
       },
     });

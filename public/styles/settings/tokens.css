@@ -1,15 +1,57 @@
 :root {
-  /* Raw palette */
-  --color-raw-chrome-shadow: #303030;
-  --color-raw-chrome-highlight: #5757578a;
-  --color-raw-control-900: #111111;
-  --color-raw-control-950: #0c0c0c;
-  --color-neutral-970: #1b1b1b;
-  --color-neutral-950: #222222;
-  --color-neutral-900: #2f2c1f;
-  --color-neutral-050: #f0f0f0;
-  --color-accent-500: #ffc800;
-  --gradient-raw-control-shell: linear-gradient(
+  /* === Colors === */
+
+  /* Surfaces */
+  --color-surface-shell: #0c0c0c;
+  --color-surface-ink: #111;
+  --color-surface-raised: #1b1b1b;
+  --color-surface-base: #222;
+  --color-surface-control: #2f2c1f;
+  --color-surface-overlay: rgb(10 10 10 / 92%);
+  --color-surface-overlay-accent: rgb(10 8 3 / 97%);
+
+  /* Text */
+  --color-text-primary: #f0f0f0;
+  --color-text-secondary: rgb(240 240 240 / 90%);
+  --color-text-muted: rgb(240 240 240 / 72%);
+  --color-text-accent: #fff1b8;
+  --color-text-warning: #ffd08f;
+
+  /* Borders */
+  --color-border-subtle: rgb(255 255 255 / 12%);
+  --color-border-default: rgb(255 255 255 / 20%);
+  --color-border-strong: rgb(255 255 255 / 25%);
+
+  /* Accent */
+  --color-accent: #ffc800;
+  --color-accent-soft: #ffe06d;
+  --color-accent-depth: color-mix(in srgb, var(--color-accent) 60%, black);
+  --color-accent-dim: rgb(255 200 0 / 12%);
+  --color-accent-strong: rgb(255 200 0 / 24%);
+  --color-accent-border: rgb(255 200 0 / 65%);
+  --color-accent-active: rgb(255 200 0 / 90%);
+
+  /* Feedback */
+  --color-danger: #ff4a4a;
+  --color-danger-soft: #ffd6d6;
+  --color-success: #4caf50;
+  --color-success-soft: #a8e6a0;
+
+  /* Camera */
+  --color-camera-accent: var(--color-accent-soft);
+  --color-camera-readout-bg: rgb(247 247 247 / 94%);
+  --color-camera-readout-fg: #161616;
+
+  /* Polaroid exports */
+  --color-polaroid-shell-light: #fff;
+  --color-polaroid-shell-dark: #101214;
+  --color-polaroid-footer-light: #f7f7f7;
+  --color-polaroid-footer-dark: #101214;
+  --color-polaroid-footer-text-light: rgb(34 34 34 / 90%);
+  --color-polaroid-footer-text-dark: rgb(255 255 255 / 94%);
+
+  /* === Gradients === */
+  --gradient-control-shell: linear-gradient(
     #181818,
     #141414 8%,
     #131313 20%,
@@ -17,119 +59,83 @@
     #131313bd 80%,
     #161616
   );
-  --gradient-raw-control-shell-pressed: linear-gradient(
-    #111111 10%,
+  --gradient-control-shell-pressed: linear-gradient(
+    #111 10%,
     #101010 20%,
     #0c0c0c 40%,
     #080808 50%,
     #0b0b0b
   );
-  --gradient-raw-control-surface: linear-gradient(180deg, #1f1f1f 0%, #111111 100%);
-  --gradient-raw-slider-shell: linear-gradient(to bottom, #171717 0%, #111111 55%, #151515 100%);
-  --gradient-raw-slider-track: linear-gradient(#111111 30%, #141414 50%, #141414 80%, #141414);
-
-  /* Semantic aliases */
-  --color-surface-chrome: var(--color-raw-control-950);
-  --color-surface-chrome-strong: var(--color-raw-control-900);
-  --color-surface-ink: var(--color-raw-control-900);
-  --color-surface-raised: var(--color-neutral-970);
-  --color-surface-app: var(--color-neutral-950);
-  --color-surface-control: var(--color-neutral-900);
-  --color-surface-overlay: rgba(18, 18, 18, 0.98);
-  --color-surface-overlay-strong: rgba(10, 10, 10, 0.92);
-  --color-surface-overlay-accent: rgba(10, 8, 3, 0.97);
-  --color-surface-tint: rgba(255, 255, 255, 0.02);
-  --color-surface-tint-soft: rgba(255, 255, 255, 0.04);
-  --color-surface-tint-strong: rgba(255, 255, 255, 0.12);
-  --color-text-primary: var(--color-neutral-050);
-  --color-text-secondary: rgba(240, 240, 240, 0.9);
-  --color-text-muted: rgba(240, 240, 240, 0.72);
-  --color-text-soft: rgba(255, 255, 255, 0.68);
-  --color-text-accent-soft: #fff1b8;
-  --color-text-warning: #ffd08f;
-  --color-accent-primary: var(--color-accent-500);
-  --color-accent-soft: #ffe06d;
-  --color-accent-depth: color-mix(in srgb, var(--color-accent-primary) 60%, black);
-  --color-accent-surface: rgba(255, 200, 0, 0.12);
-  --color-accent-surface-strong: rgba(255, 200, 0, 0.24);
-  --color-accent-border: rgba(255, 200, 0, 0.6);
-  --color-accent-outline: rgba(255, 200, 0, 0.75);
-  --color-accent-active: rgba(255, 200, 0, 0.9);
-  --color-border-subtle: rgba(255, 255, 255, 0.08);
-  --color-border-muted: rgba(255, 255, 255, 0.12);
-  --color-border-default: rgba(255, 255, 255, 0.2);
-  --color-border-strong: rgba(255, 255, 255, 0.25);
-  --color-feedback-danger: #ff4a4a;
-  --color-feedback-danger-soft: #ffd6d6;
-  --color-feedback-success: #4caf50;
-  --color-feedback-success-soft: #a8e6a0;
+  --gradient-control-surface: linear-gradient(180deg, #1f1f1f 0%, #111 100%);
+  --gradient-slider-shell: linear-gradient(to bottom, #171717 0%, #111 55%, #151515 100%);
+  --gradient-slider-track: linear-gradient(#111 30%, #141414 50%, #141414 80%, #141414);
   --gradient-surface-panel: linear-gradient(
     180deg,
-    var(--color-surface-tint-soft),
-    var(--color-surface-tint)
-  );
-  --gradient-surface-panel-strong: linear-gradient(
-    180deg,
-    var(--color-surface-tint-soft),
-    rgba(255, 255, 255, 0.01)
+    rgb(255 255 255 / 4%),
+    rgb(255 255 255 / 1%)
   );
   --gradient-surface-sheen: linear-gradient(
     180deg,
-    var(--color-surface-tint-strong) 0%,
-    rgba(255, 255, 255, 0) 45%,
-    rgba(0, 0, 0, 0.25) 100%
+    rgb(255 255 255 / 12%) 0%,
+    rgb(255 255 255 / 0%) 45%,
+    rgb(0 0 0 / 25%) 100%
   );
   --gradient-accent-metal: linear-gradient(
     182deg,
     var(--color-accent-soft) 5%,
-    color-mix(in srgb, var(--color-accent-primary) 72%, black) 50%,
-    color-mix(in srgb, var(--color-accent-primary) 72%, black) 100%
+    color-mix(in srgb, var(--color-accent) 72%, black) 50%,
+    color-mix(in srgb, var(--color-accent) 72%, black) 100%
   );
-  --shadow-control-bevel:
-    inset 0 2px 5px var(--color-raw-chrome-highlight),
-    0 2px 4px var(--color-raw-chrome-shadow);
-  --shadow-control-bevel-tight:
-    inset 1px 2px 4px var(--color-raw-chrome-highlight),
-    1px 1px 4px var(--color-raw-chrome-shadow);
-  --shadow-control-inset:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.62);
-  --shadow-accent-outline:
-    inset 0 0 0 1px var(--color-accent-surface),
-    0 0 0 1px rgba(255, 200, 0, 0.06);
-  --shadow-slider-thumb:
-    inset 0 1px 1px rgba(255, 255, 255, 0.14),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.72),
-    0 1px 1px rgba(0, 0, 0, 0.64);
-  --shadow-slider-thumb-active:
-    inset 0 1px 1px rgba(255, 255, 255, 0.1),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.78),
-    0 1px 1px rgba(0, 0, 0, 0.68),
-    0 0 7px rgba(255, 224, 109, 0.45);
-  --gradient-control-shell: var(--gradient-raw-control-shell);
-  --gradient-control-shell-pressed: var(--gradient-raw-control-shell-pressed);
-  --gradient-control-surface: var(--gradient-raw-control-surface);
-  --gradient-slider-shell: var(--gradient-raw-slider-shell);
-  --gradient-slider-track: var(--gradient-raw-slider-track);
 
-  /* Layout */
+  /* === Shadows === */
+  --shadow-chrome:
+    inset 0 2px 5px rgb(87 87 87 / 54%),
+    0 2px 4px #303030;
+  --shadow-chrome-tight:
+    inset 1px 2px 4px rgb(87 87 87 / 54%),
+    1px 1px 4px #303030;
+  --shadow-control-inset:
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    inset 0 -2px 4px rgb(0 0 0 / 62%);
+  --shadow-accent-outline:
+    inset 0 0 0 1px var(--color-accent-dim),
+    0 0 0 1px rgb(255 200 0 / 6%);
+  --shadow-slider-thumb:
+    inset 0 1px 1px rgb(255 255 255 / 14%),
+    inset 0 -1px 2px rgb(0 0 0 / 72%),
+    0 1px 1px rgb(0 0 0 / 64%);
+  --shadow-slider-thumb-active:
+    inset 0 1px 1px rgb(255 255 255 / 10%),
+    inset 0 -1px 2px rgb(0 0 0 / 78%),
+    0 1px 1px rgb(0 0 0 / 68%),
+    0 0 7px rgb(255 224 109 / 45%);
+
+  /* === Layout === */
   --app-height: 100vh;
   --app-shell-max-width: 500px;
 
-  /* Spacing scale */
-  --space-2: 0.125rem;
+  /* === Spacing — 8px grid === */
   --space-4: 0.25rem;
-  --space-6: 0.375rem;
   --space-8: 0.5rem;
-  --space-10: 0.625rem;
-  --space-12: 0.75rem;
   --space-16: 1rem;
-  --space-20: 1.25rem;
   --space-24: 1.5rem;
+  --space-32: 2rem;
+  --space-48: 3rem;
   --space-control-padding: var(--space-4);
   --space-control-gap: var(--space-8);
 
-  /* Type scale */
+  /* === Overlay controls === */
+  --overlay-control-height: 1.5rem;
+  --overlay-control-radius: var(--radius-md);
+  --overlay-control-padding-x: var(--space-8);
+  --overlay-control-gap: var(--space-8);
+  --overlay-control-border: var(--color-border-default);
+  --overlay-control-color: var(--color-text-muted);
+  --overlay-control-color-active: var(--color-accent);
+  --overlay-control-border-active: var(--color-accent-active);
+  --overlay-control-press-offset: 2px;
+
+  /* === Typography === */
   --font-family-body: "SNPro", sans-serif;
   --font-family-mono: monospace;
   --font-size-2xs: 0.5rem;
@@ -137,51 +143,18 @@
   --font-size-sm: 0.75rem;
   --font-size-md: 0.875rem;
   --font-size-base: 1rem;
-  --font-size-lg: 1.25rem;
 
-  /* Radii */
+  /* === Radii === */
   --radius-sm: 0.125rem;
   --radius-md: 0.25rem;
   --radius-lg: 0.5rem;
   --radius-pill: 999px;
 
-  /* Overlay controls */
-  --overlay-control-height: 1.5rem;
-  --overlay-control-radius: var(--radius-md);
-  --overlay-control-padding-x: var(--space-8);
-  --overlay-control-gap: var(--space-8);
-  --overlay-control-border: var(--color-border-default);
-  --overlay-control-color: var(--color-text-muted);
-  --overlay-control-color-active: var(--color-accent-primary);
-  --overlay-control-border-active: var(--color-accent-active);
-  --overlay-control-press-offset: var(--space-2);
-
-  /* Focus ring */
-  --focus-ring: 2px solid var(--color-accent-outline);
+  /* === Focus === */
+  --focus-ring: 2px solid var(--color-accent-border);
   --focus-ring-offset: 2px;
 
-  /* Motion */
-  --duration-200: 0.2s;
-  --duration-fast: var(--duration-200);
-  --easing-ease: ease;
-  --easing-standard: var(--easing-ease);
-
-  /* Camera overlay controls */
-  --color-camera-accent: var(--color-accent-soft);
-  --color-camera-readout-bg: rgba(247, 247, 247, 0.94);
-  --color-camera-readout-fg: #161616;
-
-  /* Polaroid exports */
-  --color-polaroid-shell-light: #ffffff;
-  --color-polaroid-shell-dark: #101214;
-  --color-polaroid-footer-light: #f7f7f7;
-  --color-polaroid-footer-dark: #101214;
-  --color-polaroid-footer-text-light: rgba(34, 34, 34, 0.9);
-  --color-polaroid-footer-text-dark: rgba(255, 255, 255, 0.94);
-
-  /* Legacy aliases kept for compatibility during migration */
-  --primary-color: var(--color-surface-app);
-  --dark-color: var(--color-surface-control);
-  --secondary-color: var(--color-text-primary);
-  --accent-color: var(--color-accent-primary);
+  /* === Motion === */
+  --duration-fast: 0.2s;
+  --easing-standard: ease;
 }
