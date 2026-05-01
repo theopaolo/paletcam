@@ -53,9 +53,7 @@ setLocale(getAppSettings().locale, { force: true });
 
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
 const captureButton = /** @type {HTMLButtonElement | null} */ (document.querySelector(".btn-capture"));
-const captureModeButtons = Array.from(
-  document.querySelectorAll("[data-capture-mode-control]"),
-);
+const captureModeToggle = /** @type {HTMLButtonElement | null} */ (document.querySelector('.btn-capture-mode-toggle'));
 const allowButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-allow-media"));
 const allowText = /** @type {HTMLElement | null} */ (
   document.querySelector(".allow-container span")
@@ -819,10 +817,11 @@ function syncCaptureMode(mode) {
   const isRal = mode === "ral";
   currentCaptureMode = mode;
 
-  captureModeButtons.forEach((button) => {
-    const buttonMode = button.getAttribute("data-capture-mode-control");
-    button.setAttribute("aria-pressed", String(buttonMode === mode));
-  });
+  if (captureModeToggle) {
+    captureModeToggle.textContent = mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral");
+    captureModeToggle.dataset.captureMode = mode;
+    captureModeToggle.setAttribute("aria-label", t("capture.mode.toggleAria", { mode: mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral") }));
+  }
 
   // Toggle camera UI elements
   document.body.classList.toggle("is-ral-mode", isRal);
@@ -890,13 +889,9 @@ function applyAppSettings({
   syncCaptureMode(captureMode);
 }
 
-captureModeButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const nextMode = button.getAttribute("data-capture-mode-control");
-    if (nextMode === "palette" || nextMode === "ral") {
-      updateAppSettings({ captureMode: nextMode });
-    }
-  });
+captureModeToggle?.addEventListener("click", () => {
+  const nextMode = currentCaptureMode === "ral" ? "palette" : "ral";
+  updateAppSettings({ captureMode: nextMode });
 });
 
 function mountCameraFeed(targetElement) {

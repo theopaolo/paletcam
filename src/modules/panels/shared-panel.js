@@ -41,7 +41,7 @@ class SharedPanelElement extends LitElement {
       box-sizing: border-box;
       padding: var(--shared-panel-padding, var(--space-control-gap));
       background-color: #1b1b1b;
-      color: var(--secondary-color, #f0f0f0);
+      color: var(--color-text-primary, #f0f0f0);
       transform: translateX(var(--panel-slide-from, 100%));
       transition: transform var(--duration-fast) cubic-bezier(0.65, 0.05, 0.36, 1);
       pointer-events: auto;
@@ -104,11 +104,11 @@ class SharedPanelElement extends LitElement {
       padding: 0;
       width: 3rem;
       height: 3rem;
-      color: var(--color-text);
+      color: var(--color-text-primary);
       font-size: 2rem;
       border-radius: var(--radius-pill);
       border: 4px solid var(--color-surface-ink);
-      box-shadow: var(--shadow-control-bevel);
+      box-shadow: var(--shadow-chrome);
       background: var(--gradient-control-shell);
       appearance: none;
       -webkit-appearance: none;

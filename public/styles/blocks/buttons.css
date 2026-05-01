@@ -41,8 +41,8 @@
 .btn-containers .allow-container span {
   max-width: 9ch;
   line-height: 0.85;
-  color: var(--accent-color);
-  text-shadow: 0px 0px 1px var(--accent-color);
+  color: var(--color-accent);
+  text-shadow: 0 0 1px var(--color-accent);
   font-size: var(--font-size-md);
 }
 
@@ -53,14 +53,14 @@
   padding: var(--space-control-padding);
   width: 1.5rem;
   height: 1.5rem;
-  background-color: var(--dark-color);
-  border: 1px solid var(--accent-color);
-  box-shadow: inset 0px 0px 3px var(--accent-color);
+  background-color: var(--color-surface-control);
+  border: 1px solid var(--color-accent);
+  box-shadow: inset 0 0 3px var(--color-accent);
   border-radius: var(--radius-sm);
 }
 
 .btn-containers .btn-allow-media svg {
-  fill: var(--secondary-color);
+  fill: var(--color-text-primary);
   stroke-width: 4px;
   border: 1px;
 }
@@ -83,7 +83,7 @@
   flex-shrink: 0;
   overflow: hidden;
   border-radius: var(--space-16);
-  box-shadow: var(--shadow-control-bevel);
+  box-shadow: var(--shadow-chrome);
   background: var(--gradient-control-shell);
   transition:
     width var(--duration-fast) var(--easing-standard),
@@ -93,7 +93,7 @@
 
 .btn-containers .mini-output {
   border-radius: var(--space-control-padding);
-  border: 4px solid var(--color-surface-chrome);
+  border: 4px solid var(--color-surface-shell);
   height: 4rem;
   width: 4rem;
 }
@@ -108,10 +108,9 @@
   height: 3rem;
   border-radius: var(--radius-pill);
   border: 4px solid var(--color-surface-ink);
-  box-shadow: var(--shadow-control-bevel);
+  box-shadow: var(--shadow-chrome);
   background: var(--gradient-control-shell);
   appearance: none;
-  -webkit-appearance: none;
 }
 
 .btn-containers .camera-action-icon {
@@ -129,7 +128,7 @@
 .btn-containers .btn-view-collection:active,
 .btn-containers .btn-rotate:active {
   border: 3px solid var(--color-surface-ink);
-  box-shadow: var(--shadow-control-bevel);
+  box-shadow: var(--shadow-chrome);
   background: var(--gradient-control-shell-pressed);
 }
 
@@ -140,6 +139,7 @@
 
 .btn-containers .btn-capture {
   --capture-glow-rgb: 255, 200, 0;
+
   position: relative;
   display: flex;
   justify-content: center;
@@ -150,9 +150,9 @@
   border-radius: 100vw;
   border: 4px solid rgb(var(--capture-glow-rgb));
   box-shadow:
-    var(--shadow-control-bevel),
-    0 0 0 rgba(var(--capture-glow-rgb), 0),
-    0 0 0 rgba(var(--capture-glow-rgb), 0);
+    var(--shadow-chrome),
+    0 0 0 rgb(var(--capture-glow-rgb), 0),
+    0 0 0 rgb(var(--capture-glow-rgb), 0);
   background: var(--gradient-control-shell);
   transform: scale(1);
   transition:
@@ -164,7 +164,7 @@
 
 .btn-containers .btn-capture::after {
   content: "";
-  background: linear-gradient(#212121, #1f1f1f 10%, #0c0c0c 30%, #000000 50%, #000000 80%, #000000);
+  background: linear-gradient(#212121, #1f1f1f 10%, #0c0c0c 30%, #000 50%, #000 80%, #000);
 }
 
 .btn-containers .btn-capture:disabled,
@@ -175,16 +175,24 @@
 .btn-containers .btn-capture:active {
   border: 3px solid var(--color-surface-ink);
   box-shadow:
-    var(--shadow-control-bevel),
-    0 0 14px rgba(var(--capture-glow-rgb), 0.2);
+    var(--shadow-chrome),
+    0 0 14px rgb(var(--capture-glow-rgb), 0.2);
   background: var(--gradient-control-shell-pressed);
 }
 
 .btn-containers .btn-capture.is-catching {
   box-shadow:
-    var(--shadow-control-bevel),
-    0 0 12px rgba(var(--capture-glow-rgb), 0.34),
-    0 0 24px rgba(var(--capture-glow-rgb), 0.2);
+    var(--shadow-chrome),
+    0 0 12px rgb(var(--capture-glow-rgb), 0.34),
+    0 0 24px rgb(var(--capture-glow-rgb), 0.2);
+}
+
+.btn-shoot {
+  width: 2rem;
+  height: 2rem;
+  transition: filter 0.12s ease-out;
+  position: relative;
+  z-index: 1;
 }
 
 .btn-containers .btn-capture.is-pop {
@@ -198,9 +206,9 @@
 .btn-containers .btn-capture.is-loading {
   opacity: 0.96;
   box-shadow:
-    var(--shadow-control-bevel),
-    0 0 14px rgba(var(--capture-glow-rgb), 0.26),
-    0 0 28px rgba(var(--capture-glow-rgb), 0.14);
+    var(--shadow-chrome),
+    0 0 14px rgb(var(--capture-glow-rgb), 0.26),
+    0 0 28px rgb(var(--capture-glow-rgb), 0.14);
   animation: capture-button-loading-pulse 1.1s ease-in-out infinite;
 }
 
@@ -215,33 +223,25 @@
 .camera-actions {
   --toolbar-gap: var(--space-16);
   --toolbar-justify: center;
+
   flex: 1;
   min-width: 0;
 }
-
-.btn-shoot {
-  width: 2rem;
-  height: 2rem;
-  transition: filter 0.12s ease-out;
-  position: relative;
-  z-index: 1;
-}
-
 
 @keyframes capture-button-loading-pulse {
   0%,
   100% {
     box-shadow:
-      var(--shadow-control-bevel),
-      0 0 10px rgba(var(--capture-glow-rgb), 0.18),
-      0 0 18px rgba(var(--capture-glow-rgb), 0.08);
+      var(--shadow-chrome),
+      0 0 10px rgb(var(--capture-glow-rgb), 0.18),
+      0 0 18px rgb(var(--capture-glow-rgb), 0.08);
   }
 
   50% {
     box-shadow:
-      var(--shadow-control-bevel),
-      0 0 18px rgba(var(--capture-glow-rgb), 0.3),
-      0 0 32px rgba(var(--capture-glow-rgb), 0.18);
+      var(--shadow-chrome),
+      0 0 18px rgb(var(--capture-glow-rgb), 0.3),
+      0 0 32px rgb(var(--capture-glow-rgb), 0.18);
   }
 }
 
@@ -262,36 +262,37 @@
 
 .btn-small {
   padding: var(--space-control-padding);
-  border: 1px solid var(--secondary-color);
-  color: var(--secondary-color);
+  border: 1px solid var(--color-text-primary);
+  color: var(--color-text-primary);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--font-size-md);
   box-shadow:
-    0px 2px 0px var(--color-accent-depth),
-    inset 0px 0px 12px var(--color-accent-primary);
+    0 2px 0 var(--color-accent-depth),
+    inset 0 0 12px var(--color-accent);
   background: var(--gradient-accent-metal);
 }
 
 .btn-small,
 .counter {
   border-color: var(--color-accent-depth);
+  /* stylelint-disable-next-line scale-unlimited/declaration-strict-value */
   color: #5a5336;
-  text-shadow: 0px 1px 0px var(--color-accent-primary);
+  text-shadow: 0 1px 0 var(--color-accent);
 }
 
 .btn-small:active {
   box-shadow:
-    0px 0px 13px #191400,
-    inset 0px 0px 7px var(--color-accent-primary);
+    0 0 13px #191400,
+    inset 0 0 7px var(--color-accent);
   border: 1px solid #222017;
   border-radius: var(--radius-sm);
 }
 
 .btn-action {
-  border: 1px solid var(--secondary-color);
+  border: 1px solid var(--color-text-primary);
   background-color: transparent;
-  color: var(--secondary-color);
+  color: var(--color-text-primary);
   cursor: pointer;
   font-size: var(--font-size-md);
   transition: all var(--duration-fast) var(--easing-standard);
@@ -311,9 +312,36 @@
   bottom: var(--space-8);
   left: var(--space-8);
   z-index: 4;
-  display: inline-grid;
-  grid-auto-flow: column;
-  gap: var(--space-control-gap);
+}
+
+.btn-capture-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: rgb(10 10 10 / 42%);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
+}
+
+.btn-capture-mode-toggle:active {
+  background: rgb(10 10 10 / 65%);
+}
+
+.btn-capture-mode-toggle[data-capture-mode="ral"] {
+  color: var(--color-camera-accent);
+  border-color: var(--color-accent-strong);
 }
 
 .btn-overlay-control {
@@ -358,11 +386,7 @@
   flex: none;
   width: 1rem;
   height: 1rem;
-  background-color: currentColor;
-  -webkit-mask-image: url("/icons/settings.svg");
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
+  background-color: currentcolor;
   mask-image: url("/icons/settings.svg");
   mask-position: center;
   mask-repeat: no-repeat;
@@ -378,9 +402,9 @@
   padding: 0;
   border: 2px solid var(--color-surface-ink);
   border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-control-bevel);
+  box-shadow: var(--shadow-chrome);
   background: var(--gradient-control-shell);
-  color: var(--secondary-color);
+  color: var(--color-text-primary);
   cursor: pointer;
   transition:
     transform 0.14s var(--easing-standard),
@@ -395,17 +419,18 @@
   transition: transform 0.14s var(--easing-standard);
 }
 
-.btn-open-settings svg{
-  fill: var(--color-border-muted)
+/* stylelint-disable-next-line no-descending-specificity */
+.btn-open-settings svg {
+  fill: var(--color-border-subtle);
 }
 
 
 .btn-open-settings:active,
 .btn-open-login:active {
   transform: translateY(1px);
-  border-color: rgba(255, 200, 0, 0.4);
+  border-color: rgb(255 200 0 / 40%);
   background:
-    var(--gradient-surface-panel-strong),
+    var(--gradient-surface-panel),
     var(--color-surface-overlay);
 }
 

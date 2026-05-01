@@ -8,6 +8,7 @@
     "build": "bun run scripts/build.js",
     "test": "bun test",
     "css:audit": "bun run scripts/css-token-audit.js",
+    "lint:css": "stylelint 'public/styles/**/*.css'",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
@@ -15,7 +16,10 @@
   },
   "dependencies": {
     "dexie": "^4.2.1",
-    "lit": "^3.3.2"
+    "lit": "^3.3.2",
+    "stylelint": "^17.9.1",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-declaration-strict-value": "^1.11.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",

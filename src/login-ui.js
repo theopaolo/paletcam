@@ -152,7 +152,7 @@ async function requestCommunityCode(refs) {
     }
 
     setCommunityCodeFieldVisible(refs.communityCodeField, true);
-    setCommunityAuthHintMessage(refs.communityAuthHint, t('login.hint.codeSent'));
+    setCommunityAuthHintMessage(refs.communityAuthHint, '');
     refs.communityCodeInput?.focus();
     showToast(t('login.toast.codeSent'), {
       duration: 1400,

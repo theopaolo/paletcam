@@ -116,7 +116,7 @@ class SettingsPanel extends LitElement {
                 placeholder=${t("login.emailPlaceholder")}
               />
               <button
-                class="panel-form-action-button panel-action-button"
+                class="settings-action-button"
                 id="communityRequestCodeButton"
                 type="button"
               >
@@ -140,7 +140,7 @@ class SettingsPanel extends LitElement {
                 placeholder=${t("login.codePlaceholder")}
               />
               <button
-                class="panel-form-action-button panel-action-button"
+                class="settings-action-button"
                 id="communityVerifyCodeButton"
                 type="button"
               >

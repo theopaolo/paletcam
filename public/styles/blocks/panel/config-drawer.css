@@ -8,8 +8,8 @@ config-panel {
 
 .config-drawer {
   position: absolute;
-  left: var(--space-6);
-  right: var(--space-6);
+  left: var(--space-8);
+  right: var(--space-8);
   bottom: calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
   display: grid;
   gap: var(--space-control-padding);
@@ -18,10 +18,10 @@ config-panel {
   padding: var(--space-control-gap) calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
     calc(var(--space-control-gap) + env(safe-area-inset-bottom, 0px))
     calc(var(--space-control-gap) + env(safe-area-inset-left, 0px));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgb(255 255 255 / 8%);
   border-radius: var(--space-control-gap);
   background:
-    var(--gradient-surface-panel-strong),
+    var(--gradient-surface-panel),
     var(--color-surface-overlay);
   pointer-events: auto;
 }
@@ -37,7 +37,7 @@ config-panel.is-open .config-drawer {
 @keyframes config-drawer-enter {
   from {
     opacity: 0;
-    transform: translateY(var(--space-12));
+    transform: translateY(var(--space-16));
   }
 
   to {
@@ -50,7 +50,7 @@ config-panel.is-open .config-drawer {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
-  gap: var(--space-6);
+  gap: var(--space-8);
 }
 
 .config-drawer-tab {
@@ -95,11 +95,7 @@ config-panel.is-open .config-drawer {
   flex: none;
   width: 1.2rem;
   height: 1.2rem;
-  background-color: currentColor;
-  -webkit-mask-image: var(--config-icon-url);
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
+  background-color: currentcolor;
   mask-image: var(--config-icon-url);
   mask-position: center;
   mask-repeat: no-repeat;
@@ -149,11 +145,11 @@ config-panel.is-open .config-drawer {
 }
 
 .config-drawer-slider {
-  border-color: var(--color-surface-tint-soft);
+  border-color: rgb(255 255 255 / 4%);
 }
 
 .config-drawer-footer {
-  --dock-gap: var(--space-12);
+  --dock-gap: var(--space-16);
 }
 
 .config-drawer-history {
@@ -166,10 +162,10 @@ config-panel.is-open .config-drawer {
 
 .config-pip {
   position: absolute;
-  right: var(--space-6);
+  right: var(--space-8);
   width: 5.75rem;
   aspect-ratio: 4 / 3;
-  border-radius: var(--space-2);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   object-fit: cover;
   pointer-events: none;

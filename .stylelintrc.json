@@ -1,0 +1,23 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "plugins": ["stylelint-declaration-strict-value"],
+  "rules": {
+    "no-duplicate-selectors": true,
+    "declaration-block-no-duplicate-properties": true,
+    "selector-class-pattern": null,
+    "scale-unlimited/declaration-strict-value": [
+      ["/color/", "background-color", "border-color", "fill", "stroke"],
+      {
+        "ignoreValues": [
+          "transparent",
+          "inherit",
+          "currentColor",
+          "currentcolor",
+          "none",
+          "unset"
+        ],
+        "disableFix": true
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ img {
 
 body {
   font-family: var(--font-family-body);
-  background-color: var(--primary-color);
+  background-color: var(--color-surface-base);
   max-width: var(--app-shell-max-width);
   width: 100%;
   height: var(--app-height);
@@ -22,7 +22,7 @@ body {
 
 .shell-header {
   flex-direction: row-reverse;
-  border: 5px solid var(--color-surface-app);
+  border: 5px solid var(--color-surface-base);
   border-bottom: unset;
   background-color: var(--color-surface-raised);
   background-image:
@@ -41,15 +41,27 @@ body {
 
 .capture {
   display: grid;
+  grid-template-rows: auto 1fr;
   position: relative;
   width: 100%;
   border-radius: 2px;
   flex: 1;
   min-height: 0;
-  border: 5px solid var(--color-surface-app);
+  border: 5px solid var(--color-surface-base);
   background: linear-gradient(to right, #141414, #1c1c1c 2%, #0a0a0a 50%, #0d0d0d 150%);
   overflow: hidden;
   transition: grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.capture-camera-stage {
+  display: grid;
+  place-items: end center;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border-top: 0 solid rgb(12 12 12 / 92%);
+  transition: opacity var(--duration-fast) var(--easing-standard);
 }
 
 .capture.is-preview-expanded .capture-camera-stage {
@@ -62,17 +74,6 @@ body {
   position: relative;
   min-height: 0;
   overflow: hidden;
-}
-
-.capture-camera-stage {
-  display: grid;
-  place-items: end center;
-  min-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-  border-top: 0 solid rgba(12, 12, 12, 0.92);
-  transition: opacity var(--duration-fast) var(--easing-standard);
 }
 
 .camera-stage-mount {
