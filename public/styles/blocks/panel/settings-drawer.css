@@ -135,6 +135,29 @@ settings-panel.is-open .settings-drawer {
   gap: var(--space-8);
 }
 
+.settings-data-status {
+  min-height: 1.3em;
+}
+
+.settings-data-status.is-error {
+  color: var(--color-feedback-danger-soft);
+}
+
+.settings-action-button.is-busy {
+  animation: settings-action-busy-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes settings-action-busy-pulse {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
 .settings-action-button {
   display: inline-flex;
   align-items: center;

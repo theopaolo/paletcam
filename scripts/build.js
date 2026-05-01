@@ -161,7 +161,10 @@ await buildBrowserEntrypoints(
   outDir,
 );
 await buildBrowserEntrypoints(
-  [join(sourceRoot, "workers", "palette-extraction.worker.js")],
+  [
+    join(sourceRoot, "workers", "palette-extraction.worker.js"),
+    join(sourceRoot, "workers", "palette-json-transfer.worker.js"),
+  ],
   workersOutDir,
 );
 
