@@ -155,6 +155,14 @@
               <span data-i18n="collection.collapseAll">Tout replier</span>
             </button>
 
+            <button
+              class="collection-toolbar-button collection-filter-button panel-action-button"
+              id="collectionFilterPublishedButton"
+              type="button"
+              hidden
+              data-i18n="collection.filter.published"
+            >Publiées</button>
+
             <div
               class="collection-view-actions toolbar"
               role="group"
@@ -188,7 +196,57 @@
                 </button>
                 <span class="collection-view-toggle-legend" data-i18n="collection.view.gridLabel">Grille</span>
               </div>
+
+              <div class="collection-view-action">
+                <button
+                  class="panel-icon-button panel-icon-button--toolbar collection-view-toggle-button"
+                  id="collectionViewSwatchButton"
+                  type="button"
+                  aria-label="Afficher les captures en nuancier"
+                  data-i18n-aria-label="collection.view.swatchAria"
+                  aria-pressed="false"
+                >
+                  <img src="/icons/swatches.svg" alt="" />
+                </button>
+                <span class="collection-view-toggle-legend" data-i18n="collection.view.swatchLabel">Couleurs</span>
+              </div>
             </div>
+          </div>
+
+          <div class="collection-selection-bar" id="collectionSelectionBar" hidden>
+            <span class="collection-selection-count" id="collectionSelectionCount">0</span>
+            <div class="collection-selection-actions">
+              <button
+                class="collection-selection-action"
+                id="collectionSelectionUnpublish"
+                type="button"
+                data-i18n="collection.select.unpublish"
+              >Retirer</button>
+              <button
+                class="collection-selection-action"
+                id="collectionSelectionPublish"
+                type="button"
+                data-i18n="collection.select.publish"
+              >Publier</button>
+              <button
+                class="collection-selection-action"
+                id="collectionSelectionExport"
+                type="button"
+                data-i18n="collection.select.export"
+              >Exporter</button>
+              <button
+                class="collection-selection-action collection-selection-action--delete"
+                id="collectionSelectionDelete"
+                type="button"
+                data-i18n="collection.select.delete"
+              >Supprimer</button>
+            </div>
+            <button
+              class="collection-selection-cancel"
+              id="collectionSelectionCancel"
+              type="button"
+              data-i18n="collection.select.cancel"
+            >Annuler</button>
           </div>
         </div>
       </div>

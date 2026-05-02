@@ -16,7 +16,7 @@ import {
   unpublishPaletteFromCommunityFeed,
 } from "./community-service.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
-import { createPaletteCard } from "./modules/collection/palette-card.js";
+import { createPaletteCard, createSwatchCard } from "./modules/collection/palette-card.js";
 import {
   closePaletteViewerOverlay,
   openPaletteViewerOverlay,
@@ -53,7 +53,16 @@ const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
 const collectionViewListButton = document.getElementById("collectionViewListButton");
 const collectionViewGridButton = document.getElementById("collectionViewGridButton");
+const collectionViewSwatchButton = document.getElementById("collectionViewSwatchButton");
 const collectionCollapseAllButton = document.getElementById("collectionCollapseAllButton");
+const collectionFilterPublishedButton = document.getElementById("collectionFilterPublishedButton");
+const collectionSelectionBar = document.getElementById("collectionSelectionBar");
+const collectionSelectionCount = document.getElementById("collectionSelectionCount");
+const collectionSelectionCancel = document.getElementById("collectionSelectionCancel");
+const collectionSelectionDelete = document.getElementById("collectionSelectionDelete");
+const collectionSelectionExport = document.getElementById("collectionSelectionExport");
+const collectionSelectionPublish = document.getElementById("collectionSelectionPublish");
+const collectionSelectionUnpublish = document.getElementById("collectionSelectionUnpublish");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
 const DELETE_UNDO_DURATION_MS = 5000;
 const SESSION_REVEAL_DURATION_MS = 280;
@@ -61,12 +70,17 @@ const SESSION_REVEAL_STAGGER_MS = 42;
 const MODERATION_SYNC_DELAY_MS = 12000;
 const pendingDeletionIds = new Set();
 const collapsedSessionIds = new Set();
+const selectedIds = new Set();
 let moderationSyncTimeoutId = 0;
 let isModerationSyncInProgress = false;
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
 let currentLocale = getAppSettings().locale;
 let currentPolaroidFooterLabel = getAppSettings().polaroidFooterLabel;
+let currentFilter = null;
+let isSelectMode = false;
+let longPressTimer = null;
+let longPressStartPos = null;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -124,6 +138,13 @@ function getCurrentPalettes() {
   return [...currentPalettes];
 }
 
+function getDisplayPalettes() {
+  if (currentFilter === "published") {
+    return currentPalettes.filter((p) => getPalettePublicationAction(p) === "unpublish");
+  }
+  return currentPalettes;
+}
+
 function isPalettePendingDeletion(paletteId) {
   return pendingDeletionIds.has(Number(paletteId));
 }
@@ -143,6 +164,7 @@ function setCollectionPanelTitle(title) {
 
 function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
   const isListView = currentCollectionViewMode === "list";
+  const isSwatchView = currentCollectionViewMode === "swatch";
   const sessionIds = getCollectionSessionIds(dayGroups);
   const hasSessions = isListView && sessionIds.length > 0;
   const areAllSessionsCollapsed = areAllCollectionSessionsCollapsed(dayGroups, collapsedSessionIds);
@@ -151,15 +173,19 @@ function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
     : t("collection.collapseAll");
 
   if (collectionViewListButton instanceof HTMLButtonElement) {
-    const isActive = isListView;
-    collectionViewListButton.setAttribute("aria-pressed", String(isActive));
-    collectionViewListButton.classList.toggle("is-active", isActive);
+    collectionViewListButton.setAttribute("aria-pressed", String(isListView));
+    collectionViewListButton.classList.toggle("is-active", isListView);
   }
 
   if (collectionViewGridButton instanceof HTMLButtonElement) {
-    const isActive = !isListView;
+    const isActive = currentCollectionViewMode === "grid";
     collectionViewGridButton.setAttribute("aria-pressed", String(isActive));
     collectionViewGridButton.classList.toggle("is-active", isActive);
+  }
+
+  if (collectionViewSwatchButton instanceof HTMLButtonElement) {
+    collectionViewSwatchButton.setAttribute("aria-pressed", String(isSwatchView));
+    collectionViewSwatchButton.classList.toggle("is-active", isSwatchView);
   }
 
   if (collectionCollapseAllButton instanceof HTMLButtonElement) {
@@ -167,6 +193,16 @@ function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
     collectionCollapseAllButton.disabled = !hasSessions;
     collectionCollapseAllButton.textContent = collapseAllLabel;
     collectionCollapseAllButton.setAttribute("aria-label", collapseAllLabel);
+  }
+
+  if (collectionFilterPublishedButton instanceof HTMLButtonElement) {
+    const publishedCount = currentPalettes.filter(
+      (p) => getPalettePublicationAction(p) === "unpublish",
+    ).length;
+    const isFilterActive = currentFilter === "published";
+    collectionFilterPublishedButton.hidden = publishedCount === 0 && !isFilterActive;
+    collectionFilterPublishedButton.classList.toggle("is-active", isFilterActive);
+    collectionFilterPublishedButton.dataset.count = String(publishedCount);
   }
 }
 
@@ -410,15 +446,16 @@ function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
 }
 
 function openCollectionPaletteViewer(paletteId) {
-  const initialIndex = currentPalettes.findIndex((palette) => palette.id === paletteId);
+  const displayPalettes = getDisplayPalettes();
+  const initialIndex = displayPalettes.findIndex((palette) => palette.id === paletteId);
   if (initialIndex < 0) {
     return;
   }
 
   openPaletteViewerOverlay({
-    palettes: currentPalettes,
+    palettes: displayPalettes,
     initialIndex,
-    getPalettes: getCurrentPalettes,
+    getPalettes: getDisplayPalettes,
     getPreviewAsset: getPalettePreviewPolaroidAsset,
     getPublishAction: getPalettePublicationAction,
     canShare: canSharePalette,
@@ -440,10 +477,23 @@ function createCollectionPaletteCard(palette) {
   });
 }
 
+function createCollectionSwatchCard(palette) {
+  return createSwatchCard({
+    palette,
+    onOpenViewer: openCollectionPaletteViewer,
+  });
+}
+
+function getCardCreator() {
+  return currentCollectionViewMode === "swatch"
+    ? createCollectionSwatchCard
+    : createCollectionPaletteCard;
+}
+
 function createCollectionDayGroup(dayGroup) {
   return renderDayGroup({
     dayGroup,
-    createPaletteCard: createCollectionPaletteCard,
+    createPaletteCard: getCardCreator(),
     isSessionCollapsed: (sessionId) => collapsedSessionIds.has(sessionId),
     onSessionCollapsedChange: (sessionId, isCollapsed) => {
       if (isCollapsed) {
@@ -470,19 +520,39 @@ function pruneUnavailableCollapsedSessions(dayGroups) {
   });
 }
 
+function syncSelectModeAfterRender() {
+  if (!isSelectMode) {
+    return;
+  }
+
+  collectionGrid.classList.add("is-select-mode");
+
+  selectedIds.forEach((paletteId) => {
+    const card = getCollectionCardByPaletteId(paletteId);
+    if (card) {
+      card.classList.add("is-selected");
+    } else {
+      selectedIds.delete(paletteId);
+    }
+  });
+
+  syncSelectionBar();
+}
+
 function renderCollectionUi(palettes) {
   currentPalettes = palettes;
+  const displayPalettes = getDisplayPalettes();
   collectionGrid.innerHTML = "";
   collectionGrid.dataset.viewMode = currentCollectionViewMode;
 
-  if (palettes.length === 0) {
+  if (displayPalettes.length === 0) {
     collectionGrid.innerHTML = `<p class="empty-message">${t("collection.empty")}</p>`;
     syncCollectionPanelChrome([]);
     refreshPaletteViewerOverlay();
     return;
   }
 
-  const dayGroups = groupPalettesByDay(palettes);
+  const dayGroups = groupPalettesByDay(displayPalettes);
   pruneUnavailableCollapsedSessions(dayGroups);
   syncCollectionPanelChrome(dayGroups);
 
@@ -490,6 +560,7 @@ function renderCollectionUi(palettes) {
     collectionGrid.appendChild(createCollectionDayGroup(dayGroup));
   });
 
+  syncSelectModeAfterRender();
   refreshPaletteViewerOverlay();
 }
 
@@ -770,6 +841,141 @@ export async function openDirectPaletteViewer(paletteId) {
   return "opened";
 }
 
+function syncSelectionBar() {
+  if (!collectionSelectionBar) {
+    return;
+  }
+
+  collectionSelectionBar.hidden = !isSelectMode;
+
+  if (!isSelectMode) {
+    return;
+  }
+
+  const count = selectedIds.size;
+
+  if (collectionSelectionCount) {
+    collectionSelectionCount.textContent = String(count);
+  }
+
+  const displayPalettes = getDisplayPalettes();
+  const selected = displayPalettes.filter((p) => selectedIds.has(p.id));
+
+  if (collectionSelectionDelete instanceof HTMLButtonElement) {
+    collectionSelectionDelete.disabled = count === 0;
+  }
+
+  if (collectionSelectionExport instanceof HTMLButtonElement) {
+    collectionSelectionExport.hidden = isIOSDevice();
+    collectionSelectionExport.disabled = !selected.some(canExportPalette);
+  }
+
+  if (collectionSelectionPublish instanceof HTMLButtonElement) {
+    collectionSelectionPublish.disabled = !selected.some(
+      (p) => canPublishPalette(p) && getPalettePublicationAction(p) !== "unpublish",
+    );
+  }
+
+  if (collectionSelectionUnpublish instanceof HTMLButtonElement) {
+    collectionSelectionUnpublish.disabled = !selected.some(
+      (p) => getPalettePublicationAction(p) === "unpublish",
+    );
+  }
+}
+
+function enterSelectMode(initialPaletteId = null) {
+  isSelectMode = true;
+  selectedIds.clear();
+
+  collectionGrid?.classList.add("is-select-mode");
+
+  if (initialPaletteId !== null) {
+    selectedIds.add(initialPaletteId);
+    const card = getCollectionCardByPaletteId(initialPaletteId);
+    card?.classList.add("is-selected");
+  }
+
+  syncSelectionBar();
+}
+
+function exitSelectMode() {
+  isSelectMode = false;
+  selectedIds.clear();
+
+  collectionGrid?.classList.remove("is-select-mode");
+  collectionGrid?.querySelectorAll(".palette-card.is-selected").forEach((card) => {
+    card.classList.remove("is-selected");
+  });
+
+  syncSelectionBar();
+}
+
+function clearLongPress() {
+  if (longPressTimer) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  longPressStartPos = null;
+}
+
+async function handleSelectionDelete() {
+  const toDelete = getDisplayPalettes().filter((p) => selectedIds.has(p.id));
+  exitSelectMode();
+  for (const palette of toDelete) {
+    await handleDeletePalette(palette);
+  }
+}
+
+async function handleSelectionExport() {
+  const toExport = getDisplayPalettes().filter(
+    (p) => selectedIds.has(p.id) && canExportPalette(p),
+  );
+  exitSelectMode();
+  for (const palette of toExport) {
+    await handleExportPalette(palette);
+  }
+}
+
+async function handleSelectionPublish() {
+  if (!getCurrentCommunitySession()?.token) {
+    showToast(t("collection.publish.auth"), {
+      variant: "error",
+      duration: 3500,
+      actionLabel: t("login.verifyCode"),
+      onAction: () => openLoginPanel(),
+    });
+    return;
+  }
+
+  const toPublish = getDisplayPalettes().filter(
+    (p) => selectedIds.has(p.id) && canPublishPalette(p) && getPalettePublicationAction(p) !== "unpublish",
+  );
+  exitSelectMode();
+  for (const palette of toPublish) {
+    await handlePublishPalette(palette, "publish");
+  }
+}
+
+async function handleSelectionUnpublish() {
+  if (!getCurrentCommunitySession()?.token) {
+    showToast(t("collection.unpublish.auth"), {
+      variant: "error",
+      duration: 3500,
+      actionLabel: t("login.verifyCode"),
+      onAction: () => openLoginPanel(),
+    });
+    return;
+  }
+
+  const toUnpublish = getDisplayPalettes().filter(
+    (p) => selectedIds.has(p.id) && getPalettePublicationAction(p) === "unpublish",
+  );
+  exitSelectMode();
+  for (const palette of toUnpublish) {
+    await handlePublishPalette(palette, "unpublish");
+  }
+}
+
 function bindCollectionUiEvents() {
   if (!collectionPanel || !collectionGrid) {
     return;
@@ -787,9 +993,109 @@ function bindCollectionUiEvents() {
     updateAppSettings({ collectionViewMode: "grid" });
   });
 
+  collectionViewSwatchButton?.addEventListener("click", () => {
+    updateAppSettings({ collectionViewMode: "swatch" });
+  });
+
   collectionCollapseAllButton?.addEventListener("click", () => {
     handleCollapseAllSessions();
   });
+
+  collectionFilterPublishedButton?.addEventListener("click", () => {
+    currentFilter = currentFilter === "published" ? null : "published";
+    if (isSelectMode) {
+      exitSelectMode();
+    }
+    renderCollectionUi(currentPalettes);
+  });
+
+  collectionSelectionCancel?.addEventListener("click", () => {
+    exitSelectMode();
+  });
+
+  collectionSelectionDelete?.addEventListener("click", () => {
+    void handleSelectionDelete();
+  });
+
+  collectionSelectionExport?.addEventListener("click", () => {
+    void handleSelectionExport();
+  });
+
+  collectionSelectionPublish?.addEventListener("click", () => {
+    void handleSelectionPublish();
+  });
+
+  collectionSelectionUnpublish?.addEventListener("click", () => {
+    void handleSelectionUnpublish();
+  });
+
+  collectionGrid?.addEventListener("pointerdown", (event) => {
+    if (isSelectMode) {
+      return;
+    }
+
+    const card = /** @type {HTMLElement} */ (event.target)?.closest?.(".palette-card");
+    if (!card) {
+      return;
+    }
+
+    longPressStartPos = { x: event.clientX, y: event.clientY };
+    longPressTimer = window.setTimeout(() => {
+      longPressTimer = null;
+      longPressStartPos = null;
+      const paletteId = Number(card.dataset.paletteId);
+      if (!Number.isNaN(paletteId)) {
+        enterSelectMode(paletteId);
+      }
+    }, 500);
+  });
+
+  collectionGrid?.addEventListener("pointermove", (event) => {
+    if (!longPressTimer || !longPressStartPos) {
+      return;
+    }
+
+    const dx = event.clientX - longPressStartPos.x;
+    const dy = event.clientY - longPressStartPos.y;
+    if (dx * dx + dy * dy > 64) {
+      clearLongPress();
+    }
+  });
+
+  collectionGrid?.addEventListener("pointerup", clearLongPress);
+  collectionGrid?.addEventListener("pointercancel", clearLongPress);
+
+  collectionGrid?.addEventListener("contextmenu", (event) => {
+    if (isSelectMode || longPressTimer !== null) {
+      event.preventDefault();
+    }
+  });
+
+  collectionGrid?.addEventListener("click", (event) => {
+    if (!isSelectMode) {
+      return;
+    }
+
+    const card = /** @type {HTMLElement} */ (event.target)?.closest?.(".palette-card");
+    if (!card) {
+      return;
+    }
+
+    const paletteId = Number(card.dataset.paletteId);
+    if (Number.isNaN(paletteId)) {
+      return;
+    }
+
+    if (selectedIds.has(paletteId)) {
+      selectedIds.delete(paletteId);
+      card.classList.remove("is-selected");
+    } else {
+      selectedIds.add(paletteId);
+      card.classList.add("is-selected");
+    }
+
+    syncSelectionBar();
+  }, true);
 
   subscribeSharedPanelClosing("collection", () => {
     clearModerationSyncLoop();

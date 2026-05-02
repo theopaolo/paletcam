@@ -211,7 +211,7 @@ function createDayGrid(dayGroup, createPaletteCard) {
  * @param {(sessionId: string, collapsed: boolean) => void} config.onSessionCollapsedChange
  * @param {number} config.sessionRevealDurationMs
  * @param {number} config.sessionRevealStaggerMs
- * @param {"list" | "grid"} [config.viewMode]
+ * @param {"list" | "grid" | "swatch"} [config.viewMode]
  */
 export function createDayGroup({
   dayGroup,
@@ -242,7 +242,7 @@ export function createDayGroup({
 
   dayHeader.append(dayTitle, dayCount);
 
-  if (viewMode === "grid") {
+  if (viewMode === "grid" || viewMode === "swatch") {
     daySection.append(dayHeader, createDayGrid(dayGroup, createPaletteCard));
     return daySection;
   }

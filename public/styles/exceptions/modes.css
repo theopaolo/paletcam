@@ -24,6 +24,10 @@ body.is-ral-mode .ral-live-swatch {
   align-items: center;
 }
 
+body.is-ral-mode .ral-live-swatch-color {
+  flex: 0 0 clamp(4rem, 11vh, 9rem);
+}
+
 body.is-ral-mode .ral-live-swatch-info {
   padding: var(--space-16);
 }

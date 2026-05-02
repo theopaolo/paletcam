@@ -281,13 +281,13 @@
 
 .ral-live-swatch-code,
 .ral-live-swatch-quality,
-.ral-live-swatch-name  {
+.ral-live-swatch-name {
   margin: 0;
-  font-size: var(--font-size-base);
   text-transform: uppercase;
 }
 
 .ral-live-swatch-code {
+  font-size: var(--font-size-base);
   color: var(--color-text-primary);
 }
 
@@ -298,7 +298,10 @@
 }
 
 .ral-live-swatch-quality {
+  margin: 0;
+  font-size: var(--font-size-sm);
   color: var(--color-accent);
+  text-transform: uppercase;
 }
 
 .ral-live-swatch.is-light-bg .ral-live-swatch-code {

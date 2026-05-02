@@ -4,6 +4,27 @@ import { loadImageElementSource } from "../image-element-loader.js";
 import { getPalettePreviewPolaroidAsset, hasPaletteMasterPhoto } from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
+
+function createSelectionIndicator() {
+  const el = document.createElement("span");
+  el.className = "palette-card-select-indicator";
+  el.setAttribute("aria-hidden", "true");
+  return el;
+}
+
+function createPublicationBadge(palette) {
+  const badge = document.createElement("span");
+  badge.className = "palette-card-publication-badge panel-status-chip";
+  const meta = getPalettePublicationMeta(palette);
+  if (meta) {
+    badge.hidden = false;
+    badge.dataset.tone = meta.tone;
+    badge.textContent = meta.label;
+  } else {
+    badge.hidden = true;
+  }
+  return badge;
+}
 let nextPreviewLoadOrder = 0;
 const pendingPreviewStarts = [];
 let hasScheduledPreviewFlush = false;
@@ -70,20 +91,9 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   previewStatus.className = "palette-card-status";
   previewStatus.textContent = hasMasterPhoto ? "" : t("viewer.previewUnavailable");
 
-  const publicationBadge = document.createElement("span");
-  publicationBadge.className = "palette-card-publication-badge panel-status-chip";
-  const publicationMeta = getPalettePublicationMeta(palette);
-  if (publicationMeta) {
-    publicationBadge.hidden = false;
-    publicationBadge.dataset.tone = publicationMeta.tone;
-    publicationBadge.textContent = publicationMeta.label;
-  } else {
-    publicationBadge.hidden = true;
-  }
-
   previewLoader.hidden = !hasMasterPhoto;
   trigger.append(previewImage, previewLoader, previewStatus);
-  card.append(trigger, publicationBadge);
+  card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
 
   if (palette.captureMode === "ral") {
     const ralIndicator = document.createElement("span");
@@ -185,6 +195,49 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
       queuePreviewLoad();
     }
   }
+
+  return card;
+}
+
+/**
+ * @param {object} config
+ * @param {Palette} config.palette
+ * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
+ */
+export function createSwatchCard({ palette, onOpenViewer }) {
+  const card = document.createElement("div");
+  card.className = "palette-card palette-card--swatch";
+  card.dataset.paletteId = String(palette.id);
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "palette-card-trigger";
+  trigger.setAttribute("aria-label", t("viewer.openCapture"));
+
+  const strip = document.createElement("div");
+  strip.className = "palette-swatch-strip";
+  strip.setAttribute("aria-hidden", "true");
+
+  palette.colors.forEach((color) => {
+    const segment = document.createElement("span");
+    segment.className = "palette-swatch-segment";
+    segment.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    strip.appendChild(segment);
+  });
+
+  trigger.appendChild(strip);
+  card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
+
+  if (palette.captureMode === "ral") {
+    const ralIndicator = document.createElement("span");
+    ralIndicator.className = "palette-card-ral-indicator panel-status-chip";
+    ralIndicator.textContent = "RAL";
+    card.appendChild(ralIndicator);
+  }
+
+  trigger.addEventListener("click", () => {
+    void onOpenViewer?.(palette.id);
+  });
 
   return card;
 }
