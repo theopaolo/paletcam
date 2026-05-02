@@ -199,6 +199,7 @@ function showRalPopover(color, anchorElement) {
   }
 
   const best = matches[0];
+  const deltaE = color.deltaE ?? best.deltaE;
 
   if (ralPopoverColor) {
     ralPopoverColor.style.backgroundColor = `rgb(${best.ral.r}, ${best.ral.g}, ${best.ral.b})`;
@@ -210,7 +211,7 @@ function showRalPopover(color, anchorElement) {
     ralPopoverName.textContent = best.ral.name;
   }
   if (ralPopoverQuality) {
-    ralPopoverQuality.textContent = `${getRalQualityLabel(best.deltaE)}`;
+    ralPopoverQuality.textContent = `${getRalQualityLabel(deltaE)}`;
   }
 
   ralPopover.hidden = false;
