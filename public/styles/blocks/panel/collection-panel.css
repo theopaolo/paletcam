@@ -112,6 +112,7 @@
   --toolbar-gap: var(--space-8);
   --toolbar-justify: flex-end;
   --toolbar-wrap: wrap;
+
   padding: var(--space-8);
   max-width: 100%;
 }
