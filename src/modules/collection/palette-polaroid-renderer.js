@@ -160,7 +160,11 @@ async function waitForBrandFont() {
 }
 
 export function hasPaletteMasterPhoto(palette) {
-  return Boolean(palette?.photoBlob);
+  return Boolean(
+    palette?.photoBlob instanceof Blob
+    || palette?.previewBlob instanceof Blob
+    || palette?.hasPhotoAsset,
+  );
 }
 
 export function getPalettePhotoAspectRatioValue(palette) {
@@ -533,7 +537,7 @@ export async function renderPalettePolaroidBlob(
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
 
-  if (!context || !hasPaletteMasterPhoto(palette)) {
+  if (!context || !(palette?.photoBlob instanceof Blob)) {
     return null;
   }
 

@@ -35,12 +35,15 @@ interface PixelRect {
 /** Known moderation statuses for community catches. */
 type ModerationStatus = "TO_MODERATE" | "PUBLIC" | "REJECTED" | "PRIVATE";
 
-/** A saved palette entry as stored in IndexedDB (v2 schema). Legacy entries may lack capture metadata. */
+/** A saved palette entry as stored in IndexedDB. Legacy entries may lack capture metadata. */
 interface Palette {
   id: number;
   timestamp: string;
   colors: RgbColor[];
-  photoBlob: Blob;
+  photoBlob?: Blob | null;
+  previewBlob?: Blob | null;
+  previewFooterLabel?: string | null;
+  hasPhotoAsset?: boolean;
   captureAspectRatio?: string;
   captureCropRect?: CropRect | null;
   captureMode?: CaptureMode;
@@ -164,6 +167,17 @@ type PublicationAction = "publish" | "unpublish";
 interface ModerationEntry {
   remoteCatchId: string;
   status: ModerationStatus;
+}
+
+interface PaletteExportProgress {
+  completed: number;
+  elapsedMs: number;
+  phase: "preparing" | "serializing" | "finalizing";
+  total: number;
+}
+
+interface PaletteExportOptions {
+  onProgress?: (progress: PaletteExportProgress) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -537,7 +551,9 @@ interface CommunityServiceError extends Error {
 
 interface PaletcamDexieTable {
   add(item: object): Promise<number>;
+  bulkPut(items: object[]): Promise<number>;
   get(key: number): Promise<Palette | undefined>;
+  put(item: object): Promise<number>;
   update(key: number, changes: object): Promise<number>;
   delete(key: number): Promise<void>;
   reverse(): PaletcamDexieTable;
@@ -548,10 +564,15 @@ interface PaletcamDexieTable {
 interface PaletcamDb {
   version(ver: number): {
     stores(schema: Record<string, string>): {
-      upgrade(fn: (tx: { table(name: string): PaletcamDexieTable }) => Promise<number>): void;
+      upgrade(fn: (tx: { table(name: string): PaletcamDexieTable }) => Promise<void> | void): void;
     };
   };
+  transaction(
+    mode: "rw" | "r",
+    ...args: [...PaletcamDexieTable[], () => Promise<void>]
+  ): Promise<void>;
   palettes: PaletcamDexieTable;
+  paletteAssets: PaletcamDexieTable;
 }
 
 interface CapacitorLike {

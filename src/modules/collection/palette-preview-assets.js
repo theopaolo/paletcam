@@ -1,12 +1,15 @@
-import { getAppSettings } from "../../app-settings.js";
+import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
 import {
   hasPaletteMasterPhoto,
   renderPalettePolaroidBlob,
 } from "./palette-polaroid-renderer.js";
+import {
+  getCurrentPalettePreviewFooterLabel,
+  getStoredPalettePreviewBlob,
+  persistSavedPalettePreviewBlob,
+  renderPalettePreviewBlobFromMasterPhoto,
+} from "./palette-preview-persistence.js";
 
-const POLAROID_PREVIEW_MAX_WIDTH = 1080;
-const POLAROID_PREVIEW_SCALE = 0.78;
-const POLAROID_PREVIEW_QUALITY = 0.9;
 const POLAROID_EXPORT_MAX_WIDTH = 1600;
 const POLAROID_EXPORT_SCALE = 1;
 const POLAROID_EXPORT_QUALITY = 0.95;
@@ -24,7 +27,7 @@ function buildPreviewAssetCacheKey(palette) {
     cropRect?.y ?? "",
     cropRect?.width ?? "",
     cropRect?.height ?? "",
-    getAppSettings().polaroidFooterLabel,
+    getCurrentPalettePreviewFooterLabel(),
   ]);
 }
 
@@ -90,25 +93,48 @@ export async function getPalettePreviewPolaroidAsset(palette) {
     return cached.promise;
   }
 
+  const storedPreviewBlob = getStoredPalettePreviewBlob(palette);
+  if (storedPreviewBlob instanceof Blob) {
+    const asset = {
+      blob: storedPreviewBlob,
+      objectUrl: URL.createObjectURL(storedPreviewBlob),
+    };
+    previewAssetCache.set(cacheKey, asset);
+    return asset;
+  }
+
   const promise = enqueuePreviewRender(async () => {
     let blob = null;
+    const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
+    const previewFooterLabel = getCurrentPalettePreviewFooterLabel();
 
     try {
-      blob = await renderPalettePolaroidBlob(palette, {
-        maxWidth: POLAROID_PREVIEW_MAX_WIDTH,
-        scale: POLAROID_PREVIEW_SCALE,
-        quality: POLAROID_PREVIEW_QUALITY,
-      });
+      if (masterPhotoBlob instanceof Blob) {
+        blob = await renderPalettePreviewBlobFromMasterPhoto(palette, masterPhotoBlob);
+      }
     } catch (error) {
       console.warn("Falling back to raw palette preview image.", error);
     }
 
-    if (!(blob instanceof Blob) && palette.photoBlob instanceof Blob) {
-      blob = palette.photoBlob;
+    if (!(blob instanceof Blob)) {
+      blob = getStoredPalettePreviewBlob(palette);
+    }
+
+    if (!(blob instanceof Blob) && masterPhotoBlob instanceof Blob) {
+      blob = masterPhotoBlob;
     }
 
     if (!blob) {
       throw new Error("Unable to generate palette preview");
+    }
+
+    if (
+      blob instanceof Blob
+      && blob !== masterPhotoBlob
+    ) {
+      void persistSavedPalettePreviewBlob(palette, blob, previewFooterLabel).catch((error) => {
+        console.error(`Failed to persist preview blob for palette ${palette.id}:`, error);
+      });
     }
 
     const asset = {
@@ -132,7 +158,7 @@ export async function getPalettePreviewPolaroidAsset(palette) {
 export function disposePalettePreviewPolaroidAsset(paletteOrId) {
   const cacheKey = typeof paletteOrId === "object" && paletteOrId !== null
     ? buildPreviewAssetCacheKey(paletteOrId)
-    : JSON.stringify([String(paletteOrId ?? ""), "", "", "", "", ""]);
+    : JSON.stringify([String(paletteOrId ?? ""), "", "", "", "", "", ""]);
   disposePreviewAssetCacheEntry(cacheKey);
 
   // Backward cleanup: remove any cache entries for the same id if the key schema changes.
@@ -154,7 +180,12 @@ export function disposePalettePreviewPolaroidAsset(paletteOrId) {
 
 export async function exportPalettePolaroidImage(palette) {
   try {
-    const blob = await renderPalettePolaroidBlob(palette, {
+    const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
+    if (!(masterPhotoBlob instanceof Blob)) {
+      return false;
+    }
+
+    const blob = await renderPalettePolaroidBlob({ ...palette, photoBlob: masterPhotoBlob }, {
       maxWidth: POLAROID_EXPORT_MAX_WIDTH,
       scale: POLAROID_EXPORT_SCALE,
       quality: POLAROID_EXPORT_QUALITY,

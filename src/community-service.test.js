@@ -18,9 +18,11 @@ function normalizeCatchStatus(status) {
 
 async function loadCommunityService({
   token = "",
+  ensurePaletteMasterPhotoBlobImplementation = async (palette) => palette?.photoBlob ?? null,
   unpublishImplementation = async () => {},
   updatePaletteRemoteStateImplementation = async () => {},
 } = {}) {
+  const ensurePaletteMasterPhotoBlob = mock(ensurePaletteMasterPhotoBlobImplementation);
   const unpublishCatchFromCommunity = mock(unpublishImplementation);
   const updatePaletteRemoteState = mock(updatePaletteRemoteStateImplementation);
 
@@ -58,6 +60,7 @@ async function loadCommunityService({
   }));
 
   mock.module(paletteStorageModuleUrl, () => ({
+    ensurePaletteMasterPhotoBlob,
     getSavedPalettes: mock(async () => []),
     updatePaletteRemoteState,
   }));
@@ -65,6 +68,7 @@ async function loadCommunityService({
   const service = await import(`${communityServiceModuleUrl}?test=${Math.random()}`);
 
   return {
+    ensurePaletteMasterPhotoBlob,
     service,
     unpublishCatchFromCommunity,
     updatePaletteRemoteState,
@@ -161,5 +165,40 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
     expect(result.success).toBe(true);
     expect(updatePaletteRemoteState).toHaveBeenCalledTimes(1);
     expect(palette.moderationStatus).toBe("PRIVATE");
+  });
+});
+
+describe("publishPaletteToCommunityFeed", () => {
+  test("hydrates the master photo blob before encoding when publishing from a list-loaded palette", async () => {
+    const hydratedBlob = new Blob(["photo"], { type: "image/webp" });
+    const { ensurePaletteMasterPhotoBlob, service, updatePaletteRemoteState } = await loadCommunityService({
+      token: "session-token",
+      ensurePaletteMasterPhotoBlobImplementation: async (palette) => {
+        palette.photoBlob = hydratedBlob;
+        return hydratedBlob;
+      },
+    });
+    const palette = {
+      id: 17,
+      colors: [{ r: 12, g: 34, b: 56 }],
+      captureAspectRatio: "4:3",
+      captureCropRect: null,
+      photoBlob: null,
+      remoteCatchId: null,
+      moderationStatus: null,
+      postedAt: null,
+      moderationUpdatedAt: null,
+      lastModerationCheckAt: null,
+    };
+
+    const result = await service.publishPaletteToCommunityFeed(palette);
+
+    expect(ensurePaletteMasterPhotoBlob).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      moderationStatus: "PUBLIC",
+      remoteCatchId: "remote-catch-id",
+    });
+    expect(updatePaletteRemoteState).toHaveBeenCalledTimes(1);
+    expect(palette.photoBlob).toBe(hydratedBlob);
   });
 });

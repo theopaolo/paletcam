@@ -258,6 +258,23 @@ class SettingsPanel extends LitElement {
               </label>
             </div>
 
+            <p
+              class="settings-login-status settings-data-status"
+              id="settingsDataStatus"
+              aria-live="polite"
+              hidden
+            ></p>
+
+            <div class="panel-form-danger-zone">
+              <button
+                class="settings-action-button panel-form-danger-button"
+                id="settingsFlushDataButton"
+                type="button"
+              >
+                ${t("settings.data.flush")}
+              </button>
+            </div>
+
             <button
               class="panel-form-version"
               type="button"

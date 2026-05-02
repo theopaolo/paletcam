@@ -1,0 +1,68 @@
+import { describe, expect, test } from "bun:test";
+
+import {
+  deserializePalettesFromImport,
+  serializePalettesForExport,
+} from "./json-transfer.js";
+
+describe("palette-storage/json-transfer", () => {
+  test("serializes palettes without persisted ids or preview-only fields", async () => {
+    const json = await serializePalettesForExport([
+      {
+        id: 42,
+        timestamp: "2026-04-30T10:00:00.000Z",
+        colors: [{ r: 12, g: 34, b: 56 }],
+        photoBlob: new Blob(["photo"], { type: "text/plain" }),
+        previewBlob: new Blob(["preview"], { type: "text/plain" }),
+        previewFooterLabel: "footer",
+        hasPhotoAsset: true,
+        remoteCatchId: null,
+        moderationStatus: null,
+        postedAt: null,
+        moderationUpdatedAt: null,
+        lastModerationCheckAt: null,
+      },
+    ]);
+
+    const payload = JSON.parse(json);
+
+    expect(payload.version).toBe(2);
+    expect(payload.palettes).toHaveLength(1);
+    expect("id" in payload.palettes[0]).toBe(false);
+    expect("previewBlob" in payload.palettes[0]).toBe(false);
+    expect("previewFooterLabel" in payload.palettes[0]).toBe(false);
+    expect("hasPhotoAsset" in payload.palettes[0]).toBe(false);
+    expect(payload.palettes[0].photoBlob.startsWith("data:text/plain")).toBe(true);
+  });
+
+  test("deserializes palettes and restores blob payloads", async () => {
+    const palettes = await deserializePalettesFromImport(JSON.stringify({
+      version: 2,
+      palettes: [
+        {
+          id: 7,
+          timestamp: "2026-04-30T10:00:00.000Z",
+          colors: [{ r: 1, g: 2, b: 3 }],
+          photoBlob: "data:text/plain;base64,cGhvdG8=",
+          previewBlob: "drop",
+          previewFooterLabel: "drop",
+          hasPhotoAsset: true,
+        },
+      ],
+    }));
+
+    expect(palettes).toHaveLength(1);
+    expect("id" in palettes[0]).toBe(false);
+    expect("previewBlob" in palettes[0]).toBe(false);
+    expect("previewFooterLabel" in palettes[0]).toBe(false);
+    expect("hasPhotoAsset" in palettes[0]).toBe(false);
+    expect(palettes[0].photoBlob).toBeInstanceOf(Blob);
+    expect(await palettes[0].photoBlob.text()).toBe("photo");
+  });
+
+  test("rejects invalid import payloads", async () => {
+    await expect(deserializePalettesFromImport(JSON.stringify({ version: 2 }))).rejects.toThrow(
+      "Format de fichier invalide.",
+    );
+  });
+});

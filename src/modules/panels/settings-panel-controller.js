@@ -4,6 +4,7 @@ import {
   updateAppSettings,
 } from "../../app-settings.js";
 import { t } from "../../i18n.js";
+import { flushAllLocalData } from "../local-data-reset.js";
 import { exportAllPalettes, importAllPalettes } from "../../palette-storage.js";
 import { showToast } from "../toast-ui.js";
 
@@ -18,6 +19,10 @@ function queryById(root, id) {
 }
 
 function getSettingsDom(root) {
+  const importLabel = /** @type {HTMLLabelElement | null} */ (
+    queryById(root, "settingsImportLabel")
+  );
+
   return {
     drawer: queryById(root, "settingsDrawer"),
     polaroidFooterLabelInput: /** @type {HTMLInputElement | null} */ (
@@ -28,6 +33,16 @@ function getSettingsDom(root) {
     ),
     exportButton: /** @type {HTMLButtonElement | null} */ (
       queryById(root, "settingsExportButton")
+    ),
+    exportStatus: /** @type {HTMLParagraphElement | null} */ (
+      queryById(root, "settingsDataStatus")
+    ),
+    flushDataButton: /** @type {HTMLButtonElement | null} */ (
+      queryById(root, "settingsFlushDataButton")
+    ),
+    importLabel,
+    importLabelText: /** @type {HTMLElement | null} */ (
+      importLabel?.querySelector(".panel-form-file-label-text") ?? null
     ),
     importInput: /** @type {HTMLInputElement | null} */ (
       queryById(root, "settingsImportInput")
@@ -67,11 +82,94 @@ function getNextTabId(currentTabId, direction) {
   return TAB_IDS[nextIndex];
 }
 
+function formatElapsedDuration(elapsedMs) {
+  const totalSeconds = Math.max(0, Math.round(Number(elapsedMs || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${seconds}s`;
+  }
+
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
 export function mountSettingsPanel({ root, toggleButton }) {
   const dom = getSettingsDom(root);
   const cleanups = [];
   let activeTabId = "login";
   let isDrawerOpen = false;
+  let isExportInProgress = false;
+  let isImportInProgress = false;
+
+  function setExportStatus(message, { isError = false } = {}) {
+    if (!dom.exportStatus) {
+      return;
+    }
+
+    dom.exportStatus.textContent = message || "";
+    dom.exportStatus.hidden = !message;
+    dom.exportStatus.classList.toggle("is-error", isError);
+  }
+
+  function syncExportButtonState(progress = null) {
+    if (!dom.exportButton) {
+      return;
+    }
+
+    dom.exportButton.disabled = isExportInProgress || isImportInProgress;
+    dom.exportButton.setAttribute("aria-busy", String(isExportInProgress));
+
+    if (!isExportInProgress) {
+      dom.exportButton.textContent = t("settings.data.export");
+      return;
+    }
+
+    if (progress?.total > 0 && progress?.completed > 0) {
+      dom.exportButton.textContent = `${t("settings.data.exportBusy")} ${progress.completed}/${progress.total}`;
+      return;
+    }
+
+    dom.exportButton.textContent = t("settings.data.exportBusy");
+  }
+
+  function syncImportUi() {
+    const isImportDisabled = isImportInProgress || isExportInProgress;
+
+    if (dom.importInput) {
+      dom.importInput.disabled = isImportDisabled;
+    }
+
+    if (dom.importLabel) {
+      dom.importLabel.classList.toggle("is-busy", isImportInProgress);
+      dom.importLabel.setAttribute("aria-busy", String(isImportInProgress));
+      dom.importLabel.setAttribute("aria-disabled", String(isImportDisabled));
+    }
+
+    if (dom.importLabelText) {
+      dom.importLabelText.textContent = t(
+        isImportInProgress ? "settings.data.importBusy" : "settings.data.importLabel",
+      );
+    }
+  }
+
+  function buildExportProgressMessage(progress) {
+    const elapsed = formatElapsedDuration(progress?.elapsedMs);
+
+    if (progress?.phase === "finalizing") {
+      return t("settings.data.exportFinalizing", { elapsed });
+    }
+
+    if (progress?.phase === "serializing") {
+      return t("settings.data.exportProgress", {
+        completed: progress.completed,
+        elapsed,
+        total: progress.total,
+      });
+    }
+
+    return t("settings.data.exportPreparing");
+  }
 
   const on = (element, eventName, handler, options) => {
     if (!element) {
@@ -138,6 +236,8 @@ export function mountSettingsPanel({ root, toggleButton }) {
   function renderSettingsUi(settings) {
     syncPolaroidFooterLabelInput(dom, settings);
     syncLocaleToggle(dom, settings);
+    syncExportButtonState();
+    syncImportUi();
   }
 
   function bindTabButton(button) {
@@ -227,21 +327,47 @@ export function mountSettingsPanel({ root, toggleButton }) {
       return;
     }
 
-    dom.exportButton.disabled = true;
+    isExportInProgress = true;
+    syncExportButtonState();
+    syncImportUi();
+    setExportStatus(t("settings.data.exportPreparing"));
+
+    let latestExportProgress = {
+      completed: 0,
+      elapsedMs: 0,
+      phase: "preparing",
+      total: 0,
+    };
+
     try {
-      const json = await exportAllPalettes();
+      const json = await exportAllPalettes({
+        onProgress: (progress) => {
+          latestExportProgress = progress;
+          syncExportButtonState(progress);
+          setExportStatus(buildExportProgressMessage(progress));
+        },
+      });
       const blob = new Blob([json], { type: "application/json" });
       const filename = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
+      const exportDoneTranslationKey = latestExportProgress.total === 1
+        ? "settings.data.exportDoneStatus.one"
+        : "settings.data.exportDoneStatus.other";
+      const exportDoneMessage = t(exportDoneTranslationKey, {
+        count: latestExportProgress.total,
+        elapsed: formatElapsedDuration(latestExportProgress.elapsedMs),
+      });
 
       if (typeof navigator.canShare === "function") {
         const file = new File([blob], filename, { type: "application/json" });
         if (navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ files: [file], title: filename });
+            setExportStatus(exportDoneMessage);
             showToast(t("settings.toast.exportDone"), { duration: 1400 });
             return;
           } catch (shareError) {
             if (shareError instanceof Error && shareError.name === "AbortError") {
+              setExportStatus("");
               return;
             }
           }
@@ -254,14 +380,16 @@ export function mountSettingsPanel({ root, toggleButton }) {
       anchor.download = filename;
       anchor.click();
       URL.revokeObjectURL(url);
+      setExportStatus(exportDoneMessage);
       showToast(t("settings.toast.exportDone"), { duration: 1400 });
     } catch (error) {
       console.error("Export failed:", error);
+      setExportStatus(t("settings.data.exportFailedStatus"), { isError: true });
       showToast(t("settings.toast.exportFailed"), { duration: 2000 });
     } finally {
-      if (dom.exportButton) {
-        dom.exportButton.disabled = false;
-      }
+      isExportInProgress = false;
+      syncExportButtonState();
+      syncImportUi();
     }
   });
 
@@ -275,19 +403,50 @@ export function mountSettingsPanel({ root, toggleButton }) {
       return;
     }
 
-    dom.importInput.disabled = true;
+    isImportInProgress = true;
+    syncImportUi();
+    syncExportButtonState();
+    setExportStatus(t("settings.data.importBusy"));
     try {
       const text = await file.text();
       const count = await importAllPalettes(text);
       const translationKey =
         count === 1 ? "settings.toast.imported.one" : "settings.toast.imported.other";
+      setExportStatus(t(translationKey, { count }));
       showToast(t(translationKey, { count }), { duration: 2000 });
     } catch (error) {
       console.error("Import failed:", error);
+      setExportStatus(t("settings.toast.importFailed"), { isError: true });
       showToast(t("settings.toast.importFailed"), { duration: 2500 });
     } finally {
+      isImportInProgress = false;
       dom.importInput.value = "";
-      dom.importInput.disabled = false;
+      syncImportUi();
+      syncExportButtonState();
+    }
+  });
+
+  on(dom.flushDataButton, "click", async () => {
+    if (!dom.flushDataButton) {
+      return;
+    }
+
+    const isConfirmed = globalThis.confirm?.(t("settings.data.flushConfirm")) ?? true;
+    if (!isConfirmed) {
+      return;
+    }
+
+    dom.flushDataButton.disabled = true;
+    try {
+      await flushAllLocalData();
+      globalThis.location?.reload();
+    } catch (error) {
+      console.error("Flush data failed:", error);
+      showToast(t("settings.toast.flushFailed"), {
+        variant: "error",
+        duration: 2500,
+      });
+      dom.flushDataButton.disabled = false;
     }
   });
 
