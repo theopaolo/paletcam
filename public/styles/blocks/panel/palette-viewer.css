@@ -169,10 +169,12 @@
 }
 
 .palette-viewer-swatch-strip {
+  --palette-viewer-swatch-height: clamp(7rem, 22vw, 8.75rem);
+
   display: flex;
   gap: 0;
   width: 100%;
-  margin-bottom: var(--space-8);
+  padding: 0 var(--space-8) var(--space-8);
 }
 
 .palette-viewer-swatch-strip:empty {
@@ -180,24 +182,52 @@
 }
 
 .palette-viewer-swatch {
+  position: relative;
+  display: block;
   flex: 1;
-  height: 3.5rem;
+  min-width: 0;
+  height: var(--palette-viewer-swatch-height);
   cursor: pointer;
   padding: 0;
   user-select: none;
-  transition: transform 0.1s var(--easing-standard);
-  border: 4px solid var(--color-surface-ink);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-chrome-tight);
+  overflow: hidden;
+  border: 0;
+  box-shadow:
+    inset 1px 0 0 rgb(255 255 255 / 9%),
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    inset 0 -1px 0 rgb(0 0 0 / 16%);
+}
+
+.palette-viewer-swatch-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--palette-viewer-swatch-height) - 1rem);
+  overflow: hidden;
+  font-family: var(--font-family-body);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: rgb(255 251 246 / 94%);
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.palette-viewer-swatch.is-light-bg .palette-viewer-swatch-label {
+  color: rgb(30 24 17 / 84%);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 22%);
 }
 
 .palette-viewer-swatch.is-placeholder {
   visibility: hidden;
   pointer-events: none;
-}
-
-.palette-viewer-swatch:active {
-  transform: scale(0.98);
 }
 
 .palette-viewer-actions {
@@ -210,7 +240,8 @@
     var(--gradient-surface-sheen),
     url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="1" seed="12"/><feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1.35 -0.45"/></filter><rect width="120" height="120" filter="url(%23n)" opacity="0.28"/></svg>');
   padding: var(--space-control-gap) calc(var(--space-8) + env(safe-area-inset-right, 0px))
-    calc(.75rem + env(safe-area-inset-bottom, 0px)) calc(var(--space-16) + env(safe-area-inset-left, 0px));
+    calc(0.75rem + env(safe-area-inset-bottom, 0px))
+    calc(var(--space-16) + env(safe-area-inset-left, 0px));
 }
 
 .palette-viewer-actions .panel-icon-button:disabled {
@@ -263,8 +294,7 @@
 .ral-live-swatch {
   padding: 0;
   background: var(--gradient-slider-shell);
-  box-shadow:
-    var(--shadow-control-inset);
+  box-shadow: var(--shadow-control-inset);
 }
 
 .ral-live-swatch-color {

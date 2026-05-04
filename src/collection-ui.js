@@ -1,12 +1,9 @@
-import { buildCommunityUrl } from "./config.js";
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
-import { t } from "./i18n.js";
 import {
   enqueueCommunityDeletionCleanupRetry,
   flushCommunityDeletionCleanupOutbox,
   initializeCommunityDeletionCleanupOutbox,
 } from "./community-delete-outbox.js";
-import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
 import {
   cleanupPaletteRemoteCatchForDeletion,
   getCurrentCommunitySession,
@@ -15,13 +12,12 @@ import {
   syncPublishedPalettesModerationStatus,
   unpublishPaletteFromCommunityFeed,
 } from "./community-service.js";
+import { buildCommunityUrl } from "./config.js";
+import { t } from "./i18n.js";
+import { openLoginPanel } from "./login-ui.js";
+import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import { createPaletteCard, createSwatchCard } from "./modules/collection/palette-card.js";
-import {
-  closePaletteViewerOverlay,
-  openPaletteViewerOverlay,
-  refreshPaletteViewerOverlay,
-} from "./modules/collection/palette-viewer-overlay.js";
 import {
   disposePalettePreviewPolaroidAsset,
   exportPalettePolaroidImage,
@@ -29,23 +25,27 @@ import {
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
 } from "./modules/collection/palette-preview-assets.js";
-import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
-import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
+import {
+  closePaletteViewerOverlay,
+  openPaletteViewerOverlay,
+  refreshPaletteViewerOverlay,
+} from "./modules/collection/palette-viewer-overlay.js";
 import {
   areAllCollectionSessionsCollapsed,
   buildCollectionPanelTitle,
   getCollectionSessionIds,
   toggleAllCollectionSessions,
 } from "./modules/collection/panel-state.js";
+import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
-import { isIOSDevice } from "./modules/platform.js";
 import {
   closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosing,
 } from "./modules/panels/panel-manager.js";
+import { isIOSDevice } from "./modules/platform.js";
 import { showToast, showUndoToast } from "./modules/toast-ui.js";
-import { openLoginPanel } from "./login-ui.js";
+import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
 
 export const PALETTE_DELETED_EVENT = "paletcam:palette-deleted";
 
@@ -132,10 +132,6 @@ function canPublishPalette(palette) {
   }
 
   return getPalettePublicationAction(palette) === "unpublish" || hasPaletteMasterPhoto(palette);
-}
-
-function getCurrentPalettes() {
-  return [...currentPalettes];
 }
 
 function getDisplayPalettes() {
@@ -227,9 +223,11 @@ function syncCollectionUiAfterPaletteRemoval() {
 }
 
 function dispatchPaletteDeletedEvent(paletteId) {
-  window.dispatchEvent(new CustomEvent(PALETTE_DELETED_EVENT, {
-    detail: { paletteId },
-  }));
+  window.dispatchEvent(
+    new CustomEvent(PALETTE_DELETED_EVENT, {
+      detail: { paletteId },
+    }),
+  );
 }
 
 function insertPaletteAtIndex(palette, index) {
@@ -270,9 +268,7 @@ async function handleSharePalette(palette) {
   if (result.status === "unsupported") {
     const exported = await exportPalettePolaroidImage(palette);
     showToast(
-      exported
-        ? t("collection.shareUnsupportedWithExport")
-        : t("collection.shareUnsupported"),
+      exported ? t("collection.shareUnsupportedWithExport") : t("collection.shareUnsupported"),
       {
         variant: exported ? "default" : "error",
         duration: exported ? 1800 : 2000,
@@ -293,9 +289,8 @@ async function handleDeletePalette(palette) {
   }
 
   const card = getCollectionCardByPaletteId(palette.id);
-  const snapshot = card instanceof HTMLElement
-    ? cardLifecycle.takeCardPositionSnapshot(card)
-    : null;
+  const snapshot =
+    card instanceof HTMLElement ? cardLifecycle.takeCardPositionSnapshot(card) : null;
   const removedIndex = currentPalettes.findIndex((entry) => entry.id === palette.id);
   const shouldTrackCollectionState = removedIndex >= 0;
 
@@ -424,15 +419,17 @@ function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
     },
   });
 
-  let message = result.status === "authentication_required"
-    ? t("collection.deleteRemoteCleanupAuth")
-    : t("collection.deleteRemoteCleanupFailed");
+  let message =
+    result.status === "authentication_required"
+      ? t("collection.deleteRemoteCleanupAuth")
+      : t("collection.deleteRemoteCleanupFailed");
   let variant = "error";
 
   if (wasQueued) {
-    message = result.status === "authentication_required"
-      ? t("collection.deleteRemoteCleanupAuthQueued")
-      : t("collection.deleteRemoteCleanupFailedQueued");
+    message =
+      result.status === "authentication_required"
+        ? t("collection.deleteRemoteCleanupAuthQueued")
+        : t("collection.deleteRemoteCleanupFailedQueued");
     variant = "default";
   }
 
@@ -481,6 +478,7 @@ function createCollectionSwatchCard(palette) {
   return createSwatchCard({
     palette,
     onOpenViewer: openCollectionPaletteViewer,
+    scrollRoot: collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null,
   });
 }
 
@@ -566,7 +564,9 @@ function renderCollectionUi(palettes) {
 
 async function loadCollectionUi() {
   try {
-    const palettes = (await getSavedPalettes()).filter((palette) => !pendingDeletionIds.has(palette.id));
+    const palettes = (await getSavedPalettes()).filter(
+      (palette) => !pendingDeletionIds.has(palette.id),
+    );
     renderCollectionUi(palettes);
   } catch (error) {
     currentPalettes = [];
@@ -711,7 +711,7 @@ async function handlePublishPalette(palette, action = "publish") {
     const toastOptions = {
       duration: 1800,
     };
-    if (action === 'publish') {
+    if (action === "publish") {
       toastOptions.actionLabel = t("collection.publish.cta");
       toastOptions.onAction = () => {
         window.open(buildCommunityUrl("/my/catches"));
@@ -927,9 +927,7 @@ async function handleSelectionDelete() {
 }
 
 async function handleSelectionExport() {
-  const toExport = getDisplayPalettes().filter(
-    (p) => selectedIds.has(p.id) && canExportPalette(p),
-  );
+  const toExport = getDisplayPalettes().filter((p) => selectedIds.has(p.id) && canExportPalette(p));
   exitSelectMode();
   for (const palette of toExport) {
     await handleExportPalette(palette);
@@ -948,7 +946,10 @@ async function handleSelectionPublish() {
   }
 
   const toPublish = getDisplayPalettes().filter(
-    (p) => selectedIds.has(p.id) && canPublishPalette(p) && getPalettePublicationAction(p) !== "unpublish",
+    (p) =>
+      selectedIds.has(p.id) &&
+      canPublishPalette(p) &&
+      getPalettePublicationAction(p) !== "unpublish",
   );
   exitSelectMode();
   for (const palette of toPublish) {
@@ -1071,31 +1072,35 @@ function bindCollectionUiEvents() {
     }
   });
 
-  collectionGrid?.addEventListener("click", (event) => {
-    if (!isSelectMode) {
-      return;
-    }
+  collectionGrid?.addEventListener(
+    "click",
+    (event) => {
+      if (!isSelectMode) {
+        return;
+      }
 
-    const card = /** @type {HTMLElement} */ (event.target)?.closest?.(".palette-card");
-    if (!card) {
-      return;
-    }
+      const card = /** @type {HTMLElement} */ (event.target)?.closest?.(".palette-card");
+      if (!card) {
+        return;
+      }
 
-    const paletteId = Number(card.dataset.paletteId);
-    if (Number.isNaN(paletteId)) {
-      return;
-    }
+      const paletteId = Number(card.dataset.paletteId);
+      if (Number.isNaN(paletteId)) {
+        return;
+      }
 
-    if (selectedIds.has(paletteId)) {
-      selectedIds.delete(paletteId);
-      card.classList.remove("is-selected");
-    } else {
-      selectedIds.add(paletteId);
-      card.classList.add("is-selected");
-    }
+      if (selectedIds.has(paletteId)) {
+        selectedIds.delete(paletteId);
+        card.classList.remove("is-selected");
+      } else {
+        selectedIds.add(paletteId);
+        card.classList.add("is-selected");
+      }
 
-    syncSelectionBar();
-  }, true);
+      syncSelectionBar();
+    },
+    true,
+  );
 
   subscribeSharedPanelClosing("collection", () => {
     clearModerationSyncLoop();

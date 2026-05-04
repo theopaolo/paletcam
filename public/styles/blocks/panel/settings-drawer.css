@@ -81,6 +81,12 @@ settings-panel.is-open .settings-drawer {
   border-bottom-color: var(--color-accent-active);
 }
 
+.settings-drawer-tab > svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
 .settings-drawer-tab-label {
   display: block;
   white-space: nowrap;

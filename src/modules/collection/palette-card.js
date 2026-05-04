@@ -1,7 +1,11 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
 import { loadImageElementSource } from "../image-element-loader.js";
-import { getPalettePreviewPolaroidAsset, hasPaletteMasterPhoto } from "./palette-preview-assets.js";
+import {
+  getPaletteMasterPhotoAsset,
+  getPalettePreviewPolaroidAsset,
+  hasPaletteMasterPhoto,
+} from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
 
@@ -59,49 +63,18 @@ function schedulePreviewStart(start, order) {
   });
 }
 
-/**
- * @param {object} config
- * @param {Palette} config.palette
- * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
- * @param {Element | null} [config.scrollRoot]
- */
-export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) {
-  const card = document.createElement("div");
-  card.className = "palette-card";
-  card.dataset.paletteId = String(palette.id);
-  const previewLoadOrder = nextPreviewLoadOrder++;
-  const hasMasterPhoto = hasPaletteMasterPhoto(palette);
-
-  const trigger = document.createElement("button");
-  trigger.type = "button";
-  trigger.className = "palette-card-trigger";
-  trigger.setAttribute("aria-label", t("viewer.openCapture"));
-
-  const previewImage = document.createElement("img");
-  previewImage.className = "palette-card-image";
-  previewImage.alt = t("viewer.previewAlt");
-  previewImage.decoding = "async";
-  previewImage.hidden = true;
-
-  const previewLoader = document.createElement("div");
-  previewLoader.className = "palette-card-loader";
-  previewLoader.setAttribute("aria-hidden", "true");
-
-  const previewStatus = document.createElement("p");
-  previewStatus.className = "palette-card-status";
-  previewStatus.textContent = hasMasterPhoto ? "" : t("viewer.previewUnavailable");
-
-  previewLoader.hidden = !hasMasterPhoto;
-  trigger.append(previewImage, previewLoader, previewStatus);
-  card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
-
-  if (palette.captureMode === "ral") {
-    const ralIndicator = document.createElement("span");
-    ralIndicator.className = "palette-card-ral-indicator panel-status-chip";
-    ralIndicator.textContent = "RAL";
-    card.appendChild(ralIndicator);
-  }
-
+function bindLazyPreviewLoad({
+  card,
+  trigger,
+  previewImage,
+  previewLoader,
+  previewStatus,
+  hasMasterPhoto,
+  scrollRoot,
+  getAsset,
+  onOpenViewer,
+  paletteId,
+}) {
   let previewAssetPromise;
   let hasStartedPreviewLoad = false;
   let hasPreviewLoadFailed = false;
@@ -112,7 +85,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
       return Promise.reject(new Error("Missing palette photo"));
     }
 
-    previewAssetPromise ??= getPalettePreviewPolaroidAsset(palette);
+    previewAssetPromise ??= getAsset();
     return previewAssetPromise;
   };
 
@@ -148,7 +121,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
       previewImage.removeAttribute("src");
       previewLoader.hidden = true;
       previewStatus.textContent = t("viewer.previewUnavailable");
-      console.error(`Failed to render preview for palette ${palette.id}:`, error);
+      console.error(`Failed to render preview for palette ${paletteId}:`, error);
     }
   };
 
@@ -168,64 +141,71 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
     }
 
     hasQueuedPreviewLoad = true;
-    schedulePreviewStart(startPreviewLoad, previewLoadOrder);
+    schedulePreviewStart(startPreviewLoad, nextPreviewLoadOrder++);
   };
 
   trigger.addEventListener("click", () => {
     startPreviewLoad();
-    void onOpenViewer?.(palette.id);
+    void onOpenViewer?.(paletteId);
   });
 
-  if (hasMasterPhoto) {
-    if (window.IntersectionObserver) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (!entries.some((entry) => entry.isIntersecting)) {
-            return;
-          }
-
-          observer.disconnect();
-          queuePreviewLoad();
-        },
-        { root: scrollRoot, rootMargin: PREVIEW_OBSERVER_ROOT_MARGIN },
-      );
-
-      observer.observe(card);
-    } else {
-      queuePreviewLoad();
-    }
+  if (!hasMasterPhoto) {
+    return;
   }
 
-  return card;
+  if (window.IntersectionObserver) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+
+        observer.disconnect();
+        queuePreviewLoad();
+      },
+      { root: scrollRoot, rootMargin: PREVIEW_OBSERVER_ROOT_MARGIN },
+    );
+
+    observer.observe(card);
+    return;
+  }
+
+  queuePreviewLoad();
 }
 
 /**
  * @param {object} config
  * @param {Palette} config.palette
  * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
+ * @param {Element | null} [config.scrollRoot]
  */
-export function createSwatchCard({ palette, onOpenViewer }) {
+export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) {
   const card = document.createElement("div");
-  card.className = "palette-card palette-card--swatch";
+  card.className = "palette-card";
   card.dataset.paletteId = String(palette.id);
+  const hasMasterPhoto = hasPaletteMasterPhoto(palette);
 
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.className = "palette-card-trigger";
   trigger.setAttribute("aria-label", t("viewer.openCapture"));
 
-  const strip = document.createElement("div");
-  strip.className = "palette-swatch-strip";
-  strip.setAttribute("aria-hidden", "true");
+  const previewImage = document.createElement("img");
+  previewImage.className = "palette-card-image";
+  previewImage.alt = t("viewer.previewAlt");
+  previewImage.decoding = "async";
+  previewImage.hidden = true;
 
-  palette.colors.forEach((color) => {
-    const segment = document.createElement("span");
-    segment.className = "palette-swatch-segment";
-    segment.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    strip.appendChild(segment);
-  });
+  const previewLoader = document.createElement("div");
+  previewLoader.className = "palette-card-loader";
+  previewLoader.setAttribute("aria-hidden", "true");
 
-  trigger.appendChild(strip);
+  const previewStatus = document.createElement("p");
+  previewStatus.className = "palette-card-status";
+  previewStatus.textContent = hasMasterPhoto ? "" : t("viewer.previewUnavailable");
+
+  previewLoader.hidden = !hasMasterPhoto;
+  trigger.append(previewImage, previewLoader, previewStatus);
   card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
 
   if (palette.captureMode === "ral") {
@@ -235,8 +215,89 @@ export function createSwatchCard({ palette, onOpenViewer }) {
     card.appendChild(ralIndicator);
   }
 
-  trigger.addEventListener("click", () => {
-    void onOpenViewer?.(palette.id);
+  bindLazyPreviewLoad({
+    card,
+    trigger,
+    previewImage,
+    previewLoader,
+    previewStatus,
+    hasMasterPhoto,
+    scrollRoot,
+    getAsset: () => getPalettePreviewPolaroidAsset(palette),
+    onOpenViewer,
+    paletteId: palette.id,
+  });
+
+  return card;
+}
+
+/**
+ * @param {object} config
+ * @param {Palette} config.palette
+ * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
+ */
+export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
+  const card = document.createElement("div");
+  card.className = "palette-card palette-card--swatch";
+  card.dataset.paletteId = String(palette.id);
+  card.style.setProperty("--palette-card-span", String(Math.max(2, palette.colors.length + 1)));
+  const hasMasterPhoto = hasPaletteMasterPhoto(palette);
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "palette-card-trigger";
+  trigger.setAttribute("aria-label", t("viewer.openCapture"));
+
+  const mediaTile = document.createElement("div");
+  mediaTile.className = "palette-swatch-media";
+  mediaTile.setAttribute("aria-hidden", "true");
+
+  const previewImage = document.createElement("img");
+  previewImage.className = "palette-card-image";
+  previewImage.alt = t("viewer.previewAlt");
+  previewImage.decoding = "async";
+  previewImage.hidden = true;
+
+  const previewLoader = document.createElement("div");
+  previewLoader.className = "palette-card-loader";
+  previewLoader.setAttribute("aria-hidden", "true");
+  previewLoader.hidden = !hasMasterPhoto;
+
+  const previewStatus = document.createElement("p");
+  previewStatus.className = "palette-card-status";
+  previewStatus.textContent = hasMasterPhoto ? "" : t("viewer.previewUnavailable");
+
+  mediaTile.append(previewImage, previewLoader, previewStatus);
+  trigger.appendChild(mediaTile);
+
+  palette.colors.forEach((color) => {
+    const segment = document.createElement("span");
+    segment.className = "palette-swatch-segment";
+    segment.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    segment.setAttribute("aria-hidden", "true");
+    trigger.appendChild(segment);
+  });
+
+  card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
+
+  if (palette.captureMode === "ral") {
+    const ralIndicator = document.createElement("span");
+    ralIndicator.className = "palette-card-ral-indicator panel-status-chip";
+    ralIndicator.textContent = "RAL";
+    card.appendChild(ralIndicator);
+  }
+
+  bindLazyPreviewLoad({
+    card,
+    trigger,
+    previewImage,
+    previewLoader,
+    previewStatus,
+    hasMasterPhoto,
+    scrollRoot,
+    getAsset: () => getPaletteMasterPhotoAsset(palette),
+    onOpenViewer,
+    paletteId: palette.id,
   });
 
   return card;

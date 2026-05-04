@@ -1,5 +1,7 @@
 import { getAppSettings } from "../../app-settings.js";
 import { toRgbCss } from "../color-format.js";
+import { relativeLuminance } from "../color-space-oklch.js";
+import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 
 const POLAROID_CARD_ASPECT_RATIO = 1.22;
 const DEFAULT_POLAROID_PHOTO_ASPECT_RATIO = 4 / 3;
@@ -318,6 +320,146 @@ function drawPaletteStrip({
   });
 }
 
+function getPaletteRalDetails(palette) {
+  if (palette?.captureMode !== "ral") {
+    return null;
+  }
+
+  const storedMatch =
+    palette?.ralMatch && typeof palette.ralMatch === "object" ? palette.ralMatch : null;
+
+  const hasStoredColor =
+    Number.isFinite(storedMatch?.r) &&
+    Number.isFinite(storedMatch?.g) &&
+    Number.isFinite(storedMatch?.b);
+
+  const fallbackColor = hasStoredColor
+    ? storedMatch
+    : Array.isArray(palette?.colors) && palette.colors.length > 0
+      ? palette.colors[0]
+      : null;
+
+  if (!fallbackColor) {
+    return null;
+  }
+
+  const match = findClosestRAL(fallbackColor.r, fallbackColor.g, fallbackColor.b, 1)[0] ?? null;
+  if (!match && !hasStoredColor) {
+    return null;
+  }
+
+  return {
+    code:
+      typeof storedMatch?.code === "string" && storedMatch.code.trim()
+        ? storedMatch.code
+        : match?.ral.code ?? "",
+    name:
+      typeof storedMatch?.name === "string" && storedMatch.name.trim()
+        ? storedMatch.name
+        : match?.ral.name ?? "",
+    r: hasStoredColor ? storedMatch.r : match?.ral.r ?? fallbackColor.r,
+    g: hasStoredColor ? storedMatch.g : match?.ral.g ?? fallbackColor.g,
+    b: hasStoredColor ? storedMatch.b : match?.ral.b ?? fallbackColor.b,
+    deltaE: Number.isFinite(storedMatch?.deltaE) ? storedMatch.deltaE : match?.deltaE ?? null,
+  };
+}
+
+function fitTextToWidth(context, text, {
+  maxWidth,
+  maxFontSize,
+  minFontSize,
+  fontWeight,
+} = {}) {
+  let fontSize = Math.max(minFontSize, maxFontSize);
+
+  for (; fontSize > minFontSize; fontSize -= 1) {
+    context.font = `${fontWeight} ${fontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
+    if (context.measureText(text).width <= maxWidth) {
+      return fontSize;
+    }
+  }
+
+  context.font = `${fontWeight} ${minFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
+  return minFontSize;
+}
+
+function drawRalStripCaption({
+  context,
+  palette,
+  x,
+  y,
+  width,
+  height,
+  cardWidth,
+}) {
+  const ralDetails = getPaletteRalDetails(palette);
+  if (!ralDetails || width <= 0 || height <= 0) {
+    return;
+  }
+
+  const isLightBackground = relativeLuminance(ralDetails.r, ralDetails.g, ralDetails.b) > 0.179;
+  const codeText = String(ralDetails.code ?? "").trim().toUpperCase();
+  const nameText = String(ralDetails.name ?? "").trim().toUpperCase();
+  const qualityText = String(getRalQualityLabel(ralDetails.deltaE) ?? "").trim().toUpperCase();
+  const primaryColor = isLightBackground ? "rgba(34, 28, 20, 0.92)" : "rgba(255, 250, 244, 0.94)";
+  const secondaryColor = isLightBackground ? "rgba(34, 28, 20, 0.82)" : "rgba(255, 250, 244, 0.82)";
+  const accentColor = isLightBackground ? "rgba(133, 95, 0, 0.96)" : "#ffc81a";
+  const paddingX = Math.max(10, Math.round(cardWidth * 0.018));
+  const paddingBottom = Math.max(8, Math.round(height * 0.055));
+  const availableWidth = Math.max(48, width - (paddingX * 2));
+  const codeMaxFontSize = Math.max(8, Math.min(height * 0.085, cardWidth * 0.016));
+  const nameMaxFontSize = Math.max(10, Math.min(height * 0.12, cardWidth * 0.022));
+  const qualityMaxFontSize = Math.max(8, Math.min(height * 0.07, cardWidth * 0.014));
+
+  context.save();
+  context.beginPath();
+  context.rect(x, y, width, height);
+  context.clip();
+  context.textAlign = "left";
+  context.textBaseline = "alphabetic";
+
+  const codeFontSize = fitTextToWidth(context, codeText, {
+    maxWidth: availableWidth,
+    maxFontSize: Math.round(codeMaxFontSize),
+    minFontSize: 8,
+    fontWeight: 500,
+  });
+  const nameFontSize = fitTextToWidth(context, nameText, {
+    maxWidth: availableWidth,
+    maxFontSize: Math.round(nameMaxFontSize),
+    minFontSize: 10,
+    fontWeight: 700,
+  });
+  const qualityFontSize = fitTextToWidth(context, qualityText, {
+    maxWidth: availableWidth,
+    maxFontSize: Math.round(qualityMaxFontSize),
+    minFontSize: 8,
+    fontWeight: 500,
+  });
+
+  const gap = Math.max(2, Math.round(height * 0.02));
+  const anchorX = x + paddingX;
+  const qualityY = y + height - paddingBottom;
+  const nameY = qualityY - qualityFontSize - gap;
+  const codeY = nameY - nameFontSize - gap;
+
+  context.font = `500 ${codeFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
+  context.fillStyle = secondaryColor;
+  context.fillText(codeText, anchorX, codeY);
+
+  context.font = `700 ${nameFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
+  context.fillStyle = primaryColor;
+  context.fillText(nameText, anchorX, nameY);
+
+  if (qualityText) {
+    context.font = `500 ${qualityFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
+    context.fillStyle = accentColor;
+    context.fillText(qualityText, anchorX, qualityY);
+  }
+
+  context.restore();
+}
+
 function addRoundedRectPath(context, x, y, width, height, radius) {
   const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
 
@@ -368,6 +510,7 @@ function renderPolaroidCanvas({
   canvas,
   context,
   image,
+  palette,
   colors,
   brandLabel,
   photoAspectRatio = DEFAULT_POLAROID_PHOTO_ASPECT_RATIO,
@@ -460,6 +603,16 @@ function renderPolaroidCanvas({
     height: palettePanelHeight,
   });
 
+  drawRalStripCaption({
+    context,
+    palette,
+    x: palettePanelX,
+    y: palettePanelY,
+    width: innerWidth,
+    height: palettePanelHeight,
+    cardWidth,
+  });
+
   drawBrandCaption({
     context,
     label: brandLabel,
@@ -550,6 +703,7 @@ export async function renderPalettePolaroidBlob(
       canvas,
       context,
       image,
+      palette,
       colors: palette.colors,
       brandLabel: getBrandLabel(),
       photoAspectRatio: getPalettePhotoAspectRatioValue(palette),

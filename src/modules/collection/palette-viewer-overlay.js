@@ -1,6 +1,8 @@
-import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
+import { subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
+import { getColorNames, toColorNameHex } from "../color-name-api.js";
+import { relativeLuminance } from "../color-space-oklch.js";
 import { loadImageElementSource } from "../image-element-loader.js";
 import {
   closeSharedPanel,
@@ -185,10 +187,32 @@ function clearViewerSwatches() {
   }
 }
 
-function createViewerSwatch() {
+function applySwatchLabel(swatch, label) {
+  let swatchLabel = swatch.querySelector(".palette-viewer-swatch-label");
+  if (!(swatchLabel instanceof HTMLElement)) {
+    swatchLabel = document.createElement("span");
+    swatchLabel.className = "palette-viewer-swatch-label";
+    swatch.appendChild(swatchLabel);
+  }
+
+  const safeLabel = String(label ?? "").trim() || swatch.dataset.fallbackLabel || "";
+  swatchLabel.textContent = safeLabel;
+  swatch.setAttribute("aria-label", safeLabel);
+  swatch.title = safeLabel;
+}
+
+function createViewerSwatch(color = null) {
   const swatch = document.createElement("button");
   swatch.type = "button";
   swatch.className = "palette-viewer-swatch";
+  if (color) {
+    swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    swatch.dataset.fallbackLabel = toColorNameHex(color);
+    if (relativeLuminance(color.r, color.g, color.b) > 0.179) {
+      swatch.classList.add("is-light-bg");
+    }
+    applySwatchLabel(swatch, swatch.dataset.fallbackLabel);
+  }
   return swatch;
 }
 
@@ -234,15 +258,35 @@ function renderViewerSwatches(colors) {
   swatchStripContainer.innerHTML = "";
   swatchStripContainer.hidden = false;
 
-  colors.forEach((color) => {
-    const swatch = createViewerSwatch();
-    swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    swatch.setAttribute("aria-label", t("viewer.viewRalMatch"));
+  const paletteId = getActivePalette()?.id ?? null;
+  const session = activeSession;
+  const requestId = activeRequestId;
+  const swatches = colors.map((color) => {
+    const swatch = createViewerSwatch(color);
     swatch.addEventListener("click", (event) => {
       event.stopPropagation();
       showRalPopover(color, swatch);
     });
     swatchStripContainer.appendChild(swatch);
+    return swatch;
+  });
+
+  void getColorNames(colors).then((labels) => {
+    if (
+      activeSession !== session ||
+      activeRequestId !== requestId ||
+      getActivePalette()?.id !== paletteId
+    ) {
+      return;
+    }
+
+    swatches.forEach((swatch, index) => {
+      const resolvedLabel = String(labels[index] ?? "").trim();
+      if (!resolvedLabel || resolvedLabel === swatch.dataset.fallbackLabel) {
+        return;
+      }
+      applySwatchLabel(swatch, resolvedLabel);
+    });
   });
 }
 
@@ -263,11 +307,7 @@ function renderViewerPlaceholderSwatch() {
 }
 
 function shouldShowViewerSwatches(palette) {
-  if (!Array.isArray(palette?.colors) || palette.colors.length === 0) {
-    return false;
-  }
-
-  return getAppSettings().captureMode === "ral" || palette.captureMode === "ral";
+  return Array.isArray(palette?.colors) && palette.colors.length > 0;
 }
 
 function renderActivePaletteSupplementaryUi() {
@@ -276,6 +316,10 @@ function renderActivePaletteSupplementaryUi() {
   clearViewerSwatches();
 
   if (!palette) {
+    return;
+  }
+
+  if (isRalCapture(palette)) {
     return;
   }
 

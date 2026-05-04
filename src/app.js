@@ -1385,14 +1385,8 @@ function initializeApp() {
         configPipVideo.className = "config-pip";
         configPipVideo.setAttribute("aria-hidden", "true");
         configPipVideo.srcObject = /** @type {MediaStream} */ (stream);
-        configPanelEl.appendChild(configPipVideo);
+        document.body.appendChild(configPipVideo);
         configPipVideo.play().catch(() => {});
-
-        const configDrawer = document.getElementById("configDrawer");
-        if (configDrawer) {
-          const drawerBottom = parseFloat(window.getComputedStyle(configDrawer).bottom) || 0;
-          configPipVideo.style.bottom = `${drawerBottom + configDrawer.offsetHeight + 8}px`;
-        }
       }
     } else {
       if (configPipVideo) {

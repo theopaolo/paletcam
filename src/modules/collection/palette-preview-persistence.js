@@ -9,9 +9,14 @@ const PALETTE_PREVIEW_RENDER_OPTIONS = Object.freeze({
   quality: 0.9,
   scale: 0.78,
 });
+const PALETTE_PREVIEW_RENDER_VERSION = "preview-v3";
+
+function buildPreviewFingerprint(label) {
+  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewFooterLabel(label) ?? ""}`;
+}
 
 export function getCurrentPalettePreviewFooterLabel() {
-  return normalizePreviewFooterLabel(getAppSettings().polaroidFooterLabel);
+  return buildPreviewFingerprint(getAppSettings().polaroidFooterLabel);
 }
 
 export function getStoredPalettePreviewBlob(palette) {

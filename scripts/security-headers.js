@@ -1,7 +1,7 @@
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self' https://colorcatchers.co",
+  "connect-src 'self' https://colorcatchers.co https://api.color.pizza",
   "font-src 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
@@ -12,60 +12,60 @@ const CONTENT_SECURITY_POLICY = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "worker-src 'self'",
-].join('; ');
+].join("; ");
 
 export const SECURITY_HEADERS = {
-  'Content-Security-Policy': CONTENT_SECURITY_POLICY,
-  'Cross-Origin-Embedder-Policy': 'require-corp',
-  'Cross-Origin-Opener-Policy': 'same-origin',
-  'Cross-Origin-Resource-Policy': 'same-origin',
-  'Permissions-Policy': [
-    'accelerometer=()',
-    'autoplay=(self)',
-    'camera=(self)',
-    'fullscreen=(self)',
-    'geolocation=()',
-    'gyroscope=()',
-    'microphone=()',
-    'payment=()',
-    'usb=()',
-  ].join(', '),
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-Permitted-Cross-Domain-Policies': 'none',
+  "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+  "Cross-Origin-Embedder-Policy": "require-corp",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Permissions-Policy": [
+    "accelerometer=()",
+    "autoplay=(self)",
+    "camera=(self)",
+    "fullscreen=(self)",
+    "geolocation=()",
+    "gyroscope=()",
+    "microphone=()",
+    "payment=()",
+    "usb=()",
+  ].join(", "),
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "X-Permitted-Cross-Domain-Policies": "none",
 };
 
 const NETLIFY_ROUTE_HEADERS = [
   {
-    path: '/.well-known/apple-app-site-association',
+    path: "/.well-known/apple-app-site-association",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   },
   {
-    path: '/service-worker.js',
+    path: "/service-worker.js",
     headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      "Cache-Control": "no-cache, no-store, must-revalidate",
     },
   },
   {
-    path: '/precache-manifest.json',
+    path: "/precache-manifest.json",
     headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      "Cache-Control": "no-cache, no-store, must-revalidate",
     },
   },
   {
-    path: '/manifest.json',
+    path: "/manifest.json",
     headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      "Cache-Control": "no-cache, no-store, must-revalidate",
     },
   },
   {
-    path: '/index.html',
+    path: "/index.html",
     headers: {
-      'Cache-Control': 'no-cache',
+      "Cache-Control": "no-cache",
     },
   },
 ];
@@ -74,7 +74,7 @@ export function withSecurityHeaders(headersInit = {}) {
   const headers = new Headers(headersInit);
 
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-    if (name === 'Strict-Transport-Security') {
+    if (name === "Strict-Transport-Security") {
       continue;
     }
 
@@ -85,18 +85,18 @@ export function withSecurityHeaders(headersInit = {}) {
 }
 
 export function createNetlifyHeadersFile() {
-  const lines = ['/*'];
+  const lines = ["/*"];
 
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     lines.push(`  ${name}: ${value}`);
   }
 
   for (const routeConfig of NETLIFY_ROUTE_HEADERS) {
-    lines.push('', routeConfig.path);
+    lines.push("", routeConfig.path);
     for (const [name, value] of Object.entries(routeConfig.headers)) {
       lines.push(`  ${name}: ${value}`);
     }
   }
 
-  return `${lines.join('\n')}\n`;
+  return `${lines.join("\n")}\n`;
 }

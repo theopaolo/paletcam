@@ -162,8 +162,10 @@ config-panel.is-open .config-drawer {
 
 .config-pip {
   position: absolute;
-  right: var(--space-8);
-  width: 5.75rem;
+  bottom: var(--space-8);
+  left: var(--space-8);
+  width: 45%;
+  z-index: 999;
   aspect-ratio: 4 / 3;
   border-radius: var(--radius-sm);
   overflow: hidden;

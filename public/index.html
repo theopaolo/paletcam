@@ -61,12 +61,29 @@
       </div>
     </header>
 
-    <div class="capture">
-      <div class="capture-camera-stage" aria-hidden="true">
-        <div class="camera-stage-mount" id="cameraStageMount"></div>
+    <div class="capture-stage-shell">
+      <div class="capture">
+        <div class="capture-camera-stage" aria-hidden="true">
+          <div class="camera-stage-mount" id="cameraStageMount"></div>
+        </div>
+        <div class="capture-palette-stage">
+          <canvas id="canvas-palette"></canvas>
+        </div>
+
+        <config-panel></config-panel>
+
+        <settings-panel></settings-panel>
+
+        <canvas id="canvas"></canvas>
       </div>
-      <div class="capture-palette-stage">
-        <canvas id="canvas-palette"></canvas>
+
+      <div class="ral-live-swatch" id="ralLiveSwatch" hidden>
+        <div class="ral-live-swatch-color" id="ralLiveSwatchColor"></div>
+        <div class="ral-live-swatch-info">
+          <p class="ral-live-swatch-code" id="ralLiveSwatchCode"></p>
+          <p class="ral-live-swatch-name" id="ralLiveSwatchName"></p>
+          <p class="ral-live-swatch-quality" id="ralLiveSwatchQuality"></p>
+        </div>
       </div>
 
       <section class="config-section">
@@ -92,12 +109,6 @@
           data-capture-mode="palette"
         >RAL</button>
       </section>
-
-      <config-panel></config-panel>
-
-      <settings-panel></settings-panel>
-
-      <canvas id="canvas"></canvas>
     </div>
 
     <div class="sliders-container">
@@ -117,15 +128,6 @@
           >
           <span class="swatch-scale-label swatch-scale-label-max">7</span>
         </div>
-      </div>
-    </div>
-
-    <div class="ral-live-swatch" id="ralLiveSwatch" hidden>
-      <div class="ral-live-swatch-color" id="ralLiveSwatchColor"></div>
-      <div class="ral-live-swatch-info">
-        <p class="ral-live-swatch-code" id="ralLiveSwatchCode"></p>
-        <p class="ral-live-swatch-name" id="ralLiveSwatchName"></p>
-        <p class="ral-live-swatch-quality" id="ralLiveSwatchQuality"></p>
       </div>
     </div>
 

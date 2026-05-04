@@ -131,6 +131,7 @@ describe("renderPalettePolaroidBlob", () => {
       },
       moveTo() {},
       quadraticCurveTo() {},
+      rect() {},
       restore() {},
       save() {},
     };
@@ -235,6 +236,7 @@ describe("renderPalettePolaroidBlob", () => {
       },
       moveTo() {},
       quadraticCurveTo() {},
+      rect() {},
       restore() {},
       save() {},
     };
@@ -300,5 +302,106 @@ describe("renderPalettePolaroidBlob", () => {
     expect(fillRectCalls[0]?.fillStyle).toBe(POLAROID_TOKEN_VALUES["--color-polaroid-shell-dark"]);
     expect(fillRectCalls[1]?.fillStyle).toBe(POLAROID_TOKEN_VALUES["--color-polaroid-footer-dark"]);
     expect(fillTextCalls[0]?.fillStyle).toBe(POLAROID_TOKEN_VALUES["--color-polaroid-footer-text-dark"]);
+  });
+
+  test("renders RAL details inside the swatch panel for RAL captures", async () => {
+    const fillTextCalls = [];
+    const photoUrl = "blob:palette-preview-source";
+    const fakeContext = {
+      fillStyle: "",
+      font: "",
+      textAlign: "left",
+      textBaseline: "alphabetic",
+      beginPath() {},
+      clearRect() {},
+      clip() {},
+      closePath() {},
+      drawImage() {},
+      fillRect() {},
+      fillText(text, x, y) {
+        fillTextCalls.push({ fillStyle: this.fillStyle, text, x, y });
+      },
+      lineTo() {},
+      measureText(text) {
+        return { width: String(text).length * 10 };
+      },
+      moveTo() {},
+      quadraticCurveTo() {},
+      rect() {},
+      restore() {},
+      save() {},
+    };
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext() {
+        return fakeContext;
+      },
+      toBlob(callback, type) {
+        callback(new Blob(["preview"], { type }));
+      },
+    };
+
+    setGlobalProperty("document", {
+      createElement(tagName) {
+        if (tagName === "canvas") {
+          return fakeCanvas;
+        }
+
+        throw new Error(`Unexpected element creation: ${tagName}`);
+      },
+      documentElement: { nodeName: "HTML" },
+      fonts: {
+        load() {
+          return Promise.resolve();
+        },
+      },
+      querySelector() {
+        return null;
+      },
+    });
+    installPolaroidTokenMocks();
+    globalThis.URL.createObjectURL = () => photoUrl;
+    globalThis.URL.revokeObjectURL = () => {};
+    setGlobalProperty("Image", class MockImage {
+      constructor() {
+        this.width = 1600;
+        this.height = 1200;
+        this.onload = null;
+      }
+
+      set src(value) {
+        this._src = value;
+
+        if (!value) {
+          return;
+        }
+
+        queueMicrotask(() => {
+          this.onload?.();
+        });
+      }
+    });
+
+    await renderPalettePolaroidBlob({
+      captureMode: "ral",
+      colors: [{ r: 124, g: 112, b: 138 }],
+      ralMatch: {
+        code: "RAL 4012",
+        name: "Pearl blackberry",
+        r: 124,
+        g: 112,
+        b: 138,
+        deltaE: 10,
+      },
+      photoBlob: new Blob(["source"], { type: "image/webp" }),
+    });
+
+    const renderedTexts = fillTextCalls.map((call) => call.text);
+
+    expect(renderedTexts).toContain("RAL 4012");
+    expect(renderedTexts).toContain("PEARL BLACKBERRY");
+    expect(renderedTexts.some((text) => String(text).includes("0%"))).toBe(true);
+    expect(renderedTexts).toContain("colorcatchers.co");
   });
 });

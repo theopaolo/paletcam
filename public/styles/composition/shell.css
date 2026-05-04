@@ -23,7 +23,6 @@ body {
 .shell-header {
   flex-direction: row-reverse;
   padding: var(--space-4);
-  border: 5px solid var(--color-surface-base);
   border-bottom: unset;
   background-image:
     var(--gradient-surface-sheen),
@@ -39,6 +38,14 @@ body {
   --toolbar-gap: var(--space-control-padding);
 }
 
+.capture-stage-shell {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .capture {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -46,7 +53,6 @@ body {
   width: 100%;
   flex: 1;
   min-height: 0;
-  border: 5px solid var(--color-surface-base);
   background: linear-gradient(to right, #141414, #1c1c1c 2%, #0a0a0a 50%, #0d0d0d 150%);
   overflow: hidden;
   transition: grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1);
