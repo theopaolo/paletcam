@@ -110,31 +110,31 @@ export async function getPalettePreviewPolaroidAsset(palette) {
   }
 
   const promise = enqueuePreviewRender(async () => {
-    let blob = null;
-    const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
+    let blob = getStoredPalettePreviewBlob(palette);
     const previewFooterLabel = getCurrentPalettePreviewFooterLabel();
 
-    try {
-      if (masterPhotoBlob instanceof Blob) {
-        blob = await renderPalettePreviewBlobFromMasterPhoto(palette, masterPhotoBlob);
+    if (!(blob instanceof Blob)) {
+      const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
+      if (!(masterPhotoBlob instanceof Blob)) {
+        throw new Error("Missing palette photo");
       }
-    } catch (error) {
-      console.warn("Falling back to raw palette preview image.", error);
+
+      try {
+        blob = await renderPalettePreviewBlobFromMasterPhoto(palette, masterPhotoBlob);
+      } catch (error) {
+        console.error(`Failed to render preview blob for palette ${palette.id}:`, error);
+      }
     }
 
     if (!(blob instanceof Blob)) {
       blob = getStoredPalettePreviewBlob(palette);
     }
 
-    if (!(blob instanceof Blob) && masterPhotoBlob instanceof Blob) {
-      blob = masterPhotoBlob;
-    }
-
-    if (!blob) {
+    if (!(blob instanceof Blob)) {
       throw new Error("Unable to generate palette preview");
     }
 
-    if (blob instanceof Blob && blob !== masterPhotoBlob) {
+    if (getStoredPalettePreviewBlob(palette) !== blob) {
       void persistSavedPalettePreviewBlob(palette, blob, previewFooterLabel).catch((error) => {
         console.error(`Failed to persist preview blob for palette ${palette.id}:`, error);
       });

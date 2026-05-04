@@ -60,6 +60,16 @@ const fr = {
   "collection.shareFailed": "Partage échoué.",
   "collection.deleteUndo": "Palette supprimée.",
   "collection.deleteFailed": "Suppression échouée.",
+  "collection.bulk.cancelled": "Action groupée annulée.",
+  "collection.bulk.deletePending": "Suppression de {count} captures…",
+  "collection.bulk.deleteFailed": "{count} captures n'ont pas pu être supprimées.",
+  "collection.bulk.publishPending": "Publication de {count} captures…",
+  "collection.bulk.publishSuccess": "{count} captures publiées. Modération en cours.",
+  "collection.bulk.publishFailed": "{count} captures n'ont pas pu être publiées.",
+  "collection.bulk.unpublishPending": "Retrait de {count} captures de la grille publique…",
+  "collection.bulk.unpublishSuccess": "{count} captures retirées de la grille publique.",
+  "collection.bulk.unpublishFailed":
+    "{count} captures n'ont pas pu être retirées de la grille publique.",
   "collection.deleteRemoteCleanupAuth":
     "Capture supprimée localement, mais la publication n'a pas pu être retirée de la communauté.",
   "collection.deleteRemoteCleanupFailed":
@@ -159,7 +169,7 @@ const fr = {
   "settings.language.option.fr": "Français",
   "settings.language.option.en": "English",
   "settings.polaroid.title": "Filigrane",
-  "settings.polaroid.label": "Texte affiché en bas des exports polaroid.",
+  "settings.polaroid.label": "Signature des polaroid.",
   "settings.polaroid.placeholder": "colorcatchers.co",
   "settings.polaroid.defaultHint": "Par défaut : colorcatchers.co",
   "settings.polaroid.colorNames": "Afficher les noms des couleurs sur les polaroids",
@@ -178,7 +188,7 @@ const fr = {
   "settings.data.importBusy": "Import des palettes...",
   "settings.data.importChoose": "Choisir un fichier .json",
   "settings.data.importHint": "Les palettes importées s'ajoutent à votre collection existante.",
-  "settings.data.flush": "Effacer toutes les données locales",
+  "settings.data.flush": "Effacer toutes les palettes !",
   "settings.data.flushConfirm":
     "Cela efface les palettes, réglages, session et données de test locales sur cet appareil. Continuer ?",
   "settings.versionAria": "Version de l'application",

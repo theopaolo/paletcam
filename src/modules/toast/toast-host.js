@@ -63,7 +63,7 @@ class ToastHostElement extends LitElement {
 
   showToast(message, options = {}) {
     if (!message) {
-      return;
+      return "";
     }
 
     const toast = {
@@ -74,20 +74,23 @@ class ToastHostElement extends LitElement {
       variant: options.variant === "error" ? "error" : "default",
       actionLabel: typeof options.actionLabel === "string" ? options.actionLabel : "",
       onAction: typeof options.onAction === "function" ? options.onAction : undefined,
-      onExpire: undefined,
+      onExpire: typeof options.onExpire === "function" ? options.onExpire : undefined,
     };
 
+    const entry = this._createEntry(toast);
+
     if (this._undoEntries.length > 0 || this._activeStandardEntry) {
-      this._standardQueue.push(toast);
-      return;
+      this._standardQueue.push(entry);
+      return entry.id;
     }
 
-    this._mountStandardToast(toast);
+    this._mountStandardToast(entry);
+    return entry.id;
   }
 
   showUndoToast(message, options = {}) {
     if (!message) {
-      return;
+      return "";
     }
 
     const toast = {
@@ -96,20 +99,46 @@ class ToastHostElement extends LitElement {
       details: "",
       duration: normalizeDuration(options.duration, DEFAULT_UNDO_DURATION),
       variant: "undo",
-      actionLabel: t("toast.undo"),
+      actionLabel: typeof options.actionLabel === "string" ? options.actionLabel : t("toast.undo"),
       onAction: typeof options.onUndo === "function" ? options.onUndo : undefined,
       onExpire: typeof options.onExpire === "function" ? options.onExpire : undefined,
     };
 
     this._interruptStandardToastIfNeeded();
-    this._mountUndoToast(toast);
+    const entry = this._createEntry(toast);
+    this._mountUndoToast(entry);
+    return entry.id;
   }
 
-  _createEntry(toast) {
+  dismissToast(toastId) {
+    const normalizedToastId = String(toastId || "").trim();
+    if (!normalizedToastId) {
+      return false;
+    }
+
+    const queuedIndex = this._standardQueue.findIndex((entry) => entry.id === normalizedToastId);
+    if (queuedIndex >= 0) {
+      this._standardQueue.splice(queuedIndex, 1);
+      this.requestUpdate();
+      return true;
+    }
+
+    const entry =
+      this._undoEntries.find((candidate) => candidate.id === normalizedToastId) ||
+      (this._activeStandardEntry?.id === normalizedToastId ? this._activeStandardEntry : null);
+    if (!entry) {
+      return false;
+    }
+
+    this._beginDismiss(entry, "programmatic");
+    return true;
+  }
+
+  _createEntry(toast, id = `toast-${this._nextToastId++}`) {
     return {
       ...toast,
       closeReason: "",
-      id: `toast-${this._nextToastId++}`,
+      id,
       phase: "open",
       visible: false,
     };
@@ -128,13 +157,16 @@ class ToastHostElement extends LitElement {
     };
   }
 
-  _mountStandardToast(toast) {
-    this._activeStandardEntry = this._createEntry(toast);
+  _cloneEntryForQueue(entry) {
+    return this._createEntry(this._toToastPayload(entry), entry.id);
+  }
+
+  _mountStandardToast(entry) {
+    this._activeStandardEntry = entry;
     this._mountEntry(this._activeStandardEntry);
   }
 
-  _mountUndoToast(toast) {
-    const entry = this._createEntry(toast);
+  _mountUndoToast(entry) {
     this._undoEntries.push(entry);
     this._mountEntry(entry);
   }
@@ -151,7 +183,7 @@ class ToastHostElement extends LitElement {
       return;
     }
 
-    this._standardQueue.unshift(this._toToastPayload(this._activeStandardEntry));
+    this._standardQueue.unshift(this._cloneEntryForQueue(this._activeStandardEntry));
     this._beginDismiss(this._activeStandardEntry, "interrupted");
   }
 
@@ -165,13 +197,13 @@ class ToastHostElement extends LitElement {
       return;
     }
 
-    const nextToast = this._standardQueue.shift();
-    if (!nextToast) {
+    const nextEntry = this._standardQueue.shift();
+    if (!nextEntry) {
       this.requestUpdate();
       return;
     }
 
-    this._mountStandardToast(nextToast);
+    this._mountStandardToast(nextEntry);
   }
 
   _beginDismiss(entry, reason) {

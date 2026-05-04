@@ -234,6 +234,16 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
+            <label class="panel-form-checkbox config-drawer-darkest-toggle" for="configOneMoreColorToggle">
+              <input
+                class="panel-form-checkbox-input"
+                id="configOneMoreColorToggle"
+                type="checkbox"
+              />
+              <span class="panel-form-checkbox-box" aria-hidden="true"></span>
+              <span class="panel-form-checkbox-label">${t("config.colors.darkest.checkbox")}</span>
+            </label>
+
           </section>
 
           <section
@@ -339,16 +349,6 @@ class ConfigPanel extends LitElement {
               <span class="config-drawer-action-label">${t("config.history.redo")}</span>
             </button>
           </div>
-
-          <label class="panel-form-checkbox config-drawer-darkest-toggle" for="configOneMoreColorToggle">
-            <input
-              class="panel-form-checkbox-input"
-              id="configOneMoreColorToggle"
-              type="checkbox"
-            />
-            <span class="panel-form-checkbox-box" aria-hidden="true"></span>
-            <span class="panel-form-checkbox-label">${t("config.colors.darkest.checkbox")}</span>
-          </label>
 
           <button
             class="config-drawer-reset-button panel-inline-action"

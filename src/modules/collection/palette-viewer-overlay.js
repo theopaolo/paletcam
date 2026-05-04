@@ -1,4 +1,4 @@
-import { subscribeAppSettings } from "../../app-settings.js";
+import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { getColorNames, toColorNameHex } from "../color-name-api.js";
@@ -307,7 +307,11 @@ function renderViewerPlaceholderSwatch() {
 }
 
 function shouldShowViewerSwatches(palette) {
-  return Array.isArray(palette?.colors) && palette.colors.length > 0;
+  if (!Array.isArray(palette?.colors) || palette.colors.length === 0) {
+    return false;
+  }
+
+  return !(palette?.captureMode !== "ral" && Boolean(getAppSettings().polaroidShowColorNames));
 }
 
 function renderActivePaletteSupplementaryUi() {

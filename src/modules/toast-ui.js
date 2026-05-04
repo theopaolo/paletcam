@@ -1,6 +1,6 @@
-import './toast/toast-host.js';
+import "./toast/toast-host.js";
 
-const TOAST_HOST_TAG_NAME = 'toast-host';
+const TOAST_HOST_TAG_NAME = "toast-host";
 
 let hostElement;
 
@@ -23,24 +23,23 @@ function invokeHostMethod(methodName, message, options) {
   const nextHostElement = ensureHost();
   const method = nextHostElement?.[methodName];
 
-  if (typeof method === 'function') {
-    method.call(nextHostElement, message, options);
-    return;
+  if (typeof method === "function") {
+    return method.call(nextHostElement, message, options);
   }
 
   customElements.whenDefined(TOAST_HOST_TAG_NAME).then(() => {
-    const upgradedHostElement = nextHostElement.isConnected
-      ? nextHostElement
-      : ensureHost();
+    const upgradedHostElement = nextHostElement.isConnected ? nextHostElement : ensureHost();
     const upgradedMethod = upgradedHostElement?.[methodName];
 
-    if (typeof upgradedMethod !== 'function') {
+    if (typeof upgradedMethod !== "function") {
       console.error(`Toast host method "${methodName}" is unavailable.`);
       return;
     }
 
     upgradedMethod.call(upgradedHostElement, message, options);
   });
+
+  return "";
 }
 
 /**
@@ -49,10 +48,10 @@ function invokeHostMethod(methodName, message, options) {
  */
 export function showToast(message, options = {}) {
   if (!message) {
-    return;
+    return "";
   }
 
-  invokeHostMethod('showToast', message, options);
+  return invokeHostMethod("showToast", message, options);
 }
 
 /**
@@ -61,8 +60,20 @@ export function showToast(message, options = {}) {
  */
 export function showUndoToast(message, options = {}) {
   if (!message) {
-    return;
+    return "";
   }
 
-  invokeHostMethod('showUndoToast', message, options);
+  return invokeHostMethod("showUndoToast", message, options);
+}
+
+/**
+ * @param {string} toastId
+ * @returns {boolean}
+ */
+export function dismissToast(toastId) {
+  if (!toastId) {
+    return false;
+  }
+
+  return Boolean(invokeHostMethod("dismissToast", toastId));
 }

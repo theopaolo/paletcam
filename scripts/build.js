@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { createNetlifyHeadersFile } from "./security-headers.js";
+import { resolveDeployBranchName } from "./git-utils.js";
 
 const projectRoot = process.cwd();
 const sourceRoot = join(projectRoot, "src");
@@ -18,6 +19,7 @@ const unknownCommitHash = "unknown";
 const precacheExcludedFiles = new Set(["service-worker.js", precacheManifestFilename]);
 const precacheExcludedExtensions = new Set([".map"]);
 const bundleNodeEnv = "production";
+const deployBranchName = resolveDeployBranchName();
 const browserBuildConfig = {
   target: "browser",
   format: "esm",
@@ -26,6 +28,7 @@ const browserBuildConfig = {
   sourcemap: "external",
   define: {
     "process.env.NODE_ENV": JSON.stringify(bundleNodeEnv),
+    __PALETCAM_DEPLOY_BRANCH__: JSON.stringify(deployBranchName),
   },
 };
 
@@ -175,3 +178,4 @@ await stampServiceWorkerBuildId(createBuildId());
 await writePrecacheManifest();
 
 console.log(`Build completed in ${outDir}`);
+console.log(`Resolved deploy branch: ${deployBranchName || "unknown"}`);

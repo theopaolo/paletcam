@@ -169,6 +169,16 @@ config-panel.is-open .config-drawer {
   letter-spacing: -0.04em;
 }
 
+.config-drawer-darkest-toggle
+  .panel-form-checkbox-input:checked
+  + .panel-form-checkbox-box
+  + .panel-form-checkbox-label {
+  color: var(--color-text-warning);
+  font-size: .75rem;
+  font-weight: 400;
+  text-transform: unset;
+}
+
 .config-pip {
   position: absolute;
   bottom: var(--space-8);

@@ -1,5 +1,6 @@
 import { html, LitElement } from "lit";
 import { subscribeLocaleChange, t } from "../../i18n.js";
+import { shouldShowPanelFormVersion } from "../../config.js";
 import { mountSettingsPanel } from "./settings-panel-controller.js";
 import { initLoginUi } from "../../login-ui.js";
 import { initDeleteAccountUi } from "../../delete-account-ui.js";
@@ -292,13 +293,17 @@ class SettingsPanel extends LitElement {
               </button>
             </div>
 
-            <button
-              class="panel-form-version"
-              type="button"
-              aria-label=${t("settings.versionAria")}
-            >
-              v__APP_VERSION__ · __COMMIT_HASH__
-            </button>
+            ${shouldShowPanelFormVersion()
+              ? html`
+                  <button
+                    class="panel-form-version"
+                    type="button"
+                    aria-label=${t("settings.versionAria")}
+                  >
+                    v__APP_VERSION__ · __COMMIT_HASH__
+                  </button>
+                `
+              : ""}
 
             <button
               class="settings-delete-link"

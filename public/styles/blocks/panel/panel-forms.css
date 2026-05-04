@@ -204,6 +204,11 @@
 
 .panel-form-danger-button {
   color: var(--color-text-warning);
+  font-size: .75rem;
+  padding: .25rem .5rem;
+  text-transform: unset;
+  font-weight: 400;
+  border-color: var(--color-text-warning);
 }
 
 .panel-form-danger-zone {
@@ -216,7 +221,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-control-gap);
+  gap: var(--space-4);
   min-height: 2rem;
   cursor: pointer;
   user-select: none;
@@ -274,10 +279,6 @@
 .panel-form-checkbox-input:checked + .panel-form-checkbox-box::after {
   opacity: 1;
   transform: scale(1);
-}
-
-.panel-form-checkbox-input:checked + .panel-form-checkbox-box + .panel-form-checkbox-label {
-  color: var(--color-text-accent);
 }
 
 .panel-form-checkbox-input:focus-visible + .panel-form-checkbox-box {

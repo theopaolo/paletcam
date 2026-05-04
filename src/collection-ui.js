@@ -25,6 +25,7 @@ import {
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
 } from "./modules/collection/palette-preview-assets.js";
+import { scheduleSavedPalettePreviewWarmupBatch } from "./modules/collection/palette-preview-persistence.js";
 import {
   closePaletteViewerOverlay,
   openPaletteViewerOverlay,
@@ -36,8 +37,8 @@ import {
   getCollectionSessionIds,
   toggleAllCollectionSessions,
 } from "./modules/collection/panel-state.js";
-import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
+import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import {
   closeSharedPanel,
@@ -45,7 +46,7 @@ import {
   subscribeSharedPanelClosing,
 } from "./modules/panels/panel-manager.js";
 import { isIOSDevice } from "./modules/platform.js";
-import { showToast, showUndoToast } from "./modules/toast-ui.js";
+import { dismissToast, showToast, showUndoToast } from "./modules/toast-ui.js";
 import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
 
 export const PALETTE_DELETED_EVENT = "paletcam:palette-deleted";
@@ -233,6 +234,16 @@ function dispatchPaletteDeletedEvent(paletteId) {
   );
 }
 
+function createDeleteRemoteCleanupFallbackResult(palette, error) {
+  return {
+    attempted: true,
+    error,
+    remoteCatchId: String(palette?.remoteCatchId || "").trim(),
+    status: "failed",
+    success: false,
+  };
+}
+
 function insertPaletteAtIndex(palette, index) {
   if (currentPalettes.some((entry) => entry.id === palette.id)) {
     return;
@@ -334,65 +345,91 @@ async function handleDeletePalette(palette) {
       });
     },
     onExpire: async () => {
-      const remoteCleanupPromise = cleanupPaletteRemoteCatchForDeletion(palette);
+      const result = await commitPaletteDeletion(palette, {
+        fallbackIndex: removedIndex,
+      });
+      if (!result.success) {
+        return;
+      }
 
-      try {
-        const [deleteResult, remoteCleanupResult] = await Promise.allSettled([
-          deletePalette(palette.id),
-          remoteCleanupPromise,
-        ]);
+      if (card instanceof HTMLElement) {
+        cardLifecycle.ensureEmptyMessage();
+      } else if (shouldTrackCollectionState) {
+        syncCollectionUiAfterPaletteRemoval();
+      }
 
-        if (deleteResult.status === "rejected") {
-          throw deleteResult.reason;
-        }
-
-        pendingDeletionIds.delete(palette.id);
-        disposePalettePreviewPolaroidAsset(palette);
-        if (card instanceof HTMLElement) {
-          cardLifecycle.ensureEmptyMessage();
-        } else if (shouldTrackCollectionState) {
-          syncCollectionUiAfterPaletteRemoval();
-        }
-        dispatchPaletteDeletedEvent(palette.id);
-
-        if (remoteCleanupResult.status === "fulfilled") {
-          const wasQueued = enqueueDeleteRemoteCleanupRetry(remoteCleanupResult.value, palette);
-          notifyDeleteRemoteCleanupIssue(remoteCleanupResult.value, { wasQueued });
-        } else {
-          const fallbackResult = {
-            attempted: true,
-            error: remoteCleanupResult.reason,
-            remoteCatchId: String(palette?.remoteCatchId || "").trim(),
-            status: "failed",
-            success: false,
-          };
-          const wasQueued = enqueueDeleteRemoteCleanupRetry(fallbackResult, palette);
-          notifyDeleteRemoteCleanupIssue(fallbackResult, { wasQueued });
-        }
-      } catch (error) {
-        reportAppError(error, {
-          logMessage: "Failed to delete palette.",
-          context: { paletteId: palette.id },
-          consoleMessage: `Failed to delete palette ${palette.id}:`,
-        });
-        pendingDeletionIds.delete(palette.id);
-        if (shouldTrackCollectionState || collectionPanel?.classList.contains("visible")) {
-          await loadCollectionUi();
-        }
-        showToast(
-          t("collection.deleteFailed"),
-          createErrorToastOptions(error, {
-            variant: "error",
-            duration: 1800,
-          }),
-        );
-        refreshPaletteViewerOverlay({
-          preferredPaletteId: palette.id,
-          fallbackIndex: removedIndex < 0 ? 0 : removedIndex,
+      if (result.remoteCleanupResult) {
+        notifyDeleteRemoteCleanupIssue(result.remoteCleanupResult, {
+          wasQueued: result.wasRemoteCleanupQueued,
         });
       }
     },
   });
+}
+
+async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = false } = {}) {
+  const remoteCleanupPromise = cleanupPaletteRemoteCatchForDeletion(palette);
+
+  try {
+    const [deleteResult, remoteCleanupResult] = await Promise.allSettled([
+      deletePalette(palette.id),
+      remoteCleanupPromise,
+    ]);
+
+    if (deleteResult.status === "rejected") {
+      throw deleteResult.reason;
+    }
+
+    pendingDeletionIds.delete(palette.id);
+    disposePalettePreviewPolaroidAsset(palette);
+    dispatchPaletteDeletedEvent(palette.id);
+
+    const resolvedRemoteCleanupResult =
+      remoteCleanupResult.status === "fulfilled"
+        ? remoteCleanupResult.value
+        : createDeleteRemoteCleanupFallbackResult(palette, remoteCleanupResult.reason);
+    const wasRemoteCleanupQueued = enqueueDeleteRemoteCleanupRetry(
+      resolvedRemoteCleanupResult,
+      palette,
+    );
+
+    return {
+      success: true,
+      remoteCleanupResult: resolvedRemoteCleanupResult,
+      wasRemoteCleanupQueued,
+    };
+  } catch (error) {
+    reportAppError(error, {
+      logMessage: "Failed to delete palette.",
+      context: { paletteId: palette.id },
+      consoleMessage: `Failed to delete palette ${palette.id}:`,
+    });
+    pendingDeletionIds.delete(palette.id);
+
+    if (!silent && (fallbackIndex >= 0 || collectionPanel?.classList.contains("visible"))) {
+      await loadCollectionUi();
+    }
+
+    if (!silent) {
+      showToast(
+        t("collection.deleteFailed"),
+        createErrorToastOptions(error, {
+          variant: "error",
+          duration: 1800,
+        }),
+      );
+    }
+
+    refreshPaletteViewerOverlay({
+      preferredPaletteId: palette.id,
+      fallbackIndex: fallbackIndex < 0 ? 0 : fallbackIndex,
+    });
+
+    return {
+      success: false,
+      error,
+    };
+  }
 }
 
 function enqueueDeleteRemoteCleanupRetry(result, palette) {
@@ -566,6 +603,9 @@ function renderCollectionUi(palettes) {
   });
 
   syncSelectModeAfterRender();
+  scheduleSavedPalettePreviewWarmupBatch(
+    displayPalettes.filter((palette) => hasPaletteMasterPhoto(palette)),
+  );
   refreshPaletteViewerOverlay();
 }
 
@@ -700,6 +740,40 @@ function getPublicationActionConfig(action) {
   return publicationActions[action] ?? publicationActions.publish;
 }
 
+function runPublicationAction(palette, action = "publish") {
+  const actionConfig = getPublicationActionConfig(action);
+
+  return actionConfig
+    .run(palette)
+    .then(() => ({
+      actionConfig,
+      status: "success",
+    }))
+    .catch((error) => {
+      if (error?.code === actionConfig.alreadyDoneCode) {
+        return {
+          actionConfig,
+          error,
+          status: "already_done",
+        };
+      }
+
+      if (error?.code === "NOT_AUTHENTICATED" || error?.code === "AUTH_EXPIRED") {
+        return {
+          actionConfig,
+          error,
+          status: "auth_required",
+        };
+      }
+
+      return {
+        actionConfig,
+        error,
+        status: "error",
+      };
+    });
+}
+
 async function handlePublishPalette(palette, action = "publish") {
   const actionConfig = getPublicationActionConfig(action);
 
@@ -717,8 +791,9 @@ async function handlePublishPalette(palette, action = "publish") {
     return;
   }
 
-  try {
-    await actionConfig.run(palette);
+  const result = await runPublicationAction(palette, action);
+
+  if (result.status === "success") {
     const toastOptions = {
       duration: 1800,
     };
@@ -735,40 +810,42 @@ async function handlePublishPalette(palette, action = "publish") {
     if (actionConfig.shouldScheduleModerationSync) {
       scheduleModerationSync();
     }
-  } catch (error) {
-    if (error?.code === actionConfig.alreadyDoneCode) {
-      showToast(actionConfig.alreadyDoneMessage, {
-        duration: 1500,
-      });
 
-      if (actionConfig.shouldReloadOnAlreadyDone) {
-        await loadCollectionUi();
-      }
-
-      return;
-    }
-
-    if (error?.code === "NOT_AUTHENTICATED" || error?.code === "AUTH_EXPIRED") {
-      showToast(actionConfig.authMessage, {
-        variant: "error",
-        duration: 2000,
-      });
-      openLoginPanel();
-      return;
-    }
-
-    reportAppError(error, {
-      logMessage: "Failed to update palette publication.",
-      context: { action },
-    });
-    showToast(
-      getPublicationErrorMessage(error, actionConfig.failureMessage),
-      createErrorToastOptions(error, {
-        variant: "error",
-        duration: 4000,
-      }),
-    );
+    return;
   }
+
+  if (result.status === "already_done") {
+    showToast(actionConfig.alreadyDoneMessage, {
+      duration: 1500,
+    });
+
+    if (actionConfig.shouldReloadOnAlreadyDone) {
+      await loadCollectionUi();
+    }
+
+    return;
+  }
+
+  if (result.status === "auth_required") {
+    showToast(actionConfig.authMessage, {
+      variant: "error",
+      duration: 2000,
+    });
+    openLoginPanel();
+    return;
+  }
+
+  reportAppError(result.error, {
+    logMessage: "Failed to update palette publication.",
+    context: { action },
+  });
+  showToast(
+    getPublicationErrorMessage(result.error, actionConfig.failureMessage),
+    createErrorToastOptions(result.error, {
+      variant: "error",
+      duration: 4000,
+    }),
+  );
 }
 
 async function syncModerationStatuses() {
@@ -931,12 +1008,90 @@ function clearLongPress() {
   longPressStartPos = null;
 }
 
+function syncBulkDeleteUi(stagedDeletions) {
+  syncCollectionUiAfterPaletteRemoval();
+
+  if (stagedDeletions.length > 0) {
+    refreshPaletteViewerOverlay({
+      preferredPaletteId: stagedDeletions[0].palette.id,
+      fallbackIndex: stagedDeletions[0].removedIndex < 0 ? 0 : stagedDeletions[0].removedIndex,
+    });
+  }
+}
+
 async function handleSelectionDelete() {
   const toDelete = getDisplayPalettes().filter((p) => selectedIds.has(p.id));
   exitSelectMode();
-  for (const palette of toDelete) {
-    await handleDeletePalette(palette);
+  if (toDelete.length === 0) {
+    return;
   }
+
+  const stagedDeletions = [];
+
+  for (const palette of toDelete) {
+    if (pendingDeletionIds.has(palette.id)) {
+      continue;
+    }
+
+    const removedIndex = currentPalettes.findIndex((entry) => entry.id === palette.id);
+    if (removedIndex < 0) {
+      continue;
+    }
+
+    pendingDeletionIds.add(palette.id);
+    currentPalettes = currentPalettes.filter((entry) => entry.id !== palette.id);
+    stagedDeletions.push({ palette, removedIndex });
+  }
+
+  if (stagedDeletions.length === 0) {
+    return;
+  }
+
+  syncBulkDeleteUi(stagedDeletions);
+
+  showUndoToast(t("collection.bulk.deletePending", { count: stagedDeletions.length }), {
+    duration: DELETE_UNDO_DURATION_MS,
+    actionLabel: t("collection.select.cancel"),
+    onUndo: () => {
+      [...stagedDeletions].reverse().forEach(({ palette, removedIndex }) => {
+        pendingDeletionIds.delete(palette.id);
+        insertPaletteAtIndex(palette, removedIndex);
+      });
+      syncBulkDeleteUi(stagedDeletions);
+    },
+    onExpire: async () => {
+      const results = await Promise.all(
+        stagedDeletions.map(({ palette, removedIndex }) =>
+          commitPaletteDeletion(palette, {
+            fallbackIndex: removedIndex,
+            silent: true,
+          }),
+        ),
+      );
+      const failedResults = results.filter((result) => !result.success);
+
+      if (failedResults.length > 0) {
+        await loadCollectionUi();
+        showToast(
+          t("collection.bulk.deleteFailed", { count: failedResults.length }),
+          createErrorToastOptions(failedResults[0].error, {
+            variant: "error",
+            duration: 2200,
+          }),
+        );
+      }
+
+      results.forEach((result) => {
+        if (!result.success || !result.remoteCleanupResult) {
+          return;
+        }
+
+        notifyDeleteRemoteCleanupIssue(result.remoteCleanupResult, {
+          wasQueued: result.wasRemoteCleanupQueued,
+        });
+      });
+    },
+  });
 }
 
 async function handleSelectionExport() {
@@ -965,9 +1120,7 @@ async function handleSelectionPublish() {
       getPalettePublicationAction(p) !== "unpublish",
   );
   exitSelectMode();
-  for (const palette of toPublish) {
-    await handlePublishPalette(palette, "publish");
-  }
+  await handleSelectionPublicationAction("publish", toPublish);
 }
 
 async function handleSelectionUnpublish() {
@@ -985,8 +1138,127 @@ async function handleSelectionUnpublish() {
     (p) => selectedIds.has(p.id) && getPalettePublicationAction(p) === "unpublish",
   );
   exitSelectMode();
-  for (const palette of toUnpublish) {
-    await handlePublishPalette(palette, "unpublish");
+  await handleSelectionPublicationAction("unpublish", toUnpublish);
+}
+
+async function handleSelectionPublicationAction(action, palettes) {
+  if (palettes.length === 0) {
+    return;
+  }
+
+  const actionConfig = getPublicationActionConfig(action);
+  const pendingMessageKey = `collection.bulk.${action}Pending`;
+  const successMessageKey = `collection.bulk.${action}Success`;
+  const failureMessageKey = `collection.bulk.${action}Failed`;
+  let isCancelled = false;
+  let successCount = 0;
+  let alreadyDoneCount = 0;
+  let failureCount = 0;
+  let authRequired = false;
+  let firstFailure = null;
+  let shouldReload = false;
+
+  const toastId = showUndoToast(t(pendingMessageKey, { count: palettes.length }), {
+    duration: 0,
+    actionLabel: t("collection.select.cancel"),
+    onUndo: () => {
+      isCancelled = true;
+    },
+  });
+
+  try {
+    for (const palette of palettes) {
+      if (isCancelled) {
+        break;
+      }
+
+      const result = await runPublicationAction(palette, action);
+      if (result.status === "success") {
+        successCount += 1;
+        shouldReload = true;
+        continue;
+      }
+
+      if (result.status === "already_done") {
+        alreadyDoneCount += 1;
+        shouldReload = shouldReload || result.actionConfig.shouldReloadOnAlreadyDone;
+        continue;
+      }
+
+      if (result.status === "auth_required") {
+        authRequired = true;
+        firstFailure = result.error;
+        break;
+      }
+
+      if (!firstFailure) {
+        firstFailure = result.error;
+      }
+      failureCount += 1;
+    }
+  } finally {
+    dismissToast(toastId);
+  }
+
+  if (shouldReload) {
+    await loadCollectionUi();
+  }
+
+  if (successCount > 0 && actionConfig.shouldScheduleModerationSync) {
+    scheduleModerationSync();
+  }
+
+  if (authRequired) {
+    showToast(actionConfig.authMessage, {
+      variant: "error",
+      duration: 2000,
+    });
+    openLoginPanel();
+    return;
+  }
+
+  if (failureCount > 0) {
+    reportAppError(firstFailure, {
+      logMessage: "Failed to update palette publication in bulk.",
+      context: { action, failureCount },
+    });
+    showToast(
+      t(failureMessageKey, { count: failureCount }),
+      createErrorToastOptions(firstFailure, {
+        variant: "error",
+        duration: 4000,
+      }),
+    );
+    return;
+  }
+
+  if (successCount > 0) {
+    const toastOptions = {
+      duration: 2200,
+    };
+
+    if (action === "publish") {
+      toastOptions.actionLabel = t("collection.publish.cta");
+      toastOptions.onAction = () => {
+        window.open(buildCommunityUrl("/my/catches"));
+      };
+    }
+
+    showToast(t(successMessageKey, { count: successCount }), toastOptions);
+    return;
+  }
+
+  if (alreadyDoneCount > 0 && !isCancelled) {
+    showToast(actionConfig.alreadyDoneMessage, {
+      duration: 1500,
+    });
+    return;
+  }
+
+  if (isCancelled) {
+    showToast(t("collection.bulk.cancelled"), {
+      duration: 1400,
+    });
   }
 }
 

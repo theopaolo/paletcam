@@ -60,6 +60,15 @@ const en = {
   "collection.shareFailed": "Sharing failed.",
   "collection.deleteUndo": "Palette deleted.",
   "collection.deleteFailed": "Deletion failed.",
+  "collection.bulk.cancelled": "Bulk action cancelled.",
+  "collection.bulk.deletePending": "Deleting {count} captures…",
+  "collection.bulk.deleteFailed": "{count} captures could not be deleted.",
+  "collection.bulk.publishPending": "Publishing {count} captures…",
+  "collection.bulk.publishSuccess": "{count} captures published. Moderation pending.",
+  "collection.bulk.publishFailed": "{count} captures failed to publish.",
+  "collection.bulk.unpublishPending": "Removing {count} captures from the public grid…",
+  "collection.bulk.unpublishSuccess": "{count} captures removed from the public grid.",
+  "collection.bulk.unpublishFailed": "{count} captures could not be removed from the public grid.",
   "collection.deleteRemoteCleanupAuth":
     "Capture deleted locally, but the community post could not be removed.",
   "collection.deleteRemoteCleanupFailed":

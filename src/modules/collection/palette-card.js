@@ -2,7 +2,6 @@ import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
 import { loadImageElementSource } from "../image-element-loader.js";
 import {
-  getPaletteMasterPhotoAsset,
   getPalettePreviewPolaroidAsset,
   hasPaletteMasterPhoto,
 } from "./palette-preview-assets.js";
@@ -295,7 +294,7 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
     previewStatus,
     hasMasterPhoto,
     scrollRoot,
-    getAsset: () => getPaletteMasterPhotoAsset(palette),
+    getAsset: () => getPalettePreviewPolaroidAsset(palette),
     onOpenViewer,
     paletteId: palette.id,
   });

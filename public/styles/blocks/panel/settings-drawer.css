@@ -12,7 +12,7 @@ settings-panel {
   right: var(--space-8);
   top: var(--space-8);
   display: grid;
-  width: fit-content;
+  box-sizing: border-box;
   gap: var(--space-control-padding);
   overflow-y: auto;
   padding: var(--space-control-gap) calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
@@ -68,7 +68,7 @@ settings-panel.is-open .settings-drawer {
   letter-spacing: 0.04em;
   line-height: 1;
   text-transform: uppercase;
-  white-space: nowrap;
+  min-width: 0;
   cursor: pointer;
   transition:
     color 0.14s var(--easing-standard),
@@ -89,7 +89,9 @@ settings-panel.is-open .settings-drawer {
 
 .settings-drawer-tab-label {
   display: block;
-  white-space: nowrap;
+  min-width: 0;
+  text-align: center;
+  white-space: normal;
 }
 
 .settings-drawer-panels {
@@ -179,7 +181,10 @@ settings-panel.is-open .settings-drawer {
   font-size: var(--font-size-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
-  line-height: 1;
+  line-height: 1.15;
+  max-width: 100%;
+  min-width: 0;
+  text-align: center;
   text-decoration: none;
   text-transform: uppercase;
   cursor: pointer;
@@ -227,4 +232,25 @@ settings-panel.is-open .settings-drawer {
 .settings-delete-link:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
+}
+
+@media (width <= 465px) {
+  .settings-drawer-tab {
+    padding-inline: 0.25rem;
+  }
+
+  .settings-drawer-tabs {
+    gap: unset;
+  }
+
+  .settings-data-actions,
+  .settings-login-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-data-actions > *,
+  .settings-login-actions > * {
+    width: 100%;
+  }
 }

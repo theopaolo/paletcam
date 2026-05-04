@@ -294,9 +294,11 @@ interface StandardToastOptions {
   details?: string;
   actionLabel?: string;
   onAction?: () => void;
+  onExpire?: () => void;
 }
 
 interface UndoToastOptions {
+  actionLabel?: string;
   duration?: number;
   onUndo?: () => void;
   onExpire?: () => void;
