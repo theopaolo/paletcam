@@ -19,7 +19,7 @@ import {
 /** @returns {Promise<Palette[]>} */
 export async function getSavedPalettes() {
   try {
-    const palettes = await db.palettes.reverse().toArray();
+    const palettes = await db.palettes.orderBy('timestamp').reverse().toArray();
     return palettes.map((palette) =>
       normalizeStoredPaletteRecord(palette, { includePhotoBlob: false }));
   } catch (error) {
