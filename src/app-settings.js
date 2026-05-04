@@ -81,6 +81,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   oneMoreColor: false,
   photoQualityMode: "hd",
   polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
+  polaroidShowColorNames: false,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
   paletteScoring: DEFAULT_PALETTE_SCORING_SETTINGS,
 });
@@ -173,6 +174,7 @@ function buildNormalizedSettings(candidate) {
     oneMoreColor: Boolean(candidate?.oneMoreColor),
     photoQualityMode: normalizePhotoQualityMode(candidate?.photoQualityMode),
     polaroidFooterLabel: normalizePolaroidFooterLabel(candidate?.polaroidFooterLabel),
+    polaroidShowColorNames: Boolean(candidate?.polaroidShowColorNames),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
     paletteScoring: normalizePaletteScoringSettings(candidate?.paletteScoring),
   };
@@ -191,6 +193,7 @@ function areSettingsEqual(firstSettings, secondSettings) {
     firstSettings.oneMoreColor === secondSettings.oneMoreColor &&
     firstSettings.photoQualityMode === secondSettings.photoQualityMode &&
     firstSettings.polaroidFooterLabel === secondSettings.polaroidFooterLabel &&
+    firstSettings.polaroidShowColorNames === secondSettings.polaroidShowColorNames &&
     firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&
     firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
     firstSettings.medianCut.colorSpace === secondSettings.medianCut.colorSpace &&
@@ -273,6 +276,7 @@ export function getDefaultAppSettingsResetPatch() {
     oneMoreColor: defaults.oneMoreColor,
     photoQualityMode: defaults.photoQualityMode,
     polaroidFooterLabel: defaults.polaroidFooterLabel,
+    polaroidShowColorNames: defaults.polaroidShowColorNames,
     medianCut: defaults.medianCut,
     paletteScoring: defaults.paletteScoring,
   };

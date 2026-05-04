@@ -160,6 +160,15 @@ config-panel.is-open .config-drawer {
   margin-left: auto;
 }
 
+.config-drawer-darkest-toggle {
+  min-height: 0;
+}
+
+.config-drawer-darkest-toggle .panel-form-checkbox-label {
+  font-size: var(--font-size-sm);
+  letter-spacing: -0.04em;
+}
+
 .config-pip {
   position: absolute;
   bottom: var(--space-8);

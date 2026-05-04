@@ -215,12 +215,29 @@ class SettingsPanel extends LitElement {
             hidden
           >
             <div class="panel-form-field">
+              <label class="panel-form-label" for="settingsPolaroidFooterLabelInput">
+                ${t("settings.polaroid.label")}
+              </label>
               <input
                 class="panel-form-text-input"
                 id="settingsPolaroidFooterLabelInput"
                 type="text"
                 placeholder=${t("settings.polaroid.placeholder")}
               />
+              <p class="panel-form-hint">${t("settings.polaroid.defaultHint")}</p>
+            </div>
+            <div class="panel-form-field">
+              <label class="panel-form-checkbox" for="settingsPolaroidColorNamesToggle">
+                <input
+                  class="panel-form-checkbox-input"
+                  id="settingsPolaroidColorNamesToggle"
+                  type="checkbox"
+                />
+                <span class="panel-form-checkbox-box" aria-hidden="true"></span>
+                <span class="panel-form-checkbox-label">
+                  ${t("settings.polaroid.colorNames")}
+                </span>
+              </label>
             </div>
           </div>
 

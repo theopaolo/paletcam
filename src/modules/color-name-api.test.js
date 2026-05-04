@@ -2,10 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import { getColorNames, resetColorNameCacheForTests, toColorNameHex } from "./color-name-api.js";
 
-const originalFetch = globalThis.fetch;
-
 afterEach(() => {
-  globalThis.fetch = originalFetch;
   resetColorNameCacheForTests();
 });
 
@@ -16,75 +13,27 @@ describe("toColorNameHex", () => {
 });
 
 describe("getColorNames", () => {
-  test("returns fetched names in the original color order", async () => {
-    const requests = [];
-
-    globalThis.fetch = async (url) => {
-      requests.push(String(url));
-      return {
-        ok: true,
-        async json() {
-          return {
-            colors: [
-              {
-                name: "Glacial Haze",
-                requestedHex: "#D8E8F2",
-              },
-              {
-                name: "Watermelon Punch",
-                requestedHex: "#F45363",
-              },
-            ],
-          };
-        },
-      };
-    };
-
+  test("returns exact offline names in the original color order", async () => {
     const colorNames = await getColorNames([
-      { r: 216, g: 232, b: 242 },
-      { r: 244, g: 83, b: 99 },
+      { r: 255, g: 255, b: 255 },
+      { r: 255, g: 191, b: 0 },
     ]);
 
-    expect(requests).toHaveLength(1);
-    expect(requests[0]).toContain("values=D8E8F2%2CF45363");
-    expect(colorNames).toEqual(["Glacial Haze", "Watermelon Punch"]);
+    expect(colorNames).toEqual(["White", "Amber"]);
   });
 
-  test("falls back to hex labels when the request fails", async () => {
-    globalThis.fetch = async () => {
-      throw new Error("offline");
-    };
+  test("returns nearest offline names for colors without an exact hex match", async () => {
+    const colorNames = await getColorNames([{ r: 151, g: 157, b: 26 }]);
 
-    await expect(
-      getColorNames([
-        { r: 216, g: 232, b: 242 },
-        { r: 244, g: 83, b: 99 },
-      ]),
-    ).resolves.toEqual(["#D8E8F2", "#F45363"]);
+    expect(colorNames).toEqual(["Pea Soup"]);
   });
 
   test("reuses cached names for repeat colors", async () => {
-    let callCount = 0;
+    expect(await getColorNames([{ r: 255, g: 255, b: 255 }])).toEqual(["White"]);
+    expect(await getColorNames([{ r: 255, g: 255, b: 255 }])).toEqual(["White"]);
+  });
 
-    globalThis.fetch = async () => {
-      callCount += 1;
-      return {
-        ok: true,
-        async json() {
-          return {
-            colors: [
-              {
-                name: "Lime Rickey",
-                requestedHex: "#8DCE00",
-              },
-            ],
-          };
-        },
-      };
-    };
-
-    expect(await getColorNames([{ r: 141, g: 206, b: 0 }])).toEqual(["Lime Rickey"]);
-    expect(await getColorNames([{ r: 141, g: 206, b: 0 }])).toEqual(["Lime Rickey"]);
-    expect(callCount).toBe(1);
+  test("returns an empty list for empty input", async () => {
+    await expect(getColorNames([])).resolves.toEqual([]);
   });
 });

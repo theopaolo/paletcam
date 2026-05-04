@@ -63,7 +63,7 @@ type CopyMode = "rgb" | "hex" | "hsl";
 // ---------------------------------------------------------------------------
 
 type CaptureMode = "palette" | "ral";
-type CollectionViewMode = "list" | "grid";
+type CollectionViewMode = "list" | "grid" | "swatch";
 type PaletteAnalysisProfile = "expressive" | "perceptual" | "custom";
 
 type PaletteExtractionAlgorithm = "grid" | "median-cut";
@@ -93,12 +93,12 @@ interface PaletteScoringWeights {
 interface AppSettings {
   captureMode: CaptureMode;
   collectionViewMode: CollectionViewMode;
+  locale: "fr" | "en";
   performanceHudEnabled: boolean;
   oneMoreColor: boolean;
-  photoExportQuality: number;
-  paletteAnalysisProfile: PaletteAnalysisProfile;
-  paletteExtractionAlgorithm: PaletteExtractionAlgorithm;
-  grid: GridSettings;
+  photoQualityMode: "sd" | "hd" | "fhd";
+  polaroidFooterLabel: string;
+  polaroidShowColorNames: boolean;
   medianCut: MedianCutSettings;
   paletteScoring: PaletteScoringWeights;
 }
@@ -107,12 +107,12 @@ interface AppSettings {
 interface AppSettingsPatch {
   captureMode?: CaptureMode;
   collectionViewMode?: CollectionViewMode;
+  locale?: "fr" | "en";
   performanceHudEnabled?: boolean;
   oneMoreColor?: boolean;
-  photoExportQuality?: number;
-  paletteAnalysisProfile?: PaletteAnalysisProfile;
-  paletteExtractionAlgorithm?: PaletteExtractionAlgorithm;
-  grid?: Partial<GridSettings>;
+  photoQualityMode?: "sd" | "hd" | "fhd";
+  polaroidFooterLabel?: string;
+  polaroidShowColorNames?: boolean;
   medianCut?: Partial<MedianCutSettings>;
   paletteScoring?: Partial<PaletteScoringWeights>;
 }

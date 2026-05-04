@@ -161,9 +161,9 @@ const en = {
   "settings.polaroid.label": "Text shown at the bottom of exported polaroids.",
   "settings.polaroid.placeholder": "colorcatchers.co",
   "settings.polaroid.defaultHint": "Default: colorcatchers.co",
+  "settings.polaroid.colorNames": "Show color names on polaroids",
   "settings.data.title": "Data",
-  "settings.data.body":
-    "Export your palettes to back them up or move them to another device.",
+  "settings.data.body": "Export your palettes to back them up or move them to another device.",
   "settings.data.export": "Export palettes",
   "settings.data.exportBusy": "Exporting…",
   "settings.data.exportPreparing": "Preparing export…",
@@ -202,28 +202,24 @@ const en = {
     "Higher values create more varied palettes, but analysis becomes slower.",
   "config.analysis.pool.aria": "Analyzed colors: {value}",
   "config.analysis.pixels.title": "Pixel density",
-  "config.analysis.pixels.hint":
-    "Improves precision on complex scenes, but slows processing down.",
+  "config.analysis.pixels.hint": "Improves precision on complex scenes, but slows processing down.",
   "config.analysis.pixels.aria": "Max analyzed pixels: {value}",
   "config.colors.vibrancy.title": "Vivid colors",
-  "config.colors.vibrancy.hint":
-    "Higher values prioritize brighter, more saturated colors.",
+  "config.colors.vibrancy.hint": "Higher values prioritize brighter, more saturated colors.",
   "config.colors.vibrancy.aria": "Preference for vivid colors: {value}",
   "config.colors.rarity.title": "Rare hues",
   "config.colors.rarity.hint":
     "Highlights hues that are less present in the image for a more original palette.",
   "config.colors.rarity.aria": "Rare hue bonus: {value}",
   "config.colors.darkest.title": "Dark color",
-  "config.colors.darkest.hint":
-    "Removes the darkest color to favor a brighter palette.",
+  "config.colors.darkest.hint": "Removes the darkest color to favor a brighter palette.",
   "config.colors.darkest.checkbox": "Remove the darkest",
   "config.balance.diversity.title": "Color spread",
   "config.balance.diversity.hint":
     "Higher values make the selected colors more different from one another.",
   "config.balance.diversity.aria": "Color spread: {value}",
   "config.balance.contrast.title": "Light / Dark",
-  "config.balance.contrast.hint":
-    "0 favors very light colors, 100 favors very dark colors.",
+  "config.balance.contrast.hint": "0 favors very light colors, 100 favors very dark colors.",
   "config.balance.contrast.aria": "Light / Dark: {value}",
   "config.history.aria": "History",
   "config.history.undo": "Undo",

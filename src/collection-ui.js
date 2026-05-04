@@ -36,6 +36,7 @@ import {
   getCollectionSessionIds,
   toggleAllCollectionSessions,
 } from "./modules/collection/panel-state.js";
+import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import {
@@ -77,10 +78,12 @@ let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
 let currentLocale = getAppSettings().locale;
 let currentPolaroidFooterLabel = getAppSettings().polaroidFooterLabel;
+let currentPolaroidShowColorNames = getAppSettings().polaroidShowColorNames;
 let currentFilter = null;
 let isSelectMode = false;
 let longPressTimer = null;
 let longPressStartPos = null;
+let suppressNextSelectionClick = false;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -146,7 +149,7 @@ function isPalettePendingDeletion(paletteId) {
 }
 
 function getCurrentDayGroups() {
-  return groupPalettesByDay(currentPalettes);
+  return groupPalettesByDay(getDisplayPalettes());
 }
 
 function setCollectionPanelTitle(title) {
@@ -443,6 +446,10 @@ function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
 }
 
 function openCollectionPaletteViewer(paletteId) {
+  if (isSelectMode) {
+    return;
+  }
+
   const displayPalettes = getDisplayPalettes();
   const initialIndex = displayPalettes.findIndex((palette) => palette.id === paletteId);
   if (initialIndex < 0) {
@@ -611,8 +618,11 @@ function handleCollectionSettingsChange(settings) {
   handleCollectionViewModeChange(settings.collectionViewMode);
   const localeChanged = settings.locale !== currentLocale;
   currentLocale = settings.locale;
+  const polaroidSettingsChanged =
+    settings.polaroidFooterLabel !== currentPolaroidFooterLabel ||
+    settings.polaroidShowColorNames !== currentPolaroidShowColorNames;
 
-  if (settings.polaroidFooterLabel === currentPolaroidFooterLabel) {
+  if (!polaroidSettingsChanged) {
     if (localeChanged) {
       if (collectionPanel?.classList.contains("visible")) {
         renderCollectionUi(currentPalettes);
@@ -626,6 +636,7 @@ function handleCollectionSettingsChange(settings) {
   }
 
   currentPolaroidFooterLabel = settings.polaroidFooterLabel;
+  currentPolaroidShowColorNames = settings.polaroidShowColorNames;
   currentPalettes.forEach((palette) => {
     disposePalettePreviewPolaroidAsset(palette);
   });
@@ -883,8 +894,9 @@ function syncSelectionBar() {
   }
 }
 
-function enterSelectMode(initialPaletteId = null) {
+function enterSelectMode(initialPaletteId = null, { suppressNextClick = false } = {}) {
   isSelectMode = true;
+  suppressNextSelectionClick = suppressNextClick;
   selectedIds.clear();
 
   collectionGrid?.classList.add("is-select-mode");
@@ -900,6 +912,7 @@ function enterSelectMode(initialPaletteId = null) {
 
 function exitSelectMode() {
   isSelectMode = false;
+  suppressNextSelectionClick = false;
   selectedIds.clear();
 
   collectionGrid?.classList.remove("is-select-mode");
@@ -1046,7 +1059,7 @@ function bindCollectionUiEvents() {
       longPressStartPos = null;
       const paletteId = Number(card.dataset.paletteId);
       if (!Number.isNaN(paletteId)) {
-        enterSelectMode(paletteId);
+        enterSelectMode(paletteId, { suppressNextClick: true });
       }
     }, 500);
   });
@@ -1084,17 +1097,23 @@ function bindCollectionUiEvents() {
         return;
       }
 
+      event.preventDefault();
+      event.stopPropagation();
+
       const paletteId = Number(card.dataset.paletteId);
       if (Number.isNaN(paletteId)) {
         return;
       }
 
-      if (selectedIds.has(paletteId)) {
-        selectedIds.delete(paletteId);
-        card.classList.remove("is-selected");
-      } else {
-        selectedIds.add(paletteId);
-        card.classList.add("is-selected");
+      const result = applySelectionModeCardClick({
+        paletteId,
+        selectedIds,
+        suppressNextClick: suppressNextSelectionClick,
+      });
+      suppressNextSelectionClick = result.suppressNextClick;
+
+      if (result.toggled) {
+        card.classList.toggle("is-selected", result.isSelected);
       }
 
       syncSelectionBar();

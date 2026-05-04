@@ -15,6 +15,7 @@
     "analyze-sm": "source-map-explorer dist/app.js dist/app.js.map --no-border-checks"
   },
   "dependencies": {
+    "color-name-list": "^14.36.0",
     "dexie": "^4.2.1",
     "lit": "^3.3.2",
     "stylelint": "^17.9.1",

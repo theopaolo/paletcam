@@ -9,23 +9,22 @@ const PALETTE_PREVIEW_RENDER_OPTIONS = Object.freeze({
   quality: 0.9,
   scale: 0.78,
 });
-const PALETTE_PREVIEW_RENDER_VERSION = "preview-v3";
+const PALETTE_PREVIEW_RENDER_VERSION = "preview-v5";
 
-function buildPreviewFingerprint(label) {
-  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewFooterLabel(label) ?? ""}`;
+function buildPreviewFingerprint(label, showColorNames) {
+  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewFooterLabel(label) ?? ""}:${showColorNames ? "names-on" : "names-off"}`;
 }
 
 export function getCurrentPalettePreviewFooterLabel() {
-  return buildPreviewFingerprint(getAppSettings().polaroidFooterLabel);
+  const settings = getAppSettings();
+  return buildPreviewFingerprint(settings.polaroidFooterLabel, settings.polaroidShowColorNames);
 }
 
 export function getStoredPalettePreviewBlob(palette) {
   const currentPreviewFooterLabel = getCurrentPalettePreviewFooterLabel();
 
-  return (
-    palette?.previewBlob instanceof Blob
-    && palette?.previewFooterLabel === currentPreviewFooterLabel
-  )
+  return palette?.previewBlob instanceof Blob &&
+    palette?.previewFooterLabel === currentPreviewFooterLabel
     ? palette.previewBlob
     : null;
 }
@@ -35,10 +34,7 @@ export async function renderPalettePreviewBlobFromMasterPhoto(palette, photoBlob
     return null;
   }
 
-  return renderPalettePolaroidBlob(
-    { ...palette, photoBlob },
-    PALETTE_PREVIEW_RENDER_OPTIONS,
-  );
+  return renderPalettePolaroidBlob({ ...palette, photoBlob }, PALETTE_PREVIEW_RENDER_OPTIONS);
 }
 
 export async function renderSavedPalettePreviewBlob(palette) {
@@ -89,7 +85,7 @@ export async function warmSavedPalettePreview(palette) {
   } catch (error) {
     reportAppError(error, {
       includeConsole: false,
-      logMessage: 'Failed to warm saved palette preview.',
+      logMessage: "Failed to warm saved palette preview.",
       context: { paletteId: palette?.id ?? null },
     });
     return null;

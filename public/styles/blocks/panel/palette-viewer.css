@@ -169,7 +169,7 @@
 }
 
 .palette-viewer-swatch-strip {
-  --palette-viewer-swatch-height: clamp(7rem, 22vw, 8.75rem);
+  --palette-viewer-swatch-height: clamp(5rem, 20vh, 10rem);
 
   display: flex;
   gap: 0;
@@ -179,6 +179,12 @@
 
 .palette-viewer-swatch-strip:empty {
   visibility: hidden;
+}
+
+@media (height < 875px) {
+  .palette-viewer-swatch-strip {
+    display: none;
+  }
 }
 
 .palette-viewer-swatch {

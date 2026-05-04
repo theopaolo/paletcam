@@ -131,9 +131,7 @@ describe("app-settings collectionViewMode", () => {
     expect(module.getAppSettings().collectionViewMode).toBe("grid");
     expect(updates).toHaveLength(1);
     expect(updates[0].collectionViewMode).toBe("grid");
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).collectionViewMode).toBe(
-      "grid",
-    );
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).collectionViewMode).toBe("grid");
   });
 });
 
@@ -274,6 +272,36 @@ describe("app-settings polaroidFooterLabel", () => {
     expect(module.getAppSettings().polaroidFooterLabel).toBe("my label");
     expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).polaroidFooterLabel).toBe(
       "my label",
+    );
+  });
+});
+
+describe("app-settings polaroidShowColorNames", () => {
+  test("defaults to false", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    expect(module.getDefaultAppSettings().polaroidShowColorNames).toBe(false);
+    expect(module.getAppSettings().polaroidShowColorNames).toBe(false);
+  });
+
+  test("loads a persisted enabled state", async () => {
+    const { module } = await loadAppSettingsModule({
+      polaroidShowColorNames: true,
+    });
+
+    expect(module.getAppSettings().polaroidShowColorNames).toBe(true);
+  });
+
+  test("persists toggle updates", async () => {
+    const { module, localStorageMock } = await loadAppSettingsModule();
+
+    module.updateAppSettings({
+      polaroidShowColorNames: true,
+    });
+
+    expect(module.getAppSettings().polaroidShowColorNames).toBe(true);
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).polaroidShowColorNames).toBe(
+      true,
     );
   });
 });

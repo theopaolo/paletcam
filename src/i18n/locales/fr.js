@@ -139,14 +139,12 @@ const fr = {
   "delete.panelTitle": "Suppression du compte",
   "delete.panelClose": "Fermer le panneau suppression",
   "delete.title": "Supprimer mon compte",
-  "delete.body":
-    "Cette action est irréversible. Votre compte et vos captures seront supprimés.",
+  "delete.body": "Cette action est irréversible. Votre compte et vos captures seront supprimés.",
   "delete.requestCode": "Recevoir le code de suppression",
   "delete.codeLabel": "Code reçu par email",
   "delete.codePlaceholder": "123456",
   "delete.confirm": "Confirmer la suppression",
-  "delete.hint.codeSent":
-    "Vous devriez recevoir un code par email. Saisissez-le dans ce champ.",
+  "delete.hint.codeSent": "Vous devriez recevoir un code par email. Saisissez-le dans ce champ.",
   "delete.hint.enterCode": "Entrez le code reçu par email.",
   "delete.toast.codeSent": "Code de suppression envoyé.",
   "delete.toast.codeSendFailed": "Envoi du code échoué.",
@@ -164,6 +162,7 @@ const fr = {
   "settings.polaroid.label": "Texte affiché en bas des exports polaroid.",
   "settings.polaroid.placeholder": "colorcatchers.co",
   "settings.polaroid.defaultHint": "Par défaut : colorcatchers.co",
+  "settings.polaroid.colorNames": "Afficher les noms des couleurs sur les polaroids",
   "settings.data.title": "Données",
   "settings.data.body":
     "Exportez vos palettes pour les sauvegarder ou les transférer sur un autre appareil.",
@@ -178,8 +177,7 @@ const fr = {
   "settings.data.importLabel": "Importer des palettes",
   "settings.data.importBusy": "Import des palettes...",
   "settings.data.importChoose": "Choisir un fichier .json",
-  "settings.data.importHint":
-    "Les palettes importées s'ajoutent à votre collection existante.",
+  "settings.data.importHint": "Les palettes importées s'ajoutent à votre collection existante.",
   "settings.data.flush": "Effacer toutes les données locales",
   "settings.data.flushConfirm":
     "Cela efface les palettes, réglages, session et données de test locales sur cet appareil. Continuer ?",
@@ -235,8 +233,7 @@ const fr = {
   "config.history.reset": "Réinitialiser",
   "camera.start.notAllowed": "Autorisez l'accès à la caméra pour capturer des palettes.",
   "camera.start.notFound": "Aucune caméra n'a été détectée sur cet appareil.",
-  "camera.start.notReadable":
-    "La caméra est déjà utilisée ou momentanément indisponible.",
+  "camera.start.notReadable": "La caméra est déjà utilisée ou momentanément indisponible.",
   "camera.start.overconstrained": "Impossible de démarrer une caméra compatible.",
   "camera.start.generic": "Impossible de démarrer la caméra.",
   "camera.captureSaveFailed": "Sauvegarde échouée.",

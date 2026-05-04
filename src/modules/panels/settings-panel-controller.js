@@ -1,8 +1,4 @@
-import {
-  getAppSettings,
-  subscribeAppSettings,
-  updateAppSettings,
-} from "../../app-settings.js";
+import { getAppSettings, subscribeAppSettings, updateAppSettings } from "../../app-settings.js";
 import { t } from "../../i18n.js";
 import { flushAllLocalData } from "../local-data-reset.js";
 import { exportAllPalettes, importAllPalettes } from "../../palette-storage.js";
@@ -28,12 +24,11 @@ function getSettingsDom(root) {
     polaroidFooterLabelInput: /** @type {HTMLInputElement | null} */ (
       queryById(root, "settingsPolaroidFooterLabelInput")
     ),
-    localeToggle: /** @type {HTMLElement | null} */ (
-      queryById(root, "settingsLocaleToggle")
+    polaroidColorNamesToggle: /** @type {HTMLInputElement | null} */ (
+      queryById(root, "settingsPolaroidColorNamesToggle")
     ),
-    exportButton: /** @type {HTMLButtonElement | null} */ (
-      queryById(root, "settingsExportButton")
-    ),
+    localeToggle: /** @type {HTMLElement | null} */ (queryById(root, "settingsLocaleToggle")),
+    exportButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "settingsExportButton")),
     exportStatus: /** @type {HTMLParagraphElement | null} */ (
       queryById(root, "settingsDataStatus")
     ),
@@ -44,9 +39,7 @@ function getSettingsDom(root) {
     importLabelText: /** @type {HTMLElement | null} */ (
       importLabel?.querySelector(".panel-form-file-label-text") ?? null
     ),
-    importInput: /** @type {HTMLInputElement | null} */ (
-      queryById(root, "settingsImportInput")
-    ),
+    importInput: /** @type {HTMLInputElement | null} */ (queryById(root, "settingsImportInput")),
     tabButtons: Array.from(root.querySelectorAll("[data-settings-tab]")),
     tabPanels: Array.from(root.querySelectorAll("[data-settings-tabpanel]")),
   };
@@ -58,6 +51,14 @@ function syncPolaroidFooterLabelInput(dom, settings) {
   }
 
   dom.polaroidFooterLabelInput.value = settings.polaroidFooterLabel;
+}
+
+function syncPolaroidColorNamesToggle(dom, settings) {
+  if (!dom.polaroidColorNamesToggle) {
+    return;
+  }
+
+  dom.polaroidColorNamesToggle.checked = Boolean(settings.polaroidShowColorNames);
 }
 
 function syncLocaleToggle(dom, settings) {
@@ -235,6 +236,7 @@ export function mountSettingsPanel({ root, toggleButton }) {
 
   function renderSettingsUi(settings) {
     syncPolaroidFooterLabelInput(dom, settings);
+    syncPolaroidColorNamesToggle(dom, settings);
     syncLocaleToggle(dom, settings);
     syncExportButtonState();
     syncImportUi();
@@ -313,6 +315,11 @@ export function mountSettingsPanel({ root, toggleButton }) {
 
   on(dom.polaroidFooterLabelInput, "change", commitPolaroidFooterLabel);
   on(dom.polaroidFooterLabelInput, "blur", commitPolaroidFooterLabel);
+  on(dom.polaroidColorNamesToggle, "change", () => {
+    updateAppSettings({
+      polaroidShowColorNames: Boolean(dom.polaroidColorNamesToggle?.checked),
+    });
+  });
   on(dom.localeToggle, "click", (e) => {
     const btn = /** @type {HTMLElement} */ (e.target).closest("[data-locale]");
     if (!btn) {
@@ -349,9 +356,10 @@ export function mountSettingsPanel({ root, toggleButton }) {
       });
       const blob = new Blob([json], { type: "application/json" });
       const filename = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
-      const exportDoneTranslationKey = latestExportProgress.total === 1
-        ? "settings.data.exportDoneStatus.one"
-        : "settings.data.exportDoneStatus.other";
+      const exportDoneTranslationKey =
+        latestExportProgress.total === 1
+          ? "settings.data.exportDoneStatus.one"
+          : "settings.data.exportDoneStatus.other";
       const exportDoneMessage = t(exportDoneTranslationKey, {
         count: latestExportProgress.total,
         elapsed: formatElapsedDuration(latestExportProgress.elapsedMs),

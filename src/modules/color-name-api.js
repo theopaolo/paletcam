@@ -1,7 +1,28 @@
-const COLOR_NAME_API_ENDPOINT = "https://api.color.pizza/v1/";
-const COLOR_NAME_API_TIMEOUT_MS = 3000;
+import { colornames as offlineColorNames } from "color-name-list";
+
+import { deltaE2000, rgbToLab } from "./color-distance.js";
 
 const colorNameCache = new Map();
+const exactHexNameLookup = new Map();
+
+const offlineColorNameEntries = offlineColorNames
+  .map((entry) => {
+    const normalizedHex = normalizeHex(entry?.hex);
+    const name = typeof entry?.name === "string" ? entry.name.trim() : "";
+    const rgb = hexToRgb(normalizedHex);
+    const lab = rgb ? rgbToLab(rgb.r, rgb.g, rgb.b) : null;
+
+    if (normalizedHex && name) {
+      exactHexNameLookup.set(normalizedHex, name);
+    }
+
+    return {
+      name,
+      hex: normalizedHex,
+      lab,
+    };
+  })
+  .filter((entry) => entry.name && entry.hex && entry.lab);
 
 function clampChannel(value) {
   const numeric = Number(value);
@@ -24,14 +45,6 @@ function normalizeHex(value) {
   return /^[\da-f]{6}$/i.test(normalized) ? `#${normalized.toUpperCase()}` : "";
 }
 
-function buildColorNameLookupUrl(hexValues) {
-  const requestUrl = new URL(COLOR_NAME_API_ENDPOINT);
-  requestUrl.searchParams.set("values", hexValues.map((hex) => hex.replace(/^#/, "")).join(","));
-  requestUrl.searchParams.set("goodnamesonly", "true");
-  requestUrl.searchParams.set("noduplicates", "true");
-  return requestUrl.toString();
-}
-
 function getCachedColorName(hex) {
   const normalizedHex = normalizeHex(hex);
   if (!normalizedHex) {
@@ -39,6 +52,52 @@ function getCachedColorName(hex) {
   }
 
   return colorNameCache.get(normalizedHex) ?? "";
+}
+
+function hexToRgb(hex) {
+  const normalizedHex = normalizeHex(hex);
+  if (!normalizedHex) {
+    return null;
+  }
+
+  return {
+    r: Number.parseInt(normalizedHex.slice(1, 3), 16),
+    g: Number.parseInt(normalizedHex.slice(3, 5), 16),
+    b: Number.parseInt(normalizedHex.slice(5, 7), 16),
+  };
+}
+
+function findOfflineColorName(hex) {
+  const normalizedHex = normalizeHex(hex);
+  if (!normalizedHex) {
+    return "";
+  }
+
+  const exactName = exactHexNameLookup.get(normalizedHex);
+  if (exactName) {
+    return exactName;
+  }
+
+  const rgb = hexToRgb(normalizedHex);
+  if (!rgb) {
+    return "";
+  }
+
+  const inputLab = rgbToLab(rgb.r, rgb.g, rgb.b);
+  let closestName = "";
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  for (const entry of offlineColorNameEntries) {
+    const distance = deltaE2000(inputLab, entry.lab);
+    if (distance >= closestDistance) {
+      continue;
+    }
+
+    closestDistance = distance;
+    closestName = entry.name;
+  }
+
+  return closestName;
 }
 
 /**
@@ -59,47 +118,15 @@ export async function getColorNames(colors) {
   }
 
   const hexValues = colors.map((color) => toColorNameHex(color));
-  const missingHexValues = [...new Set(hexValues.filter((hex) => !getCachedColorName(hex)))];
 
-  if (missingHexValues.length > 0 && typeof fetch === "function") {
-    const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const timeoutId = controller
-      ? setTimeout(() => {
-          controller.abort();
-        }, COLOR_NAME_API_TIMEOUT_MS)
-      : 0;
+  for (const hex of new Set(hexValues)) {
+    if (getCachedColorName(hex)) {
+      continue;
+    }
 
-    try {
-      const response = await fetch(buildColorNameLookupUrl(missingHexValues), {
-        headers: {
-          Accept: "application/json",
-        },
-        signal: controller?.signal,
-      });
-
-      if (response.ok) {
-        const payload = await response.json();
-        const responseColors = Array.isArray(payload?.colors) ? payload.colors : [];
-
-        responseColors.forEach((entry, index) => {
-          const colorName = typeof entry?.name === "string" ? entry.name.trim() : "";
-          const requestedHex =
-            normalizeHex(entry?.requestedHex) ||
-            normalizeHex(entry?.hex) ||
-            missingHexValues[index] ||
-            "";
-
-          if (!requestedHex || !colorName) {
-            return;
-          }
-
-          colorNameCache.set(requestedHex, colorName);
-        });
-      }
-    } catch {
-      // Fall back to hex labels when the request fails or is blocked/offline.
-    } finally {
-      clearTimeout(timeoutId);
+    const resolvedName = findOfflineColorName(hex);
+    if (resolvedName) {
+      colorNameCache.set(hex, resolvedName);
     }
   }
 
