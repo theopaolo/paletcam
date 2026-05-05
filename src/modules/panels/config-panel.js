@@ -1,6 +1,7 @@
 import { html, LitElement } from "lit";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
+import { CONFIG_PANEL_PRESETS } from "./config-panel-presets.js";
 
 class ConfigPanel extends LitElement {
   createRenderRoot() {
@@ -82,6 +83,22 @@ class ConfigPanel extends LitElement {
               aria-hidden="true"
             ></span>
             <span class="config-drawer-tab-label">${t("config.tab.balance")}</span>
+          </button>
+          <button
+            class="config-drawer-tab"
+            id="configTabPresets"
+            type="button"
+            role="tab"
+            aria-controls="configPanelPresets"
+            aria-selected="false"
+            data-config-tab="presets"
+            tabindex="-1"
+          >
+            <span
+              class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-presets"
+              aria-hidden="true"
+            ></span>
+            <span class="config-drawer-tab-label">${t("config.presets.label")}</span>
           </button>
         </div>
 
@@ -186,17 +203,17 @@ class ConfigPanel extends LitElement {
                   id="configScoringVibrancyRange"
                   type="range"
                   min="0"
-                  max="100"
-                  value="25"
-                  step="1"
-                  aria-label=${t("config.colors.vibrancy.aria", { value: 25 })}
+                  max="10"
+                  value="2.5"
+                  step="0.5"
+                  aria-label=${t("config.colors.vibrancy.aria", { value: 2.5 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
                   <span class="swatch-count-indicator" data-config-scoring-vibrancy-display>
-                    25
+                    2.5
                   </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                  <span class="swatch-scale-label swatch-scale-label-max">10</span>
                 </div>
               </div>
             </div>
@@ -219,17 +236,17 @@ class ConfigPanel extends LitElement {
                   id="configScoringRarityRange"
                   type="range"
                   min="0"
-                  max="100"
-                  value="20"
-                  step="1"
-                  aria-label=${t("config.colors.rarity.aria", { value: 20 })}
+                  max="10"
+                  value="2"
+                  step="0.5"
+                  aria-label=${t("config.colors.rarity.aria", { value: 2 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
                   <span class="swatch-count-indicator" data-config-scoring-rarity-display>
-                    20
+                    2
                   </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                  <span class="swatch-scale-label swatch-scale-label-max">10</span>
                 </div>
               </div>
             </div>
@@ -261,17 +278,17 @@ class ConfigPanel extends LitElement {
                   id="configScoringDiversityRange"
                   type="range"
                   min="0"
-                  max="100"
-                  value="40"
-                  step="1"
-                  aria-label=${t("config.balance.diversity.aria", { value: 40 })}
+                  max="10"
+                  value="4"
+                  step="0.5"
+                  aria-label=${t("config.balance.diversity.aria", { value: 4 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
                   <span class="swatch-count-indicator" data-config-scoring-diversity-display>
-                    40
+                    4
                   </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                  <span class="swatch-scale-label swatch-scale-label-max">10</span>
                 </div>
               </div>
             </div>
@@ -294,18 +311,44 @@ class ConfigPanel extends LitElement {
                   id="configScoringContrastRange"
                   type="range"
                   min="0"
-                  max="100"
-                  value="15"
-                  step="1"
-                  aria-label=${t("config.balance.contrast.aria", { value: 15 })}
+                  max="10"
+                  value="1.5"
+                  step="0.5"
+                  aria-label=${t("config.balance.contrast.aria", { value: 1.5 })}
                 />
                 <div class="swatch-meta">
                   <span class="swatch-scale-label swatch-scale-label-min">0</span>
                   <span class="swatch-count-indicator" data-config-scoring-contrast-display>
-                    15
+                    1.5
                   </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                  <span class="swatch-scale-label swatch-scale-label-max">10</span>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            class="config-drawer-panel"
+            id="configPanelPresets"
+            role="tabpanel"
+            aria-labelledby="configTabPresets"
+            data-config-tabpanel="presets"
+            hidden
+          >
+            <div class="config-drawer-presets" role="group" aria-label=${t("config.presets.aria")}>
+              <div class="config-drawer-presets-grid">
+                ${CONFIG_PANEL_PRESETS.map(
+                  (preset) => html`
+                    <button
+                      class="config-drawer-preset panel-status-chip"
+                      type="button"
+                      data-config-preset=${preset.id}
+                      aria-pressed="false"
+                    >
+                      ${t(preset.labelKey)}
+                    </button>
+                  `,
+                )}
               </div>
             </div>
           </section>

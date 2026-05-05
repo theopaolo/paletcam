@@ -12,13 +12,23 @@ import {
 } from "../algorithm-settings.js";
 import { createAlgorithmSettingsHistory } from "./algorithm-settings-history.js";
 import {
+  CONFIG_PANEL_PRESETS,
+  findMatchingConfigPresetId,
+} from "./config-panel-presets.js";
+import {
   clampInteger,
   createRangeControl,
   formatCompactThousands,
+  formatScaleValue,
   formatThousands,
 } from "./settings-range-control.js";
 
-const TAB_IDS = ["analysis", "colors", "balance"];
+const TAB_IDS = ["analysis", "colors", "balance", "presets"];
+const SCORING_SLIDER_SCALE = 10;
+
+function formatScoringSliderValue(value) {
+  return formatScaleValue(value);
+}
 
 function queryById(root, id) {
   if (!id) {
@@ -36,6 +46,7 @@ function getConfigDom(root) {
     ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
+    presetButtons: Array.from(root.querySelectorAll("[data-config-preset]")),
     tabButtons: Array.from(root.querySelectorAll("[data-config-tab]")),
     tabPanels: Array.from(root.querySelectorAll("[data-config-tabpanel]")),
     undoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configUndoButton")),
@@ -128,6 +139,17 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     dom.oneMoreColorToggle.checked = Boolean(settings.oneMoreColor);
   }
 
+  function syncPresetButtons(settings) {
+    const activePresetId = findMatchingConfigPresetId(settings);
+
+    dom.presetButtons.forEach((button) => {
+      const presetId = button.getAttribute("data-config-preset");
+      const isActive = presetId === activePresetId;
+      button.setAttribute("aria-pressed", String(isActive));
+      button.classList.toggle("is-active", isActive);
+    });
+  }
+
   function setActiveTab(nextTabId, { focusButton = false } = {}) {
     activeTabId = TAB_IDS.includes(nextTabId) ? nextTabId : TAB_IDS[0];
 
@@ -168,6 +190,24 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     mutator(nextSnapshot);
     history.setCurrentSnapshot(nextSnapshot);
     updateAppSettings(getAlgorithmSettingsPatch(nextSnapshot));
+  }
+
+  function applyPreset(presetId) {
+    const preset = CONFIG_PANEL_PRESETS.find((candidate) => candidate.id === presetId);
+    if (!preset) {
+      return;
+    }
+
+    const nextSnapshot = getAlgorithmSettingsSnapshot(getAppSettings());
+    nextSnapshot.paletteScoring = { ...preset.paletteScoring };
+
+    if (!history.applySnapshot(nextSnapshot)) {
+      syncHistoryButtons();
+      return;
+    }
+
+    updateAppSettings(getAlgorithmSettingsPatch(nextSnapshot));
+    syncHistoryButtons();
   }
 
   function bindSliderControl(control) {
@@ -225,6 +265,8 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       inputId: "configScoringDiversityRange",
       displaySelector: "[data-config-scoring-diversity-display]",
       getValueFromSettings: (settings) => settings.paletteScoring.diversityWeight,
+      inputValueFromSettings: (value) => value / SCORING_SLIDER_SCALE,
+      settingValueFromInput: (value) => clampInteger(value * SCORING_SLIDER_SCALE, 0),
       onValueInput: (value) => {
         applyAlgorithmSettings((snapshot) => {
           snapshot.paletteScoring.diversityWeight = clampInteger(
@@ -235,7 +277,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.balance.diversity.aria", { value }),
+      getAriaLabel: (value) => t("config.balance.diversity.aria", {
+        value: formatScoringSliderValue(value),
+      }),
+      formatDisplayValue: formatScoringSliderValue,
     }),
     createRangeControl({
       root,
@@ -243,6 +288,8 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       inputId: "configScoringContrastRange",
       displaySelector: "[data-config-scoring-contrast-display]",
       getValueFromSettings: (settings) => settings.paletteScoring.lumaSpreadWeight,
+      inputValueFromSettings: (value) => value / SCORING_SLIDER_SCALE,
+      settingValueFromInput: (value) => clampInteger(value * SCORING_SLIDER_SCALE, 0),
       onValueInput: (value) => {
         applyAlgorithmSettings((snapshot) => {
           snapshot.paletteScoring.lumaSpreadWeight = clampInteger(
@@ -253,7 +300,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.balance.contrast.aria", { value }),
+      getAriaLabel: (value) => t("config.balance.contrast.aria", {
+        value: formatScoringSliderValue(value),
+      }),
+      formatDisplayValue: formatScoringSliderValue,
     }),
     createRangeControl({
       root,
@@ -261,6 +311,8 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       inputId: "configScoringVibrancyRange",
       displaySelector: "[data-config-scoring-vibrancy-display]",
       getValueFromSettings: (settings) => settings.paletteScoring.chromaWeight,
+      inputValueFromSettings: (value) => value / SCORING_SLIDER_SCALE,
+      settingValueFromInput: (value) => clampInteger(value * SCORING_SLIDER_SCALE, 0),
       onValueInput: (value) => {
         applyAlgorithmSettings((snapshot) => {
           snapshot.paletteScoring.chromaWeight = clampInteger(
@@ -271,7 +323,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.colors.vibrancy.aria", { value }),
+      getAriaLabel: (value) => t("config.colors.vibrancy.aria", {
+        value: formatScoringSliderValue(value),
+      }),
+      formatDisplayValue: formatScoringSliderValue,
     }),
     createRangeControl({
       root,
@@ -279,6 +334,8 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       inputId: "configScoringRarityRange",
       displaySelector: "[data-config-scoring-rarity-display]",
       getValueFromSettings: (settings) => settings.paletteScoring.rarityWeight,
+      inputValueFromSettings: (value) => value / SCORING_SLIDER_SCALE,
+      settingValueFromInput: (value) => clampInteger(value * SCORING_SLIDER_SCALE, 0),
       onValueInput: (value) => {
         applyAlgorithmSettings((snapshot) => {
           snapshot.paletteScoring.rarityWeight = clampInteger(
@@ -289,7 +346,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.colors.rarity.aria", { value }),
+      getAriaLabel: (value) => t("config.colors.rarity.aria", {
+        value: formatScoringSliderValue(value),
+      }),
+      formatDisplayValue: formatScoringSliderValue,
     }),
     createRangeControl({
       root,
@@ -345,6 +405,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     rangeControls.forEach((control) => {
       control.renderFromSettings(settings);
     });
+    syncPresetButtons(settings);
     syncOneMoreColorToggle(settings);
     syncDrawerAvailability(settings);
     syncHistoryButtons();
@@ -367,6 +428,11 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   });
 
   dom.tabButtons.forEach(bindTabButton);
+  dom.presetButtons.forEach((button) => {
+    on(button, "click", () => {
+      applyPreset(button.getAttribute("data-config-preset"));
+    });
+  });
   on(dom.oneMoreColorToggle, "change", () => {
     if (!dom.oneMoreColorToggle) {
       return;

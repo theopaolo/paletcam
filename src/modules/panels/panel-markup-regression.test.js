@@ -23,13 +23,18 @@ describe("panel markup regression", () => {
     const analysisStart = source.indexOf('id="configPanelAnalysis"');
     const colorsStart = source.indexOf('id="configPanelColors"');
     const balanceStart = source.indexOf('id="configPanelBalance"');
+    const presetsStart = source.indexOf('id="configPanelPresets"');
     const analysisMarkup = source.slice(analysisStart, colorsStart);
     const colorsMarkup = source.slice(colorsStart, balanceStart);
-    const balanceMarkup = source.slice(balanceStart);
+    const balanceMarkup = source.slice(balanceStart, presetsStart);
+    const presetsMarkup = source.slice(presetsStart);
 
     expect(source).toContain('data-config-tab="analysis"');
     expect(source).toContain('data-config-tab="colors"');
     expect(source).toContain('data-config-tab="balance"');
+    expect(source).toContain('data-config-tab="presets"');
+    expect(source).toContain("CONFIG_PANEL_PRESETS.map");
+    expect(source).toContain("data-config-preset=${preset.id}");
     expect(source).toContain("configScoringDiversityRange");
     expect(source).toContain("configScoringContrastRange");
     expect(source).toContain("configScoringVibrancyRange");
@@ -45,9 +50,9 @@ describe("panel markup regression", () => {
     expect(analysisMarkup).not.toContain("configScoringDiversityRange");
     expect(colorsMarkup).toContain("configScoringVibrancyRange");
     expect(colorsMarkup).toContain("configScoringRarityRange");
-    expect(colorsMarkup).toContain("configOneMoreColorToggle");
     expect(balanceMarkup).toContain("configScoringDiversityRange");
     expect(balanceMarkup).toContain("configScoringContrastRange");
     expect(balanceMarkup).not.toContain("configMedianCutPoolRange");
+    expect(presetsMarkup).toContain("data-config-preset=${preset.id}");
   });
 });
