@@ -13,6 +13,10 @@ describe("palette-storage/json-transfer", () => {
         timestamp: "2026-04-30T10:00:00.000Z",
         colors: [{ r: 12, g: 34, b: 56 }],
         photoBlob: new Blob(["photo"], { type: "text/plain" }),
+        previewGalleryBlob: new Blob(["gallery-preview"], { type: "text/plain" }),
+        previewGalleryFooterLabel: "gallery-footer",
+        previewViewerBlob: new Blob(["viewer-preview"], { type: "text/plain" }),
+        previewViewerFooterLabel: "viewer-footer",
         previewBlob: new Blob(["preview"], { type: "text/plain" }),
         previewFooterLabel: "footer",
         hasPhotoAsset: true,
@@ -29,6 +33,10 @@ describe("palette-storage/json-transfer", () => {
     expect(payload.version).toBe(2);
     expect(payload.palettes).toHaveLength(1);
     expect("id" in payload.palettes[0]).toBe(false);
+    expect("previewGalleryBlob" in payload.palettes[0]).toBe(false);
+    expect("previewGalleryFooterLabel" in payload.palettes[0]).toBe(false);
+    expect("previewViewerBlob" in payload.palettes[0]).toBe(false);
+    expect("previewViewerFooterLabel" in payload.palettes[0]).toBe(false);
     expect("previewBlob" in payload.palettes[0]).toBe(false);
     expect("previewFooterLabel" in payload.palettes[0]).toBe(false);
     expect("hasPhotoAsset" in payload.palettes[0]).toBe(false);
@@ -44,6 +52,10 @@ describe("palette-storage/json-transfer", () => {
           timestamp: "2026-04-30T10:00:00.000Z",
           colors: [{ r: 1, g: 2, b: 3 }],
           photoBlob: "data:text/plain;base64,cGhvdG8=",
+          previewGalleryBlob: "drop",
+          previewGalleryFooterLabel: "drop",
+          previewViewerBlob: "drop",
+          previewViewerFooterLabel: "drop",
           previewBlob: "drop",
           previewFooterLabel: "drop",
           hasPhotoAsset: true,
@@ -53,6 +65,10 @@ describe("palette-storage/json-transfer", () => {
 
     expect(palettes).toHaveLength(1);
     expect("id" in palettes[0]).toBe(false);
+    expect("previewGalleryBlob" in palettes[0]).toBe(false);
+    expect("previewGalleryFooterLabel" in palettes[0]).toBe(false);
+    expect("previewViewerBlob" in palettes[0]).toBe(false);
+    expect("previewViewerFooterLabel" in palettes[0]).toBe(false);
     expect("previewBlob" in palettes[0]).toBe(false);
     expect("previewFooterLabel" in palettes[0]).toBe(false);
     expect("hasPhotoAsset" in palettes[0]).toBe(false);

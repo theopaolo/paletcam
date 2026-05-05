@@ -4,6 +4,16 @@ const KNOWN_MODERATION_STATUSES = new Set([
   'REJECTED',
   'PRIVATE',
 ]);
+const PREVIEW_VARIANT_FIELD_KEYS = Object.freeze({
+  gallery: Object.freeze({
+    blobKey: 'previewGalleryBlob',
+    footerKey: 'previewGalleryFooterLabel',
+  }),
+  viewer: Object.freeze({
+    blobKey: 'previewViewerBlob',
+    footerKey: 'previewViewerFooterLabel',
+  }),
+});
 
 export function normalizeRemoteCatchId(value) {
   if (value === null || value === undefined) {
@@ -40,6 +50,14 @@ export function normalizePreviewFooterLabel(value) {
   return typeof value === 'string' ? value : null;
 }
 
+export function normalizePreviewVariant(variant) {
+  return variant === 'gallery' ? 'gallery' : 'viewer';
+}
+
+export function getPreviewVariantFieldKeys(variant) {
+  return PREVIEW_VARIANT_FIELD_KEYS[normalizePreviewVariant(variant)];
+}
+
 export function normalizeCaptureCropRect(captureCropRect) {
   return captureCropRect
     ? {
@@ -58,6 +76,17 @@ export function normalizeStoredPaletteRecord(
     photoBlob = undefined,
   } = {},
 ) {
+  const legacyPreviewBlob = palette?.previewBlob instanceof Blob ? palette.previewBlob : null;
+  const legacyPreviewFooterLabel = normalizePreviewFooterLabel(palette?.previewFooterLabel);
+  const previewViewerBlob =
+    palette?.previewViewerBlob instanceof Blob ? palette.previewViewerBlob : legacyPreviewBlob;
+  const previewViewerFooterLabel =
+    normalizePreviewFooterLabel(palette?.previewViewerFooterLabel) ?? legacyPreviewFooterLabel;
+  const previewGalleryBlob =
+    palette?.previewGalleryBlob instanceof Blob ? palette.previewGalleryBlob : null;
+  const previewGalleryFooterLabel = normalizePreviewFooterLabel(
+    palette?.previewGalleryFooterLabel,
+  );
   const normalized = {
     ...palette,
     captureCropRect: normalizeCaptureCropRect(palette?.captureCropRect),
@@ -74,10 +103,31 @@ export function normalizeStoredPaletteRecord(
     ),
   };
 
-  if (palette?.previewBlob instanceof Blob) {
-    normalized.previewBlob = palette.previewBlob;
+  delete normalized.previewBlob;
+  delete normalized.previewFooterLabel;
+
+  if (previewViewerBlob instanceof Blob) {
+    normalized.previewViewerBlob = previewViewerBlob;
   } else {
-    delete normalized.previewBlob;
+    delete normalized.previewViewerBlob;
+  }
+
+  if (previewViewerFooterLabel) {
+    normalized.previewViewerFooterLabel = previewViewerFooterLabel;
+  } else {
+    delete normalized.previewViewerFooterLabel;
+  }
+
+  if (previewGalleryBlob instanceof Blob) {
+    normalized.previewGalleryBlob = previewGalleryBlob;
+  } else {
+    delete normalized.previewGalleryBlob;
+  }
+
+  if (previewGalleryFooterLabel) {
+    normalized.previewGalleryFooterLabel = previewGalleryFooterLabel;
+  } else {
+    delete normalized.previewGalleryFooterLabel;
   }
 
   if (includePhotoBlob) {
@@ -108,8 +158,10 @@ export function createPaletteMetadataRecord({
   postedAt = null,
   moderationUpdatedAt = null,
   lastModerationCheckAt = null,
-  previewBlob = null,
-  previewFooterLabel = null,
+  previewGalleryBlob = null,
+  previewGalleryFooterLabel = null,
+  previewViewerBlob = null,
+  previewViewerFooterLabel = null,
   hasPhotoAsset = false,
 }) {
   const record = {
@@ -124,12 +176,23 @@ export function createPaletteMetadataRecord({
     postedAt: normalizeIsoString(postedAt),
     moderationUpdatedAt: normalizeIsoString(moderationUpdatedAt),
     lastModerationCheckAt: normalizeIsoString(lastModerationCheckAt),
-    previewFooterLabel: normalizePreviewFooterLabel(previewFooterLabel),
     hasPhotoAsset: Boolean(hasPhotoAsset),
   };
 
-  if (previewBlob instanceof Blob) {
-    record.previewBlob = previewBlob;
+  if (previewViewerBlob instanceof Blob) {
+    record.previewViewerBlob = previewViewerBlob;
+  }
+
+  if (normalizePreviewFooterLabel(previewViewerFooterLabel)) {
+    record.previewViewerFooterLabel = normalizePreviewFooterLabel(previewViewerFooterLabel);
+  }
+
+  if (previewGalleryBlob instanceof Blob) {
+    record.previewGalleryBlob = previewGalleryBlob;
+  }
+
+  if (normalizePreviewFooterLabel(previewGalleryFooterLabel)) {
+    record.previewGalleryFooterLabel = normalizePreviewFooterLabel(previewGalleryFooterLabel);
   }
 
   return record;

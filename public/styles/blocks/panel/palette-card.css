@@ -139,23 +139,6 @@
   }
 }
 
-.palette-card-status {
-  margin: 0;
-  min-height: 2.2rem;
-  display: grid;
-  place-items: center;
-  padding: var(--space-8) var(--space-8);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  line-height: 1;
-  text-transform: uppercase;
-  background: rgb(0 0 0 / 35%);
-}
-
-.palette-card-status:empty {
-  display: none;
-}
-
 /* ── Swatch card ── */
 
 .palette-card--swatch .palette-card-trigger {
@@ -185,8 +168,7 @@
   background: #050505;
 }
 
-.palette-card--swatch .palette-card-loader,
-.palette-card--swatch .palette-card-status {
+.palette-card--swatch .palette-card-loader {
   position: absolute;
   inset: 0;
 }
@@ -199,15 +181,6 @@
 .palette-card--swatch .palette-card-loader::before,
 .palette-card--swatch .palette-card-loader::after {
   bottom: var(--space-8);
-}
-
-.palette-card--swatch .palette-card-status {
-  min-height: 0;
-  padding: var(--space-8);
-  font-size: var(--font-size-xs);
-  line-height: 1.15;
-  text-align: center;
-  background: linear-gradient(180deg, rgb(0 0 0 / 18%), rgb(0 0 0 / 52%));
 }
 
 .palette-swatch-segment {

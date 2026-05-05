@@ -13,6 +13,15 @@ import {
 
 const paletteJsonWorkerController = createPaletteJsonWorkerController();
 
+function getImportedPalettePhotoBlobOrThrow(palette, index) {
+  if (palette?.photoBlob instanceof Blob) {
+    return palette.photoBlob;
+  }
+
+  const paletteNumber = Number(index) + 1;
+  throw new Error(`Cannot import palette ${paletteNumber} without photo data.`);
+}
+
 function getElapsedTimeMs(startedAtMs) {
   return Math.max(0, Date.now() - startedAtMs);
 }
@@ -64,8 +73,12 @@ export async function exportAllPalettes({ onProgress } = {}) {
     const masterPhotoBlob = await readPalettePhotoBlobById(palette.id);
     const fallbackPhotoBlob = masterPhotoBlob instanceof Blob
       ? masterPhotoBlob
-      : palette.previewBlob instanceof Blob
-        ? palette.previewBlob
+      : palette.previewViewerBlob instanceof Blob
+        ? palette.previewViewerBlob
+        : palette.previewGalleryBlob instanceof Blob
+          ? palette.previewGalleryBlob
+          : palette.previewBlob instanceof Blob
+            ? palette.previewBlob
         : null;
     const entry = {
       ...palette,
@@ -136,32 +149,32 @@ export async function importAllPalettes(jsonString) {
   }
 
   let importedCount = 0;
+  const palettesWithPhotoAssets = palettes.map((palette, index) => ({
+    palette,
+    importedPhotoBlob: getImportedPalettePhotoBlobOrThrow(palette, index),
+  }));
 
   await db.transaction('rw', db.palettes, db.paletteAssets, async () => {
-    for (const palette of palettes) {
-      const importedPhotoBlob = palette.photoBlob instanceof Blob ? palette.photoBlob : null;
-
-      delete palette.photoBlob;
+    for (const { palette, importedPhotoBlob } of palettesWithPhotoAssets) {
+      const { photoBlob: _photoBlob, ...paletteMetadata } = palette;
 
       const nextPaletteMetadata = createPaletteMetadataRecord({
-        timestamp: palette.timestamp || new Date().toISOString(),
-        colors: palette.colors || [],
-        captureAspectRatio: palette.captureAspectRatio || '4:3',
-        captureCropRect: palette.captureCropRect || null,
-        captureMode: palette.captureMode,
-        ralMatch: palette.ralMatch ?? null,
-        remoteCatchId: palette.remoteCatchId ?? null,
-        moderationStatus: palette.moderationStatus ?? null,
-        postedAt: palette.postedAt ?? null,
-        moderationUpdatedAt: palette.moderationUpdatedAt ?? null,
-        lastModerationCheckAt: palette.lastModerationCheckAt ?? null,
-        hasPhotoAsset: importedPhotoBlob instanceof Blob,
+        timestamp: paletteMetadata.timestamp || new Date().toISOString(),
+        colors: paletteMetadata.colors || [],
+        captureAspectRatio: paletteMetadata.captureAspectRatio || '4:3',
+        captureCropRect: paletteMetadata.captureCropRect || null,
+        captureMode: paletteMetadata.captureMode,
+        ralMatch: paletteMetadata.ralMatch ?? null,
+        remoteCatchId: paletteMetadata.remoteCatchId ?? null,
+        moderationStatus: paletteMetadata.moderationStatus ?? null,
+        postedAt: paletteMetadata.postedAt ?? null,
+        moderationUpdatedAt: paletteMetadata.moderationUpdatedAt ?? null,
+        lastModerationCheckAt: paletteMetadata.lastModerationCheckAt ?? null,
+        hasPhotoAsset: true,
       });
 
       const paletteId = await db.palettes.add(nextPaletteMetadata);
-      if (importedPhotoBlob instanceof Blob) {
-        await db.paletteAssets.put(createPaletteAssetRecord(paletteId, importedPhotoBlob));
-      }
+      await db.paletteAssets.put(createPaletteAssetRecord(paletteId, importedPhotoBlob));
 
       importedCount += 1;
     }

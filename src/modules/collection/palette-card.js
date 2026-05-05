@@ -1,10 +1,7 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
 import { loadImageElementSource } from "../image-element-loader.js";
-import {
-  getPalettePreviewPolaroidAsset,
-  hasPaletteMasterPhoto,
-} from "./palette-preview-assets.js";
+import { getPaletteGalleryPreviewAsset } from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
 
@@ -67,8 +64,6 @@ function bindLazyPreviewLoad({
   trigger,
   previewImage,
   previewLoader,
-  previewStatus,
-  hasMasterPhoto,
   scrollRoot,
   getAsset,
   onOpenViewer,
@@ -76,23 +71,14 @@ function bindLazyPreviewLoad({
 }) {
   let previewAssetPromise;
   let hasStartedPreviewLoad = false;
-  let hasPreviewLoadFailed = false;
   let hasQueuedPreviewLoad = false;
 
   const ensurePreviewImageAsset = () => {
-    if (!hasMasterPhoto) {
-      return Promise.reject(new Error("Missing palette photo"));
-    }
-
     previewAssetPromise ??= getAsset();
     return previewAssetPromise;
   };
 
   const loadPreviewIntoCard = async () => {
-    if (hasPreviewLoadFailed || !hasMasterPhoto) {
-      return;
-    }
-
     try {
       const asset = await ensurePreviewImageAsset();
       if (!card.isConnected) {
@@ -100,7 +86,6 @@ function bindLazyPreviewLoad({
       }
 
       previewLoader.hidden = false;
-      previewStatus.textContent = "";
       await loadImageElementSource(previewImage, asset.objectUrl);
       if (!card.isConnected) {
         return;
@@ -108,18 +93,15 @@ function bindLazyPreviewLoad({
 
       previewImage.hidden = false;
       previewLoader.hidden = true;
-      previewStatus.textContent = "";
     } catch (error) {
       if (!card.isConnected) {
         return;
       }
 
       previewAssetPromise = undefined;
-      hasPreviewLoadFailed = true;
       previewImage.hidden = true;
       previewImage.removeAttribute("src");
       previewLoader.hidden = true;
-      previewStatus.textContent = t("viewer.previewUnavailable");
       console.error(`Failed to render preview for palette ${paletteId}:`, error);
     }
   };
@@ -147,10 +129,6 @@ function bindLazyPreviewLoad({
     startPreviewLoad();
     void onOpenViewer?.(paletteId);
   });
-
-  if (!hasMasterPhoto) {
-    return;
-  }
 
   if (window.IntersectionObserver) {
     const observer = new IntersectionObserver(
@@ -182,7 +160,6 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   const card = document.createElement("div");
   card.className = "palette-card";
   card.dataset.paletteId = String(palette.id);
-  const hasMasterPhoto = hasPaletteMasterPhoto(palette);
 
   const trigger = document.createElement("button");
   trigger.type = "button";
@@ -199,12 +176,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   previewLoader.className = "palette-card-loader";
   previewLoader.setAttribute("aria-hidden", "true");
 
-  const previewStatus = document.createElement("p");
-  previewStatus.className = "palette-card-status";
-  previewStatus.textContent = hasMasterPhoto ? "" : t("viewer.previewUnavailable");
-
-  previewLoader.hidden = !hasMasterPhoto;
-  trigger.append(previewImage, previewLoader, previewStatus);
+  trigger.append(previewImage, previewLoader);
   card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
 
   if (palette.captureMode === "ral") {
@@ -219,10 +191,8 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
     trigger,
     previewImage,
     previewLoader,
-    previewStatus,
-    hasMasterPhoto,
     scrollRoot,
-    getAsset: () => getPalettePreviewPolaroidAsset(palette),
+    getAsset: () => getPaletteGalleryPreviewAsset(palette),
     onOpenViewer,
     paletteId: palette.id,
   });
@@ -234,13 +204,13 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
  * @param {object} config
  * @param {Palette} config.palette
  * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
+ * @param {Element | null} [config.scrollRoot]
  */
 export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
   const card = document.createElement("div");
   card.className = "palette-card palette-card--swatch";
   card.dataset.paletteId = String(palette.id);
   card.style.setProperty("--palette-card-span", String(Math.max(2, palette.colors.length + 1)));
-  const hasMasterPhoto = hasPaletteMasterPhoto(palette);
 
   const trigger = document.createElement("button");
   trigger.type = "button";
@@ -260,13 +230,8 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
   const previewLoader = document.createElement("div");
   previewLoader.className = "palette-card-loader";
   previewLoader.setAttribute("aria-hidden", "true");
-  previewLoader.hidden = !hasMasterPhoto;
 
-  const previewStatus = document.createElement("p");
-  previewStatus.className = "palette-card-status";
-  previewStatus.textContent = hasMasterPhoto ? "" : t("viewer.previewUnavailable");
-
-  mediaTile.append(previewImage, previewLoader, previewStatus);
+  mediaTile.append(previewImage, previewLoader);
   trigger.appendChild(mediaTile);
 
   palette.colors.forEach((color) => {
@@ -291,10 +256,8 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
     trigger,
     previewImage,
     previewLoader,
-    previewStatus,
-    hasMasterPhoto,
     scrollRoot,
-    getAsset: () => getPalettePreviewPolaroidAsset(palette),
+    getAsset: () => getPaletteGalleryPreviewAsset(palette),
     onOpenViewer,
     paletteId: palette.id,
   });

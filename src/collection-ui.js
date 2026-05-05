@@ -21,7 +21,7 @@ import { createPaletteCard, createSwatchCard } from "./modules/collection/palett
 import {
   disposePalettePreviewPolaroidAsset,
   exportPalettePolaroidImage,
-  getPalettePreviewPolaroidAsset,
+  getPaletteViewerPreviewAsset,
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
 } from "./modules/collection/palette-preview-assets.js";
@@ -497,7 +497,7 @@ function openCollectionPaletteViewer(paletteId) {
     palettes: displayPalettes,
     initialIndex,
     getPalettes: getDisplayPalettes,
-    getPreviewAsset: getPalettePreviewPolaroidAsset,
+    getPreviewAsset: getPaletteViewerPreviewAsset,
     getPublishAction: getPalettePublicationAction,
     canShare: canSharePalette,
     canExport: canExportPalette,
@@ -603,9 +603,7 @@ function renderCollectionUi(palettes) {
   });
 
   syncSelectModeAfterRender();
-  scheduleSavedPalettePreviewWarmupBatch(
-    displayPalettes.filter((palette) => hasPaletteMasterPhoto(palette)),
-  );
+  scheduleSavedPalettePreviewWarmupBatch(displayPalettes, "gallery");
   refreshPaletteViewerOverlay();
 }
 
@@ -915,7 +913,7 @@ export async function openDirectPaletteViewer(paletteId) {
     palettes: [palette],
     initialIndex: 0,
     getPalettes: () => (isPalettePendingDeletion(palette.id) ? [] : [palette]),
-    getPreviewAsset: getPalettePreviewPolaroidAsset,
+    getPreviewAsset: getPaletteViewerPreviewAsset,
     getPublishAction: getPalettePublicationAction,
     canShare: canSharePalette,
     canExport: canExportPalette,

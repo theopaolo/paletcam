@@ -72,6 +72,10 @@ export async function getSavedPaletteById(id, { includePhotoBlob = true } = {}) 
  * @param {Blob | null} [options.photoBlob]
  * @param {Blob | null} [options.previewBlob]
  * @param {string | null} [options.previewFooterLabel]
+ * @param {Blob | null} [options.previewGalleryBlob]
+ * @param {string | null} [options.previewGalleryFooterLabel]
+ * @param {Blob | null} [options.previewViewerBlob]
+ * @param {string | null} [options.previewViewerFooterLabel]
  * @param {string} [options.captureAspectRatio]
  * @param {CropRect | null} [options.captureCropRect]
  * @param {CaptureMode} [options.captureMode]
@@ -85,6 +89,10 @@ export async function savePalette(
     photoBlob: providedPhotoBlob = null,
     previewBlob = null,
     previewFooterLabel = null,
+    previewGalleryBlob = null,
+    previewGalleryFooterLabel = null,
+    previewViewerBlob = previewBlob,
+    previewViewerFooterLabel = previewFooterLabel,
     captureAspectRatio = '4:3',
     captureCropRect = null,
     captureMode,
@@ -109,8 +117,10 @@ export async function savePalette(
     captureCropRect,
     captureMode,
     ralMatch,
-    previewBlob,
-    previewFooterLabel,
+    previewGalleryBlob,
+    previewGalleryFooterLabel,
+    previewViewerBlob,
+    previewViewerFooterLabel,
     hasPhotoAsset: true,
   });
 

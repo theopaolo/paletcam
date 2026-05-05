@@ -80,6 +80,10 @@ function normalizeImportedPalette(entry) {
   }
 
   delete palette.id;
+  delete palette.previewGalleryBlob;
+  delete palette.previewGalleryFooterLabel;
+  delete palette.previewViewerBlob;
+  delete palette.previewViewerFooterLabel;
   delete palette.previewBlob;
   delete palette.previewFooterLabel;
   delete palette.hasPhotoAsset;
@@ -104,6 +108,10 @@ export async function serializePalettesForExport(palettes) {
     }
 
     delete entry.id;
+    delete entry.previewGalleryBlob;
+    delete entry.previewGalleryFooterLabel;
+    delete entry.previewViewerBlob;
+    delete entry.previewViewerFooterLabel;
     delete entry.previewBlob;
     delete entry.previewFooterLabel;
     delete entry.hasPhotoAsset;

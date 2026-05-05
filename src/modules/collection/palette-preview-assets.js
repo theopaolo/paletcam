@@ -1,10 +1,9 @@
 import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
 import { hasPaletteMasterPhoto, renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
 import {
+  ensureSavedPalettePreviewBlob,
   getCurrentPalettePreviewFooterLabel,
   getStoredPalettePreviewBlob,
-  persistSavedPalettePreviewBlob,
-  renderPalettePreviewBlobFromMasterPhoto,
 } from "./palette-preview-persistence.js";
 
 const POLAROID_EXPORT_MAX_WIDTH = 1600;
@@ -12,14 +11,34 @@ const POLAROID_EXPORT_SCALE = 1;
 const POLAROID_EXPORT_QUALITY = 0.95;
 
 const previewAssetCache = new Map();
-const masterPhotoAssetCache = new Map();
-let previewRenderQueue = Promise.resolve();
 
-function buildPreviewAssetCacheKey(palette) {
+function createAssetFromBlob(blob) {
+  return {
+    blob,
+    objectUrl: URL.createObjectURL(blob),
+  };
+}
+
+function getCachedAsset(cache, cacheKey) {
+  const cached = cache.get(cacheKey);
+
+  if (cached?.blob && cached?.objectUrl) {
+    return cached;
+  }
+
+  if (cached?.promise) {
+    return cached.promise;
+  }
+
+  return null;
+}
+
+function buildPreviewAssetCacheKey(palette, variant = "viewer") {
   const cropRect = palette?.captureCropRect;
 
   return JSON.stringify([
     String(palette?.id ?? ""),
+    String(variant),
     String(palette?.captureAspectRatio ?? ""),
     cropRect?.x ?? "",
     cropRect?.y ?? "",
@@ -57,12 +76,6 @@ function downloadBlob(blob, filename) {
   return true;
 }
 
-function enqueuePreviewRender(task) {
-  const runTask = previewRenderQueue.catch(() => undefined).then(task);
-  previewRenderQueue = runTask.catch(() => undefined);
-  return runTask;
-}
-
 function disposePreviewAssetCacheEntry(cacheKey) {
   const cached = previewAssetCache.get(cacheKey);
   if (cached?.objectUrl) {
@@ -71,83 +84,65 @@ function disposePreviewAssetCacheEntry(cacheKey) {
   previewAssetCache.delete(cacheKey);
 }
 
-function disposeMasterPhotoAssetCacheEntry(cacheKey) {
-  const cached = masterPhotoAssetCache.get(cacheKey);
-  if (cached?.objectUrl) {
-    URL.revokeObjectURL(cached.objectUrl);
+function getStoredPreviewAsset(
+  palette,
+  variant = "viewer",
+  cacheKey = buildPreviewAssetCacheKey(palette, variant),
+) {
+  const cached = getCachedAsset(previewAssetCache, cacheKey);
+  if (cached) {
+    return cached;
   }
-  masterPhotoAssetCache.delete(cacheKey);
+
+  const storedPreviewBlob = getStoredPalettePreviewBlob(palette, variant);
+  if (!(storedPreviewBlob instanceof Blob)) {
+    return null;
+  }
+
+  const asset = createAssetFromBlob(storedPreviewBlob);
+  previewAssetCache.set(cacheKey, asset);
+  return asset;
+}
+
+async function renderHighQualityPalettePolaroidBlob(palette) {
+  const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
+  if (!(masterPhotoBlob instanceof Blob)) {
+    return null;
+  }
+
+  return renderPalettePolaroidBlob(
+    { ...palette, photoBlob: masterPhotoBlob },
+    {
+      maxWidth: POLAROID_EXPORT_MAX_WIDTH,
+      scale: POLAROID_EXPORT_SCALE,
+      quality: POLAROID_EXPORT_QUALITY,
+    },
+  );
 }
 
 /**
  * @param {Palette} palette
+ * @param {object} [options]
+ * @param {"gallery" | "viewer"} [options.variant]
  * @returns {Promise<PreviewAsset>}
  */
-export async function getPalettePreviewPolaroidAsset(palette) {
-  if (!hasPaletteMasterPhoto(palette)) {
-    throw new Error("Missing palette photo");
+export async function getPalettePreviewPolaroidAsset(palette, { variant = "viewer" } = {}) {
+  const cacheKey = buildPreviewAssetCacheKey(palette, variant);
+  const storedAsset = getStoredPreviewAsset(palette, variant, cacheKey);
+  if (storedAsset) {
+    return storedAsset;
   }
 
-  const cacheKey = buildPreviewAssetCacheKey(palette);
-  const cached = previewAssetCache.get(cacheKey);
-
-  if (cached?.blob && cached?.objectUrl) {
-    return cached;
-  }
-
-  if (cached?.promise) {
-    return cached.promise;
-  }
-
-  const storedPreviewBlob = getStoredPalettePreviewBlob(palette);
-  if (storedPreviewBlob instanceof Blob) {
-    const asset = {
-      blob: storedPreviewBlob,
-      objectUrl: URL.createObjectURL(storedPreviewBlob),
-    };
-    previewAssetCache.set(cacheKey, asset);
-    return asset;
-  }
-
-  const promise = enqueuePreviewRender(async () => {
-    let blob = getStoredPalettePreviewBlob(palette);
-    const previewFooterLabel = getCurrentPalettePreviewFooterLabel();
-
-    if (!(blob instanceof Blob)) {
-      const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
-      if (!(masterPhotoBlob instanceof Blob)) {
-        throw new Error("Missing palette photo");
-      }
-
-      try {
-        blob = await renderPalettePreviewBlobFromMasterPhoto(palette, masterPhotoBlob);
-      } catch (error) {
-        console.error(`Failed to render preview blob for palette ${palette.id}:`, error);
-      }
-    }
-
-    if (!(blob instanceof Blob)) {
-      blob = getStoredPalettePreviewBlob(palette);
-    }
-
-    if (!(blob instanceof Blob)) {
+  const promise = (async () => {
+    const previewBlob = await ensureSavedPalettePreviewBlob(palette, variant);
+    if (!(previewBlob instanceof Blob)) {
       throw new Error("Unable to generate palette preview");
     }
 
-    if (getStoredPalettePreviewBlob(palette) !== blob) {
-      void persistSavedPalettePreviewBlob(palette, blob, previewFooterLabel).catch((error) => {
-        console.error(`Failed to persist preview blob for palette ${palette.id}:`, error);
-      });
-    }
-
-    const asset = {
-      blob,
-      objectUrl: URL.createObjectURL(blob),
-    };
-
+    const asset = createAssetFromBlob(previewBlob);
     previewAssetCache.set(cacheKey, asset);
     return asset;
-  }).catch((error) => {
+  })().catch((error) => {
     if (previewAssetCache.get(cacheKey)?.promise === promise) {
       previewAssetCache.delete(cacheKey);
     }
@@ -162,54 +157,33 @@ export async function getPalettePreviewPolaroidAsset(palette) {
  * @param {Palette} palette
  * @returns {Promise<PreviewAsset>}
  */
-export async function getPaletteMasterPhotoAsset(palette) {
-  if (!hasPaletteMasterPhoto(palette)) {
-    throw new Error("Missing palette photo");
-  }
+export async function getPaletteGalleryPreviewAsset(palette) {
+  return getPalettePreviewPolaroidAsset(palette, { variant: "gallery" });
+}
 
-  const cacheKey = JSON.stringify([String(palette?.id ?? ""), "master-photo"]);
-  const cached = masterPhotoAssetCache.get(cacheKey);
+/**
+ * @param {Palette} palette
+ * @returns {Promise<PreviewAsset>}
+ */
+export async function getPaletteViewerPreviewAsset(palette) {
+  return getPalettePreviewPolaroidAsset(palette, { variant: "viewer" });
+}
 
-  if (cached?.blob && cached?.objectUrl) {
-    return cached;
-  }
-
-  if (cached?.promise) {
-    return cached.promise;
-  }
-
-  const promise = (async () => {
-    const blob = await ensurePaletteMasterPhotoBlob(palette);
-    if (!(blob instanceof Blob)) {
-      throw new Error("Missing palette photo");
-    }
-
-    const asset = {
-      blob,
-      objectUrl: URL.createObjectURL(blob),
-    };
-
-    masterPhotoAssetCache.set(cacheKey, asset);
-    return asset;
-  })().catch((error) => {
-    if (masterPhotoAssetCache.get(cacheKey)?.promise === promise) {
-      masterPhotoAssetCache.delete(cacheKey);
-    }
-    throw error;
-  });
-
-  masterPhotoAssetCache.set(cacheKey, { promise });
-  return promise;
+/**
+ * @param {Palette} palette
+ * @returns {Promise<PreviewAsset>}
+ */
+export async function getPaletteDisplayPreviewAsset(palette) {
+  return getPaletteViewerPreviewAsset(palette);
 }
 
 export function disposePalettePreviewPolaroidAsset(paletteOrId) {
   const isObject = typeof paletteOrId === "object" && paletteOrId !== null;
   const paletteId = isObject ? String(paletteOrId.id ?? "") : String(paletteOrId ?? "");
   const cacheKey = isObject
-    ? buildPreviewAssetCacheKey(paletteOrId)
+    ? buildPreviewAssetCacheKey(paletteOrId, "viewer")
     : JSON.stringify([paletteId, "", "", "", "", "", ""]);
   disposePreviewAssetCacheEntry(cacheKey);
-  disposeMasterPhotoAssetCacheEntry(JSON.stringify([paletteId, "master-photo"]));
 
   // Backward cleanup: remove any cache entries for the same id if the key schema changes.
 
@@ -223,36 +197,17 @@ export function disposePalettePreviewPolaroidAsset(paletteOrId) {
     }
     disposePreviewAssetCacheEntry(key);
   });
-
-  [...masterPhotoAssetCache.keys()].forEach((key) => {
-    if (getPaletteIdFromCacheKey(key) !== paletteId) {
-      return;
-    }
-    disposeMasterPhotoAssetCacheEntry(key);
-  });
 }
 
 export async function exportPalettePolaroidImage(palette) {
   try {
-    const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
-    if (!(masterPhotoBlob instanceof Blob)) {
-      return false;
-    }
-
-    const blob = await renderPalettePolaroidBlob(
-      { ...palette, photoBlob: masterPhotoBlob },
-      {
-        maxWidth: POLAROID_EXPORT_MAX_WIDTH,
-        scale: POLAROID_EXPORT_SCALE,
-        quality: POLAROID_EXPORT_QUALITY,
-      },
-    );
-
+    const blob = await renderHighQualityPalettePolaroidBlob(palette);
     if (!blob) {
       return false;
     }
 
-    return downloadBlob(blob, `palette-${palette.id}.webp`);
+    const ext = blob.type === "image/webp" ? "webp" : "jpg";
+    return downloadBlob(blob, `palette-${palette.id}.${ext}`);
   } catch (error) {
     console.error("Failed to render export image:", error);
     return false;
@@ -269,10 +224,14 @@ export async function sharePalettePolaroidImage(palette) {
   }
 
   try {
-    const asset = await getPalettePreviewPolaroidAsset(palette);
-    const ext = asset.blob.type === "image/webp" ? "webp" : "jpg";
-    const file = new File([asset.blob], `palette-${palette.id}.${ext}`, {
-      type: asset.blob.type || "image/jpeg",
+    const blob = await renderHighQualityPalettePolaroidBlob(palette);
+    if (!(blob instanceof Blob)) {
+      return { status: "error" };
+    }
+
+    const ext = blob.type === "image/webp" ? "webp" : "jpg";
+    const file = new File([blob], `palette-${palette.id}.${ext}`, {
+      type: blob.type || "image/jpeg",
       lastModified: Date.now(),
     });
 

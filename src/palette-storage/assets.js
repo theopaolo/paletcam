@@ -2,6 +2,7 @@ import { reportAppError } from '../modules/error-reporting.js';
 import { db } from './db.js';
 import {
   createPaletteAssetRecord,
+  getPreviewVariantFieldKeys,
   getPaletteIdOrThrow,
   normalizePreviewFooterLabel,
   normalizeStoredPaletteRecord,
@@ -91,13 +92,21 @@ export async function ensurePaletteMasterPhotoBlob(palette) {
  * @param {number} id
  * @param {Blob | null} previewBlob
  * @param {string | null} [previewFooterLabel]
+ * @param {object} [options]
+ * @param {"gallery" | "viewer"} [options.variant]
  * @returns {Promise<Palette | undefined>}
  */
-export async function updatePalettePreviewBlob(id, previewBlob, previewFooterLabel = null) {
+export async function updatePalettePreviewBlob(
+  id,
+  previewBlob,
+  previewFooterLabel = null,
+  { variant = 'viewer' } = {},
+) {
   const paletteId = getPaletteIdOrThrow(id);
+  const { blobKey, footerKey } = getPreviewVariantFieldKeys(variant);
   const previewPatch = {
-    previewBlob: previewBlob instanceof Blob ? previewBlob : undefined,
-    previewFooterLabel: normalizePreviewFooterLabel(previewFooterLabel),
+    [blobKey]: previewBlob instanceof Blob ? previewBlob : undefined,
+    [footerKey]: normalizePreviewFooterLabel(previewFooterLabel),
   };
 
   try {
@@ -111,9 +120,9 @@ export async function updatePalettePreviewBlob(id, previewBlob, previewFooterLab
 
       const nextPaletteRecord = normalizeStoredPaletteRecord({
         ...paletteRecord,
-        previewFooterLabel: normalizePreviewFooterLabel(previewFooterLabel),
+        [footerKey]: normalizePreviewFooterLabel(previewFooterLabel),
       }, { includePhotoBlob: false });
-      delete nextPaletteRecord.previewBlob;
+      delete nextPaletteRecord[blobKey];
       await db.palettes.put(nextPaletteRecord);
     }
 

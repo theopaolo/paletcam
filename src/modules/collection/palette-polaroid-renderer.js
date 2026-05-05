@@ -82,9 +82,16 @@ function resolvePolaroidColorTokens() {
 
 function getPolaroidCardWidth(
   sourceImageWidth,
-  { maxWidth = POLAROID_RENDER_MAX_WIDTH, scale = POLAROID_RENDER_SCALE } = {},
+  {
+    maxWidth = POLAROID_RENDER_MAX_WIDTH,
+    minWidth = 320,
+    scale = POLAROID_RENDER_SCALE,
+  } = {},
 ) {
-  return Math.max(320, Math.round(Math.min(sourceImageWidth, maxWidth, sourceImageWidth * scale)));
+  return Math.max(
+    minWidth,
+    Math.round(Math.min(sourceImageWidth, maxWidth, sourceImageWidth * scale)),
+  );
 }
 
 function loadImageFromBlob(blob) {
@@ -162,6 +169,8 @@ async function waitForBrandFont() {
 export function hasPaletteMasterPhoto(palette) {
   return Boolean(
     palette?.photoBlob instanceof Blob ||
+      palette?.previewViewerBlob instanceof Blob ||
+      palette?.previewGalleryBlob instanceof Blob ||
       palette?.previewBlob instanceof Blob ||
       palette?.hasPhotoAsset,
   );
@@ -573,11 +582,12 @@ function renderPolaroidCanvas({
   expandCardForLegacyRawAspect = false,
   darkFrameShell = false,
   maxWidth = POLAROID_RENDER_MAX_WIDTH,
+  minWidth = 320,
   scale = POLAROID_RENDER_SCALE,
 }) {
   const polaroidColors = resolvePolaroidColorTokens();
   const photoSourceWidth = photoSourceRect?.width ?? image.width;
-  const cardWidth = getPolaroidCardWidth(photoSourceWidth, { maxWidth, scale });
+  const cardWidth = getPolaroidCardWidth(photoSourceWidth, { maxWidth, minWidth, scale });
   const baseCardHeight = Math.round(cardWidth * POLAROID_CARD_ASPECT_RATIO);
 
   const frameSide = Math.max(16, Math.round(cardWidth * 0.055));
@@ -741,6 +751,7 @@ function canvasToBlob(canvas, { type = "image/webp", quality = POLAROID_RENDER_Q
  * @param {object} [options]
  * @param {boolean} [options.darkFrameShell]
  * @param {number} [options.maxWidth]
+ * @param {number} [options.minWidth]
  * @param {number} [options.scale]
  * @param {number} [options.quality]
  * @returns {Promise<Blob | null>}
@@ -750,6 +761,7 @@ export async function renderPalettePolaroidBlob(
   {
     darkFrameShell = false,
     maxWidth = POLAROID_RENDER_MAX_WIDTH,
+    minWidth = 320,
     scale = POLAROID_RENDER_SCALE,
     quality = POLAROID_RENDER_QUALITY,
   } = {},
@@ -782,6 +794,7 @@ export async function renderPalettePolaroidBlob(
       expandCardForLegacyRawAspect: !palette?.captureAspectRatio && !palette?.captureCropRect,
       darkFrameShell,
       maxWidth,
+      minWidth,
       scale,
     });
 

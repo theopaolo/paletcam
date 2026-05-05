@@ -6,15 +6,16 @@ const communityServiceModuleUrl = new URL("../../community-service.js", import.m
 const i18nModuleUrl = new URL("../../i18n.js", import.meta.url).href;
 const imageElementLoaderModuleUrl = new URL("../image-element-loader.js", import.meta.url).href;
 const paletteCardModuleUrl = new URL("./palette-card.js", import.meta.url).href;
-const palettePreviewAssetsModuleUrl = new URL("./palette-preview-assets.js", import.meta.url).href;
+const palettePreviewPersistenceModuleUrl = new URL(
+  "./palette-preview-persistence.js",
+  import.meta.url,
+).href;
 
 let restoreDom = () => {};
+const originalCreateObjectURL = globalThis.URL.createObjectURL;
 
 async function loadPaletteCardModule() {
-  const getPalettePreviewPolaroidAsset = mock(async () => ({
-    blob: new Blob(["preview"], { type: "image/webp" }),
-    objectUrl: "blob:preview",
-  }));
+  const loadImageElementSource = mock(async () => {});
 
   mock.module(communityServiceModuleUrl, () => ({
     getPalettePublicationMeta: mock(() => null),
@@ -25,18 +26,20 @@ async function loadPaletteCardModule() {
   }));
 
   mock.module(imageElementLoaderModuleUrl, () => ({
-    loadImageElementSource: mock(async () => {}),
+    loadImageElementSource,
   }));
 
-  mock.module(palettePreviewAssetsModuleUrl, () => ({
-    getPalettePreviewPolaroidAsset,
-    hasPaletteMasterPhoto: mock(() => true),
+  mock.module(palettePreviewPersistenceModuleUrl, () => ({
+    ensureSavedPalettePreviewBlob: mock(async () => null),
+    getCurrentPalettePreviewFooterLabel: mock(() => "preview-v5:test:names-on"),
+    getStoredPalettePreviewBlob: mock(() => new Blob(["preview"], { type: "image/webp" })),
+    scheduleSavedPalettePreviewWarmup: mock(() => {}),
   }));
 
   const paletteCard = await import(`${paletteCardModuleUrl}?test=${Math.random()}`);
 
   return {
-    getPalettePreviewPolaroidAsset,
+    loadImageElementSource,
     paletteCard,
   };
 }
@@ -47,12 +50,16 @@ beforeEach(() => {
 
 afterEach(() => {
   restoreDom();
+  globalThis.URL.createObjectURL = originalCreateObjectURL;
   mock.restore();
 });
 
 describe("createSwatchCard", () => {
   test("loads the preview asset path when the user opens a swatch card", async () => {
-    const { getPalettePreviewPolaroidAsset, paletteCard } = await loadPaletteCardModule();
+    const createObjectURL = mock(() => "blob:preview");
+    globalThis.URL.createObjectURL = createObjectURL;
+
+    const { paletteCard } = await loadPaletteCardModule();
     const palette = {
       id: 5,
       colors: [
@@ -66,8 +73,8 @@ describe("createSwatchCard", () => {
 
     trigger.click();
     await Promise.resolve();
+    await Promise.resolve();
 
-    expect(getPalettePreviewPolaroidAsset).toHaveBeenCalledTimes(1);
-    expect(getPalettePreviewPolaroidAsset.mock.calls[0][0]).toBe(palette);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
   });
 });
