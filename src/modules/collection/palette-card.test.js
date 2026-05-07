@@ -77,4 +77,33 @@ describe("createSwatchCard", () => {
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
   });
+
+  test("uses a tighter lazy preview margin than regular cards", async () => {
+    const observerOptions = [];
+
+    globalThis.window.IntersectionObserver = class FakeIntersectionObserver {
+      constructor(_callback, options) {
+        observerOptions.push(options);
+      }
+
+      observe() {}
+
+      disconnect() {}
+    };
+
+    const { paletteCard } = await loadPaletteCardModule();
+    const palette = {
+      id: 5,
+      colors: [
+        { r: 12, g: 34, b: 56 },
+        { r: 90, g: 123, b: 210 },
+      ],
+    };
+
+    paletteCard.createPaletteCard({ palette });
+    paletteCard.createSwatchCard({ palette });
+
+    expect(observerOptions[0]?.rootMargin).toBe("500px 0px");
+    expect(observerOptions[1]?.rootMargin).toBe("120px 0px");
+  });
 });

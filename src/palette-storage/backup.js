@@ -1,17 +1,20 @@
-import { createPaletteJsonWorkerController } from '../modules/palette-json-worker.js';
-import { readPalettePhotoBlobById } from './assets.js';
-import { db } from './db.js';
+import { createPaletteJsonWorkerController } from "../modules/palette-json-worker.js";
+import { readPalettePhotoBlobById } from "./assets.js";
+import { db } from "./db.js";
 import {
   deserializePalettesFromImport,
+  serializePalettesForExportBlob,
   serializePalettesForExport,
-} from './json-transfer.js';
+} from "./json-transfer.js";
 import {
   createPaletteAssetRecord,
   createPaletteMetadataRecord,
   normalizeStoredPaletteRecord,
-} from './records.js';
+} from "./records.js";
 
 const paletteJsonWorkerController = createPaletteJsonWorkerController();
+const EXPORT_OUTPUT_BLOB = "blob";
+const EXPORT_OUTPUT_STRING = "string";
 
 function getImportedPalettePhotoBlobOrThrow(palette, index) {
   if (palette?.photoBlob instanceof Blob) {
@@ -27,14 +30,14 @@ function getElapsedTimeMs(startedAtMs) {
 }
 
 function notifyExportProgress(onProgress, progress) {
-  if (typeof onProgress === 'function') {
+  if (typeof onProgress === "function") {
     onProgress(progress);
   }
 }
 
 function waitForNextPaint() {
   return new Promise((resolve) => {
-    if (typeof requestAnimationFrame === 'function') {
+    if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => resolve());
       return;
     }
@@ -51,17 +54,36 @@ function shouldYieldExportProgress(completed, total) {
   return completed % 20 === 0;
 }
 
-/** @returns {Promise<string>} JSON string of all palettes */
-export async function exportAllPalettes({ onProgress } = {}) {
+function createElapsedProgressReporter(onProgress, startedAtMs) {
+  return (progress) => {
+    notifyExportProgress(onProgress, {
+      ...progress,
+      elapsedMs: getElapsedTimeMs(startedAtMs),
+    });
+  };
+}
+
+function createSerializationProgressReporter(onProgress, startedAtMs) {
+  const reportProgress = createElapsedProgressReporter(onProgress, startedAtMs);
+
+  return (progress) => {
+    reportProgress({
+      completed: progress?.completed ?? 0,
+      phase: progress?.phase || "serializing",
+      total: progress?.total ?? 0,
+    });
+  };
+}
+
+async function preparePalettesForExport({ onProgress, startedAtMs }) {
   const palettes = await db.palettes.toArray();
   const preparedPalettes = [];
-  const startedAtMs = Date.now();
   const total = palettes.length;
 
   notifyExportProgress(onProgress, {
     completed: 0,
     elapsedMs: 0,
-    phase: 'preparing',
+    phase: "preparing",
     total,
   });
 
@@ -71,20 +93,19 @@ export async function exportAllPalettes({ onProgress } = {}) {
     const paletteRecord = palettes[index];
     const palette = normalizeStoredPaletteRecord(paletteRecord, { includePhotoBlob: false });
     const masterPhotoBlob = await readPalettePhotoBlobById(palette.id);
-    const fallbackPhotoBlob = masterPhotoBlob instanceof Blob
-      ? masterPhotoBlob
-      : palette.previewViewerBlob instanceof Blob
-        ? palette.previewViewerBlob
-        : palette.previewGalleryBlob instanceof Blob
-          ? palette.previewGalleryBlob
-          : palette.previewBlob instanceof Blob
-            ? palette.previewBlob
-        : null;
+    const fallbackPhotoBlob =
+      masterPhotoBlob instanceof Blob
+        ? masterPhotoBlob
+        : palette.previewViewerBlob instanceof Blob
+          ? palette.previewViewerBlob
+          : palette.previewGalleryBlob instanceof Blob
+            ? palette.previewGalleryBlob
+            : palette.previewBlob instanceof Blob
+              ? palette.previewBlob
+              : null;
     const entry = {
       ...palette,
-      ...(fallbackPhotoBlob instanceof Blob
-        ? { photoBlob: fallbackPhotoBlob }
-        : {}),
+      ...(fallbackPhotoBlob instanceof Blob ? { photoBlob: fallbackPhotoBlob } : {}),
     };
     preparedPalettes.push(entry);
 
@@ -92,7 +113,7 @@ export async function exportAllPalettes({ onProgress } = {}) {
     notifyExportProgress(onProgress, {
       completed,
       elapsedMs: getElapsedTimeMs(startedAtMs),
-      phase: 'serializing',
+      phase: "preparing",
       total,
     });
 
@@ -101,20 +122,45 @@ export async function exportAllPalettes({ onProgress } = {}) {
     }
   }
 
-  notifyExportProgress(onProgress, {
-    completed: total,
-    elapsedMs: getElapsedTimeMs(startedAtMs),
-    phase: 'finalizing',
+  return {
+    palettes: preparedPalettes,
+    total,
+  };
+}
+
+async function runSerializedPaletteExport(
+  preparedPalettes,
+  { onProgress, output, startedAtMs, total },
+) {
+  const reportProgress = createElapsedProgressReporter(onProgress, startedAtMs);
+  const onSerializationProgress = createSerializationProgressReporter(onProgress, startedAtMs);
+
+  reportProgress({
+    completed: 0,
+    phase: "serializing",
     total,
   });
   await waitForNextPaint();
 
-  const workerRequest = paletteJsonWorkerController.exportPalettes(preparedPalettes);
+  const workerRequest =
+    output === EXPORT_OUTPUT_BLOB
+      ? paletteJsonWorkerController.exportPalettesBlob(preparedPalettes, {
+          onProgress: onSerializationProgress,
+        })
+      : paletteJsonWorkerController.exportPalettes(preparedPalettes, {
+          onProgress: onSerializationProgress,
+        });
 
   if (workerRequest) {
     try {
       const result = await workerRequest;
-      return result.json;
+      reportProgress({
+        completed: total,
+        phase: "finalizing",
+        total,
+      });
+      await waitForNextPaint();
+      return output === EXPORT_OUTPUT_BLOB ? result.blob : result.json;
     } catch (error) {
       if (paletteJsonWorkerController.isEnabled()) {
         throw error;
@@ -122,7 +168,45 @@ export async function exportAllPalettes({ onProgress } = {}) {
     }
   }
 
-  return serializePalettesForExport(preparedPalettes);
+  const fallbackResult =
+    output === EXPORT_OUTPUT_BLOB
+      ? await serializePalettesForExportBlob(preparedPalettes, {
+          onProgress: onSerializationProgress,
+        })
+      : await serializePalettesForExport(preparedPalettes, {
+          onProgress: onSerializationProgress,
+        });
+
+  reportProgress({
+    completed: total,
+    phase: "finalizing",
+    total,
+  });
+  await waitForNextPaint();
+
+  return fallbackResult;
+}
+
+async function exportPalettes({ onProgress, output = EXPORT_OUTPUT_STRING } = {}) {
+  const startedAtMs = Date.now();
+  const prepared = await preparePalettesForExport({ onProgress, startedAtMs });
+
+  return runSerializedPaletteExport(prepared.palettes, {
+    onProgress,
+    output,
+    startedAtMs,
+    total: prepared.total,
+  });
+}
+
+/** @returns {Promise<string>} JSON string of all palettes */
+export async function exportAllPalettes({ onProgress } = {}) {
+  return exportPalettes({ onProgress, output: EXPORT_OUTPUT_STRING });
+}
+
+/** @returns {Promise<Blob>} JSON Blob of all palettes */
+export async function exportAllPalettesBlob({ onProgress } = {}) {
+  return exportPalettes({ onProgress, output: EXPORT_OUTPUT_BLOB });
 }
 
 /**
@@ -154,14 +238,14 @@ export async function importAllPalettes(jsonString) {
     importedPhotoBlob: getImportedPalettePhotoBlobOrThrow(palette, index),
   }));
 
-  await db.transaction('rw', db.palettes, db.paletteAssets, async () => {
+  await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
     for (const { palette, importedPhotoBlob } of palettesWithPhotoAssets) {
       const { photoBlob: _photoBlob, ...paletteMetadata } = palette;
 
       const nextPaletteMetadata = createPaletteMetadataRecord({
         timestamp: paletteMetadata.timestamp || new Date().toISOString(),
         colors: paletteMetadata.colors || [],
-        captureAspectRatio: paletteMetadata.captureAspectRatio || '4:3',
+        captureAspectRatio: paletteMetadata.captureAspectRatio || "4:3",
         captureCropRect: paletteMetadata.captureCropRect || null,
         captureMode: paletteMetadata.captureMode,
         ralMatch: paletteMetadata.ralMatch ?? null,

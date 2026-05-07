@@ -603,7 +603,9 @@ function renderCollectionUi(palettes) {
   });
 
   syncSelectModeAfterRender();
-  scheduleSavedPalettePreviewWarmupBatch(displayPalettes, "gallery");
+  if (currentCollectionViewMode !== "swatch") {
+    scheduleSavedPalettePreviewWarmupBatch(displayPalettes, "gallery");
+  }
   refreshPaletteViewerOverlay();
 }
 

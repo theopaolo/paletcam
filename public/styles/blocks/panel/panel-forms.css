@@ -56,7 +56,7 @@
 
 .panel-form-field {
   display: grid;
-  gap: var(--space-8);
+  gap: var(--space-);
 }
 
 .panel-form-field[hidden] {
@@ -71,7 +71,7 @@
 
 .panel-form-label {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-primary);
   text-transform: uppercase;
@@ -264,10 +264,8 @@
 .panel-form-checkbox-label {
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xs);
   font-weight: 600;
-  letter-spacing: 0.03em;
-  line-height: 1.1;
   text-transform: uppercase;
 }
 

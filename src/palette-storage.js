@@ -6,6 +6,10 @@ export {
   getSavedPalettes,
   savePalette,
   updatePaletteRemoteState,
-} from './palette-storage/core.js';
-export { updatePalettePreviewBlob } from './palette-storage/assets.js';
-export { exportAllPalettes, importAllPalettes } from './palette-storage/backup.js';
+} from "./palette-storage/core.js";
+export { updatePalettePreviewBlob } from "./palette-storage/assets.js";
+export {
+  exportAllPalettes,
+  exportAllPalettesBlob,
+  importAllPalettes,
+} from "./palette-storage/backup.js";

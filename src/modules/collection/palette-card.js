@@ -4,6 +4,8 @@ import { loadImageElementSource } from "../image-element-loader.js";
 import { getPaletteGalleryPreviewAsset } from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
+const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "120px 0px";
+const MAX_CONCURRENT_PREVIEW_LOADS = 3;
 
 function createSelectionIndicator() {
   const el = document.createElement("span");
@@ -28,21 +30,13 @@ function createPublicationBadge(palette) {
 let nextPreviewLoadOrder = 0;
 const pendingPreviewStarts = [];
 let hasScheduledPreviewFlush = false;
+let activePreviewLoadCount = 0;
 
-function flushPendingPreviewStarts() {
-  hasScheduledPreviewFlush = false;
-
-  pendingPreviewStarts
-    .sort((first, second) => first.order - second.order)
-    .splice(0)
-    .forEach(({ start }) => {
-      start();
-    });
+function isCardConnected(card) {
+  return card.isConnected !== false;
 }
 
-function schedulePreviewStart(start, order) {
-  pendingPreviewStarts.push({ start, order });
-
+function schedulePreviewFlush() {
   if (hasScheduledPreviewFlush) {
     return;
   }
@@ -59,6 +53,41 @@ function schedulePreviewStart(start, order) {
   });
 }
 
+function flushPendingPreviewStarts() {
+  hasScheduledPreviewFlush = false;
+
+  pendingPreviewStarts.sort((first, second) => first.order - second.order);
+
+  while (
+    activePreviewLoadCount < MAX_CONCURRENT_PREVIEW_LOADS &&
+    pendingPreviewStarts.length > 0
+  ) {
+    const queuedStart = pendingPreviewStarts.shift();
+    activePreviewLoadCount += 1;
+
+    Promise.resolve(queuedStart.start()).finally(() => {
+      activePreviewLoadCount = Math.max(0, activePreviewLoadCount - 1);
+
+      if (pendingPreviewStarts.length > 0) {
+        schedulePreviewFlush();
+      }
+    });
+  }
+
+  if (
+    pendingPreviewStarts.length > 0 &&
+    activePreviewLoadCount < MAX_CONCURRENT_PREVIEW_LOADS
+  ) {
+    schedulePreviewFlush();
+  }
+}
+
+function schedulePreviewStart(start, order) {
+  pendingPreviewStarts.push({ start, order });
+
+  schedulePreviewFlush();
+}
+
 function bindLazyPreviewLoad({
   card,
   trigger,
@@ -68,6 +97,7 @@ function bindLazyPreviewLoad({
   getAsset,
   onOpenViewer,
   paletteId,
+  rootMargin = PREVIEW_OBSERVER_ROOT_MARGIN,
 }) {
   let previewAssetPromise;
   let hasStartedPreviewLoad = false;
@@ -80,21 +110,25 @@ function bindLazyPreviewLoad({
 
   const loadPreviewIntoCard = async () => {
     try {
+      if (!isCardConnected(card)) {
+        return;
+      }
+
       const asset = await ensurePreviewImageAsset();
-      if (!card.isConnected) {
+      if (!isCardConnected(card)) {
         return;
       }
 
       previewLoader.hidden = false;
       await loadImageElementSource(previewImage, asset.objectUrl);
-      if (!card.isConnected) {
+      if (!isCardConnected(card)) {
         return;
       }
 
       previewImage.hidden = false;
       previewLoader.hidden = true;
     } catch (error) {
-      if (!card.isConnected) {
+      if (!isCardConnected(card)) {
         return;
       }
 
@@ -108,12 +142,12 @@ function bindLazyPreviewLoad({
 
   const startPreviewLoad = () => {
     if (hasStartedPreviewLoad) {
-      return;
+      return Promise.resolve();
     }
 
     hasQueuedPreviewLoad = false;
     hasStartedPreviewLoad = true;
-    void loadPreviewIntoCard();
+    return loadPreviewIntoCard();
   };
 
   const queuePreviewLoad = () => {
@@ -130,8 +164,9 @@ function bindLazyPreviewLoad({
     void onOpenViewer?.(paletteId);
   });
 
-  if (window.IntersectionObserver) {
-    const observer = new IntersectionObserver(
+  const IntersectionObserverCtor = window.IntersectionObserver;
+  if (IntersectionObserverCtor) {
+    const observer = new IntersectionObserverCtor(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) {
           return;
@@ -140,7 +175,7 @@ function bindLazyPreviewLoad({
         observer.disconnect();
         queuePreviewLoad();
       },
-      { root: scrollRoot, rootMargin: PREVIEW_OBSERVER_ROOT_MARGIN },
+      { root: scrollRoot, rootMargin },
     );
 
     observer.observe(card);
@@ -260,6 +295,7 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
     getAsset: () => getPaletteGalleryPreviewAsset(palette),
     onOpenViewer,
     paletteId: palette.id,
+    rootMargin: SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN,
   });
 
   return card;

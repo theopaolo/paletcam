@@ -2,8 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { resetAppSettingsForTests, updateAppSettings } from "../../app-settings.js";
 
 import {
+  getPalettePreviewImageMimeType,
   getPalettePhotoAspectRatioValue,
   renderPalettePolaroidBlob,
+  resetPalettePreviewImageSupportForTests,
   resolveNormalizedCropRectToPixelRect,
 } from "./palette-polaroid-renderer.js";
 
@@ -42,6 +44,7 @@ function installPolaroidTokenMocks(tokenValues = POLAROID_TOKEN_VALUES) {
 
 afterEach(() => {
   resetAppSettingsForTests();
+  resetPalettePreviewImageSupportForTests();
 
   if (originalImageDescriptor) {
     Object.defineProperty(globalThis, "Image", originalImageDescriptor);
@@ -59,6 +62,29 @@ afterEach(() => {
 
   globalThis.URL.createObjectURL = originalCreateObjectURL;
   globalThis.URL.revokeObjectURL = originalRevokeObjectURL;
+});
+
+describe("getPalettePreviewImageMimeType", () => {
+  test("uses jpeg when the browser cannot encode webp data urls", () => {
+    resetPalettePreviewImageSupportForTests();
+    setGlobalProperty("document", {
+      createElement(tagName) {
+        if (tagName !== "canvas") {
+          throw new Error(`Unexpected element creation: ${tagName}`);
+        }
+
+        return {
+          height: 0,
+          width: 0,
+          toDataURL(type) {
+            return type === "image/webp" ? "data:image/png;base64,AA==" : "";
+          },
+        };
+      },
+    });
+
+    expect(getPalettePreviewImageMimeType()).toBe("image/jpeg");
+  });
 });
 
 describe("resolveNormalizedCropRectToPixelRect", () => {

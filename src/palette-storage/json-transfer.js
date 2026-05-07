@@ -1,23 +1,82 @@
 export const PALETTE_EXPORT_VERSION = 2;
+const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const BASE64_BYTE_CHUNK_SIZE = 0x6000;
+const BASE64_YIELD_CHUNK_INTERVAL = 32;
+const SERIALIZATION_YIELD_INTERVAL = 1;
+const EXPORT_CONTENT_TYPE = "application/json";
+const OMITTED_EXPORT_FIELDS = [
+  "id",
+  "previewGalleryBlob",
+  "previewGalleryFooterLabel",
+  "previewViewerBlob",
+  "previewViewerFooterLabel",
+  "previewBlob",
+  "previewFooterLabel",
+  "hasPhotoAsset",
+];
 
-function encodeBase64(bytes) {
+function waitForNextTask() {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
+function encodeBase64Range(bytes, start, end) {
+  let output = "";
+  let index = start;
+
+  for (; index + 2 < end; index += 3) {
+    const triplet = (bytes[index] << 16) | (bytes[index + 1] << 8) | bytes[index + 2];
+    output +=
+      BASE64_ALPHABET[(triplet >> 18) & 63] +
+      BASE64_ALPHABET[(triplet >> 12) & 63] +
+      BASE64_ALPHABET[(triplet >> 6) & 63] +
+      BASE64_ALPHABET[triplet & 63];
+  }
+
+  const remaining = end - index;
+  if (remaining === 1) {
+    const triplet = bytes[index] << 16;
+    output += `${BASE64_ALPHABET[(triplet >> 18) & 63]}${BASE64_ALPHABET[(triplet >> 12) & 63]}==`;
+  } else if (remaining === 2) {
+    const triplet = (bytes[index] << 16) | (bytes[index + 1] << 8);
+    output +=
+      BASE64_ALPHABET[(triplet >> 18) & 63] +
+      BASE64_ALPHABET[(triplet >> 12) & 63] +
+      BASE64_ALPHABET[(triplet >> 6) & 63] +
+      "=";
+  }
+
+  return output;
+}
+
+async function encodeBase64(bytes) {
   const bufferCtor = globalThis.Buffer;
   if (typeof bufferCtor?.from === "function") {
     return bufferCtor.from(bytes).toString("base64");
   }
 
-  if (typeof btoa !== "function") {
-    throw new Error("Base64 encoding unavailable.");
+  const parts = [];
+  let chunkCount = 0;
+  let index = 0;
+
+  while (index < bytes.length) {
+    const remaining = bytes.length - index;
+    const nextChunkSize = Math.min(BASE64_BYTE_CHUNK_SIZE, remaining);
+    const safeChunkSize =
+      remaining > nextChunkSize ? nextChunkSize - (nextChunkSize % 3) : nextChunkSize;
+    const end = index + safeChunkSize;
+
+    parts.push(encodeBase64Range(bytes, index, end));
+    index = end;
+    chunkCount += 1;
+
+    if (chunkCount % BASE64_YIELD_CHUNK_INTERVAL === 0 && index < bytes.length) {
+      await waitForNextTask();
+    }
   }
 
-  let binary = "";
-  const chunkSize = 0x8000;
-
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-
-  return btoa(binary);
+  return parts.join("");
 }
 
 function decodeBase64(base64) {
@@ -53,10 +112,11 @@ export function dataUrlToBlob(dataUrl) {
 
   const content = dataUrl.slice(separatorIndex + 1);
   const mimeSection = header.slice("data:".length);
-  const mimeType = mimeSection
-    .split(";")
-    .filter((part) => part && part !== "base64")
-    .join(";") || "application/octet-stream";
+  const mimeType =
+    mimeSection
+      .split(";")
+      .filter((part) => part && part !== "base64")
+      .join(";") || "application/octet-stream";
 
   if (header.includes(";base64")) {
     return new Blob([decodeBase64(content)], { type: mimeType });
@@ -69,7 +129,13 @@ export function dataUrlToBlob(dataUrl) {
 async function blobToDataUrl(blob) {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const mimeType = blob.type || "application/octet-stream";
-  return `data:${mimeType};base64,${encodeBase64(bytes)}`;
+  return `data:${mimeType};base64,${await encodeBase64(bytes)}`;
+}
+
+function stripNonExportFields(entry) {
+  OMITTED_EXPORT_FIELDS.forEach((field) => {
+    delete entry[field];
+  });
 }
 
 function normalizeImportedPalette(entry) {
@@ -97,31 +163,48 @@ function normalizeImportedPalette(entry) {
   return palette;
 }
 
-export async function serializePalettesForExport(palettes) {
-  const serialized = [];
+export async function serializePalettesForExport(palettes, options) {
+  return (await serializePalettesForExportParts(palettes, options)).join("");
+}
 
-  for (const palette of palettes) {
+export async function serializePalettesForExportParts(
+  palettes,
+  { onProgress, yieldInterval = SERIALIZATION_YIELD_INTERVAL } = {},
+) {
+  const total = Array.isArray(palettes) ? palettes.length : 0;
+  const parts = [`{"version":${PALETTE_EXPORT_VERSION},"palettes":[`];
+
+  for (let index = 0; index < total; index += 1) {
+    const palette = palettes[index];
     const entry = { ...palette };
 
     if (entry.photoBlob instanceof Blob) {
       entry.photoBlob = await blobToDataUrl(entry.photoBlob);
     }
 
-    delete entry.id;
-    delete entry.previewGalleryBlob;
-    delete entry.previewGalleryFooterLabel;
-    delete entry.previewViewerBlob;
-    delete entry.previewViewerFooterLabel;
-    delete entry.previewBlob;
-    delete entry.previewFooterLabel;
-    delete entry.hasPhotoAsset;
-    serialized.push(entry);
+    stripNonExportFields(entry);
+    parts.push(index > 0 ? "," : "", JSON.stringify(entry));
+
+    if (typeof onProgress === "function") {
+      onProgress({
+        completed: index + 1,
+        phase: "serializing",
+        total,
+      });
+    }
+
+    if (yieldInterval > 0 && (index + 1) % yieldInterval === 0 && index + 1 < total) {
+      await waitForNextTask();
+    }
   }
 
-  return JSON.stringify({
-    version: PALETTE_EXPORT_VERSION,
-    palettes: serialized,
-  });
+  parts.push("]}");
+  return parts;
+}
+
+export async function serializePalettesForExportBlob(palettes, options) {
+  const parts = await serializePalettesForExportParts(palettes, options);
+  return new Blob(parts, { type: EXPORT_CONTENT_TYPE });
 }
 
 export async function deserializePalettesFromImport(jsonString) {

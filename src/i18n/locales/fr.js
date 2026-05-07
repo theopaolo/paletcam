@@ -179,8 +179,11 @@ const fr = {
   "settings.data.export": "Exporter les palettes",
   "settings.data.exportBusy": "Export en cours…",
   "settings.data.exportPreparing": "Préparation de l'export…",
+  "settings.data.exportPreparingProgress":
+    "Chargement des photos {completed} sur {total} · {elapsed}",
   "settings.data.exportProgress": "Export de {completed} palettes sur {total} · {elapsed}",
   "settings.data.exportFinalizing": "Finalisation de l'export… · {elapsed}",
+  "settings.data.exportSaving": "Création du fichier d'export… · {elapsed}",
   "settings.data.exportDoneStatus.one": "Export terminé · {count} palette · {elapsed}",
   "settings.data.exportDoneStatus.other": "Export terminé · {count} palettes · {elapsed}",
   "settings.data.exportFailedStatus": "Erreur lors de l'export.",

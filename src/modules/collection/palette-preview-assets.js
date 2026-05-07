@@ -44,7 +44,7 @@ function buildPreviewAssetCacheKey(palette, variant = "viewer") {
     cropRect?.y ?? "",
     cropRect?.width ?? "",
     cropRect?.height ?? "",
-    getCurrentPalettePreviewFooterLabel(),
+    getCurrentPalettePreviewFooterLabel(variant),
   ]);
 }
 

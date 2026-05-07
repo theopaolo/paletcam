@@ -2,19 +2,19 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 
 const backupModuleUrl = new URL("./backup.js", import.meta.url).href;
 const dbModuleUrl = new URL("./db.js", import.meta.url).href;
-const jsonTransferModuleUrl = new URL("./json-transfer.js", import.meta.url).href;
 const paletteJsonWorkerModuleUrl = new URL("../modules/palette-json-worker.js", import.meta.url)
   .href;
 const recordsModuleUrl = new URL("./records.js", import.meta.url).href;
 const storageAssetsModuleUrl = new URL("./assets.js", import.meta.url).href;
 
-async function loadBackupModule({ importedPalettes = [] } = {}) {
+async function loadBackupModule({ photoBlobsById = new Map(), storedPalettes = [] } = {}) {
   const add = mock(async () => 101);
   const put = mock(async () => {});
   const transaction = mock(async (_mode, _palettes, _paletteAssets, callback) => callback());
+  const exportPalettes = mock(() => null);
+  const exportPalettesBlob = mock(() => null);
   const importPalettes = mock(() => null);
   const isEnabled = mock(() => false);
-  const deserializePalettesFromImport = mock(async () => importedPalettes);
   const createPaletteAssetRecord = mock((paletteId, photoBlob) => ({
     paletteId,
     photoBlob,
@@ -23,14 +23,15 @@ async function loadBackupModule({ importedPalettes = [] } = {}) {
 
   mock.module(paletteJsonWorkerModuleUrl, () => ({
     createPaletteJsonWorkerController: mock(() => ({
-      exportPalettes: mock(() => null),
+      exportPalettes,
+      exportPalettesBlob,
       importPalettes,
       isEnabled,
     })),
   }));
 
   mock.module(storageAssetsModuleUrl, () => ({
-    readPalettePhotoBlobById: mock(async () => null),
+    readPalettePhotoBlobById: mock(async (paletteId) => photoBlobsById.get(paletteId) ?? null),
   }));
 
   mock.module(dbModuleUrl, () => ({
@@ -38,17 +39,12 @@ async function loadBackupModule({ importedPalettes = [] } = {}) {
       transaction,
       palettes: {
         add,
-        toArray: mock(async () => []),
+        toArray: mock(async () => storedPalettes),
       },
       paletteAssets: {
         put,
       },
     },
-  }));
-
-  mock.module(jsonTransferModuleUrl, () => ({
-    deserializePalettesFromImport,
-    serializePalettesForExport: mock(async () => "{}"),
   }));
 
   mock.module(recordsModuleUrl, () => ({
@@ -64,7 +60,8 @@ async function loadBackupModule({ importedPalettes = [] } = {}) {
     backupModule,
     createPaletteAssetRecord,
     createPaletteMetadataRecord,
-    deserializePalettesFromImport,
+    exportPalettes,
+    exportPalettesBlob,
     put,
     transaction,
   };
@@ -74,44 +71,81 @@ afterEach(() => {
   mock.restore();
 });
 
-describe("palette-storage/backup importAllPalettes", () => {
-  test("imports palettes with a photo blob as persisted photo assets", async () => {
-    const photoBlob = new Blob(["photo"], { type: "image/webp" });
-    const { add, backupModule, createPaletteMetadataRecord, put } = await loadBackupModule({
-      importedPalettes: [
+describe("palette-storage/backup exportAllPalettesBlob", () => {
+  test("exports a json blob and reports actual serialization progress", async () => {
+    const photoBlob = new Blob(["photo"], { type: "image/jpeg" });
+    const progressEvents = [];
+    const { backupModule } = await loadBackupModule({
+      photoBlobsById: new Map([[42, photoBlob]]),
+      storedPalettes: [
         {
+          id: 42,
           timestamp: "2026-05-01T10:00:00.000Z",
           colors: [{ r: 1, g: 2, b: 3 }],
-          photoBlob,
         },
       ],
     });
 
-    const importedCount = await backupModule.importAllPalettes("{}");
+    const result = await backupModule.exportAllPalettesBlob({
+      onProgress: (progress) => progressEvents.push(progress),
+    });
+    const payload = JSON.parse(await result.text());
+
+    expect(result).toBeInstanceOf(Blob);
+    expect(payload.version).toBe(2);
+    expect(payload.palettes[0].photoBlob.startsWith("data:image/jpeg")).toBe(true);
+    expect(progressEvents.map((progress) => progress.phase)).toContain("preparing");
+    expect(progressEvents.map((progress) => progress.phase)).toContain("serializing");
+    expect(progressEvents.at(-1).phase).toBe("finalizing");
+  });
+});
+
+describe("palette-storage/backup importAllPalettes", () => {
+  test("imports palettes with a photo blob as persisted photo assets", async () => {
+    const { add, backupModule, createPaletteMetadataRecord, put } = await loadBackupModule();
+
+    const importedCount = await backupModule.importAllPalettes(
+      JSON.stringify({
+        version: 2,
+        palettes: [
+          {
+            timestamp: "2026-05-01T10:00:00.000Z",
+            colors: [{ r: 1, g: 2, b: 3 }],
+            photoBlob: "data:image/webp;base64,cGhvdG8=",
+          },
+        ],
+      }),
+    );
+    const persistedPhotoBlob = put.mock.calls[0][0].photoBlob;
 
     expect(importedCount).toBe(1);
     expect(add).toHaveBeenCalledTimes(1);
     expect(put).toHaveBeenCalledTimes(1);
     expect(put.mock.calls[0][0]).toEqual({
       paletteId: 101,
-      photoBlob,
+      photoBlob: persistedPhotoBlob,
     });
+    expect(persistedPhotoBlob).toBeInstanceOf(Blob);
+    expect(await persistedPhotoBlob.text()).toBe("photo");
     expect(createPaletteMetadataRecord.mock.calls[0][0].hasPhotoAsset).toBe(true);
   });
 
   test("rejects imported palettes that do not include photo data", async () => {
-    const { add, backupModule, put, transaction } = await loadBackupModule({
-      importedPalettes: [
-        {
-          timestamp: "2026-05-01T10:00:00.000Z",
-          colors: [{ r: 1, g: 2, b: 3 }],
-        },
-      ],
-    });
+    const { add, backupModule, put, transaction } = await loadBackupModule();
 
-    await expect(backupModule.importAllPalettes("{}")).rejects.toThrow(
-      "Cannot import palette 1 without photo data.",
-    );
+    await expect(
+      backupModule.importAllPalettes(
+        JSON.stringify({
+          version: 2,
+          palettes: [
+            {
+              timestamp: "2026-05-01T10:00:00.000Z",
+              colors: [{ r: 1, g: 2, b: 3 }],
+            },
+          ],
+        }),
+      ),
+    ).rejects.toThrow("Cannot import palette 1 without photo data.");
     expect(transaction).not.toHaveBeenCalled();
     expect(add).not.toHaveBeenCalled();
     expect(put).not.toHaveBeenCalled();

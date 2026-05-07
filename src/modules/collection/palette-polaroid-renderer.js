@@ -29,6 +29,9 @@ const RAL_RETICLE_MAX_RADIUS = 18;
 const POLAROID_COLOR_NAME_MIN_FONT_SIZE = 10;
 const POLAROID_COLOR_NAME_MAX_FONT_SIZE = 22;
 const PALETTE_FALLBACK_COLORS = [{ r: 236, g: 231, b: 221 }];
+const PREVIEW_IMAGE_TYPE_WEBP = "image/webp";
+const PREVIEW_IMAGE_TYPE_JPEG = "image/jpeg";
+let supportsWebpPreviewImages;
 
 function getBrandLabel() {
   return getAppSettings().polaroidFooterLabel;
@@ -36,6 +39,30 @@ function getBrandLabel() {
 
 function shouldShowColorNamesOnPolaroid() {
   return Boolean(getAppSettings().polaroidShowColorNames);
+}
+
+function canUseWebpPreviewImages() {
+  try {
+    const canvas = document?.createElement?.("canvas");
+    if (!canvas || typeof canvas.toDataURL !== "function") {
+      return true;
+    }
+
+    canvas.width = 1;
+    canvas.height = 1;
+    return canvas.toDataURL(PREVIEW_IMAGE_TYPE_WEBP).startsWith(`data:${PREVIEW_IMAGE_TYPE_WEBP}`);
+  } catch (_error) {
+    return true;
+  }
+}
+
+export function getPalettePreviewImageMimeType() {
+  supportsWebpPreviewImages ??= canUseWebpPreviewImages();
+  return supportsWebpPreviewImages ? PREVIEW_IMAGE_TYPE_WEBP : PREVIEW_IMAGE_TYPE_JPEG;
+}
+
+export function resetPalettePreviewImageSupportForTests() {
+  supportsWebpPreviewImages = undefined;
 }
 
 function getComputedStyleReader() {
@@ -710,7 +737,10 @@ function renderPolaroidCanvas({
   context.restore();
 }
 
-function canvasToBlob(canvas, { type = "image/webp", quality = POLAROID_RENDER_QUALITY } = {}) {
+function canvasToBlob(
+  canvas,
+  { type = getPalettePreviewImageMimeType(), quality = POLAROID_RENDER_QUALITY } = {},
+) {
   return new Promise((resolve) => {
     let settled = false;
 
@@ -734,8 +764,8 @@ function canvasToBlob(canvas, { type = "image/webp", quality = POLAROID_RENDER_Q
           finalize(blob);
           return;
         }
-        if (type !== "image/jpeg") {
-          canvas.toBlob((jpegBlob) => finalize(jpegBlob || null), "image/jpeg", quality);
+        if (type !== PREVIEW_IMAGE_TYPE_JPEG) {
+          canvas.toBlob((jpegBlob) => finalize(jpegBlob || null), PREVIEW_IMAGE_TYPE_JPEG, quality);
           return;
         }
         finalize(blob || null);
@@ -799,7 +829,7 @@ export async function renderPalettePolaroidBlob(
     });
 
     return canvasToBlob(canvas, {
-      type: "image/webp",
+      type: getPalettePreviewImageMimeType(),
       quality,
     });
   } finally {

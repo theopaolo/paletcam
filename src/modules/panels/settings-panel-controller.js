@@ -1,7 +1,7 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "../../app-settings.js";
 import { t } from "../../i18n.js";
 import { flushAllLocalData } from "../local-data-reset.js";
-import { exportAllPalettes, importAllPalettes } from "../../palette-storage.js";
+import { exportAllPalettesBlob, importAllPalettes } from "../../palette-storage.js";
 import { showToast } from "../toast-ui.js";
 
 const TAB_IDS = ["login", "language", "watermark", "data"];
@@ -157,12 +157,24 @@ export function mountSettingsPanel({ root, toggleButton }) {
   function buildExportProgressMessage(progress) {
     const elapsed = formatElapsedDuration(progress?.elapsedMs);
 
+    if (progress?.phase === "saving") {
+      return t("settings.data.exportSaving", { elapsed });
+    }
+
     if (progress?.phase === "finalizing") {
       return t("settings.data.exportFinalizing", { elapsed });
     }
 
     if (progress?.phase === "serializing") {
       return t("settings.data.exportProgress", {
+        completed: progress.completed,
+        elapsed,
+        total: progress.total,
+      });
+    }
+
+    if (progress?.phase === "preparing" && progress?.total > 0) {
+      return t("settings.data.exportPreparingProgress", {
         completed: progress.completed,
         elapsed,
         total: progress.total,
@@ -347,14 +359,18 @@ export function mountSettingsPanel({ root, toggleButton }) {
     };
 
     try {
-      const json = await exportAllPalettes({
+      const blob = await exportAllPalettesBlob({
         onProgress: (progress) => {
           latestExportProgress = progress;
           syncExportButtonState(progress);
           setExportStatus(buildExportProgressMessage(progress));
         },
       });
-      const blob = new Blob([json], { type: "application/json" });
+      latestExportProgress = {
+        ...latestExportProgress,
+        phase: "saving",
+      };
+      setExportStatus(buildExportProgressMessage(latestExportProgress));
       const filename = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
       const exportDoneTranslationKey =
         latestExportProgress.total === 1
@@ -387,7 +403,9 @@ export function mountSettingsPanel({ root, toggleButton }) {
       anchor.href = url;
       anchor.download = filename;
       anchor.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 60000);
       setExportStatus(exportDoneMessage);
       showToast(t("settings.toast.exportDone"), { duration: 1400 });
     } catch (error) {

@@ -6,7 +6,10 @@ import {
 } from "../../palette-storage/records.js";
 import { ensurePaletteMasterPhotoBlob, updatePalettePreviewBlob } from "../../palette-storage.js";
 import { reportAppError } from "../error-reporting.js";
-import { renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
+import {
+  getPalettePreviewImageMimeType,
+  renderPalettePolaroidBlob,
+} from "./palette-polaroid-renderer.js";
 
 const PALETTE_PREVIEW_RENDER_VARIANTS = Object.freeze({
   gallery: Object.freeze({
@@ -22,7 +25,7 @@ const PALETTE_PREVIEW_RENDER_VARIANTS = Object.freeze({
     scale: 0.78,
   }),
 });
-const PALETTE_PREVIEW_RENDER_VERSION = "preview-v6";
+const PALETTE_PREVIEW_RENDER_VERSION = "preview-v7";
 const PALETTE_PREVIEW_WARMUP_BATCH_LIMIT = 20;
 const queuedPreviewWarmups = new Set();
 let previewWarmupQueue = Promise.resolve();
@@ -35,7 +38,7 @@ function getPreviewRenderOptions(variant = "viewer") {
 }
 
 function buildPreviewFingerprint(label, showColorNames, variant = "viewer") {
-  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewVariant(variant)}:${normalizePreviewFooterLabel(label) ?? ""}:${showColorNames ? "names-on" : "names-off"}`;
+  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewVariant(variant)}:${getPalettePreviewImageMimeType()}:${normalizePreviewFooterLabel(label) ?? ""}:${showColorNames ? "names-on" : "names-off"}`;
 }
 
 export function getCurrentPalettePreviewFooterLabel(variant = "viewer") {

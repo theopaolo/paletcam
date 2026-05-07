@@ -1,8 +1,7 @@
 import { reportAppError } from "./error-reporting.js";
 
 const PALETTE_JSON_WORKER_FAILURE_MESSAGE = "Palette JSON worker unavailable.";
-const PALETTE_JSON_WORKER_UNEXPECTED_RESPONSE_MESSAGE =
-  "Unexpected palette JSON worker response.";
+const PALETTE_JSON_WORKER_UNEXPECTED_RESPONSE_MESSAGE = "Unexpected palette JSON worker response.";
 
 function normalizeWorkerError(error, fallbackMessage = PALETTE_JSON_WORKER_FAILURE_MESSAGE) {
   if (error instanceof Error) {
@@ -65,6 +64,15 @@ export function createPaletteJsonWorkerController() {
       return;
     }
 
+    if (payload.type === "palette-json-progress") {
+      pendingRequest.onProgress?.({
+        completed: payload.completed,
+        phase: payload.phase,
+        total: payload.total,
+      });
+      return;
+    }
+
     pendingRequests.delete(payload.requestId);
 
     if (payload.type === "palette-json-error") {
@@ -109,7 +117,7 @@ export function createPaletteJsonWorkerController() {
     return worker;
   }
 
-  function request(type, payload, resultType) {
+  function request(type, payload, resultType, { onProgress } = {}) {
     const activeWorker = ensureWorker();
     if (!activeWorker) {
       return null;
@@ -119,6 +127,7 @@ export function createPaletteJsonWorkerController() {
       const requestId = ++nextRequestId;
 
       pendingRequests.set(requestId, {
+        onProgress,
         resolve,
         reject,
         resultType,
@@ -140,8 +149,16 @@ export function createPaletteJsonWorkerController() {
   }
 
   return {
-    exportPalettes(palettes) {
-      return request("export-palettes", { palettes }, "palette-json-export-result");
+    exportPalettes(palettes, options) {
+      return request("export-palettes", { palettes }, "palette-json-export-result", options);
+    },
+    exportPalettesBlob(palettes, options) {
+      return request(
+        "export-palettes-blob",
+        { palettes },
+        "palette-json-export-blob-result",
+        options,
+      );
     },
     importPalettes(jsonString) {
       return request("import-palettes", { jsonString }, "palette-json-import-result");

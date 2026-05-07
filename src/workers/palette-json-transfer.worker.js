@@ -1,7 +1,16 @@
 import {
   deserializePalettesFromImport,
+  serializePalettesForExportBlob,
   serializePalettesForExport,
 } from "../palette-storage/json-transfer.js";
+
+function postExportProgress(requestId, progress) {
+  globalThis.postMessage({
+    type: "palette-json-progress",
+    requestId,
+    ...progress,
+  });
+}
 
 globalThis.addEventListener("message", async (event) => {
   const payload = event?.data;
@@ -11,12 +20,27 @@ globalThis.addEventListener("message", async (event) => {
 
   try {
     if (payload.type === "export-palettes") {
-      const json = await serializePalettesForExport(payload.palettes);
+      const json = await serializePalettesForExport(payload.palettes, {
+        onProgress: (progress) => postExportProgress(payload.requestId, progress),
+      });
 
       globalThis.postMessage({
         type: "palette-json-export-result",
         requestId: payload.requestId,
         json,
+      });
+      return;
+    }
+
+    if (payload.type === "export-palettes-blob") {
+      const blob = await serializePalettesForExportBlob(payload.palettes, {
+        onProgress: (progress) => postExportProgress(payload.requestId, progress),
+      });
+
+      globalThis.postMessage({
+        type: "palette-json-export-blob-result",
+        requestId: payload.requestId,
+        blob,
       });
       return;
     }
