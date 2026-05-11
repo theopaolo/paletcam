@@ -7,7 +7,10 @@ export {
   savePalette,
   updatePaletteRemoteState,
 } from "./palette-storage/core.js";
-export { updatePalettePreviewBlob } from "./palette-storage/assets.js";
+export {
+  updatePalettePolaroidColorNames,
+  updatePalettePreviewBlob,
+} from "./palette-storage/assets.js";
 export {
   exportAllPalettes,
   exportAllPalettesBlob,

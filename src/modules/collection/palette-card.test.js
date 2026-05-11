@@ -6,6 +6,7 @@ const communityServiceModuleUrl = new URL("../../community-service.js", import.m
 const i18nModuleUrl = new URL("../../i18n.js", import.meta.url).href;
 const imageElementLoaderModuleUrl = new URL("../image-element-loader.js", import.meta.url).href;
 const paletteCardModuleUrl = new URL("./palette-card.js", import.meta.url).href;
+const palettePreviewAssetsModuleUrl = new URL("./palette-preview-assets.js", import.meta.url).href;
 const palettePreviewPersistenceModuleUrl = new URL(
   "./palette-preview-persistence.js",
   import.meta.url,
@@ -16,6 +17,10 @@ const originalCreateObjectURL = globalThis.URL.createObjectURL;
 
 async function loadPaletteCardModule() {
   const loadImageElementSource = mock(async () => {});
+  const getPaletteGalleryPreviewAsset = mock(async () => ({
+    blob: new Blob(["gallery"], { type: "image/webp" }),
+    objectUrl: URL.createObjectURL(new Blob(["gallery"], { type: "image/webp" })),
+  }));
 
   mock.module(communityServiceModuleUrl, () => ({
     getPalettePublicationMeta: mock(() => null),
@@ -29,16 +34,23 @@ async function loadPaletteCardModule() {
     loadImageElementSource,
   }));
 
+  mock.module(palettePreviewAssetsModuleUrl, () => ({
+    getPaletteGalleryPreviewAsset,
+  }));
+
   mock.module(palettePreviewPersistenceModuleUrl, () => ({
+    ensurePalettePolaroidColorNames: mock(async () => []),
     ensureSavedPalettePreviewBlob: mock(async () => null),
-    getCurrentPalettePreviewFooterLabel: mock(() => "preview-v5:test:names-on"),
+    getPalettePreviewFingerprint: mock(() => "preview-v5:test:names-on"),
     getStoredPalettePreviewBlob: mock(() => new Blob(["preview"], { type: "image/webp" })),
+    renderSavedPalettePreviewBlob: mock(async () => null),
     scheduleSavedPalettePreviewWarmup: mock(() => {}),
   }));
 
   const paletteCard = await import(`${paletteCardModuleUrl}?test=${Math.random()}`);
 
   return {
+    getPaletteGalleryPreviewAsset,
     loadImageElementSource,
     paletteCard,
   };
@@ -55,11 +67,12 @@ afterEach(() => {
 });
 
 describe("createSwatchCard", () => {
-  test("loads the preview asset path when the user opens a swatch card", async () => {
+  test("loads the shared gallery preview asset when the user opens a swatch card", async () => {
     const createObjectURL = mock(() => "blob:preview");
     globalThis.URL.createObjectURL = createObjectURL;
+    const onOpenViewer = mock(() => {});
 
-    const { paletteCard } = await loadPaletteCardModule();
+    const { getPaletteGalleryPreviewAsset, paletteCard } = await loadPaletteCardModule();
     const palette = {
       id: 5,
       colors: [
@@ -68,25 +81,30 @@ describe("createSwatchCard", () => {
       ],
     };
 
-    const card = paletteCard.createSwatchCard({ palette });
+    const card = paletteCard.createSwatchCard({ palette, onOpenViewer });
     const trigger = card.querySelector(".palette-card-trigger");
 
     trigger.click();
     await Promise.resolve();
     await Promise.resolve();
 
+    expect(onOpenViewer).toHaveBeenCalledWith(5);
+    expect(getPaletteGalleryPreviewAsset).toHaveBeenCalledWith(palette);
     expect(createObjectURL).toHaveBeenCalledTimes(1);
   });
 
-  test("uses a tighter lazy preview margin than regular cards", async () => {
+  test("uses a tight lazy preview margin for swatch cards", async () => {
     const observerOptions = [];
+    const observedTargets = [];
 
     globalThis.window.IntersectionObserver = class FakeIntersectionObserver {
       constructor(_callback, options) {
         observerOptions.push(options);
       }
 
-      observe() {}
+      observe(target) {
+        observedTargets.push(target);
+      }
 
       disconnect() {}
     };
@@ -104,6 +122,8 @@ describe("createSwatchCard", () => {
     paletteCard.createSwatchCard({ palette });
 
     expect(observerOptions[0]?.rootMargin).toBe("500px 0px");
-    expect(observerOptions[1]?.rootMargin).toBe("120px 0px");
+    expect(observerOptions[1]?.rootMargin).toBe("40px 0px");
+    expect(observedTargets[0]?.className).toBe("palette-card");
+    expect(observedTargets[1]?.className).toBe("palette-swatch-media");
   });
 });

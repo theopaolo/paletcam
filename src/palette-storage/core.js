@@ -1,3 +1,4 @@
+import { getAppSettings } from '../app-settings.js';
 import { reportAppError } from '../modules/error-reporting.js';
 import { dataUrlToBlob } from './blob.js';
 import {
@@ -12,14 +13,51 @@ import {
   getPaletteIdOrThrow,
   normalizeIsoString,
   normalizeModerationStatus,
+  normalizePolaroidRenderSettings,
   normalizeRemoteCatchId,
   normalizeStoredPaletteRecord,
 } from './records.js';
 
+function getCurrentPolaroidRenderSettings() {
+  const settings = getAppSettings();
+  return {
+    footerLabel: settings.polaroidFooterLabel,
+    showColorNames: Boolean(settings.polaroidShowColorNames),
+  };
+}
+
+async function freezeMissingPolaroidRenderSettings(paletteRecords) {
+  const missingRecords = paletteRecords.filter(
+    (palette) => !normalizePolaroidRenderSettings(palette?.polaroidRenderSettings),
+  );
+
+  if (missingRecords.length === 0) {
+    return paletteRecords;
+  }
+
+  const polaroidRenderSettings = getCurrentPolaroidRenderSettings();
+  const nextRecords = paletteRecords.map((palette) =>
+    missingRecords.includes(palette)
+      ? { ...palette, polaroidRenderSettings }
+      : palette);
+
+  await db.palettes.bulkPut(
+    missingRecords.map((palette) =>
+      normalizeStoredPaletteRecord({
+        ...palette,
+        polaroidRenderSettings,
+      }, { includePhotoBlob: false })),
+  );
+
+  return nextRecords;
+}
+
 /** @returns {Promise<Palette[]>} */
 export async function getSavedPalettes() {
   try {
-    const palettes = await db.palettes.orderBy('timestamp').reverse().toArray();
+    const palettes = await freezeMissingPolaroidRenderSettings(
+      await db.palettes.orderBy('timestamp').reverse().toArray(),
+    );
     return palettes.map((palette) =>
       normalizeStoredPaletteRecord(palette, { includePhotoBlob: false }));
   } catch (error) {
@@ -46,13 +84,14 @@ export async function getSavedPaletteById(id, { includePhotoBlob = true } = {}) 
       return undefined;
     }
 
-    const palette = normalizeStoredPaletteRecord(paletteRecord, { includePhotoBlob: false });
+    const [frozenPaletteRecord] = await freezeMissingPolaroidRenderSettings([paletteRecord]);
+    const palette = normalizeStoredPaletteRecord(frozenPaletteRecord, { includePhotoBlob: false });
     if (!includePhotoBlob) {
       return palette;
     }
 
     const photoBlob = await readPalettePhotoBlobById(paletteId);
-    return normalizeStoredPaletteRecord(paletteRecord, {
+    return normalizeStoredPaletteRecord(frozenPaletteRecord, {
       includePhotoBlob: true,
       photoBlob,
     });
@@ -80,6 +119,8 @@ export async function getSavedPaletteById(id, { includePhotoBlob = true } = {}) 
  * @param {CropRect | null} [options.captureCropRect]
  * @param {CaptureMode} [options.captureMode]
  * @param {RalMatchRecord | null} [options.ralMatch]
+ * @param {PolaroidRenderSettings | null} [options.polaroidRenderSettings]
+ * @param {string[] | null} [options.polaroidColorNames]
  * @returns {Promise<Palette>}
  */
 export async function savePalette(
@@ -97,6 +138,8 @@ export async function savePalette(
     captureCropRect = null,
     captureMode,
     ralMatch = null,
+    polaroidRenderSettings = getCurrentPolaroidRenderSettings(),
+    polaroidColorNames = null,
   } = {},
 ) {
   const timestamp = new Date().toISOString();
@@ -117,6 +160,8 @@ export async function savePalette(
     captureCropRect,
     captureMode,
     ralMatch,
+    polaroidRenderSettings,
+    polaroidColorNames,
     previewGalleryBlob,
     previewGalleryFooterLabel,
     previewViewerBlob,

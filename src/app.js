@@ -1733,6 +1733,10 @@ async function captureCurrentFrame() {
         captureCropRect,
         captureMode: captureModeSnapshot,
         ralMatch: ralMatchData,
+        polaroidRenderSettings: {
+          footerLabel: getAppSettings().polaroidFooterLabel,
+          showColorNames: Boolean(getAppSettings().polaroidShowColorNames),
+        },
       });
       scheduleSavedPalettePreviewWarmup(savedPalette);
       trackCaptureStatAsync();

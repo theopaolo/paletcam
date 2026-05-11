@@ -1,14 +1,20 @@
 import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
-import { hasPaletteMasterPhoto, renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
 import {
+  hasPaletteMasterPhoto,
+  renderPalettePolaroidBlob,
+} from "./palette-polaroid-renderer.js";
+import {
+  ensurePalettePolaroidColorNames,
   ensureSavedPalettePreviewBlob,
-  getCurrentPalettePreviewFooterLabel,
+  getPalettePreviewFingerprint,
   getStoredPalettePreviewBlob,
+  renderSavedPalettePreviewBlob,
 } from "./palette-preview-persistence.js";
 
 const POLAROID_EXPORT_MAX_WIDTH = 1600;
 const POLAROID_EXPORT_SCALE = 1;
 const POLAROID_EXPORT_QUALITY = 0.95;
+const MAX_PREVIEW_ASSET_CACHE_ENTRIES = 24;
 
 const previewAssetCache = new Map();
 
@@ -23,6 +29,8 @@ function getCachedAsset(cache, cacheKey) {
   const cached = cache.get(cacheKey);
 
   if (cached?.blob && cached?.objectUrl) {
+    cache.delete(cacheKey);
+    cache.set(cacheKey, cached);
     return cached;
   }
 
@@ -31,6 +39,22 @@ function getCachedAsset(cache, cacheKey) {
   }
 
   return null;
+}
+
+function setPreviewAssetCacheEntry(cacheKey, asset) {
+  previewAssetCache.set(cacheKey, asset);
+
+  for (const [key, cached] of previewAssetCache) {
+    if (previewAssetCache.size <= MAX_PREVIEW_ASSET_CACHE_ENTRIES) {
+      return;
+    }
+
+    if (cached?.promise) {
+      continue;
+    }
+
+    disposePreviewAssetCacheEntry(key);
+  }
 }
 
 function buildPreviewAssetCacheKey(palette, variant = "viewer") {
@@ -44,7 +68,7 @@ function buildPreviewAssetCacheKey(palette, variant = "viewer") {
     cropRect?.y ?? "",
     cropRect?.width ?? "",
     cropRect?.height ?? "",
-    getCurrentPalettePreviewFooterLabel(variant),
+    getPalettePreviewFingerprint(palette, variant),
   ]);
 }
 
@@ -100,7 +124,7 @@ function getStoredPreviewAsset(
   }
 
   const asset = createAssetFromBlob(storedPreviewBlob);
-  previewAssetCache.set(cacheKey, asset);
+  setPreviewAssetCacheEntry(cacheKey, asset);
   return asset;
 }
 
@@ -109,6 +133,8 @@ async function renderHighQualityPalettePolaroidBlob(palette) {
   if (!(masterPhotoBlob instanceof Blob)) {
     return null;
   }
+
+  await ensurePalettePolaroidColorNames(palette);
 
   return renderPalettePolaroidBlob(
     { ...palette, photoBlob: masterPhotoBlob },
@@ -127,6 +153,10 @@ async function renderHighQualityPalettePolaroidBlob(palette) {
  * @returns {Promise<PreviewAsset>}
  */
 export async function getPalettePreviewPolaroidAsset(palette, { variant = "viewer" } = {}) {
+  if (variant !== "gallery") {
+    return getPaletteViewerPreviewAsset(palette);
+  }
+
   const cacheKey = buildPreviewAssetCacheKey(palette, variant);
   const storedAsset = getStoredPreviewAsset(palette, variant, cacheKey);
   if (storedAsset) {
@@ -140,7 +170,7 @@ export async function getPalettePreviewPolaroidAsset(palette, { variant = "viewe
     }
 
     const asset = createAssetFromBlob(previewBlob);
-    previewAssetCache.set(cacheKey, asset);
+    setPreviewAssetCacheEntry(cacheKey, asset);
     return asset;
   })().catch((error) => {
     if (previewAssetCache.get(cacheKey)?.promise === promise) {
@@ -166,7 +196,31 @@ export async function getPaletteGalleryPreviewAsset(palette) {
  * @returns {Promise<PreviewAsset>}
  */
 export async function getPaletteViewerPreviewAsset(palette) {
-  return getPalettePreviewPolaroidAsset(palette, { variant: "viewer" });
+  const variant = "viewer";
+  const cacheKey = buildPreviewAssetCacheKey(palette, variant);
+  const storedAsset = getStoredPreviewAsset(palette, variant, cacheKey);
+  if (storedAsset) {
+    return storedAsset;
+  }
+
+  const promise = (async () => {
+    const previewBlob = await renderSavedPalettePreviewBlob(palette, variant);
+    if (!(previewBlob instanceof Blob)) {
+      throw new Error("Unable to generate palette preview");
+    }
+
+    const asset = createAssetFromBlob(previewBlob);
+    setPreviewAssetCacheEntry(cacheKey, asset);
+    return asset;
+  })().catch((error) => {
+    if (previewAssetCache.get(cacheKey)?.promise === promise) {
+      previewAssetCache.delete(cacheKey);
+    }
+    throw error;
+  });
+
+  previewAssetCache.set(cacheKey, { promise });
+  return promise;
 }
 
 /**

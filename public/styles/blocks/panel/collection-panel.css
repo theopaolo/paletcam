@@ -513,7 +513,7 @@
 .collection-day[data-view-mode="swatch"] .collection-day-grid {
   gap: 0;
   grid-auto-flow: row dense;
-  grid-template-columns: repeat(auto-fill, minmax(4.4rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
 }
 
 .collection-day[data-view-mode="swatch"] .collection-day-header {
@@ -521,7 +521,7 @@
 }
 
 .collection-day[data-view-mode="swatch"] .palette-card {
-  grid-column: span var(--palette-card-span, 5);
+  grid-column: auto;
   background: none;
 }
 

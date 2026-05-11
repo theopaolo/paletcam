@@ -12,9 +12,6 @@ import {
 } from "../panels/panel-manager.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
-const PRELOAD_BACKWARD_DISTANCE = 1;
-const PRELOAD_FORWARD_DISTANCE = 3;
-
 const viewerTrack = document.getElementById("catchDetailsTrack");
 const shareButton = /** @type {HTMLButtonElement | null} */ (
   document.getElementById("catchDetailsShareButton")
@@ -42,6 +39,7 @@ let activeRequestId = 0;
 let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
+let pendingAdjacentPreloadId = 0;
 let pendingTrackAlignmentRaf = 0;
 let pendingTrackScrollRaf = 0;
 
@@ -259,6 +257,9 @@ function renderViewerSwatches(colors) {
   swatchStripContainer.hidden = false;
 
   const paletteId = getActivePalette()?.id ?? null;
+  const storedLabels = Array.isArray(getActivePalette()?.polaroidColorNames)
+    ? getActivePalette().polaroidColorNames
+    : null;
   const session = activeSession;
   const requestId = activeRequestId;
   const swatches = colors.map((color) => {
@@ -271,7 +272,7 @@ function renderViewerSwatches(colors) {
     return swatch;
   });
 
-  void getColorNames(colors).then((labels) => {
+  void Promise.resolve(storedLabels ?? getColorNames(colors)).then((labels) => {
     if (
       activeSession !== session ||
       activeRequestId !== requestId ||
@@ -311,7 +312,11 @@ function shouldShowViewerSwatches(palette) {
     return false;
   }
 
-  return !(palette?.captureMode !== "ral" && Boolean(getAppSettings().polaroidShowColorNames));
+  const showColorNames = palette?.polaroidRenderSettings
+    ? Boolean(palette.polaroidRenderSettings.showColorNames)
+    : Boolean(getAppSettings().polaroidShowColorNames);
+
+  return !(palette?.captureMode !== "ral" && showColorNames);
 }
 
 function renderActivePaletteSupplementaryUi() {
@@ -494,26 +499,41 @@ function preloadNearbySlides() {
     return;
   }
 
-  const queue = [activeSession.activeIndex];
-  for (let offset = 1; offset <= PRELOAD_FORWARD_DISTANCE; offset += 1) {
-    queue.push(activeSession.activeIndex + offset);
-  }
-  for (let offset = 1; offset <= PRELOAD_BACKWARD_DISTANCE; offset += 1) {
-    queue.push(activeSession.activeIndex - offset);
-  }
+  const session = activeSession;
+  const activeIndex = session.activeIndex;
+  const activeLoad = loadSlideAsset(activeIndex);
+  const nextIndex = activeIndex + 1;
+  const previousIndex = activeIndex - 1;
+  pendingAdjacentPreloadId += 1;
+  const preloadId = pendingAdjacentPreloadId;
 
-  const visited = new Set();
-  queue.forEach((index) => {
-    if (visited.has(index)) {
+  void activeLoad.finally(() => {
+    if (
+      activeSession !== session ||
+      pendingAdjacentPreloadId !== preloadId ||
+      nextIndex >= session.palettes.length
+    ) {
       return;
     }
-    visited.add(index);
 
-    if (index < 0 || index >= activeSession.palettes.length) {
+    void loadSlideAsset(nextIndex);
+  });
+
+  if (previousIndex < 0) {
+    return;
+  }
+
+  const schedule =
+    typeof window.requestIdleCallback === "function"
+      ? window.requestIdleCallback.bind(window)
+      : (callback) => window.setTimeout(callback, 0);
+
+  schedule(() => {
+    if (activeSession !== session || pendingAdjacentPreloadId !== preloadId) {
       return;
     }
 
-    void loadSlideAsset(index);
+    void loadSlideAsset(previousIndex);
   });
 }
 
@@ -686,6 +706,7 @@ function handleAppSettingsChange() {
 
 function handleViewerPanelClosing() {
   activeRequestId += 1;
+  pendingAdjacentPreloadId += 1;
   activeSession = undefined;
   setBusy(false);
   document.removeEventListener("click", hideRalPopover);

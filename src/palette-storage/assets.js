@@ -4,6 +4,7 @@ import {
   createPaletteAssetRecord,
   getPreviewVariantFieldKeys,
   getPaletteIdOrThrow,
+  normalizePolaroidColorNames,
   normalizePreviewFooterLabel,
   normalizeStoredPaletteRecord,
 } from './records.js';
@@ -136,5 +137,24 @@ export async function updatePalettePreviewBlob(
       includeClientLog: false,
     });
     throw new Error('Unable to update palette preview blob.', { cause: error });
+  }
+}
+
+export async function updatePalettePolaroidColorNames(id, colorNames) {
+  const paletteId = getPaletteIdOrThrow(id);
+  const polaroidColorNames = normalizePolaroidColorNames(colorNames);
+
+  try {
+    await db.palettes.update(paletteId, { polaroidColorNames });
+    const nextPaletteRecord = await db.palettes.get(paletteId);
+    return nextPaletteRecord
+      ? normalizeStoredPaletteRecord(nextPaletteRecord, { includePhotoBlob: false })
+      : undefined;
+  } catch (error) {
+    reportAppError(error, {
+      consoleMessage: `Failed to update color names for palette ${paletteId}:`,
+      includeClientLog: false,
+    });
+    throw new Error('Unable to update palette color names.', { cause: error });
   }
 }

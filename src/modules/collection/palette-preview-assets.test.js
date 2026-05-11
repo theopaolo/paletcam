@@ -27,13 +27,15 @@ async function loadPalettePreviewAssets({
     const renderedPreviewBlob = renderedPreviewBlobs[variant] ?? null;
     if (variant === "gallery") {
       palette.previewGalleryBlob = renderedPreviewBlob;
-    } else {
-      palette.previewViewerBlob = renderedPreviewBlob;
     }
     return renderedPreviewBlob;
   });
+  const renderSavedPalettePreviewBlob = mock(async (_palette, variant = "viewer") =>
+    renderedPreviewBlobs[variant] ?? null
+  );
+  const ensurePalettePolaroidColorNames = mock(async () => []);
   const renderPalettePolaroidBlob = mock(async () => renderedHighQualityBlob);
-  const getCurrentPalettePreviewFooterLabel = mock((variant = "viewer") =>
+  const getPalettePreviewFingerprint = mock((_palette, variant = "viewer") =>
     `preview-v6:${variant}:test:names-on`,
   );
   const getStoredPalettePreviewBlob = mock((palette, variant = "viewer") => {
@@ -52,14 +54,17 @@ async function loadPalettePreviewAssets({
     ensurePaletteMasterPhotoBlob,
   }));
   mock.module(palettePolaroidRendererModuleUrl, () => ({
+    getPalettePreviewImageMimeType: mock(() => "image/webp"),
     hasPaletteMasterPhoto: mock(() => true),
     renderPalettePolaroidBlob,
   }));
 
   mock.module(palettePreviewPersistenceModuleUrl, () => ({
+    ensurePalettePolaroidColorNames,
     ensureSavedPalettePreviewBlob,
-    getCurrentPalettePreviewFooterLabel,
+    getPalettePreviewFingerprint,
     getStoredPalettePreviewBlob,
+    renderSavedPalettePreviewBlob,
   }));
   const palettePreviewAssets = await import(
     `${palettePreviewAssetsModuleUrl}?test=${Math.random()}`
@@ -67,9 +72,11 @@ async function loadPalettePreviewAssets({
 
   return {
     ensurePaletteMasterPhotoBlob,
+    ensurePalettePolaroidColorNames,
     ensureSavedPalettePreviewBlob,
     getStoredPalettePreviewBlob,
     palettePreviewAssets,
+    renderSavedPalettePreviewBlob,
     renderPalettePolaroidBlob,
   };
 }
@@ -143,7 +150,11 @@ describe("getPalettePreviewPolaroidAsset", () => {
     globalThis.URL.createObjectURL = createObjectURL;
     globalThis.URL.revokeObjectURL = mock(() => {});
 
-    const { ensureSavedPalettePreviewBlob, palettePreviewAssets } = await loadPalettePreviewAssets({
+    const {
+      ensureSavedPalettePreviewBlob,
+      palettePreviewAssets,
+      renderSavedPalettePreviewBlob,
+    } = await loadPalettePreviewAssets({
       storedPreviewBlobs: { gallery: null, viewer: null },
       renderedPreviewBlobs: {
         gallery: new Blob(["gallery-rendered-preview"], { type: "image/webp" }),
@@ -160,14 +171,36 @@ describe("getPalettePreviewPolaroidAsset", () => {
       thrownError = error;
     }
 
-    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledTimes(1);
-    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledWith(
+    expect(ensureSavedPalettePreviewBlob).not.toHaveBeenCalled();
+    expect(renderSavedPalettePreviewBlob).toHaveBeenCalledTimes(1);
+    expect(renderSavedPalettePreviewBlob).toHaveBeenCalledWith(
       expect.objectContaining({ id: 19 }),
       "viewer",
     );
     expect(thrownError).toBeInstanceOf(Error);
     expect(thrownError?.message).toBe("Unable to generate palette preview");
     expect(createObjectURL).not.toHaveBeenCalled();
+  });
+
+  test("revokes the oldest object URL when the preview cache is full", async () => {
+    let nextUrlId = 0;
+    const revokedUrls = [];
+    globalThis.URL.createObjectURL = mock(() => `blob:preview-${nextUrlId++}`);
+    globalThis.URL.revokeObjectURL = mock((url) => {
+      revokedUrls.push(url);
+    });
+
+    const { palettePreviewAssets } = await loadPalettePreviewAssets();
+
+    for (let id = 1; id <= 25; id += 1) {
+      await palettePreviewAssets.getPaletteGalleryPreviewAsset({
+        id,
+        hasPhotoAsset: true,
+        previewGalleryBlob: new Blob([`preview-${id}`], { type: "image/webp" }),
+      });
+    }
+
+    expect(revokedUrls).toContain("blob:preview-0");
   });
 });
 
@@ -213,12 +246,14 @@ describe("variant helpers", () => {
     const palette = { id: 24, hasPhotoAsset: true };
     const asset = await palettePreviewAssets.getPaletteViewerPreviewAsset(palette);
 
-    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "viewer");
+    expect(ensureSavedPalettePreviewBlob).not.toHaveBeenCalled();
+    expect(renderSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "viewer");
     expect(asset).toEqual({
       blob: renderedPreviewBlob,
       objectUrl: "blob:viewer-preview",
     });
   });
+
 });
 
 describe("sharePalettePolaroidImage", () => {

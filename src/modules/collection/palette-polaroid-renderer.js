@@ -32,13 +32,26 @@ const PALETTE_FALLBACK_COLORS = [{ r: 236, g: 231, b: 221 }];
 const PREVIEW_IMAGE_TYPE_WEBP = "image/webp";
 const PREVIEW_IMAGE_TYPE_JPEG = "image/jpeg";
 let supportsWebpPreviewImages;
+let cachedPolaroidColorTokens = null;
 
-function getBrandLabel() {
-  return getAppSettings().polaroidFooterLabel;
+function getPalettePolaroidRenderSettings(palette) {
+  if (palette?.polaroidRenderSettings && typeof palette.polaroidRenderSettings === "object") {
+    return palette.polaroidRenderSettings;
+  }
+
+  const settings = getAppSettings();
+  return {
+    footerLabel: settings.polaroidFooterLabel,
+    showColorNames: Boolean(settings.polaroidShowColorNames),
+  };
 }
 
-function shouldShowColorNamesOnPolaroid() {
-  return Boolean(getAppSettings().polaroidShowColorNames);
+function getBrandLabel(palette) {
+  return getPalettePolaroidRenderSettings(palette).footerLabel;
+}
+
+function shouldShowColorNamesOnPolaroid(palette) {
+  return Boolean(getPalettePolaroidRenderSettings(palette).showColorNames);
 }
 
 function canUseWebpPreviewImages() {
@@ -63,6 +76,7 @@ export function getPalettePreviewImageMimeType() {
 
 export function resetPalettePreviewImageSupportForTests() {
   supportsWebpPreviewImages = undefined;
+  cachedPolaroidColorTokens = null;
 }
 
 function getComputedStyleReader() {
@@ -88,6 +102,10 @@ function readRequiredRootToken(styles, tokenName) {
 }
 
 function resolvePolaroidColorTokens() {
+  if (cachedPolaroidColorTokens) {
+    return cachedPolaroidColorTokens;
+  }
+
   const rootElement = document?.documentElement;
   const readComputedStyle = getComputedStyleReader();
 
@@ -97,7 +115,7 @@ function resolvePolaroidColorTokens() {
 
   const styles = readComputedStyle(rootElement);
 
-  return {
+  cachedPolaroidColorTokens = {
     footerDark: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.footerDark),
     footerLight: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.footerLight),
     footerTextDark: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.footerTextDark),
@@ -105,6 +123,7 @@ function resolvePolaroidColorTokens() {
     shellDark: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.shellDark),
     shellLight: readRequiredRootToken(styles, POLAROID_COLOR_TOKEN_NAMES.shellLight),
   };
+  return cachedPolaroidColorTokens;
 }
 
 function getPolaroidCardWidth(
@@ -698,7 +717,7 @@ function renderPolaroidCanvas({
     height: palettePanelHeight,
   });
 
-  if (shouldShowColorNamesOnPolaroid() && palette?.captureMode !== "ral") {
+  if (shouldShowColorNamesOnPolaroid(palette) && palette?.captureMode !== "ral") {
     drawPaletteStripColorNames({
       context,
       colors,
@@ -807,8 +826,10 @@ export async function renderPalettePolaroidBlob(
 
   try {
     await waitForBrandFont();
-    const colorNames = shouldShowColorNamesOnPolaroid()
-      ? await getColorNames(Array.isArray(palette?.colors) ? palette.colors : [])
+    const colorNames = shouldShowColorNamesOnPolaroid(palette)
+      ? Array.isArray(palette?.polaroidColorNames)
+        ? palette.polaroidColorNames
+        : await getColorNames(Array.isArray(palette?.colors) ? palette.colors : [])
       : [];
 
     renderPolaroidCanvas({
@@ -818,7 +839,7 @@ export async function renderPalettePolaroidBlob(
       palette,
       colors: palette.colors,
       colorNames,
-      brandLabel: getBrandLabel(),
+      brandLabel: getBrandLabel(palette),
       photoAspectRatio: getPalettePhotoAspectRatioValue(palette),
       photoSourceRect: resolvePalettePhotoSourceRect(image, palette),
       expandCardForLegacyRawAspect: !palette?.captureAspectRatio && !palette?.captureCropRect,

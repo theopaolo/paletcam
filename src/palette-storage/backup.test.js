@@ -111,6 +111,11 @@ describe("palette-storage/backup importAllPalettes", () => {
           {
             timestamp: "2026-05-01T10:00:00.000Z",
             colors: [{ r: 1, g: 2, b: 3 }],
+            polaroidRenderSettings: {
+              footerLabel: "captured footer",
+              showColorNames: true,
+            },
+            polaroidColorNames: ["Stored red", "Stored green", "Stored blue"],
             photoBlob: "data:image/webp;base64,cGhvdG8=",
           },
         ],
@@ -128,6 +133,15 @@ describe("palette-storage/backup importAllPalettes", () => {
     expect(persistedPhotoBlob).toBeInstanceOf(Blob);
     expect(await persistedPhotoBlob.text()).toBe("photo");
     expect(createPaletteMetadataRecord.mock.calls[0][0].hasPhotoAsset).toBe(true);
+    expect(createPaletteMetadataRecord.mock.calls[0][0].polaroidRenderSettings).toEqual({
+      footerLabel: "captured footer",
+      showColorNames: true,
+    });
+    expect(createPaletteMetadataRecord.mock.calls[0][0].polaroidColorNames).toEqual([
+      "Stored red",
+      "Stored green",
+      "Stored blue",
+    ]);
   });
 
   test("rejects imported palettes that do not include photo data", async () => {

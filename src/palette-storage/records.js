@@ -54,6 +54,26 @@ export function normalizePreviewVariant(variant) {
   return variant === 'gallery' ? 'gallery' : 'viewer';
 }
 
+export function normalizePolaroidRenderSettings(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const footerLabel = typeof value.footerLabel === 'string' ? value.footerLabel.trim() : '';
+  return {
+    footerLabel,
+    showColorNames: Boolean(value.showColorNames),
+  };
+}
+
+export function normalizePolaroidColorNames(value) {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value.map((name) => String(name ?? '').trim());
+}
+
 export function getPreviewVariantFieldKeys(variant) {
   return PREVIEW_VARIANT_FIELD_KEYS[normalizePreviewVariant(variant)];
 }
@@ -90,6 +110,8 @@ export function normalizeStoredPaletteRecord(
   const normalized = {
     ...palette,
     captureCropRect: normalizeCaptureCropRect(palette?.captureCropRect),
+    polaroidRenderSettings: normalizePolaroidRenderSettings(palette?.polaroidRenderSettings),
+    polaroidColorNames: normalizePolaroidColorNames(palette?.polaroidColorNames),
     remoteCatchId: normalizeRemoteCatchId(palette?.remoteCatchId),
     moderationStatus: normalizeModerationStatus(palette?.moderationStatus),
     postedAt: normalizeIsoString(palette?.postedAt),
@@ -105,6 +127,7 @@ export function normalizeStoredPaletteRecord(
 
   delete normalized.previewBlob;
   delete normalized.previewFooterLabel;
+  delete normalized.previewSwatchBlob;
 
   if (previewViewerBlob instanceof Blob) {
     normalized.previewViewerBlob = previewViewerBlob;
@@ -158,6 +181,8 @@ export function createPaletteMetadataRecord({
   postedAt = null,
   moderationUpdatedAt = null,
   lastModerationCheckAt = null,
+  polaroidRenderSettings = null,
+  polaroidColorNames = null,
   previewGalleryBlob = null,
   previewGalleryFooterLabel = null,
   previewViewerBlob = null,
@@ -171,6 +196,8 @@ export function createPaletteMetadataRecord({
     captureAspectRatio,
     captureCropRect: normalizeCaptureCropRect(captureCropRect),
     ...(captureMode === 'ral' ? { captureMode: 'ral', ralMatch } : {}),
+    polaroidRenderSettings: normalizePolaroidRenderSettings(polaroidRenderSettings),
+    polaroidColorNames: normalizePolaroidColorNames(polaroidColorNames),
     remoteCatchId: normalizeRemoteCatchId(remoteCatchId),
     moderationStatus: normalizeModerationStatus(moderationStatus),
     postedAt: normalizeIsoString(postedAt),

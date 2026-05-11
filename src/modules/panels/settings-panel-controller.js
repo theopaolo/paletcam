@@ -95,6 +95,17 @@ function formatElapsedDuration(elapsedMs) {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
+function buildExportFilename({ exportedAt = new Date(), paletteCount = 0 } = {}) {
+  const timestamp = exportedAt
+    .toISOString()
+    .replace(/\.\d{3}Z$/, "Z")
+    .replace(/[:]/g, "-");
+  const count = Math.max(0, Number(paletteCount) || 0);
+  const imageLabel = count === 1 ? "1-image" : `${count}-images`;
+
+  return `colorcatches-${timestamp}-${imageLabel}.json`;
+}
+
 export function mountSettingsPanel({ root, toggleButton }) {
   const dom = getSettingsDom(root);
   const cleanups = [];
@@ -371,7 +382,9 @@ export function mountSettingsPanel({ root, toggleButton }) {
         phase: "saving",
       };
       setExportStatus(buildExportProgressMessage(latestExportProgress));
-      const filename = `paletcam-export-${new Date().toISOString().slice(0, 10)}.json`;
+      const filename = buildExportFilename({
+        paletteCount: latestExportProgress.total,
+      });
       const exportDoneTranslationKey =
         latestExportProgress.total === 1
           ? "settings.data.exportDoneStatus.one"

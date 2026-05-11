@@ -25,7 +25,6 @@ import {
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
 } from "./modules/collection/palette-preview-assets.js";
-import { scheduleSavedPalettePreviewWarmupBatch } from "./modules/collection/palette-preview-persistence.js";
 import {
   closePaletteViewerOverlay,
   openPaletteViewerOverlay,
@@ -603,9 +602,6 @@ function renderCollectionUi(palettes) {
   });
 
   syncSelectModeAfterRender();
-  if (currentCollectionViewMode !== "swatch") {
-    scheduleSavedPalettePreviewWarmupBatch(displayPalettes, "gallery");
-  }
   refreshPaletteViewerOverlay();
 }
 

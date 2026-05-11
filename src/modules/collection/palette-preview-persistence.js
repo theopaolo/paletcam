@@ -1,10 +1,16 @@
 import { getAppSettings } from "../../app-settings.js";
 import {
   getPreviewVariantFieldKeys,
+  normalizePolaroidRenderSettings,
   normalizePreviewFooterLabel,
   normalizePreviewVariant,
 } from "../../palette-storage/records.js";
-import { ensurePaletteMasterPhotoBlob, updatePalettePreviewBlob } from "../../palette-storage.js";
+import {
+  ensurePaletteMasterPhotoBlob,
+  updatePalettePolaroidColorNames,
+  updatePalettePreviewBlob,
+} from "../../palette-storage.js";
+import { getColorNames } from "../color-name-api.js";
 import { reportAppError } from "../error-reporting.js";
 import {
   getPalettePreviewImageMimeType,
@@ -41,6 +47,19 @@ function buildPreviewFingerprint(label, showColorNames, variant = "viewer") {
   return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewVariant(variant)}:${getPalettePreviewImageMimeType()}:${normalizePreviewFooterLabel(label) ?? ""}:${showColorNames ? "names-on" : "names-off"}`;
 }
 
+function getPaletteRenderSettings(palette) {
+  const storedSettings = normalizePolaroidRenderSettings(palette?.polaroidRenderSettings);
+  if (storedSettings) {
+    return storedSettings;
+  }
+
+  const settings = getAppSettings();
+  return {
+    footerLabel: settings.polaroidFooterLabel,
+    showColorNames: Boolean(settings.polaroidShowColorNames),
+  };
+}
+
 export function getCurrentPalettePreviewFooterLabel(variant = "viewer") {
   const settings = getAppSettings();
   return buildPreviewFingerprint(
@@ -50,14 +69,46 @@ export function getCurrentPalettePreviewFooterLabel(variant = "viewer") {
   );
 }
 
+export function getPalettePreviewFingerprint(palette, variant = "viewer") {
+  const settings = getPaletteRenderSettings(palette);
+  return buildPreviewFingerprint(settings.footerLabel, settings.showColorNames, variant);
+}
+
 export function getStoredPalettePreviewBlob(palette, variant = "viewer") {
-  const currentPreviewFooterLabel = getCurrentPalettePreviewFooterLabel(variant);
+  const currentPreviewFooterLabel = getPalettePreviewFingerprint(palette, variant);
   const { blobKey, footerKey } = getPreviewVariantFieldKeys(variant);
 
   return palette?.[blobKey] instanceof Blob &&
     palette?.[footerKey] === currentPreviewFooterLabel
     ? palette[blobKey]
     : null;
+}
+
+export async function ensurePalettePolaroidColorNames(palette) {
+  if (
+    palette?.captureMode === "ral" ||
+    !getPaletteRenderSettings(palette).showColorNames ||
+    !Array.isArray(palette?.colors) ||
+    palette.colors.length === 0
+  ) {
+    return [];
+  }
+
+  if (
+    Array.isArray(palette.polaroidColorNames) &&
+    palette.polaroidColorNames.length === palette.colors.length
+  ) {
+    return palette.polaroidColorNames;
+  }
+
+  const colorNames = await getColorNames(palette.colors);
+  palette.polaroidColorNames = colorNames;
+
+  if (Number.isFinite(Number(palette.id))) {
+    await updatePalettePolaroidColorNames(palette.id, colorNames);
+  }
+
+  return colorNames;
 }
 
 export async function renderPalettePreviewBlobFromMasterPhoto(
@@ -68,6 +119,8 @@ export async function renderPalettePreviewBlobFromMasterPhoto(
   if (!(photoBlob instanceof Blob)) {
     return null;
   }
+
+  await ensurePalettePolaroidColorNames(palette);
 
   return renderPalettePolaroidBlob(
     { ...palette, photoBlob },
@@ -88,7 +141,7 @@ export async function persistSavedPalettePreviewBlob(
 ) {
   const normalizedVariant = normalizePreviewVariant(variant);
   const normalizedPreviewFooterLabel = normalizePreviewFooterLabel(
-    previewFooterLabel ?? getCurrentPalettePreviewFooterLabel(normalizedVariant),
+    previewFooterLabel ?? getPalettePreviewFingerprint(palette, normalizedVariant),
   );
   const { blobKey, footerKey } = getPreviewVariantFieldKeys(normalizedVariant);
 
@@ -118,10 +171,14 @@ export async function ensureSavedPalettePreviewBlob(palette, variant = "viewer")
     return null;
   }
 
+  if (normalizedVariant !== "gallery") {
+    return previewBlob;
+  }
+
   return persistSavedPalettePreviewBlob(
     palette,
     previewBlob,
-    getCurrentPalettePreviewFooterLabel(normalizedVariant),
+    getPalettePreviewFingerprint(palette, normalizedVariant),
     normalizedVariant,
   );
 }

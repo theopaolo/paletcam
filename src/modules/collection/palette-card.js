@@ -4,8 +4,9 @@ import { loadImageElementSource } from "../image-element-loader.js";
 import { getPaletteGalleryPreviewAsset } from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
-const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "120px 0px";
+const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "40px 0px";
 const MAX_CONCURRENT_PREVIEW_LOADS = 3;
+const LAZY_PREVIEW_SETTLE_MS = 120;
 
 function createSelectionIndicator() {
   const el = document.createElement("span");
@@ -90,6 +91,7 @@ function schedulePreviewStart(start, order) {
 
 function bindLazyPreviewLoad({
   card,
+  observeTarget = card,
   trigger,
   previewImage,
   previewLoader,
@@ -102,6 +104,9 @@ function bindLazyPreviewLoad({
   let previewAssetPromise;
   let hasStartedPreviewLoad = false;
   let hasQueuedPreviewLoad = false;
+  let isPreviewIntersecting = false;
+  let previewSettleTimeout = 0;
+  let observer = null;
 
   const ensurePreviewImageAsset = () => {
     previewAssetPromise ??= getAsset();
@@ -140,11 +145,27 @@ function bindLazyPreviewLoad({
     }
   };
 
-  const startPreviewLoad = () => {
+  const clearPreviewSettleTimeout = () => {
+    if (!previewSettleTimeout) {
+      return;
+    }
+
+    window.clearTimeout(previewSettleTimeout);
+    previewSettleTimeout = 0;
+  };
+
+  const startPreviewLoad = ({ force = false } = {}) => {
     if (hasStartedPreviewLoad) {
       return Promise.resolve();
     }
 
+    if (!force && !isPreviewIntersecting) {
+      hasQueuedPreviewLoad = false;
+      return Promise.resolve();
+    }
+
+    observer?.disconnect();
+    clearPreviewSettleTimeout();
     hasQueuedPreviewLoad = false;
     hasStartedPreviewLoad = true;
     return loadPreviewIntoCard();
@@ -160,28 +181,36 @@ function bindLazyPreviewLoad({
   };
 
   trigger.addEventListener("click", () => {
-    startPreviewLoad();
+    startPreviewLoad({ force: true });
     void onOpenViewer?.(paletteId);
   });
 
   const IntersectionObserverCtor = window.IntersectionObserver;
   if (IntersectionObserverCtor) {
-    const observer = new IntersectionObserverCtor(
+    observer = new IntersectionObserverCtor(
       (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) {
+        isPreviewIntersecting = entries.some((entry) => entry.isIntersecting);
+        clearPreviewSettleTimeout();
+
+        if (!isPreviewIntersecting) {
           return;
         }
 
-        observer.disconnect();
-        queuePreviewLoad();
+        previewSettleTimeout = window.setTimeout(() => {
+          previewSettleTimeout = 0;
+          if (isPreviewIntersecting) {
+            queuePreviewLoad();
+          }
+        }, LAZY_PREVIEW_SETTLE_MS);
       },
       { root: scrollRoot, rootMargin },
     );
 
-    observer.observe(card);
+    observer.observe(observeTarget);
     return;
   }
 
+  isPreviewIntersecting = true;
   queuePreviewLoad();
 }
 
@@ -295,6 +324,7 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
     getAsset: () => getPaletteGalleryPreviewAsset(palette),
     onOpenViewer,
     paletteId: palette.id,
+    observeTarget: mediaTile,
     rootMargin: SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN,
   });
 

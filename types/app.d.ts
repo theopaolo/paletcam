@@ -36,6 +36,11 @@ interface PixelRect {
 type ModerationStatus = "TO_MODERATE" | "PUBLIC" | "REJECTED" | "PRIVATE";
 
 /** A saved palette entry as stored in IndexedDB. Legacy entries may lack capture metadata. */
+interface PolaroidRenderSettings {
+  footerLabel: string;
+  showColorNames: boolean;
+}
+
 interface Palette {
   id: number;
   timestamp: string;
@@ -48,6 +53,8 @@ interface Palette {
   captureCropRect?: CropRect | null;
   captureMode?: CaptureMode;
   ralMatch?: RalMatchRecord;
+  polaroidRenderSettings?: PolaroidRenderSettings | null;
+  polaroidColorNames?: string[] | null;
   remoteCatchId: string | null;
   moderationStatus: ModerationStatus | null;
   postedAt: string | null;
