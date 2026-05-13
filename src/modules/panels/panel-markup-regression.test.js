@@ -5,7 +5,7 @@ describe("panel markup regression", () => {
     const source = await Bun.file(new URL("./settings-panel.js", import.meta.url)).text();
 
     expect(source).toContain("settingsPolaroidFooterLabelInput");
-    expect(source).toContain("settingsPolaroidColorNamesToggle");
+    expect(source).not.toContain("settingsPolaroidColorNamesToggle");
     expect(source).toContain("settingsFlushDataButton");
     expect(source).not.toContain("data-settings-capture-mode");
     expect(source).not.toContain("data-settings-one-more-color");

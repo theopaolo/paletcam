@@ -12,10 +12,16 @@ async function loadPreviewPersistence({
   masterPhotoBlob = new Blob(["master"], { type: "image/webp" }),
   previewBlob = new Blob(["preview"], { type: "image/webp" }),
   colorNames = ["Stored olive", "White"],
+  updatePreviewError = null,
 } = {}) {
   const ensurePaletteMasterPhotoBlob = mock(async () => masterPhotoBlob);
   const updatePalettePolaroidColorNames = mock(async () => undefined);
-  const updatePalettePreviewBlob = mock(async () => undefined);
+  const updatePalettePreviewBlob = mock(async () => {
+    if (updatePreviewError) {
+      throw updatePreviewError;
+    }
+    return undefined;
+  });
   const getColorNames = mock(async () => colorNames);
   const renderPalettePolaroidBlob = mock(async () => previewBlob);
 
@@ -88,6 +94,26 @@ describe("palette preview persistence", () => {
     expect(blob).toBeInstanceOf(Blob);
     expect(renderPalettePolaroidBlob).toHaveBeenCalledTimes(1);
     expect(updatePalettePreviewBlob).not.toHaveBeenCalled();
+  });
+
+  test("returns rendered gallery previews when preview persistence fails", async () => {
+    const previewBlob = new Blob(["preview"], { type: "image/webp" });
+    const { module, updatePalettePreviewBlob } = await loadPreviewPersistence({
+      previewBlob,
+      updatePreviewError: new Error("IndexedDB rejected preview blob"),
+    });
+    const palette = {
+      id: 3,
+      colors: [{ r: 1, g: 2, b: 3 }],
+      hasPhotoAsset: true,
+      polaroidRenderSettings: { footerLabel: "captured", showColorNames: false },
+    };
+
+    const blob = await module.ensureSavedPalettePreviewBlob(palette, "gallery");
+
+    expect(blob).toBe(previewBlob);
+    expect(updatePalettePreviewBlob).toHaveBeenCalledTimes(1);
+    expect(palette.previewGalleryBlob).toBeUndefined();
   });
 
   test("persists color names once and reuses them", async () => {

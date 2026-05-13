@@ -175,12 +175,24 @@ export async function ensureSavedPalettePreviewBlob(palette, variant = "viewer")
     return previewBlob;
   }
 
-  return persistSavedPalettePreviewBlob(
-    palette,
-    previewBlob,
-    getPalettePreviewFingerprint(palette, normalizedVariant),
-    normalizedVariant,
-  );
+  try {
+    return await persistSavedPalettePreviewBlob(
+      palette,
+      previewBlob,
+      getPalettePreviewFingerprint(palette, normalizedVariant),
+      normalizedVariant,
+    );
+  } catch (error) {
+    reportAppError(error, {
+      includeConsole: false,
+      logMessage: "Failed to persist saved palette preview.",
+      context: {
+        paletteId: palette?.id ?? null,
+        variant: normalizedVariant,
+      },
+    });
+    return previewBlob;
+  }
 }
 
 /**
