@@ -41,12 +41,10 @@ async function freezeMissingPolaroidRenderSettings(paletteRecords) {
       ? { ...palette, polaroidRenderSettings }
       : palette);
 
-  await db.palettes.bulkPut(
-    missingRecords.map((palette) =>
-      normalizeStoredPaletteRecord({
-        ...palette,
-        polaroidRenderSettings,
-      }, { includePhotoBlob: false })),
+  await Promise.all(
+    missingRecords
+      .filter((palette) => palette?.id !== undefined && palette?.id !== null)
+      .map((palette) => db.palettes.update(palette.id, { polaroidRenderSettings })),
   );
 
   return nextRecords;
