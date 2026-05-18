@@ -1,7 +1,7 @@
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self' https://colorcatchers.co https://api.color.pizza",
+  "connect-src 'self' https://colorcatchers.co https://api.color.pizza https://cclogs.ludique.dev",
   "font-src 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
