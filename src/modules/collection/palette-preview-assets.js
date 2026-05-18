@@ -148,15 +148,10 @@ async function renderHighQualityPalettePolaroidBlob(palette) {
 
 /**
  * @param {Palette} palette
- * @param {object} [options]
- * @param {"gallery" | "viewer"} [options.variant]
  * @returns {Promise<PreviewAsset>}
  */
-export async function getPalettePreviewPolaroidAsset(palette, { variant = "viewer" } = {}) {
-  if (variant !== "gallery") {
-    return getPaletteViewerPreviewAsset(palette);
-  }
-
+export async function getPaletteGalleryPreviewAsset(palette) {
+  const variant = "gallery";
   const cacheKey = buildPreviewAssetCacheKey(palette, variant);
   const storedAsset = getStoredPreviewAsset(palette, variant, cacheKey);
   if (storedAsset) {
@@ -181,14 +176,6 @@ export async function getPalettePreviewPolaroidAsset(palette, { variant = "viewe
 
   previewAssetCache.set(cacheKey, { promise });
   return promise;
-}
-
-/**
- * @param {Palette} palette
- * @returns {Promise<PreviewAsset>}
- */
-export async function getPaletteGalleryPreviewAsset(palette) {
-  return getPalettePreviewPolaroidAsset(palette, { variant: "gallery" });
 }
 
 /**
@@ -223,24 +210,9 @@ export async function getPaletteViewerPreviewAsset(palette) {
   return promise;
 }
 
-/**
- * @param {Palette} palette
- * @returns {Promise<PreviewAsset>}
- */
-export async function getPaletteDisplayPreviewAsset(palette) {
-  return getPaletteViewerPreviewAsset(palette);
-}
-
-export function disposePalettePreviewPolaroidAsset(paletteOrId) {
+export function disposePalettePreviewAsset(paletteOrId) {
   const isObject = typeof paletteOrId === "object" && paletteOrId !== null;
   const paletteId = isObject ? String(paletteOrId.id ?? "") : String(paletteOrId ?? "");
-  const cacheKey = isObject
-    ? buildPreviewAssetCacheKey(paletteOrId, "viewer")
-    : JSON.stringify([paletteId, "", "", "", "", "", ""]);
-  disposePreviewAssetCacheEntry(cacheKey);
-
-  // Backward cleanup: remove any cache entries for the same id if the key schema changes.
-
   if (!paletteId) {
     return;
   }

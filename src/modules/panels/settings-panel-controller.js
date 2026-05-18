@@ -40,6 +40,9 @@ function getSettingsDom(root) {
       importLabel?.querySelector(".panel-form-file-label-text") ?? null
     ),
     importInput: /** @type {HTMLInputElement | null} */ (queryById(root, "settingsImportInput")),
+    versionButton: /** @type {HTMLButtonElement | null} */ (
+      root.querySelector(".panel-form-version")
+    ),
     tabButtons: Array.from(root.querySelectorAll("[data-settings-tab]")),
     tabPanels: Array.from(root.querySelectorAll("[data-settings-tabpanel]")),
   };
@@ -113,6 +116,7 @@ export function mountSettingsPanel({ root, toggleButton }) {
   let isDrawerOpen = false;
   let isExportInProgress = false;
   let isImportInProgress = false;
+  let versionClickCount = 0;
 
   function setExportStatus(message, { isError = false } = {}) {
     if (!dom.exportStatus) {
@@ -486,6 +490,14 @@ export function mountSettingsPanel({ root, toggleButton }) {
         duration: 2500,
       });
       dom.flushDataButton.disabled = false;
+    }
+  });
+
+  on(dom.versionButton, "click", () => {
+    versionClickCount += 1;
+    if (versionClickCount >= 4) {
+      versionClickCount = 0;
+      document.dispatchEvent(new CustomEvent("toggle-performance-hud"));
     }
   });
 

@@ -1,7 +1,7 @@
-import { getApiBaseUrl } from "../config.js";
+import { getLogApiBaseUrl } from "../config.js";
 
 function getLogEndpoint() {
-  const baseUrl = getApiBaseUrl();
+  const baseUrl = getLogApiBaseUrl();
 
   if (/^https?:\/\//i.test(baseUrl)) {
     return new URL("clientlog", `${baseUrl}/`).toString();

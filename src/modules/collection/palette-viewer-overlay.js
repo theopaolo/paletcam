@@ -2,7 +2,7 @@ import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { getColorNames, toColorNameHex } from "../color-name-api.js";
-import { relativeLuminance } from "../color-space-oklch.js";
+import { relativeLuminance, rgbToHsl } from "../color-space-oklch.js";
 import { loadImageElementSource } from "../image-element-loader.js";
 import {
   closeSharedPanel,
@@ -33,7 +33,17 @@ const ralPopoverColor = document.getElementById("ralPopoverColor");
 const ralPopoverCode = document.getElementById("ralPopoverCode");
 const ralPopoverName = document.getElementById("ralPopoverName");
 const ralPopoverQuality = document.getElementById("ralPopoverQuality");
+const ralPopoverHex = document.getElementById("ralPopoverHex");
+const ralPopoverRgb = document.getElementById("ralPopoverRgb");
+const ralPopoverHsl = document.getElementById("ralPopoverHsl");
 const swatchStripContainer = document.getElementById("catchDetailsSwatchStrip");
+
+// Move popover to body so position:fixed is relative to the true viewport,
+// not the shared-panel ancestor which uses transform: translateX() for its
+// slide-in animation (a transform creates a new containing block for fixed).
+if (ralPopover) {
+  document.body.appendChild(ralPopover);
+}
 
 let activeRequestId = 0;
 let activeSession;
@@ -44,7 +54,7 @@ let pendingTrackAlignmentRaf = 0;
 let pendingTrackScrollRaf = 0;
 
 function getPublishButtonCopy() {
-  return Object.freeze({
+  return {
     publish: {
       label: t("viewer.action.publishAria"),
       iconName: "publish",
@@ -55,7 +65,7 @@ function getPublishButtonCopy() {
       iconName: "unpublish",
       visibleLabel: t("viewer.action.unpublishLabel"),
     },
-  });
+  };
 }
 
 function getActionIconMarkup(iconName) {
@@ -236,12 +246,24 @@ function showRalPopover(color, anchorElement) {
     ralPopoverQuality.textContent = `${getRalQualityLabel(deltaE)}`;
   }
 
+  if (ralPopoverHex) {
+    ralPopoverHex.textContent = `HEX ${toColorNameHex(color)}`;
+  }
+  if (ralPopoverRgb) {
+    ralPopoverRgb.textContent = `RGB ${color.r}, ${color.g}, ${color.b}`;
+  }
+  if (ralPopoverHsl) {
+    const { h, s, l } = rgbToHsl(color.r, color.g, color.b);
+    ralPopoverHsl.textContent = `HSL ${Math.round(h)}° ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  }
+
   ralPopover.hidden = false;
   ralPopover.style.visibility = "hidden";
 
   const anchorRect = anchorElement.getBoundingClientRect();
   const popoverRect = ralPopover.getBoundingClientRect();
-  const { left, top } = computeRalPopoverPosition(anchorRect, popoverRect, window.innerWidth);
+  const viewportW = visualViewport?.width ?? window.innerWidth;
+  const { left, top } = computeRalPopoverPosition(anchorRect, popoverRect, viewportW);
 
   ralPopover.style.left = `${left}px`;
   ralPopover.style.top = `${top}px`;

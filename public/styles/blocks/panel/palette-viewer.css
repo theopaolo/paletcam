@@ -124,7 +124,8 @@
 
 .ral-popover {
   position: fixed;
-  width: 140px;
+  width: 170px;
+  color: var(--color-text-primary);
   background: var(--color-surface-base);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
@@ -166,6 +167,21 @@
   font-size: var(--font-size-xs);
   color: var(--color-accent);
   text-transform: uppercase;
+}
+
+.ral-popover-codes {
+  padding: var(--space-8);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.ral-popover-hex,
+.ral-popover-rgb,
+.ral-popover-hsl {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-family: monospace;
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 
 .palette-viewer-swatch-strip {

@@ -12,3 +12,11 @@ export function isIOSDevice({
     ((/Macintosh/.test(ua) || /MacIntel/.test(navigatorPlatform)) && touchPoints > 1)
   );
 }
+
+export function supportsCameraStartup() {
+  return typeof navigator.mediaDevices?.getUserMedia === "function";
+}
+
+export function waitForDelay(delayMs) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}

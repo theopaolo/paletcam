@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { installFakeDom } from "./test-support/fake-dom.js";
+import { installFakeDom } from "../test-support/fake-dom.js";
 
 const communityServiceModuleUrl = new URL("../../community-service.js", import.meta.url).href;
 const i18nModuleUrl = new URL("../../i18n.js", import.meta.url).href;

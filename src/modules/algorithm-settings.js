@@ -14,14 +14,6 @@ export function cloneAlgorithmSettings(settings) {
   };
 }
 
-export function getAlgorithmSettingsSnapshot(settings) {
-  return cloneAlgorithmSettings(settings);
-}
-
-export function getAlgorithmSettingsPatch(settings) {
-  return cloneAlgorithmSettings(settings);
-}
-
 export function areAlgorithmSettingsEqual(firstSettings, secondSettings) {
   return (
     firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&

@@ -1,5 +1,5 @@
 const DEFAULT_POPOVER_MARGIN = 8;
-const DEFAULT_POPOVER_WIDTH = 140;
+const DEFAULT_POPOVER_WIDTH = 170;
 
 export function computeRalPopoverPosition(
   anchorRect,

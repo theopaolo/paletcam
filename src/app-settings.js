@@ -27,10 +27,6 @@ const DEFAULT_MEDIAN_CUT_SETTINGS = Object.freeze({
   colorSpace: "rgb",
 });
 
-function normalizeQuantizationColorSpace(_value) {
-  return "rgb";
-}
-
 function normalizeCaptureMode(value) {
   return VALID_CAPTURE_MODES.has(value) ? value : "palette";
 }
@@ -54,23 +50,6 @@ function normalizePolaroidFooterLabel(value) {
 
   const normalizedValue = value.trim();
   return normalizedValue || DEFAULT_POLAROID_FOOTER_LABEL;
-}
-
-function cloneMedianCutSettings(settings) {
-  return {
-    quantizedPoolSize: settings.quantizedPoolSize,
-    maxQuantizerPixels: settings.maxQuantizerPixels,
-    colorSpace: settings.colorSpace,
-  };
-}
-
-function clonePaletteScoringSettings(settings) {
-  return {
-    chromaWeight: settings.chromaWeight,
-    lumaSpreadWeight: settings.lumaSpreadWeight,
-    rarityWeight: settings.rarityWeight,
-    diversityWeight: settings.diversityWeight,
-  };
 }
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -134,7 +113,7 @@ function normalizeMedianCutSettings(candidate) {
       fallback.maxQuantizerPixels,
       MEDIAN_CUT_MAX_PIXELS_RANGE,
     ),
-    colorSpace: normalizeQuantizationColorSpace(candidate?.colorSpace),
+    colorSpace: "rgb",
   };
 }
 
@@ -165,7 +144,7 @@ function normalizePaletteScoringSettings(candidate) {
   };
 }
 
-function buildNormalizedSettings(candidate) {
+function normalizeSettings(candidate) {
   return {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
@@ -180,29 +159,8 @@ function buildNormalizedSettings(candidate) {
   };
 }
 
-function normalizeSettings(candidate) {
-  return buildNormalizedSettings(candidate);
-}
-
 function areSettingsEqual(firstSettings, secondSettings) {
-  return (
-    firstSettings.captureMode === secondSettings.captureMode &&
-    firstSettings.collectionViewMode === secondSettings.collectionViewMode &&
-    firstSettings.locale === secondSettings.locale &&
-    firstSettings.performanceHudEnabled === secondSettings.performanceHudEnabled &&
-    firstSettings.oneMoreColor === secondSettings.oneMoreColor &&
-    firstSettings.photoQualityMode === secondSettings.photoQualityMode &&
-    firstSettings.polaroidFooterLabel === secondSettings.polaroidFooterLabel &&
-    firstSettings.polaroidShowColorNames === secondSettings.polaroidShowColorNames &&
-    firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&
-    firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
-    firstSettings.medianCut.colorSpace === secondSettings.medianCut.colorSpace &&
-    firstSettings.paletteScoring.chromaWeight === secondSettings.paletteScoring.chromaWeight &&
-    firstSettings.paletteScoring.lumaSpreadWeight ===
-      secondSettings.paletteScoring.lumaSpreadWeight &&
-    firstSettings.paletteScoring.rarityWeight === secondSettings.paletteScoring.rarityWeight &&
-    firstSettings.paletteScoring.diversityWeight === secondSettings.paletteScoring.diversityWeight
-  );
+  return JSON.stringify(firstSettings) === JSON.stringify(secondSettings);
 }
 
 function readStoredSettings() {
@@ -259,35 +217,22 @@ function notifySettingsListeners() {
 export function getDefaultAppSettings() {
   return {
     ...DEFAULT_SETTINGS,
-    medianCut: cloneMedianCutSettings(DEFAULT_SETTINGS.medianCut),
-    paletteScoring: clonePaletteScoringSettings(DEFAULT_SETTINGS.paletteScoring),
+    medianCut: { ...DEFAULT_SETTINGS.medianCut },
+    paletteScoring: { ...DEFAULT_SETTINGS.paletteScoring },
   };
 }
 
 /** @returns {AppSettingsPatch} */
 export function getDefaultAppSettingsResetPatch() {
-  const defaults = getDefaultAppSettings();
-
-  return {
-    captureMode: defaults.captureMode,
-    collectionViewMode: defaults.collectionViewMode,
-    locale: defaults.locale,
-    performanceHudEnabled: defaults.performanceHudEnabled,
-    oneMoreColor: defaults.oneMoreColor,
-    photoQualityMode: defaults.photoQualityMode,
-    polaroidFooterLabel: defaults.polaroidFooterLabel,
-    polaroidShowColorNames: defaults.polaroidShowColorNames,
-    medianCut: defaults.medianCut,
-    paletteScoring: defaults.paletteScoring,
-  };
+  return getDefaultAppSettings();
 }
 
 /** @returns {AppSettings} */
 export function getAppSettings() {
   return {
     ...settingsStore.currentSettings,
-    medianCut: cloneMedianCutSettings(settingsStore.currentSettings.medianCut),
-    paletteScoring: clonePaletteScoringSettings(settingsStore.currentSettings.paletteScoring),
+    medianCut: { ...settingsStore.currentSettings.medianCut },
+    paletteScoring: { ...settingsStore.currentSettings.paletteScoring },
   };
 }
 

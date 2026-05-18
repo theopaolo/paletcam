@@ -95,7 +95,7 @@ afterEach(() => {
   }
 });
 
-describe("getPalettePreviewPolaroidAsset", () => {
+describe("getPaletteViewerPreviewAsset", () => {
   test("reuses the stored viewer preview blob without hydrating the master photo", async () => {
     const storedPreviewBlob = new Blob(["stored-viewer-preview"], { type: "image/webp" });
     const createObjectURL = mock(() => "blob:stored-viewer-preview");
@@ -106,7 +106,7 @@ describe("getPalettePreviewPolaroidAsset", () => {
       storedPreviewBlobs: { gallery: null, viewer: storedPreviewBlob },
     });
 
-    const asset = await palettePreviewAssets.getPalettePreviewPolaroidAsset({
+    const asset = await palettePreviewAssets.getPaletteViewerPreviewAsset({
       id: 7,
       hasPhotoAsset: true,
     });
@@ -117,32 +117,6 @@ describe("getPalettePreviewPolaroidAsset", () => {
     });
     expect(createObjectURL).toHaveBeenCalledWith(storedPreviewBlob);
     expect(ensurePaletteMasterPhotoBlob).not.toHaveBeenCalled();
-  });
-
-  test("persists the requested gallery preview variant when only the master photo exists", async () => {
-    const renderedPreviewBlob = new Blob(["gallery-rendered-preview"], { type: "image/webp" });
-    const createObjectURL = mock(() => "blob:gallery-rendered-preview");
-    globalThis.URL.createObjectURL = createObjectURL;
-    globalThis.URL.revokeObjectURL = mock(() => {});
-
-    const { ensureSavedPalettePreviewBlob, palettePreviewAssets } = await loadPalettePreviewAssets({
-      storedPreviewBlobs: { gallery: null, viewer: null },
-      renderedPreviewBlobs: {
-        gallery: renderedPreviewBlob,
-        viewer: new Blob(["viewer-rendered-preview"], { type: "image/webp" }),
-      },
-    });
-
-    const palette = { id: 11, hasPhotoAsset: true };
-    const asset = await palettePreviewAssets.getPalettePreviewPolaroidAsset(palette, {
-      variant: "gallery",
-    });
-
-    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledTimes(1);
-    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "gallery");
-    expect(asset.blob).toBe(renderedPreviewBlob);
-    expect(asset.objectUrl).toBe("blob:gallery-rendered-preview");
-    expect(palette.previewGalleryBlob).toBe(renderedPreviewBlob);
   });
 
   test("does not fall back to the master photo blob when viewer preview rendering fails", async () => {
@@ -166,7 +140,7 @@ describe("getPalettePreviewPolaroidAsset", () => {
 
     let thrownError = null;
     try {
-      await palettePreviewAssets.getPalettePreviewPolaroidAsset({ id: 19, hasPhotoAsset: true });
+      await palettePreviewAssets.getPaletteViewerPreviewAsset({ id: 19, hasPhotoAsset: true });
     } catch (error) {
       thrownError = error;
     }
@@ -180,6 +154,32 @@ describe("getPalettePreviewPolaroidAsset", () => {
     expect(thrownError).toBeInstanceOf(Error);
     expect(thrownError?.message).toBe("Unable to generate palette preview");
     expect(createObjectURL).not.toHaveBeenCalled();
+  });
+});
+
+describe("getPaletteGalleryPreviewAsset", () => {
+  test("persists the requested gallery preview variant when only the master photo exists", async () => {
+    const renderedPreviewBlob = new Blob(["gallery-rendered-preview"], { type: "image/webp" });
+    const createObjectURL = mock(() => "blob:gallery-rendered-preview");
+    globalThis.URL.createObjectURL = createObjectURL;
+    globalThis.URL.revokeObjectURL = mock(() => {});
+
+    const { ensureSavedPalettePreviewBlob, palettePreviewAssets } = await loadPalettePreviewAssets({
+      storedPreviewBlobs: { gallery: null, viewer: null },
+      renderedPreviewBlobs: {
+        gallery: renderedPreviewBlob,
+        viewer: new Blob(["viewer-rendered-preview"], { type: "image/webp" }),
+      },
+    });
+
+    const palette = { id: 11, hasPhotoAsset: true };
+    const asset = await palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
+
+    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledTimes(1);
+    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "gallery");
+    expect(asset.blob).toBe(renderedPreviewBlob);
+    expect(asset.objectUrl).toBe("blob:gallery-rendered-preview");
+    expect(palette.previewGalleryBlob).toBe(renderedPreviewBlob);
   });
 
   test("revokes the oldest object URL when the preview cache is full", async () => {
