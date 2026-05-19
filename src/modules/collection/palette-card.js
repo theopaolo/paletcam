@@ -1,6 +1,6 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
-import { loadImageElementSource } from "../image-element-loader.js";
+import { loadImageElementBlobSource } from "../image-element-loader.js";
 import { getPaletteGalleryPreviewAsset } from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
@@ -125,7 +125,7 @@ function bindLazyPreviewLoad({
       }
 
       previewLoader.hidden = false;
-      await loadImageElementSource(previewImage, asset.objectUrl);
+      await loadImageElementBlobSource(previewImage, asset.blob);
       if (!isCardConnected(card)) {
         return;
       }

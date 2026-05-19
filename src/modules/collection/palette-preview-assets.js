@@ -19,16 +19,13 @@ const MAX_PREVIEW_ASSET_CACHE_ENTRIES = 24;
 const previewAssetCache = new Map();
 
 function createAssetFromBlob(blob) {
-  return {
-    blob,
-    objectUrl: URL.createObjectURL(blob),
-  };
+  return { blob };
 }
 
 function getCachedAsset(cache, cacheKey) {
   const cached = cache.get(cacheKey);
 
-  if (cached?.blob && cached?.objectUrl) {
+  if (cached?.blob) {
     cache.delete(cacheKey);
     cache.set(cacheKey, cached);
     return cached;
@@ -101,10 +98,6 @@ function downloadBlob(blob, filename) {
 }
 
 function disposePreviewAssetCacheEntry(cacheKey) {
-  const cached = previewAssetCache.get(cacheKey);
-  if (cached?.objectUrl) {
-    URL.revokeObjectURL(cached.objectUrl);
-  }
   previewAssetCache.delete(cacheKey);
 }
 

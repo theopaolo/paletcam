@@ -66,12 +66,12 @@ describe("palette-storage/core", () => {
 
     expect(palettes[0].polaroidRenderSettings).toEqual({
       footerLabel: "captured",
-      showColorNames: true,
+      showColorNames: false,
     });
     expect(update).toHaveBeenCalledWith(7, {
       polaroidRenderSettings: {
         footerLabel: "captured",
-        showColorNames: true,
+        showColorNames: false,
       },
     });
     expect(bulkPut).not.toHaveBeenCalled();
@@ -92,8 +92,8 @@ describe("palette-storage/core", () => {
     await module.getSavedPalettes();
 
     expect(update.mock.calls[0][1].polaroidRenderSettings).toEqual({
-      footerLabel: "captured",
-      showColorNames: true,
+      footerLabel: "colorcatchers.co",
+      showColorNames: false,
     });
     expect(bulkPut).not.toHaveBeenCalled();
   });
@@ -107,7 +107,7 @@ describe("palette-storage/core", () => {
 
     expect(add.mock.calls[0][0].polaroidRenderSettings).toEqual({
       footerLabel: "new capture",
-      showColorNames: true,
+      showColorNames: false,
     });
   });
 });

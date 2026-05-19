@@ -23,7 +23,7 @@ function getCurrentPolaroidRenderSettings() {
   const settings = getAppSettings();
   return {
     footerLabel: settings.polaroidFooterLabel,
-    showColorNames: Boolean(settings.polaroidShowColorNames),
+    showColorNames: false,
   };
 }
 

@@ -138,7 +138,7 @@ export function createCaptureController({
           ralMatch: ralMatchData,
           polaroidRenderSettings: {
             footerLabel: getAppSettings().polaroidFooterLabel,
-            showColorNames: Boolean(getAppSettings().polaroidShowColorNames),
+            showColorNames: false,
           },
         });
         scheduleSavedPalettePreviewWarmup(savedPalette, "gallery");

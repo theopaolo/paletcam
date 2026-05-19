@@ -1,6 +1,20 @@
 import { clientLog } from "./client-log.js";
 import { formatErrorDetails } from "./error-format.js";
 
+const STACK_MAX_LENGTH = 2048;
+
+function truncateStack(stack) {
+  if (typeof stack !== "string" || stack.length === 0) {
+    return "";
+  }
+
+  if (stack.length <= STACK_MAX_LENGTH) {
+    return stack;
+  }
+
+  return `${stack.slice(0, STACK_MAX_LENGTH)}\n[truncated]`;
+}
+
 /**
  * @typedef {"error" | "warn"} ErrorConsoleLevel
  */
@@ -32,6 +46,11 @@ export function buildErrorReportContext(error, context = {}) {
   const status = Number(error.status);
   if (Number.isFinite(status) && status > 0) {
     nextContext.status = status;
+  }
+
+  const stack = truncateStack(error.stack);
+  if (stack) {
+    nextContext.stack = stack;
   }
 
   const details = formatErrorDetails(error);

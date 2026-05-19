@@ -15,6 +15,7 @@ import { createPaletteExtractionWorkerController } from "./modules/palette-extra
 import { createPerformanceHudController } from "./modules/performance-hud.js";
 import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
 import { showToast } from "./modules/toast-ui.js";
+import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
 import { createCameraLifecycleController } from "./modules/app/camera-lifecycle-controller.js";
@@ -28,6 +29,7 @@ import { createViewportHeightController } from "./modules/app/viewport-height.js
 import "./modules/panels/config-panel.js";
 import "./modules/panels/settings-panel.js";
 
+bindUncaughtErrorHandlers();
 setLocale(getAppSettings().locale, { force: true });
 
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));

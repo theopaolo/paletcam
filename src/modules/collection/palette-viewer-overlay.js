@@ -1,9 +1,9 @@
-import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
+import { subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { getColorNames, toColorNameHex } from "../color-name-api.js";
 import { relativeLuminance, rgbToHsl } from "../color-space-oklch.js";
-import { loadImageElementSource } from "../image-element-loader.js";
+import { loadImageElementBlobSource } from "../image-element-loader.js";
 import {
   closeSharedPanel,
   openSharedPanel,
@@ -334,11 +334,7 @@ function shouldShowViewerSwatches(palette) {
     return false;
   }
 
-  const showColorNames = palette?.polaroidRenderSettings
-    ? Boolean(palette.polaroidRenderSettings.showColorNames)
-    : Boolean(getAppSettings().polaroidShowColorNames);
-
-  return !(palette?.captureMode !== "ral" && showColorNames);
+  return true;
 }
 
 function renderActivePaletteSupplementaryUi() {
@@ -472,7 +468,7 @@ async function loadSlideAsset(index) {
       return;
     }
 
-    await loadImageElementSource(slideState.image, asset.objectUrl);
+    await loadImageElementBlobSource(slideState.image, asset.blob);
     if (
       activeSession !== session ||
       session.slideStates[index] !== slideState ||

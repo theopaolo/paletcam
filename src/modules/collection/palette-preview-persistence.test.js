@@ -116,7 +116,7 @@ describe("palette preview persistence", () => {
     expect(palette.previewGalleryBlob).toBeUndefined();
   });
 
-  test("persists color names once and reuses them", async () => {
+  test("skips color-name persistence while the polaroid label feature is paused", async () => {
     const { getColorNames, module, updatePalettePolaroidColorNames } =
       await loadPreviewPersistence();
     const palette = {
@@ -128,11 +128,13 @@ describe("palette preview persistence", () => {
       polaroidRenderSettings: { footerLabel: "captured", showColorNames: true },
     };
 
-    await module.ensurePalettePolaroidColorNames(palette);
-    await module.ensurePalettePolaroidColorNames(palette);
+    const firstResult = await module.ensurePalettePolaroidColorNames(palette);
+    const secondResult = await module.ensurePalettePolaroidColorNames(palette);
 
-    expect(getColorNames).toHaveBeenCalledTimes(1);
-    expect(updatePalettePolaroidColorNames).toHaveBeenCalledTimes(1);
-    expect(palette.polaroidColorNames).toEqual(["Stored olive", "White"]);
+    expect(firstResult).toEqual([]);
+    expect(secondResult).toEqual([]);
+    expect(getColorNames).not.toHaveBeenCalled();
+    expect(updatePalettePolaroidColorNames).not.toHaveBeenCalled();
+    expect(palette.polaroidColorNames).toBeUndefined();
   });
 });

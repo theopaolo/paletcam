@@ -28,7 +28,11 @@
       "Bash(node -e \"const colors = require\\('color-name-list'\\); console.log\\('Total color entries:', colors.colornames.length\\);\")",
       "Bash(grep -E \"\\\\.js$\")",
       "Bash(git show *)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(node --check src/modules/uncaught-error-handler.js)",
+      "Bash(node --check src/modules/client-log.js)",
+      "Bash(node --check src/modules/error-reporting.js)",
+      "Bash(node --check scripts/build.js)"
     ]
   }
 }

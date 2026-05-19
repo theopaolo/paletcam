@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { loadImageElementSource } from "./image-element-loader.js";
+import { loadImageElementBlobSource, loadImageElementSource } from "./image-element-loader.js";
 
 class MockImageElement extends EventTarget {
   constructor(onSrcAssigned) {
@@ -52,5 +52,25 @@ describe("loadImageElementSource", () => {
 
     await expect(result).resolves.toBeInstanceOf(Error);
     await expect(result).resolves.toHaveProperty("message", "Unable to load preview image element");
+  });
+
+  test("loads blob sources through data urls instead of blob urls", async () => {
+    const assignedSources = [];
+    const image = new MockImageElement((target, value) => {
+      assignedSources.push(value);
+
+      setTimeout(() => {
+        target.complete = true;
+        target.naturalWidth = 120;
+        target.dispatchEvent(new Event("load"));
+      }, 0);
+    });
+
+    await loadImageElementBlobSource(image, new Blob(["preview"], { type: "image/webp" }), {
+      timeoutMs: 50,
+    });
+
+    expect(assignedSources[0].startsWith("data:image/webp;base64,")).toBe(true);
+    expect(assignedSources[0].startsWith("blob:")).toBe(false);
   });
 });

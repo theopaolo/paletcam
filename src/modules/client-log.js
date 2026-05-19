@@ -1,5 +1,8 @@
 import { getLogApiBaseUrl } from "../config.js";
 
+const APP_VERSION = typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "";
+const COMMIT_HASH = typeof __COMMIT_HASH__ === "string" ? __COMMIT_HASH__ : "";
+
 function getLogEndpoint() {
   const baseUrl = getLogApiBaseUrl();
 
@@ -16,6 +19,8 @@ export function clientLog(message, context = {}) {
       message,
       context: {
         ...context,
+        appVersion: APP_VERSION,
+        commitHash: COMMIT_HASH,
         userAgent: navigator.userAgent,
         url: globalThis.location?.href,
         timestamp: new Date().toISOString(),

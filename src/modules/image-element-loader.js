@@ -1,5 +1,31 @@
 const DEFAULT_IMAGE_LOAD_TIMEOUT_MS = 8000;
 
+async function blobToDataUrl(blob) {
+  if (!(blob instanceof Blob)) {
+    throw new Error("Missing image blob");
+  }
+
+  if (typeof FileReader === "function") {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Unable to read image blob"));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
+}
+
 export function loadImageElementSource(
   image,
   src,
@@ -49,4 +75,9 @@ export function loadImageElementSource(
       finalize(() => resolve());
     }
   });
+}
+
+export async function loadImageElementBlobSource(image, blob, options = {}) {
+  const dataUrl = await blobToDataUrl(blob);
+  return loadImageElementSource(image, dataUrl, options);
 }

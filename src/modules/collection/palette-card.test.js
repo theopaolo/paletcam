@@ -13,13 +13,12 @@ const palettePreviewPersistenceModuleUrl = new URL(
 ).href;
 
 let restoreDom = () => {};
-const originalCreateObjectURL = globalThis.URL.createObjectURL;
 
 async function loadPaletteCardModule() {
-  const loadImageElementSource = mock(async () => {});
+  const loadImageElementBlobSource = mock(async () => {});
+  const galleryPreviewBlob = new Blob(["gallery"], { type: "image/webp" });
   const getPaletteGalleryPreviewAsset = mock(async () => ({
-    blob: new Blob(["gallery"], { type: "image/webp" }),
-    objectUrl: URL.createObjectURL(new Blob(["gallery"], { type: "image/webp" })),
+    blob: galleryPreviewBlob,
   }));
 
   mock.module(communityServiceModuleUrl, () => ({
@@ -31,7 +30,7 @@ async function loadPaletteCardModule() {
   }));
 
   mock.module(imageElementLoaderModuleUrl, () => ({
-    loadImageElementSource,
+    loadImageElementBlobSource,
   }));
 
   mock.module(palettePreviewAssetsModuleUrl, () => ({
@@ -50,8 +49,9 @@ async function loadPaletteCardModule() {
   const paletteCard = await import(`${paletteCardModuleUrl}?test=${Math.random()}`);
 
   return {
+    galleryPreviewBlob,
     getPaletteGalleryPreviewAsset,
-    loadImageElementSource,
+    loadImageElementBlobSource,
     paletteCard,
   };
 }
@@ -62,17 +62,15 @@ beforeEach(() => {
 
 afterEach(() => {
   restoreDom();
-  globalThis.URL.createObjectURL = originalCreateObjectURL;
   mock.restore();
 });
 
 describe("createSwatchCard", () => {
   test("loads the shared gallery preview asset when the user opens a swatch card", async () => {
-    const createObjectURL = mock(() => "blob:preview");
-    globalThis.URL.createObjectURL = createObjectURL;
     const onOpenViewer = mock(() => {});
 
-    const { getPaletteGalleryPreviewAsset, paletteCard } = await loadPaletteCardModule();
+    const { galleryPreviewBlob, getPaletteGalleryPreviewAsset, loadImageElementBlobSource, paletteCard } =
+      await loadPaletteCardModule();
     const palette = {
       id: 5,
       colors: [
@@ -90,7 +88,8 @@ describe("createSwatchCard", () => {
 
     expect(onOpenViewer).toHaveBeenCalledWith(5);
     expect(getPaletteGalleryPreviewAsset).toHaveBeenCalledWith(palette);
-    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(loadImageElementBlobSource).toHaveBeenCalledTimes(1);
+    expect(loadImageElementBlobSource.mock.calls[0][1]).toBe(galleryPreviewBlob);
   });
 
   test("uses a tight lazy preview margin for swatch cards", async () => {

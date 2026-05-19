@@ -31,8 +31,9 @@ const PALETTE_PREVIEW_RENDER_VARIANTS = Object.freeze({
     scale: 0.78,
   }),
 });
-const PALETTE_PREVIEW_RENDER_VERSION = "preview-v7";
+const PALETTE_PREVIEW_RENDER_VERSION = "preview-v8";
 const PALETTE_PREVIEW_WARMUP_BATCH_LIMIT = 20;
+const POLAROID_COLOR_NAMES_ENABLED = false;
 const queuedPreviewWarmups = new Set();
 let previewWarmupQueue = Promise.resolve();
 const scheduleIdleTask = globalThis.window?.requestIdleCallback
@@ -44,7 +45,8 @@ function getPreviewRenderOptions(variant = "viewer") {
 }
 
 function buildPreviewFingerprint(label, showColorNames, variant = "viewer") {
-  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewVariant(variant)}:${getPalettePreviewImageMimeType()}:${normalizePreviewFooterLabel(label) ?? ""}:${showColorNames ? "names-on" : "names-off"}`;
+  const colorNameState = POLAROID_COLOR_NAMES_ENABLED && showColorNames ? "names-on" : "names-off";
+  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewVariant(variant)}:${getPalettePreviewImageMimeType()}:${normalizePreviewFooterLabel(label) ?? ""}:${colorNameState}`;
 }
 
 function getPaletteRenderSettings(palette) {
@@ -87,6 +89,7 @@ export function getStoredPalettePreviewBlob(palette, variant = "viewer") {
 export async function ensurePalettePolaroidColorNames(palette) {
   if (
     palette?.captureMode === "ral" ||
+    !POLAROID_COLOR_NAMES_ENABLED ||
     !getPaletteRenderSettings(palette).showColorNames ||
     !Array.isArray(palette?.colors) ||
     palette.colors.length === 0

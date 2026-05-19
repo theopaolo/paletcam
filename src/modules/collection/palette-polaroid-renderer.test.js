@@ -468,7 +468,7 @@ describe("renderPalettePolaroidBlob", () => {
     expect(reticleMoveCalls[1]?.x).toBe(arcCalls[0]?.x);
   });
 
-  test("renders color names inside the palette strip when the watermark toggle is enabled", async () => {
+  test("does not render color names inside the palette strip while the feature is paused", async () => {
     updateAppSettings({ polaroidShowColorNames: true });
 
     const fillTextCalls = [];
@@ -567,8 +567,8 @@ describe("renderPalettePolaroidBlob", () => {
 
     const renderedTexts = fillTextCalls.map((call) => call.text);
 
-    expect(renderedTexts).toContain("PEA SOUP");
-    expect(renderedTexts).toContain("WHITE");
+    expect(renderedTexts).not.toContain("PEA SOUP");
+    expect(renderedTexts).not.toContain("WHITE");
     expect(renderedTexts).toContain("colorcatchers.co");
   });
 });
