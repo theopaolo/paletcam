@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { loadImageElementSource } from "./image-element-loader.js";
+import { blobToDataUrl, loadImageElementSource } from "./image-element-loader.js";
 
 class MockImageElement extends EventTarget {
   constructor(onSrcAssigned) {
@@ -20,6 +20,15 @@ class MockImageElement extends EventTarget {
     return this._src;
   }
 }
+
+describe("blobToDataUrl", () => {
+  test("converts a blob to a data URL string", async () => {
+    const blob = new Blob(["hello"], { type: "text/plain" });
+    const result = await blobToDataUrl(blob);
+    expect(typeof result).toBe("string");
+    expect(result.startsWith("data:text/plain")).toBe(true);
+  });
+});
 
 describe("loadImageElementSource", () => {
   test("waits for a later load event when complete is true before dimensions are ready", async () => {

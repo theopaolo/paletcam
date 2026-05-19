@@ -18,6 +18,33 @@ const MAX_PREVIEW_ASSET_CACHE_ENTRIES = 24;
 
 const previewAssetCache = new Map();
 
+function describeBlob(blob) {
+  if (!(blob instanceof Blob)) {
+    return null;
+  }
+
+  return {
+    size: blob.size,
+    type: blob.type || "application/octet-stream",
+  };
+}
+
+function describeObjectUrl(objectUrl) {
+  if (typeof objectUrl !== "string" || objectUrl.length === 0) {
+    return null;
+  }
+
+  if (objectUrl.startsWith("blob:")) {
+    return "blob";
+  }
+
+  if (objectUrl.startsWith("data:")) {
+    return "data";
+  }
+
+  return "other";
+}
+
 function createAssetFromBlob(blob) {
   return {
     blob,
@@ -108,6 +135,29 @@ function disposePreviewAssetCacheEntry(cacheKey) {
   previewAssetCache.delete(cacheKey);
 }
 
+export function resetPreviewAssetCacheForTests() {
+  for (const key of [...previewAssetCache.keys()]) {
+    disposePreviewAssetCacheEntry(key);
+  }
+}
+
+export function getPalettePreviewDebugInfo(palette, asset = null, variant = "viewer") {
+  return {
+    variant,
+    paletteId: Number.isFinite(Number(palette?.id)) ? Number(palette.id) : null,
+    hasPhotoAsset: Boolean(palette?.hasPhotoAsset),
+    captureAspectRatio: palette?.captureAspectRatio ?? null,
+    hasLegacyPreviewBlob: palette?.previewBlob instanceof Blob,
+    hasViewerPreviewBlob: palette?.previewViewerBlob instanceof Blob,
+    hasGalleryPreviewBlob: palette?.previewGalleryBlob instanceof Blob,
+    legacyPreview: describeBlob(palette?.previewBlob),
+    viewerPreview: describeBlob(palette?.previewViewerBlob),
+    galleryPreview: describeBlob(palette?.previewGalleryBlob),
+    assetBlob: describeBlob(asset?.blob),
+    assetUrlKind: describeObjectUrl(asset?.objectUrl),
+  };
+}
+
 function getStoredPreviewAsset(
   palette,
   variant = "viewer",
@@ -119,13 +169,13 @@ function getStoredPreviewAsset(
   }
 
   const storedPreviewBlob = getStoredPalettePreviewBlob(palette, variant);
-  if (!(storedPreviewBlob instanceof Blob)) {
-    return null;
+  if (storedPreviewBlob instanceof Blob) {
+    const asset = createAssetFromBlob(storedPreviewBlob);
+    setPreviewAssetCacheEntry(cacheKey, asset);
+    return asset;
   }
 
-  const asset = createAssetFromBlob(storedPreviewBlob);
-  setPreviewAssetCacheEntry(cacheKey, asset);
-  return asset;
+  return null;
 }
 
 async function renderHighQualityPalettePolaroidBlob(palette) {
@@ -208,6 +258,14 @@ export async function getPaletteViewerPreviewAsset(palette) {
 
   previewAssetCache.set(cacheKey, { promise });
   return promise;
+}
+
+export function refreshPaletteGalleryAsset(/** @type {any} */ palette, /** @type {any} */ paletteId) {
+  disposePalettePreviewAsset(paletteId);
+  if (palette && typeof palette === "object") {
+    palette.previewGalleryBlob = null;
+    palette.photoBlob = null;
+  }
 }
 
 export function disposePalettePreviewAsset(paletteOrId) {

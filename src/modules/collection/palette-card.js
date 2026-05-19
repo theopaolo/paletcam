@@ -1,7 +1,12 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
-import { loadImageElementSource } from "../image-element-loader.js";
-import { getPaletteGalleryPreviewAsset } from "./palette-preview-assets.js";
+import { blobToDataUrl, loadImageElementSource } from "../image-element-loader.js";
+import { reportAppError } from "../error-reporting.js";
+import {
+  getPaletteGalleryPreviewAsset,
+  getPalettePreviewDebugInfo,
+  refreshPaletteGalleryAsset,
+} from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
 const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "40px 0px";
@@ -92,6 +97,7 @@ function schedulePreviewStart(start, order) {
 function bindLazyPreviewLoad({
   card,
   observeTarget = card,
+  palette = null,
   trigger,
   previewImage,
   previewLoader,
@@ -107,6 +113,7 @@ function bindLazyPreviewLoad({
   let isPreviewIntersecting = false;
   let previewSettleTimeout = 0;
   let observer = null;
+  let hasRetriedBlobLoad = false;
 
   const ensurePreviewImageAsset = () => {
     previewAssetPromise ??= getAsset();
@@ -114,18 +121,44 @@ function bindLazyPreviewLoad({
   };
 
   const loadPreviewIntoCard = async () => {
+    let previewAsset = null;
+
     try {
       if (!isCardConnected(card)) {
         return;
       }
 
       const asset = await ensurePreviewImageAsset();
+      previewAsset = asset;
       if (!isCardConnected(card)) {
         return;
       }
 
       previewLoader.hidden = false;
-      await loadImageElementSource(previewImage, asset.objectUrl);
+
+      let imageSrc;
+      try {
+        imageSrc = asset.blob instanceof Blob
+          ? await blobToDataUrl(asset.blob)
+          : asset.objectUrl;
+      } catch (_blobErr) {
+        if (!isCardConnected(card) || hasRetriedBlobLoad) {
+          return;
+        }
+        hasRetriedBlobLoad = true;
+        previewAssetPromise = undefined;
+        refreshPaletteGalleryAsset(palette, paletteId);
+        hasStartedPreviewLoad = false;
+        if (isPreviewIntersecting) {
+          queuePreviewLoad();
+        }
+        return;
+      }
+
+      if (!isCardConnected(card)) {
+        return;
+      }
+      await loadImageElementSource(previewImage, imageSrc);
       if (!isCardConnected(card)) {
         return;
       }
@@ -141,7 +174,13 @@ function bindLazyPreviewLoad({
       previewImage.hidden = true;
       previewImage.removeAttribute("src");
       previewLoader.hidden = true;
-      console.error(`Failed to render preview for palette ${paletteId}:`, error);
+      reportAppError(error, {
+        logMessage: "Failed to render palette gallery preview.",
+        consoleMessage: `Failed to render preview for palette ${paletteId}:`,
+        clientLogKey: "preview-gallery-failure",
+        clientLogThrottleMs: 15000,
+        context: getPalettePreviewDebugInfo({ ...palette, id: paletteId }, previewAsset, "gallery"),
+      });
     }
   };
 
@@ -233,7 +272,6 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   const previewImage = document.createElement("img");
   previewImage.className = "palette-card-image";
   previewImage.alt = t("viewer.previewAlt");
-  previewImage.decoding = "async";
   previewImage.hidden = true;
 
   const previewLoader = document.createElement("div");
@@ -252,6 +290,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 
   bindLazyPreviewLoad({
     card,
+    palette,
     trigger,
     previewImage,
     previewLoader,
@@ -288,7 +327,6 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
   const previewImage = document.createElement("img");
   previewImage.className = "palette-card-image";
   previewImage.alt = t("viewer.previewAlt");
-  previewImage.decoding = "async";
   previewImage.hidden = true;
 
   const previewLoader = document.createElement("div");
@@ -317,6 +355,7 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
 
   bindLazyPreviewLoad({
     card,
+    palette,
     trigger,
     previewImage,
     previewLoader,

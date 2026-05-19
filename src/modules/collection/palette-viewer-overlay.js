@@ -3,13 +3,15 @@ import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { getColorNames, toColorNameHex } from "../color-name-api.js";
 import { relativeLuminance, rgbToHsl } from "../color-space-oklch.js";
-import { loadImageElementSource } from "../image-element-loader.js";
+import { blobToDataUrl, loadImageElementSource } from "../image-element-loader.js";
+import { reportAppError } from "../error-reporting.js";
 import {
   closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
+import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
@@ -219,7 +221,7 @@ function createViewerSwatch(color = null) {
     if (relativeLuminance(color.r, color.g, color.b) > 0.179) {
       swatch.classList.add("is-light-bg");
     }
-    applySwatchLabel(swatch, swatch.dataset.fallbackLabel);
+    // applySwatchLabel(swatch, swatch.dataset.fallbackLabel);
   }
   return swatch;
 }
@@ -308,7 +310,7 @@ function renderViewerSwatches(colors) {
       if (!resolvedLabel || resolvedLabel === swatch.dataset.fallbackLabel) {
         return;
       }
-      applySwatchLabel(swatch, resolvedLabel);
+      // applySwatchLabel(swatch, resolvedLabel);
     });
   });
 }
@@ -461,9 +463,11 @@ async function loadSlideAsset(index) {
   slideState.requestId += 1;
   const requestId = slideState.requestId;
   slideState.status.textContent = t("viewer.loading");
+  let previewAsset = null;
 
   try {
     const asset = await session.getPreviewAsset(palette);
+    previewAsset = asset;
     if (
       activeSession !== session ||
       session.slideStates[index] !== slideState ||
@@ -472,7 +476,17 @@ async function loadSlideAsset(index) {
       return;
     }
 
-    await loadImageElementSource(slideState.image, asset.objectUrl);
+    const imageSrc = asset.blob instanceof Blob
+      ? await blobToDataUrl(asset.blob)
+      : asset.objectUrl;
+    if (
+      activeSession !== session ||
+      session.slideStates[index] !== slideState ||
+      slideState.requestId !== requestId
+    ) {
+      return;
+    }
+    await loadImageElementSource(slideState.image, imageSrc);
     if (
       activeSession !== session ||
       session.slideStates[index] !== slideState ||
@@ -497,7 +511,13 @@ async function loadSlideAsset(index) {
     slideState.image.removeAttribute("src");
     slideState.status.textContent = t("viewer.previewUnavailable");
     slideState.loadState = "error";
-    console.error(`Failed to load palette viewer preview for palette ${palette.id}:`, error);
+    reportAppError(error, {
+      logMessage: "Failed to load palette viewer preview.",
+      consoleMessage: `Failed to load palette viewer preview for palette ${palette.id}:`,
+      clientLogKey: "preview-viewer-failure",
+      clientLogThrottleMs: 15000,
+      context: getPalettePreviewDebugInfo(palette, previewAsset, "viewer"),
+    });
   }
 }
 

@@ -16,6 +16,7 @@ let restoreDom = () => {};
 const originalCreateObjectURL = globalThis.URL.createObjectURL;
 
 async function loadPaletteCardModule() {
+  const blobToDataUrl = mock(async (/** @type {Blob} */ blob) => `data:${blob.type};base64,ZmFrZQ==`);
   const loadImageElementSource = mock(async () => {});
   const getPaletteGalleryPreviewAsset = mock(async () => ({
     blob: new Blob(["gallery"], { type: "image/webp" }),
@@ -31,11 +32,14 @@ async function loadPaletteCardModule() {
   }));
 
   mock.module(imageElementLoaderModuleUrl, () => ({
+    blobToDataUrl,
     loadImageElementSource,
   }));
 
   mock.module(palettePreviewAssetsModuleUrl, () => ({
     getPaletteGalleryPreviewAsset,
+    getPalettePreviewDebugInfo: mock(() => ({ paletteId: 5, variant: "gallery" })),
+    refreshPaletteGalleryAsset: mock(() => {}),
   }));
 
   mock.module(palettePreviewPersistenceModuleUrl, () => ({

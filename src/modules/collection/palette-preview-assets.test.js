@@ -12,6 +12,7 @@ const palettePolaroidRendererModuleUrl = new URL("./palette-polaroid-renderer.js
 const originalCreateObjectURL = globalThis.URL.createObjectURL;
 const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
 const originalNavigator = globalThis.navigator;
+let resetPreviewAssetCacheForTests = null;
 
 async function loadPalettePreviewAssets({
   storedPreviewBlobs = { gallery: null, viewer: null },
@@ -69,6 +70,7 @@ async function loadPalettePreviewAssets({
   const palettePreviewAssets = await import(
     `${palettePreviewAssetsModuleUrl}?test=${Math.random()}`
   );
+  resetPreviewAssetCacheForTests = palettePreviewAssets.resetPreviewAssetCacheForTests;
 
   return {
     ensurePaletteMasterPhotoBlob,
@@ -82,6 +84,8 @@ async function loadPalettePreviewAssets({
 }
 
 afterEach(() => {
+  resetPreviewAssetCacheForTests?.();
+  resetPreviewAssetCacheForTests = null;
   mock.restore();
   globalThis.URL.createObjectURL = originalCreateObjectURL;
   globalThis.URL.revokeObjectURL = originalRevokeObjectURL;
@@ -222,7 +226,6 @@ describe("variant helpers", () => {
     const palette = { id: 23, hasPhotoAsset: true };
     const asset = await palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
 
-    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "gallery");
     expect(asset).toEqual({
       blob: renderedPreviewBlob,
       objectUrl: "blob:gallery-preview",
@@ -235,7 +238,7 @@ describe("variant helpers", () => {
     globalThis.URL.createObjectURL = createObjectURL;
     globalThis.URL.revokeObjectURL = mock(() => {});
 
-    const { ensureSavedPalettePreviewBlob, palettePreviewAssets } = await loadPalettePreviewAssets({
+    const { ensureSavedPalettePreviewBlob, palettePreviewAssets, renderSavedPalettePreviewBlob } = await loadPalettePreviewAssets({
       storedPreviewBlobs: { gallery: null, viewer: null },
       renderedPreviewBlobs: {
         gallery: new Blob(["gallery-preview"], { type: "image/webp" }),

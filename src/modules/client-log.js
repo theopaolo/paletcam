@@ -1,5 +1,7 @@
 import { getLogApiBaseUrl } from "../config.js";
 
+const throttledLogKeys = new Map();
+
 function getLogEndpoint() {
   const baseUrl = getLogApiBaseUrl();
 
@@ -11,7 +13,26 @@ function getLogEndpoint() {
 }
 
 export function clientLog(message, context = {}) {
+  return clientLogWithOptions(message, context);
+}
+
+export function clientLogWithOptions(
+  message,
+  context = {},
+  { key = message, throttleMs = 0 } = {},
+) {
   try {
+    const normalizedKey = typeof key === "string" && key ? key : message;
+    if (throttleMs > 0 && normalizedKey) {
+      const now = Date.now();
+      const lastSentAt = throttledLogKeys.get(normalizedKey) ?? 0;
+      if (now - lastSentAt < throttleMs) {
+        return false;
+      }
+
+      throttledLogKeys.set(normalizedKey, now);
+    }
+
     const body = JSON.stringify({
       message,
       context: {
@@ -27,7 +48,12 @@ export function clientLog(message, context = {}) {
       headers: { "Content-Type": "application/json" },
       body,
     }).catch(() => {});
+    return true;
   } catch (_error) {
-    // fire and forget
+    return false;
   }
+}
+
+export function resetClientLogThrottleForTests() {
+  throttledLogKeys.clear();
 }

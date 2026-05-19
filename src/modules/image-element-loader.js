@@ -50,3 +50,15 @@ export function loadImageElementSource(
     }
   });
 }
+
+/** @returns {Promise<string>} */
+export async function blobToDataUrl(blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return `data:${blob.type};base64,${btoa(binary)}`;
+}
