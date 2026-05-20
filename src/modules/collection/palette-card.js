@@ -14,6 +14,7 @@ const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "40px 0px";
 const MAX_CONCURRENT_PREVIEW_LOADS = 6;
 const LAZY_PREVIEW_SETTLE_MS = 120;
 const LOADER_REVEAL_DELAY_MS = 140;
+const LOADER_FADE_OUT_MS = 220;
 
 function buildPaletteBloomBackground(palette) {
   const colors = Array.isArray(palette?.colors) ? palette.colors : [];
@@ -30,10 +31,23 @@ function buildPaletteBloomBackground(palette) {
   return blooms.join(", ");
 }
 
+function pickPaletteRippleColor(palette) {
+  const colors = Array.isArray(palette?.colors) ? palette.colors : [];
+  if (colors.length === 0) {
+    return null;
+  }
+  const middle = colors[Math.floor(colors.length / 2)];
+  return `rgba(${middle.r}, ${middle.g}, ${middle.b}, 0.55)`;
+}
+
 function applyPaletteBloomToCard(card, palette) {
   const bloom = buildPaletteBloomBackground(palette);
   if (bloom) {
     card.style.setProperty("--palette-card-bloom", bloom);
+  }
+  const ripple = pickPaletteRippleColor(palette);
+  if (ripple) {
+    card.style.setProperty("--palette-card-ripple-color", ripple);
   }
 }
 
@@ -131,10 +145,38 @@ function bindLazyPreviewLoad({
   let isPreviewIntersecting = false;
   let previewSettleTimeout = 0;
   let loaderRevealTimeout = 0;
+  let loaderFadeOutTimeout = 0;
   let observer = null;
   let hasRetriedBlobLoad = false;
 
   previewLoader.hidden = true;
+
+  const clearLoaderFadeOutTimeout = () => {
+    if (!loaderFadeOutTimeout) {
+      return;
+    }
+    window.clearTimeout(loaderFadeOutTimeout);
+    loaderFadeOutTimeout = 0;
+  };
+
+  const hideLoaderImmediately = () => {
+    clearLoaderFadeOutTimeout();
+    previewLoader.classList.remove("is-fading-out");
+    previewLoader.hidden = true;
+  };
+
+  const fadeOutLoader = () => {
+    if (previewLoader.hidden) {
+      return;
+    }
+    clearLoaderFadeOutTimeout();
+    previewLoader.classList.add("is-fading-out");
+    loaderFadeOutTimeout = window.setTimeout(() => {
+      loaderFadeOutTimeout = 0;
+      previewLoader.classList.remove("is-fading-out");
+      previewLoader.hidden = true;
+    }, LOADER_FADE_OUT_MS);
+  };
 
   const ensurePreviewImageAsset = () => {
     previewAssetPromise ??= getAsset();
@@ -177,7 +219,7 @@ function bindLazyPreviewLoad({
     previewAssetPromise = Promise.resolve(cachedAsset);
     previewImage.src = cachedAsset.source;
     previewImage.hidden = false;
-    previewLoader.hidden = true;
+    hideLoaderImmediately();
     return true;
   };
 
@@ -211,7 +253,7 @@ function bindLazyPreviewLoad({
         previewImage.hidden = true;
         previewImage.removeAttribute("src");
         clearLoaderRevealTimeout();
-        previewLoader.hidden = true;
+        hideLoaderImmediately();
         if (isPreviewIntersecting) {
           queuePreviewLoad();
         }
@@ -224,7 +266,7 @@ function bindLazyPreviewLoad({
 
       clearLoaderRevealTimeout();
       previewImage.hidden = false;
-      previewLoader.hidden = true;
+      fadeOutLoader();
     } catch (error) {
       if (!isCardConnected(card)) {
         return;
@@ -234,7 +276,7 @@ function bindLazyPreviewLoad({
       previewImage.hidden = true;
       previewImage.removeAttribute("src");
       clearLoaderRevealTimeout();
-      previewLoader.hidden = true;
+      hideLoaderImmediately();
       const debugPalette =
         palette && typeof palette === "object" ? { ...palette, id: paletteId } : { id: paletteId };
       reportAppError(error, {

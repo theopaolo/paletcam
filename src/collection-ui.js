@@ -51,6 +51,22 @@ import { dismissToast, showToast, showUndoToast } from "./modules/toast-ui.js";
 import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
 
 export const PALETTE_DELETED_EVENT = "paletcam:palette-deleted";
+const PALETTE_CAPTURED_EVENT = "paletcam:palette-captured";
+const freshCapturePaletteIds = new Set();
+
+window.addEventListener(PALETTE_CAPTURED_EVENT, (event) => {
+  const paletteId = Number(event?.detail?.paletteId);
+  if (Number.isFinite(paletteId)) {
+    freshCapturePaletteIds.add(paletteId);
+  }
+});
+
+function applyFreshCaptureMark(card, palette) {
+  if (freshCapturePaletteIds.has(palette.id)) {
+    card.dataset.freshCapture = "true";
+    freshCapturePaletteIds.delete(palette.id);
+  }
+}
 
 const collectionPanel = document.querySelector(".collection-panel");
 const collectionGrid = document.getElementById("collectionGrid");
@@ -83,8 +99,34 @@ let currentFilter = null;
 let isSelectMode = false;
 let longPressTimer = null;
 let longPressStartPos = null;
+let longPressRipple = null;
 let suppressNextSelectionClick = false;
 let activeDayVirtualizer = null;
+
+function spawnLongPressRipple(card, event) {
+  const rect = card.getBoundingClientRect();
+  const ripple = document.createElement("span");
+  ripple.className = "palette-card-ripple";
+  ripple.setAttribute("aria-hidden", "true");
+  ripple.style.left = `${event.clientX - rect.left}px`;
+  ripple.style.top = `${event.clientY - rect.top}px`;
+  card.appendChild(ripple);
+  return ripple;
+}
+
+function dismissLongPressRipple(reason) {
+  if (!longPressRipple) {
+    return;
+  }
+  const ripple = longPressRipple;
+  longPressRipple = null;
+  if (reason === "cancel") {
+    ripple.classList.add("is-cancelled");
+    window.setTimeout(() => ripple.remove(), 160);
+    return;
+  }
+  window.setTimeout(() => ripple.remove(), 520);
+}
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -511,19 +553,23 @@ function openCollectionPaletteViewer(paletteId) {
 }
 
 function createCollectionPaletteCard(palette) {
-  return createPaletteCard({
+  const card = createPaletteCard({
     palette,
     onOpenViewer: openCollectionPaletteViewer,
     scrollRoot: collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null,
   });
+  applyFreshCaptureMark(card, palette);
+  return card;
 }
 
 function createCollectionSwatchCard(palette) {
-  return createSwatchCard({
+  const card = createSwatchCard({
     palette,
     onOpenViewer: openCollectionPaletteViewer,
     scrollRoot: collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null,
   });
+  applyFreshCaptureMark(card, palette);
+  return card;
 }
 
 function getCardCreator() {
@@ -613,7 +659,12 @@ function renderCollectionUi(palettes) {
   collectionGrid.dataset.viewMode = currentCollectionViewMode;
 
   if (displayPalettes.length === 0) {
-    collectionGrid.innerHTML = `<p class="empty-message">${t("collection.empty")}</p>`;
+    collectionGrid.innerHTML = `
+      <div class="collection-empty">
+        <div class="collection-empty-bloom" aria-hidden="true"></div>
+        <p class="empty-message">${t("collection.empty")}</p>
+      </div>
+    `;
     syncCollectionPanelChrome([]);
     refreshPaletteViewerOverlay();
     return;
@@ -1046,6 +1097,7 @@ function clearLongPress() {
   if (longPressTimer) {
     window.clearTimeout(longPressTimer);
     longPressTimer = null;
+    dismissLongPressRipple("cancel");
   }
   longPressStartPos = null;
 }
@@ -1368,9 +1420,11 @@ function bindCollectionUiEvents() {
     }
 
     longPressStartPos = { x: event.clientX, y: event.clientY };
+    longPressRipple = spawnLongPressRipple(card, event);
     longPressTimer = window.setTimeout(() => {
       longPressTimer = null;
       longPressStartPos = null;
+      dismissLongPressRipple("confirm");
       const paletteId = Number(card.dataset.paletteId);
       if (!Number.isNaN(paletteId)) {
         enterSelectMode(paletteId, { suppressNextClick: true });

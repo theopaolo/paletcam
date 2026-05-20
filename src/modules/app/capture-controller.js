@@ -144,6 +144,13 @@ export function createCaptureController({
         scheduleSavedPalettePreviewWarmup(savedPalette, "gallery");
         trackCaptureStatAsync();
         photoOutputController.setPaletteId(savedPalette?.id);
+        if (savedPalette?.id !== undefined) {
+          window.dispatchEvent(
+            new CustomEvent("paletcam:palette-captured", {
+              detail: { paletteId: savedPalette.id },
+            }),
+          );
+        }
       }
     } catch (error) {
       photoOutputController.clearPaletteId();
