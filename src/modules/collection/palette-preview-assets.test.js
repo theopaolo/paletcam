@@ -10,6 +10,7 @@ const palettePolaroidRendererModuleUrl = new URL("./palette-polaroid-renderer.js
   .href;
 
 const originalNavigator = globalThis.navigator;
+let resetPreviewAssetCacheForTests = null;
 
 async function loadPalettePreviewAssets({
   storedPreviewBlobs = { gallery: null, viewer: null },
@@ -28,13 +29,13 @@ async function loadPalettePreviewAssets({
     }
     return renderedPreviewBlob;
   });
-  const renderSavedPalettePreviewBlob = mock(async (_palette, variant = "viewer") =>
-    renderedPreviewBlobs[variant] ?? null
+  const renderSavedPalettePreviewBlob = mock(
+    async (_palette, variant = "viewer") => renderedPreviewBlobs[variant] ?? null,
   );
   const ensurePalettePolaroidColorNames = mock(async () => []);
   const renderPalettePolaroidBlob = mock(async () => renderedHighQualityBlob);
-  const getPalettePreviewFingerprint = mock((_palette, variant = "viewer") =>
-    `preview-v6:${variant}:test:names-on`,
+  const getPalettePreviewFingerprint = mock(
+    (_palette, variant = "viewer") => `preview-v6:${variant}:test:names-on`,
   );
   const getStoredPalettePreviewBlob = mock((palette, variant = "viewer") => {
     if (variant === "gallery") {
@@ -67,6 +68,7 @@ async function loadPalettePreviewAssets({
   const palettePreviewAssets = await import(
     `${palettePreviewAssetsModuleUrl}?test=${Math.random()}`
   );
+  resetPreviewAssetCacheForTests = palettePreviewAssets.resetPreviewAssetCacheForTests;
 
   return {
     ensurePaletteMasterPhotoBlob,
@@ -80,6 +82,8 @@ async function loadPalettePreviewAssets({
 }
 
 afterEach(() => {
+  resetPreviewAssetCacheForTests?.();
+  resetPreviewAssetCacheForTests = null;
   mock.restore();
   if (originalNavigator === undefined) {
     delete globalThis.navigator;
@@ -109,17 +113,14 @@ describe("getPaletteViewerPreviewAsset", () => {
   });
 
   test("does not fall back to the master photo blob when viewer preview rendering fails", async () => {
-    const {
-      ensureSavedPalettePreviewBlob,
-      palettePreviewAssets,
-      renderSavedPalettePreviewBlob,
-    } = await loadPalettePreviewAssets({
-      storedPreviewBlobs: { gallery: null, viewer: null },
-      renderedPreviewBlobs: {
-        gallery: new Blob(["gallery-rendered-preview"], { type: "image/webp" }),
-        viewer: null,
-      },
-    });
+    const { ensureSavedPalettePreviewBlob, palettePreviewAssets, renderSavedPalettePreviewBlob } =
+      await loadPalettePreviewAssets({
+        storedPreviewBlobs: { gallery: null, viewer: null },
+        renderedPreviewBlobs: {
+          gallery: new Blob(["gallery-rendered-preview"], { type: "image/webp" }),
+          viewer: null,
+        },
+      });
 
     expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledTimes(0);
 
@@ -162,6 +163,51 @@ describe("getPaletteGalleryPreviewAsset", () => {
     expect(palette.previewGalleryBlob).toBe(renderedPreviewBlob);
   });
 
+  test("refreshPaletteGalleryAsset clears cached gallery preview state", async () => {
+    const { palettePreviewAssets } = await loadPalettePreviewAssets();
+    const palette = {
+      id: 12,
+      hasPhotoAsset: true,
+      photoBlob: new Blob(["photo"], { type: "image/webp" }),
+      previewGalleryBlob: new Blob(["preview"], { type: "image/webp" }),
+    };
+
+    await palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
+    palettePreviewAssets.refreshPaletteGalleryAsset(palette, palette.id);
+
+    expect(palette.photoBlob).toBe(null);
+    expect(palette.previewGalleryBlob).toBe(null);
+  });
+});
+
+describe("getPalettePreviewDebugInfo", () => {
+  test("summarizes preview blob state without retaining blob data", async () => {
+    const { palettePreviewAssets } = await loadPalettePreviewAssets();
+    const assetBlob = new Blob(["asset"], { type: "image/webp" });
+
+    expect(
+      palettePreviewAssets.getPalettePreviewDebugInfo(
+        {
+          id: 42,
+          hasPhotoAsset: true,
+          captureAspectRatio: 1.2,
+          previewGalleryBlob: new Blob(["gallery"], { type: "image/webp" }),
+        },
+        { blob: assetBlob },
+        "gallery",
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        assetBlob: { size: assetBlob.size, type: "image/webp" },
+        assetUrlKind: null,
+        captureAspectRatio: 1.2,
+        hasGalleryPreviewBlob: true,
+        hasPhotoAsset: true,
+        paletteId: 42,
+        variant: "gallery",
+      }),
+    );
+  });
 });
 
 describe("variant helpers", () => {
@@ -186,17 +232,14 @@ describe("variant helpers", () => {
   test("uses the viewer preview asset path for the overlay", async () => {
     const renderedPreviewBlob = new Blob(["viewer-preview"], { type: "image/webp" });
 
-    const {
-      ensureSavedPalettePreviewBlob,
-      palettePreviewAssets,
-      renderSavedPalettePreviewBlob,
-    } = await loadPalettePreviewAssets({
-      storedPreviewBlobs: { gallery: null, viewer: null },
-      renderedPreviewBlobs: {
-        gallery: new Blob(["gallery-preview"], { type: "image/webp" }),
-        viewer: renderedPreviewBlob,
-      },
-    });
+    const { ensureSavedPalettePreviewBlob, palettePreviewAssets, renderSavedPalettePreviewBlob } =
+      await loadPalettePreviewAssets({
+        storedPreviewBlobs: { gallery: null, viewer: null },
+        renderedPreviewBlobs: {
+          gallery: new Blob(["gallery-preview"], { type: "image/webp" }),
+          viewer: renderedPreviewBlob,
+        },
+      });
 
     const palette = { id: 24, hasPhotoAsset: true };
     const asset = await palettePreviewAssets.getPaletteViewerPreviewAsset(palette);
@@ -205,7 +248,6 @@ describe("variant helpers", () => {
     expect(renderSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "viewer");
     expect(asset).toEqual({ blob: renderedPreviewBlob });
   });
-
 });
 
 describe("sharePalettePolaroidImage", () => {

@@ -1,4 +1,4 @@
-import { clientLog } from "./client-log.js";
+import { clientLogWithOptions } from "./client-log.js";
 import { formatErrorDetails } from "./error-format.js";
 
 const STACK_MAX_LENGTH = 2048;
@@ -41,6 +41,14 @@ export function buildErrorReportContext(error, context = {}) {
 
   if (typeof error.code === "string" && error.code) {
     nextContext.code = error.code;
+  }
+
+  if (typeof error.sourceKind === "string" && error.sourceKind) {
+    nextContext.sourceKind = error.sourceKind;
+  }
+
+  if (Array.isArray(error.sourceAttempts) && error.sourceAttempts.length > 0) {
+    nextContext.sourceAttempts = error.sourceAttempts;
   }
 
   const status = Number(error.status);
@@ -87,6 +95,8 @@ export function createErrorToastOptions(error, options = {}) {
  * @param {ErrorConsoleLevel} [options.consoleLevel]
  * @param {boolean} [options.includeConsole]
  * @param {boolean} [options.includeClientLog]
+ * @param {string} [options.clientLogKey]
+ * @param {number} [options.clientLogThrottleMs]
  * @param {Record<string, unknown>} [options.context]
  * @returns {Record<string, unknown>}
  */
@@ -98,6 +108,8 @@ export function reportAppError(
     consoleLevel = "error",
     includeConsole = true,
     includeClientLog = true,
+    clientLogKey = "",
+    clientLogThrottleMs = 0,
     context = {},
   } = {},
 ) {
@@ -105,11 +117,22 @@ export function reportAppError(
 
   if (includeConsole && consoleMessage) {
     const consoleMethod = consoleLevel === "warn" ? console.warn : console.error;
-    consoleMethod(consoleMessage, error);
+    if (Object.keys(nextContext).length > 0) {
+      if (error && typeof error === "object") {
+        consoleMethod(consoleMessage, nextContext, error);
+      } else {
+        consoleMethod(consoleMessage, nextContext);
+      }
+    } else {
+      consoleMethod(consoleMessage, error);
+    }
   }
 
   if (includeClientLog && logMessage) {
-    clientLog(logMessage, nextContext);
+    clientLogWithOptions(logMessage, nextContext, {
+      key: clientLogKey || logMessage,
+      throttleMs: clientLogThrottleMs,
+    });
   }
 
   return nextContext;

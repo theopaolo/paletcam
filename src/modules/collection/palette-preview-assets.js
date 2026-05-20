@@ -1,8 +1,5 @@
 import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
-import {
-  hasPaletteMasterPhoto,
-  renderPalettePolaroidBlob,
-} from "./palette-polaroid-renderer.js";
+import { hasPaletteMasterPhoto, renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
 import {
   ensurePalettePolaroidColorNames,
   ensureSavedPalettePreviewBlob,
@@ -17,6 +14,33 @@ const POLAROID_EXPORT_QUALITY = 0.95;
 const MAX_PREVIEW_ASSET_CACHE_ENTRIES = 24;
 
 const previewAssetCache = new Map();
+
+function describeBlob(blob) {
+  if (!(blob instanceof Blob)) {
+    return null;
+  }
+
+  return {
+    size: blob.size,
+    type: blob.type || "application/octet-stream",
+  };
+}
+
+function describeObjectUrl(objectUrl) {
+  if (typeof objectUrl !== "string" || objectUrl.length === 0) {
+    return null;
+  }
+
+  if (objectUrl.startsWith("blob:")) {
+    return "blob";
+  }
+
+  if (objectUrl.startsWith("data:")) {
+    return "data";
+  }
+
+  return "other";
+}
 
 function createAssetFromBlob(blob) {
   return { blob };
@@ -99,6 +123,29 @@ function downloadBlob(blob, filename) {
 
 function disposePreviewAssetCacheEntry(cacheKey) {
   previewAssetCache.delete(cacheKey);
+}
+
+export function resetPreviewAssetCacheForTests() {
+  for (const key of [...previewAssetCache.keys()]) {
+    disposePreviewAssetCacheEntry(key);
+  }
+}
+
+export function getPalettePreviewDebugInfo(palette, asset = null, variant = "viewer") {
+  return {
+    variant,
+    paletteId: Number.isFinite(Number(palette?.id)) ? Number(palette.id) : null,
+    hasPhotoAsset: Boolean(palette?.hasPhotoAsset),
+    captureAspectRatio: palette?.captureAspectRatio ?? null,
+    hasLegacyPreviewBlob: palette?.previewBlob instanceof Blob,
+    hasViewerPreviewBlob: palette?.previewViewerBlob instanceof Blob,
+    hasGalleryPreviewBlob: palette?.previewGalleryBlob instanceof Blob,
+    legacyPreview: describeBlob(palette?.previewBlob),
+    viewerPreview: describeBlob(palette?.previewViewerBlob),
+    galleryPreview: describeBlob(palette?.previewGalleryBlob),
+    assetBlob: describeBlob(asset?.blob),
+    assetUrlKind: describeObjectUrl(asset?.objectUrl),
+  };
 }
 
 function getStoredPreviewAsset(
@@ -201,6 +248,14 @@ export async function getPaletteViewerPreviewAsset(palette) {
 
   previewAssetCache.set(cacheKey, { promise });
   return promise;
+}
+
+export function refreshPaletteGalleryAsset(palette, paletteId) {
+  disposePalettePreviewAsset(paletteId);
+  if (palette && typeof palette === "object") {
+    palette.previewGalleryBlob = null;
+    palette.photoBlob = null;
+  }
 }
 
 export function disposePalettePreviewAsset(paletteOrId) {

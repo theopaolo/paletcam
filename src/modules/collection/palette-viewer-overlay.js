@@ -1,8 +1,9 @@
 import { subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
-import { getColorNames, toColorNameHex } from "../color-name-api.js";
+import { toColorNameHex } from "../color-name-api.js";
 import { relativeLuminance, rgbToHsl } from "../color-space-oklch.js";
+import { reportAppError } from "../error-reporting.js";
 import { loadImageElementBlobSource } from "../image-element-loader.js";
 import {
   closeSharedPanel,
@@ -10,6 +11,7 @@ import {
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
+import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
@@ -195,31 +197,17 @@ function clearViewerSwatches() {
   }
 }
 
-function applySwatchLabel(swatch, label) {
-  let swatchLabel = swatch.querySelector(".palette-viewer-swatch-label");
-  if (!(swatchLabel instanceof HTMLElement)) {
-    swatchLabel = document.createElement("span");
-    swatchLabel.className = "palette-viewer-swatch-label";
-    swatch.appendChild(swatchLabel);
-  }
-
-  const safeLabel = String(label ?? "").trim() || swatch.dataset.fallbackLabel || "";
-  swatchLabel.textContent = safeLabel;
-  swatch.setAttribute("aria-label", safeLabel);
-  swatch.title = safeLabel;
-}
-
 function createViewerSwatch(color = null) {
   const swatch = document.createElement("button");
   swatch.type = "button";
   swatch.className = "palette-viewer-swatch";
   if (color) {
+    const hexLabel = toColorNameHex(color);
     swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    swatch.dataset.fallbackLabel = toColorNameHex(color);
+    swatch.setAttribute("aria-label", hexLabel);
     if (relativeLuminance(color.r, color.g, color.b) > 0.179) {
       swatch.classList.add("is-light-bg");
     }
-    applySwatchLabel(swatch, swatch.dataset.fallbackLabel);
   }
   return swatch;
 }
@@ -278,38 +266,13 @@ function renderViewerSwatches(colors) {
   swatchStripContainer.innerHTML = "";
   swatchStripContainer.hidden = false;
 
-  const paletteId = getActivePalette()?.id ?? null;
-  const storedLabels = Array.isArray(getActivePalette()?.polaroidColorNames)
-    ? getActivePalette().polaroidColorNames
-    : null;
-  const session = activeSession;
-  const requestId = activeRequestId;
-  const swatches = colors.map((color) => {
+  colors.forEach((color) => {
     const swatch = createViewerSwatch(color);
     swatch.addEventListener("click", (event) => {
       event.stopPropagation();
       showRalPopover(color, swatch);
     });
     swatchStripContainer.appendChild(swatch);
-    return swatch;
-  });
-
-  void Promise.resolve(storedLabels ?? getColorNames(colors)).then((labels) => {
-    if (
-      activeSession !== session ||
-      activeRequestId !== requestId ||
-      getActivePalette()?.id !== paletteId
-    ) {
-      return;
-    }
-
-    swatches.forEach((swatch, index) => {
-      const resolvedLabel = String(labels[index] ?? "").trim();
-      if (!resolvedLabel || resolvedLabel === swatch.dataset.fallbackLabel) {
-        return;
-      }
-      applySwatchLabel(swatch, resolvedLabel);
-    });
   });
 }
 
@@ -457,9 +420,11 @@ async function loadSlideAsset(index) {
   slideState.requestId += 1;
   const requestId = slideState.requestId;
   slideState.status.textContent = t("viewer.loading");
+  let previewAsset = null;
 
   try {
     const asset = await session.getPreviewAsset(palette);
+    previewAsset = asset;
     if (
       activeSession !== session ||
       session.slideStates[index] !== slideState ||
@@ -493,7 +458,13 @@ async function loadSlideAsset(index) {
     slideState.image.removeAttribute("src");
     slideState.status.textContent = t("viewer.previewUnavailable");
     slideState.loadState = "error";
-    console.error(`Failed to load palette viewer preview for palette ${palette.id}:`, error);
+    reportAppError(error, {
+      logMessage: "Failed to load palette viewer preview.",
+      consoleMessage: `Failed to load palette viewer preview for palette ${palette.id}:`,
+      clientLogKey: "preview-viewer-failure",
+      clientLogThrottleMs: 15000,
+      context: getPalettePreviewDebugInfo(palette, previewAsset, "viewer"),
+    });
   }
 }
 

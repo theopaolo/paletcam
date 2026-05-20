@@ -220,33 +220,6 @@
     inset 0 -1px 0 rgb(0 0 0 / 16%);
 }
 
-.palette-viewer-swatch-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: calc(var(--palette-viewer-swatch-height) - 1rem);
-  overflow: hidden;
-  font-family: var(--font-family-body);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  color: rgb(255 251 246 / 94%);
-  text-align: center;
-  text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
-  text-transform: uppercase;
-  white-space: nowrap;
-  transform: translate(-50%, -50%) rotate(-90deg);
-  transform-origin: center;
-  pointer-events: none;
-}
-
-.palette-viewer-swatch.is-light-bg .palette-viewer-swatch-label {
-  color: rgb(30 24 17 / 84%);
-  text-shadow: 0 1px 0 rgb(255 255 255 / 22%);
-}
-
 .palette-viewer-swatch.is-placeholder {
   visibility: hidden;
   pointer-events: none;
