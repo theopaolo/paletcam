@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import {
   deserializePalettesFromImport,
-  serializePalettesForExportBlob,
   serializePalettesForExport,
+  serializePalettesForExportBlob,
 } from "./json-transfer.js";
 
 describe("palette-storage/json-transfer", () => {
@@ -72,6 +72,50 @@ describe("palette-storage/json-transfer", () => {
         completed: 1,
         phase: "serializing",
         total: 1,
+      },
+    ]);
+  });
+
+  test("serializes export blobs in batches without changing the payload", async () => {
+    const progressEvents = [];
+    const blob = await serializePalettesForExportBlob(
+      [
+        {
+          id: 42,
+          timestamp: "2026-04-30T10:00:00.000Z",
+          colors: [{ r: 12, g: 34, b: 56 }],
+          photoBlob: new Blob(["first-photo"], { type: "text/plain" }),
+          hasPhotoAsset: true,
+        },
+        {
+          id: 43,
+          timestamp: "2026-04-30T10:01:00.000Z",
+          colors: [{ r: 65, g: 43, b: 21 }],
+          photoBlob: new Blob(["second-photo"], { type: "text/plain" }),
+          hasPhotoAsset: true,
+        },
+      ],
+      {
+        blobBatchSizeBytes: 120,
+        onProgress: (progress) => progressEvents.push(progress),
+      },
+    );
+    const payload = JSON.parse(await blob.text());
+
+    expect(payload.version).toBe(2);
+    expect(payload.palettes).toHaveLength(2);
+    expect(payload.palettes[0].photoBlob).toBe("data:text/plain;base64,Zmlyc3QtcGhvdG8=");
+    expect(payload.palettes[1].photoBlob).toBe("data:text/plain;base64,c2Vjb25kLXBob3Rv");
+    expect(progressEvents).toEqual([
+      {
+        completed: 1,
+        phase: "serializing",
+        total: 2,
+      },
+      {
+        completed: 2,
+        phase: "serializing",
+        total: 2,
       },
     ]);
   });

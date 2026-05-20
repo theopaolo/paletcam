@@ -7,12 +7,16 @@ const paletteJsonWorkerModuleUrl = new URL("../modules/palette-json-worker.js", 
 const recordsModuleUrl = new URL("./records.js", import.meta.url).href;
 const storageAssetsModuleUrl = new URL("./assets.js", import.meta.url).href;
 
-async function loadBackupModule({ photoBlobsById = new Map(), storedPalettes = [] } = {}) {
+async function loadBackupModule({
+  photoBlobsById = new Map(),
+  storedPalettes = [],
+  workerExportBlobResult = null,
+} = {}) {
   const add = mock(async () => 101);
   const put = mock(async () => {});
   const transaction = mock(async (_mode, _palettes, _paletteAssets, callback) => callback());
   const exportPalettes = mock(() => null);
-  const exportPalettesBlob = mock(() => null);
+  const exportPalettesBlob = mock(() => workerExportBlobResult);
   const importPalettes = mock(() => null);
   const isEnabled = mock(() => false);
   const createPaletteAssetRecord = mock((paletteId, photoBlob) => ({
@@ -97,6 +101,38 @@ describe("palette-storage/backup exportAllPalettesBlob", () => {
     expect(progressEvents.map((progress) => progress.phase)).toContain("preparing");
     expect(progressEvents.map((progress) => progress.phase)).toContain("serializing");
     expect(progressEvents.at(-1).phase).toBe("finalizing");
+  });
+
+  test("does not send preview blobs to the export worker payload", async () => {
+    const photoBlob = new Blob(["photo"], { type: "image/jpeg" });
+    const previewViewerBlob = new Blob(["viewer-preview"], { type: "image/webp" });
+    const previewGalleryBlob = new Blob(["gallery-preview"], { type: "image/webp" });
+    const { backupModule, exportPalettesBlob } = await loadBackupModule({
+      photoBlobsById: new Map([[42, photoBlob]]),
+      storedPalettes: [
+        {
+          id: 42,
+          timestamp: "2026-05-01T10:00:00.000Z",
+          colors: [{ r: 1, g: 2, b: 3 }],
+          previewGalleryBlob,
+          previewGalleryFooterLabel: "gallery",
+          previewViewerBlob,
+          previewViewerFooterLabel: "viewer",
+        },
+      ],
+      workerExportBlobResult: Promise.resolve({
+        blob: new Blob(["{}"], { type: "application/json" }),
+      }),
+    });
+
+    await backupModule.exportAllPalettesBlob();
+
+    const workerPalette = exportPalettesBlob.mock.calls[0][0][0];
+    expect(workerPalette.photoBlob).toBe(photoBlob);
+    expect("previewGalleryBlob" in workerPalette).toBe(false);
+    expect("previewGalleryFooterLabel" in workerPalette).toBe(false);
+    expect("previewViewerBlob" in workerPalette).toBe(false);
+    expect("previewViewerFooterLabel" in workerPalette).toBe(false);
   });
 });
 
