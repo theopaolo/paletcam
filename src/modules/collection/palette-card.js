@@ -15,6 +15,28 @@ const MAX_CONCURRENT_PREVIEW_LOADS = 6;
 const LAZY_PREVIEW_SETTLE_MS = 120;
 const LOADER_REVEAL_DELAY_MS = 140;
 
+function buildPaletteBloomBackground(palette) {
+  const colors = Array.isArray(palette?.colors) ? palette.colors : [];
+  if (colors.length === 0) {
+    return null;
+  }
+
+  const blooms = colors.map((color, index) => {
+    const positionX = ((index + 0.5) / colors.length) * 100;
+    const positionY = index % 2 === 0 ? 32 : 68;
+    return `radial-gradient(circle at ${positionX}% ${positionY}%, rgba(${color.r}, ${color.g}, ${color.b}, 0.55) 0%, rgba(${color.r}, ${color.g}, ${color.b}, 0) 55%)`;
+  });
+
+  return blooms.join(", ");
+}
+
+function applyPaletteBloomToCard(card, palette) {
+  const bloom = buildPaletteBloomBackground(palette);
+  if (bloom) {
+    card.style.setProperty("--palette-card-bloom", bloom);
+  }
+}
+
 function createSelectionIndicator() {
   const el = document.createElement("span");
   el.className = "palette-card-select-indicator";
@@ -308,6 +330,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   const card = document.createElement("div");
   card.className = "palette-card";
   card.dataset.paletteId = String(palette.id);
+  applyPaletteBloomToCard(card, palette);
 
   const trigger = document.createElement("button");
   trigger.type = "button";

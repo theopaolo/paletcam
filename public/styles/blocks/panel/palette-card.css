@@ -1,6 +1,14 @@
 .palette-card {
   position: relative;
   background: rgb(0 0 0 / 28%);
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    filter var(--duration-fast) var(--easing-standard);
+}
+
+.palette-card:active {
+  transform: rotate(-0.6deg) scale(0.98);
+  filter: brightness(0.94);
 }
 
 .palette-card-publication-badge {
@@ -93,16 +101,18 @@
   height: auto;
   /* stylelint-disable-next-line scale-unlimited/declaration-strict-value */
   background: #050505;
-  animation: palette-card-image-fade-in var(--duration-fast) var(--easing-standard) both;
+  animation: palette-card-image-fade-in 320ms var(--easing-standard) both;
 }
 
 @keyframes palette-card-image-fade-in {
   from {
     opacity: 0;
+    transform: scale(0.96);
   }
 
   to {
     opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -111,7 +121,8 @@
   width: 100%;
   aspect-ratio: 1 / 1.22;
   /* stylelint-disable-next-line scale-unlimited/declaration-strict-value */
-  background: #050505;
+  background: var(--palette-card-bloom, #050505), #050505;
+  background-blend-mode: screen, normal;
   overflow: hidden;
 }
 
