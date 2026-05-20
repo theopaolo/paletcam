@@ -94,12 +94,16 @@ export function normalizeStoredPaletteRecord(
   {
     includePhotoBlob = false,
     photoBlob = undefined,
+    includeViewerPreviewBlob = true,
   } = {},
 ) {
   const legacyPreviewBlob = palette?.previewBlob instanceof Blob ? palette.previewBlob : null;
   const legacyPreviewFooterLabel = normalizePreviewFooterLabel(palette?.previewFooterLabel);
-  const previewViewerBlob =
-    palette?.previewViewerBlob instanceof Blob ? palette.previewViewerBlob : legacyPreviewBlob;
+  let previewViewerBlob = null;
+  if (includeViewerPreviewBlob) {
+    previewViewerBlob =
+      palette?.previewViewerBlob instanceof Blob ? palette.previewViewerBlob : legacyPreviewBlob;
+  }
   const previewViewerFooterLabel =
     normalizePreviewFooterLabel(palette?.previewViewerFooterLabel) ?? legacyPreviewFooterLabel;
   const previewGalleryBlob =

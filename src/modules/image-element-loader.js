@@ -78,6 +78,7 @@ export function loadImageElementSource(
 }
 
 export async function loadImageElementBlobSource(image, blob, options = {}) {
-  const dataUrl = await blobToDataUrl(blob);
-  return loadImageElementSource(image, dataUrl, options);
+  const source = await blobToDataUrl(blob);
+  await loadImageElementSource(image, source, options);
+  return { source };
 }

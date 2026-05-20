@@ -7,6 +7,7 @@ import {
 } from "../../palette-storage/records.js";
 import {
   ensurePaletteMasterPhotoBlob,
+  readPalettePreviewBlobById,
   updatePalettePolaroidColorNames,
   updatePalettePreviewBlob,
 } from "../../palette-storage.js";
@@ -84,6 +85,43 @@ export function getStoredPalettePreviewBlob(palette, variant = "viewer") {
     palette?.[footerKey] === currentPreviewFooterLabel
     ? palette[blobKey]
     : null;
+}
+
+/**
+ * Hydrates a preview blob onto the palette object from IDB when it's missing
+ * in memory (typical for viewer previews after the lean collection listing).
+ * Returns null when no stored blob exists or its fingerprint is stale.
+ * @param {Palette} palette
+ * @param {"gallery" | "viewer"} variant
+ * @returns {Promise<Blob | null>}
+ */
+export async function hydratePalettePreviewBlobFromIdb(palette, variant = "viewer") {
+  if (!palette || typeof palette !== "object") {
+    return null;
+  }
+
+  const normalizedVariant = normalizePreviewVariant(variant);
+  const { blobKey, footerKey } = getPreviewVariantFieldKeys(normalizedVariant);
+
+  const inMemory = getStoredPalettePreviewBlob(palette, normalizedVariant);
+  if (inMemory instanceof Blob) {
+    return inMemory;
+  }
+
+  const paletteId = Number(palette.id);
+  if (!Number.isFinite(paletteId)) {
+    return null;
+  }
+
+  const stored = await readPalettePreviewBlobById(paletteId, normalizedVariant);
+  if (!stored || !(stored.blob instanceof Blob)) {
+    return null;
+  }
+
+  palette[blobKey] = stored.blob;
+  palette[footerKey] = stored.footerLabel;
+
+  return getStoredPalettePreviewBlob(palette, normalizedVariant);
 }
 
 export async function ensurePalettePolaroidColorNames(palette) {
