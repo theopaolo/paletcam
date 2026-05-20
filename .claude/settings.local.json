@@ -25,7 +25,14 @@
       "mcp__plugin_Notion_notion__notion-fetch",
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
       "Bash(npm list *)",
-      "Bash(node -e \"const colors = require\\('color-name-list'\\); console.log\\('Total color entries:', colors.colornames.length\\);\")"
+      "Bash(node -e \"const colors = require\\('color-name-list'\\); console.log\\('Total color entries:', colors.colornames.length\\);\")",
+      "Bash(grep -E \"\\\\.js$\")",
+      "Bash(git show *)",
+      "Read(//tmp/**)",
+      "Bash(node --check src/modules/uncaught-error-handler.js)",
+      "Bash(node --check src/modules/client-log.js)",
+      "Bash(node --check src/modules/error-reporting.js)",
+      "Bash(node --check scripts/build.js)"
     ]
   }
 }

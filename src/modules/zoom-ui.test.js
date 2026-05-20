@@ -1,171 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { createZoomUiController } from "./zoom-ui.js";
-
-class FakeClassList {
-  constructor(element) {
-    this.element = element;
-    this.tokens = new Set();
-  }
-
-  add(...tokens) {
-    for (const token of tokens) {
-      if (token) {
-        this.tokens.add(token);
-      }
-    }
-    this.#sync();
-  }
-
-  contains(token) {
-    return this.tokens.has(token);
-  }
-
-  remove(...tokens) {
-    for (const token of tokens) {
-      this.tokens.delete(token);
-    }
-    this.#sync();
-  }
-
-  set(value) {
-    this.tokens = new Set(String(value).split(/\s+/).filter(Boolean));
-    this.#sync();
-  }
-
-  toggle(token, force) {
-    if (force === true) {
-      this.tokens.add(token);
-    } else if (force === false) {
-      this.tokens.delete(token);
-    } else if (this.tokens.has(token)) {
-      this.tokens.delete(token);
-    } else {
-      this.tokens.add(token);
-    }
-    this.#sync();
-    return this.tokens.has(token);
-  }
-
-  toString() {
-    return [...this.tokens].join(" ");
-  }
-
-  #sync() {
-    this.element._className = this.toString();
-  }
-}
-
-class FakeElement {
-  constructor(tagName) {
-    this.tagName = tagName.toUpperCase();
-    this.attributes = new Map();
-    this.children = [];
-    this.classList = new FakeClassList(this);
-    this.dataset = {};
-    this.hidden = false;
-    this.listeners = new Map();
-    this.parentElement = null;
-    this.rect = { height: 20, left: 0, top: 0, width: 220 };
-    this.style = {
-      setProperty(name, value) {
-        this[name] = value;
-      },
-    };
-    this.tabIndex = -1;
-    this.textContent = "";
-    this.type = "";
-    this._className = "";
-  }
-
-  get className() {
-    return this._className;
-  }
-
-  set className(value) {
-    this.classList.set(value);
-  }
-
-  addEventListener(type, handler) {
-    const handlers = this.listeners.get(type) ?? [];
-    handlers.push(handler);
-    this.listeners.set(type, handlers);
-  }
-
-  append(...nodes) {
-    for (const node of nodes) {
-      this.appendChild(node);
-    }
-  }
-
-  appendChild(node) {
-    node.parentElement = this;
-    this.children.push(node);
-    return node;
-  }
-
-  dispatch(type, eventInit = {}) {
-    const event = {
-      button: 0,
-      clientX: 0,
-      clientY: 0,
-      currentTarget: this,
-      deltaX: 0,
-      deltaY: 0,
-      key: "",
-      pointerId: 1,
-      preventDefault() {},
-      stopPropagation() {},
-      target: this,
-      ...eventInit,
-    };
-
-    for (const handler of this.listeners.get(type) ?? []) {
-      handler(event);
-    }
-
-    return event;
-  }
-
-  getAttribute(name) {
-    return this.attributes.get(name) ?? null;
-  }
-
-  getBoundingClientRect() {
-    return this.rect;
-  }
-
-  remove() {
-    if (!this.parentElement) {
-      return;
-    }
-
-    this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
-    this.parentElement = null;
-  }
-
-  removeEventListener(type, handler) {
-    const handlers = this.listeners.get(type) ?? [];
-    this.listeners.set(
-      type,
-      handlers.filter((candidate) => candidate !== handler),
-    );
-  }
-
-  replaceChildren(...nodes) {
-    this.children = [];
-    for (const node of nodes) {
-      node.parentElement = this;
-      this.children.push(node);
-    }
-  }
-
-  setAttribute(name, value) {
-    this.attributes.set(name, String(value));
-  }
-
-  setPointerCapture() {}
-}
+import { FakeElement, installFakeDom } from "./test-support/fake-dom.js";
 
 function findByClass(root, className) {
   if (root.classList?.contains(className)) {
@@ -183,26 +19,11 @@ function findByClass(root, className) {
 }
 
 describe("createZoomUiController", () => {
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
   const originalVibrate = globalThis.navigator?.vibrate;
+  let uninstallFakeDom = () => {};
 
   beforeEach(() => {
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: {
-        createElement(tagName) {
-          return new FakeElement(tagName);
-        },
-      },
-    });
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: {
-        clearTimeout,
-        setTimeout,
-      },
-    });
+    uninstallFakeDom = installFakeDom();
 
     if (globalThis.navigator) {
       Object.defineProperty(globalThis.navigator, "vibrate", {
@@ -213,14 +34,7 @@ describe("createZoomUiController", () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: originalDocument,
-    });
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: originalWindow,
-    });
+    uninstallFakeDom();
 
     if (globalThis.navigator) {
       Object.defineProperty(globalThis.navigator, "vibrate", {
@@ -265,7 +79,7 @@ describe("createZoomUiController", () => {
     const readout = findByClass(overlayHost, "camera-zoom-readout");
     const scrubber = findByClass(overlayHost, "camera-zoom-scrubber");
     const track = findByClass(overlayHost, "camera-zoom-ruler");
-    track.rect = { height: 20, left: 40, top: 0, width: 220 };
+    track.setBoundingRect({ height: 20, left: 40, top: 0, width: 220 });
 
     expect(findByClass(overlayHost, "camera-zoom-chip-rack")).toBeNull();
     expect(readout.textContent).toBe("1x");

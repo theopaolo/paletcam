@@ -1,15 +1,17 @@
-import { getAppSettings, subscribeAppSettings } from "../../app-settings.js";
+import { subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
-import { getColorNames, toColorNameHex } from "../color-name-api.js";
-import { relativeLuminance } from "../color-space-oklch.js";
-import { loadImageElementSource } from "../image-element-loader.js";
+import { toColorNameHex } from "../color-name-api.js";
+import { relativeLuminance, rgbToHsl } from "../color-space-oklch.js";
+import { reportAppError } from "../error-reporting.js";
+import { loadImageElementBlobSource } from "../image-element-loader.js";
 import {
   closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
+import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
@@ -33,7 +35,17 @@ const ralPopoverColor = document.getElementById("ralPopoverColor");
 const ralPopoverCode = document.getElementById("ralPopoverCode");
 const ralPopoverName = document.getElementById("ralPopoverName");
 const ralPopoverQuality = document.getElementById("ralPopoverQuality");
+const ralPopoverHex = document.getElementById("ralPopoverHex");
+const ralPopoverRgb = document.getElementById("ralPopoverRgb");
+const ralPopoverHsl = document.getElementById("ralPopoverHsl");
 const swatchStripContainer = document.getElementById("catchDetailsSwatchStrip");
+
+// Move popover to body so position:fixed is relative to the true viewport,
+// not the shared-panel ancestor which uses transform: translateX() for its
+// slide-in animation (a transform creates a new containing block for fixed).
+if (ralPopover) {
+  document.body.appendChild(ralPopover);
+}
 
 let activeRequestId = 0;
 let activeSession;
@@ -44,7 +56,7 @@ let pendingTrackAlignmentRaf = 0;
 let pendingTrackScrollRaf = 0;
 
 function getPublishButtonCopy() {
-  return Object.freeze({
+  return {
     publish: {
       label: t("viewer.action.publishAria"),
       iconName: "publish",
@@ -55,7 +67,7 @@ function getPublishButtonCopy() {
       iconName: "unpublish",
       visibleLabel: t("viewer.action.unpublishLabel"),
     },
-  });
+  };
 }
 
 function getActionIconMarkup(iconName) {
@@ -185,31 +197,17 @@ function clearViewerSwatches() {
   }
 }
 
-function applySwatchLabel(swatch, label) {
-  let swatchLabel = swatch.querySelector(".palette-viewer-swatch-label");
-  if (!(swatchLabel instanceof HTMLElement)) {
-    swatchLabel = document.createElement("span");
-    swatchLabel.className = "palette-viewer-swatch-label";
-    swatch.appendChild(swatchLabel);
-  }
-
-  const safeLabel = String(label ?? "").trim() || swatch.dataset.fallbackLabel || "";
-  swatchLabel.textContent = safeLabel;
-  swatch.setAttribute("aria-label", safeLabel);
-  swatch.title = safeLabel;
-}
-
 function createViewerSwatch(color = null) {
   const swatch = document.createElement("button");
   swatch.type = "button";
   swatch.className = "palette-viewer-swatch";
   if (color) {
+    const hexLabel = toColorNameHex(color);
     swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    swatch.dataset.fallbackLabel = toColorNameHex(color);
+    swatch.setAttribute("aria-label", hexLabel);
     if (relativeLuminance(color.r, color.g, color.b) > 0.179) {
       swatch.classList.add("is-light-bg");
     }
-    applySwatchLabel(swatch, swatch.dataset.fallbackLabel);
   }
   return swatch;
 }
@@ -236,12 +234,24 @@ function showRalPopover(color, anchorElement) {
     ralPopoverQuality.textContent = `${getRalQualityLabel(deltaE)}`;
   }
 
+  if (ralPopoverHex) {
+    ralPopoverHex.textContent = `HEX ${toColorNameHex(color)}`;
+  }
+  if (ralPopoverRgb) {
+    ralPopoverRgb.textContent = `RGB ${color.r}, ${color.g}, ${color.b}`;
+  }
+  if (ralPopoverHsl) {
+    const { h, s, l } = rgbToHsl(color.r, color.g, color.b);
+    ralPopoverHsl.textContent = `HSL ${Math.round(h)}° ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  }
+
   ralPopover.hidden = false;
   ralPopover.style.visibility = "hidden";
 
   const anchorRect = anchorElement.getBoundingClientRect();
   const popoverRect = ralPopover.getBoundingClientRect();
-  const { left, top } = computeRalPopoverPosition(anchorRect, popoverRect, window.innerWidth);
+  const viewportW = visualViewport?.width ?? window.innerWidth;
+  const { left, top } = computeRalPopoverPosition(anchorRect, popoverRect, viewportW);
 
   ralPopover.style.left = `${left}px`;
   ralPopover.style.top = `${top}px`;
@@ -256,38 +266,13 @@ function renderViewerSwatches(colors) {
   swatchStripContainer.innerHTML = "";
   swatchStripContainer.hidden = false;
 
-  const paletteId = getActivePalette()?.id ?? null;
-  const storedLabels = Array.isArray(getActivePalette()?.polaroidColorNames)
-    ? getActivePalette().polaroidColorNames
-    : null;
-  const session = activeSession;
-  const requestId = activeRequestId;
-  const swatches = colors.map((color) => {
+  colors.forEach((color) => {
     const swatch = createViewerSwatch(color);
     swatch.addEventListener("click", (event) => {
       event.stopPropagation();
       showRalPopover(color, swatch);
     });
     swatchStripContainer.appendChild(swatch);
-    return swatch;
-  });
-
-  void Promise.resolve(storedLabels ?? getColorNames(colors)).then((labels) => {
-    if (
-      activeSession !== session ||
-      activeRequestId !== requestId ||
-      getActivePalette()?.id !== paletteId
-    ) {
-      return;
-    }
-
-    swatches.forEach((swatch, index) => {
-      const resolvedLabel = String(labels[index] ?? "").trim();
-      if (!resolvedLabel || resolvedLabel === swatch.dataset.fallbackLabel) {
-        return;
-      }
-      applySwatchLabel(swatch, resolvedLabel);
-    });
   });
 }
 
@@ -312,11 +297,7 @@ function shouldShowViewerSwatches(palette) {
     return false;
   }
 
-  const showColorNames = palette?.polaroidRenderSettings
-    ? Boolean(palette.polaroidRenderSettings.showColorNames)
-    : Boolean(getAppSettings().polaroidShowColorNames);
-
-  return !(palette?.captureMode !== "ral" && showColorNames);
+  return true;
 }
 
 function renderActivePaletteSupplementaryUi() {
@@ -439,9 +420,11 @@ async function loadSlideAsset(index) {
   slideState.requestId += 1;
   const requestId = slideState.requestId;
   slideState.status.textContent = t("viewer.loading");
+  let previewAsset = null;
 
   try {
     const asset = await session.getPreviewAsset(palette);
+    previewAsset = asset;
     if (
       activeSession !== session ||
       session.slideStates[index] !== slideState ||
@@ -450,7 +433,7 @@ async function loadSlideAsset(index) {
       return;
     }
 
-    await loadImageElementSource(slideState.image, asset.objectUrl);
+    await loadImageElementBlobSource(slideState.image, asset.blob);
     if (
       activeSession !== session ||
       session.slideStates[index] !== slideState ||
@@ -475,7 +458,13 @@ async function loadSlideAsset(index) {
     slideState.image.removeAttribute("src");
     slideState.status.textContent = t("viewer.previewUnavailable");
     slideState.loadState = "error";
-    console.error(`Failed to load palette viewer preview for palette ${palette.id}:`, error);
+    reportAppError(error, {
+      logMessage: "Failed to load palette viewer preview.",
+      consoleMessage: `Failed to load palette viewer preview for palette ${palette.id}:`,
+      clientLogKey: "preview-viewer-failure",
+      clientLogThrottleMs: 15000,
+      context: getPalettePreviewDebugInfo(palette, previewAsset, "viewer"),
+    });
   }
 }
 

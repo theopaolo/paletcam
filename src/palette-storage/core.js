@@ -1,4 +1,5 @@
 import { getAppSettings } from '../app-settings.js';
+import { clientLog } from '../modules/client-log.js';
 import { reportAppError } from '../modules/error-reporting.js';
 import { dataUrlToBlob } from './blob.js';
 import {
@@ -22,7 +23,7 @@ function getCurrentPolaroidRenderSettings() {
   const settings = getAppSettings();
   return {
     footerLabel: settings.polaroidFooterLabel,
-    showColorNames: Boolean(settings.polaroidShowColorNames),
+    showColorNames: false,
   };
 }
 
@@ -35,32 +36,57 @@ async function freezeMissingPolaroidRenderSettings(paletteRecords) {
     return paletteRecords;
   }
 
+  const writeStartTime = performance.now();
   const polaroidRenderSettings = getCurrentPolaroidRenderSettings();
   const nextRecords = paletteRecords.map((palette) =>
     missingRecords.includes(palette)
       ? { ...palette, polaroidRenderSettings }
       : palette);
 
-  await db.palettes.bulkPut(
-    missingRecords.map((palette) =>
-      normalizeStoredPaletteRecord({
-        ...palette,
-        polaroidRenderSettings,
-      }, { includePhotoBlob: false })),
+  await Promise.all(
+    missingRecords
+      .filter((palette) => palette?.id !== undefined && palette?.id !== null)
+      .map((palette) => db.palettes.update(palette.id, { polaroidRenderSettings })),
   );
+
+  clientLog("freezeMissingPolaroidRenderSettings", {
+    missingCount: missingRecords.length,
+    totalCount: paletteRecords.length,
+    writesMs: Math.round(performance.now() - writeStartTime),
+  });
 
   return nextRecords;
 }
 
 /** @returns {Promise<Palette[]>} */
 export async function getSavedPalettes() {
+  const startTime = performance.now();
   try {
-    const palettes = await freezeMissingPolaroidRenderSettings(
-      await db.palettes.orderBy('timestamp').reverse().toArray(),
-    );
-    return palettes.map((palette) =>
+    const dexieReadStartTime = performance.now();
+    const rawRecords = await db.palettes.orderBy('timestamp').reverse().toArray();
+    const dexieReadMs = performance.now() - dexieReadStartTime;
+
+    const freezeStartTime = performance.now();
+    const palettes = await freezeMissingPolaroidRenderSettings(rawRecords);
+    const freezeMs = performance.now() - freezeStartTime;
+
+    const result = palettes.map((palette) =>
       normalizeStoredPaletteRecord(palette, { includePhotoBlob: false }));
+
+    clientLog("getSavedPalettes:success", {
+      totalMs: Math.round(performance.now() - startTime),
+      dexieReadMs: Math.round(dexieReadMs),
+      freezeMs: Math.round(freezeMs),
+      rawCount: rawRecords.length,
+    });
+
+    return result;
   } catch (error) {
+    clientLog("getSavedPalettes:error", {
+      totalMs: Math.round(performance.now() - startTime),
+      errorName: error?.name ?? "",
+      errorMessage: error?.message ?? "",
+    });
     reportAppError(error, {
       consoleMessage: 'Failed to read saved palettes:',
       includeClientLog: false,

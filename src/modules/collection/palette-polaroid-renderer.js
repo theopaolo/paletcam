@@ -31,6 +31,7 @@ const POLAROID_COLOR_NAME_MAX_FONT_SIZE = 22;
 const PALETTE_FALLBACK_COLORS = [{ r: 236, g: 231, b: 221 }];
 const PREVIEW_IMAGE_TYPE_WEBP = "image/webp";
 const PREVIEW_IMAGE_TYPE_JPEG = "image/jpeg";
+const POLAROID_COLOR_NAMES_ENABLED = false;
 let supportsWebpPreviewImages;
 let cachedPolaroidColorTokens = null;
 
@@ -51,7 +52,10 @@ function getBrandLabel(palette) {
 }
 
 function shouldShowColorNamesOnPolaroid(palette) {
-  return Boolean(getPalettePolaroidRenderSettings(palette).showColorNames);
+  return (
+    POLAROID_COLOR_NAMES_ENABLED &&
+    Boolean(getPalettePolaroidRenderSettings(palette).showColorNames)
+  );
 }
 
 function canUseWebpPreviewImages() {

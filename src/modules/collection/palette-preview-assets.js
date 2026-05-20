@@ -1,8 +1,5 @@
 import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
-import {
-  hasPaletteMasterPhoto,
-  renderPalettePolaroidBlob,
-} from "./palette-polaroid-renderer.js";
+import { hasPaletteMasterPhoto, renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
 import {
   ensurePalettePolaroidColorNames,
   ensureSavedPalettePreviewBlob,
@@ -18,17 +15,41 @@ const MAX_PREVIEW_ASSET_CACHE_ENTRIES = 24;
 
 const previewAssetCache = new Map();
 
-function createAssetFromBlob(blob) {
+function describeBlob(blob) {
+  if (!(blob instanceof Blob)) {
+    return null;
+  }
+
   return {
-    blob,
-    objectUrl: URL.createObjectURL(blob),
+    size: blob.size,
+    type: blob.type || "application/octet-stream",
   };
+}
+
+function describeObjectUrl(objectUrl) {
+  if (typeof objectUrl !== "string" || objectUrl.length === 0) {
+    return null;
+  }
+
+  if (objectUrl.startsWith("blob:")) {
+    return "blob";
+  }
+
+  if (objectUrl.startsWith("data:")) {
+    return "data";
+  }
+
+  return "other";
+}
+
+function createAssetFromBlob(blob) {
+  return { blob };
 }
 
 function getCachedAsset(cache, cacheKey) {
   const cached = cache.get(cacheKey);
 
-  if (cached?.blob && cached?.objectUrl) {
+  if (cached?.blob) {
     cache.delete(cacheKey);
     cache.set(cacheKey, cached);
     return cached;
@@ -101,11 +122,30 @@ function downloadBlob(blob, filename) {
 }
 
 function disposePreviewAssetCacheEntry(cacheKey) {
-  const cached = previewAssetCache.get(cacheKey);
-  if (cached?.objectUrl) {
-    URL.revokeObjectURL(cached.objectUrl);
-  }
   previewAssetCache.delete(cacheKey);
+}
+
+export function resetPreviewAssetCacheForTests() {
+  for (const key of [...previewAssetCache.keys()]) {
+    disposePreviewAssetCacheEntry(key);
+  }
+}
+
+export function getPalettePreviewDebugInfo(palette, asset = null, variant = "viewer") {
+  return {
+    variant,
+    paletteId: Number.isFinite(Number(palette?.id)) ? Number(palette.id) : null,
+    hasPhotoAsset: Boolean(palette?.hasPhotoAsset),
+    captureAspectRatio: palette?.captureAspectRatio ?? null,
+    hasLegacyPreviewBlob: palette?.previewBlob instanceof Blob,
+    hasViewerPreviewBlob: palette?.previewViewerBlob instanceof Blob,
+    hasGalleryPreviewBlob: palette?.previewGalleryBlob instanceof Blob,
+    legacyPreview: describeBlob(palette?.previewBlob),
+    viewerPreview: describeBlob(palette?.previewViewerBlob),
+    galleryPreview: describeBlob(palette?.previewGalleryBlob),
+    assetBlob: describeBlob(asset?.blob),
+    assetUrlKind: describeObjectUrl(asset?.objectUrl),
+  };
 }
 
 function getStoredPreviewAsset(
@@ -148,15 +188,10 @@ async function renderHighQualityPalettePolaroidBlob(palette) {
 
 /**
  * @param {Palette} palette
- * @param {object} [options]
- * @param {"gallery" | "viewer"} [options.variant]
  * @returns {Promise<PreviewAsset>}
  */
-export async function getPalettePreviewPolaroidAsset(palette, { variant = "viewer" } = {}) {
-  if (variant !== "gallery") {
-    return getPaletteViewerPreviewAsset(palette);
-  }
-
+export async function getPaletteGalleryPreviewAsset(palette) {
+  const variant = "gallery";
   const cacheKey = buildPreviewAssetCacheKey(palette, variant);
   const storedAsset = getStoredPreviewAsset(palette, variant, cacheKey);
   if (storedAsset) {
@@ -181,14 +216,6 @@ export async function getPalettePreviewPolaroidAsset(palette, { variant = "viewe
 
   previewAssetCache.set(cacheKey, { promise });
   return promise;
-}
-
-/**
- * @param {Palette} palette
- * @returns {Promise<PreviewAsset>}
- */
-export async function getPaletteGalleryPreviewAsset(palette) {
-  return getPalettePreviewPolaroidAsset(palette, { variant: "gallery" });
 }
 
 /**
@@ -223,24 +250,17 @@ export async function getPaletteViewerPreviewAsset(palette) {
   return promise;
 }
 
-/**
- * @param {Palette} palette
- * @returns {Promise<PreviewAsset>}
- */
-export async function getPaletteDisplayPreviewAsset(palette) {
-  return getPaletteViewerPreviewAsset(palette);
+export function refreshPaletteGalleryAsset(palette, paletteId) {
+  disposePalettePreviewAsset(paletteId);
+  if (palette && typeof palette === "object") {
+    palette.previewGalleryBlob = null;
+    palette.photoBlob = null;
+  }
 }
 
-export function disposePalettePreviewPolaroidAsset(paletteOrId) {
+export function disposePalettePreviewAsset(paletteOrId) {
   const isObject = typeof paletteOrId === "object" && paletteOrId !== null;
   const paletteId = isObject ? String(paletteOrId.id ?? "") : String(paletteOrId ?? "");
-  const cacheKey = isObject
-    ? buildPreviewAssetCacheKey(paletteOrId, "viewer")
-    : JSON.stringify([paletteId, "", "", "", "", "", ""]);
-  disposePreviewAssetCacheEntry(cacheKey);
-
-  // Backward cleanup: remove any cache entries for the same id if the key schema changes.
-
   if (!paletteId) {
     return;
   }

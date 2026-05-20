@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { createDayGroup } from "./render-groups.js";
-import { FakeElement, installFakeDom } from "./test-support/fake-dom.js";
+import { FakeElement, installFakeDom } from "../test-support/fake-dom.js";
 
 function createPalette(id) {
   return {

@@ -1,5 +1,19 @@
-import { clientLog } from "./client-log.js";
+import { clientLogWithOptions } from "./client-log.js";
 import { formatErrorDetails } from "./error-format.js";
+
+const STACK_MAX_LENGTH = 2048;
+
+function truncateStack(stack) {
+  if (typeof stack !== "string" || stack.length === 0) {
+    return "";
+  }
+
+  if (stack.length <= STACK_MAX_LENGTH) {
+    return stack;
+  }
+
+  return `${stack.slice(0, STACK_MAX_LENGTH)}\n[truncated]`;
+}
 
 /**
  * @typedef {"error" | "warn"} ErrorConsoleLevel
@@ -29,9 +43,22 @@ export function buildErrorReportContext(error, context = {}) {
     nextContext.code = error.code;
   }
 
+  if (typeof error.sourceKind === "string" && error.sourceKind) {
+    nextContext.sourceKind = error.sourceKind;
+  }
+
+  if (Array.isArray(error.sourceAttempts) && error.sourceAttempts.length > 0) {
+    nextContext.sourceAttempts = error.sourceAttempts;
+  }
+
   const status = Number(error.status);
   if (Number.isFinite(status) && status > 0) {
     nextContext.status = status;
+  }
+
+  const stack = truncateStack(error.stack);
+  if (stack) {
+    nextContext.stack = stack;
   }
 
   const details = formatErrorDetails(error);
@@ -68,6 +95,8 @@ export function createErrorToastOptions(error, options = {}) {
  * @param {ErrorConsoleLevel} [options.consoleLevel]
  * @param {boolean} [options.includeConsole]
  * @param {boolean} [options.includeClientLog]
+ * @param {string} [options.clientLogKey]
+ * @param {number} [options.clientLogThrottleMs]
  * @param {Record<string, unknown>} [options.context]
  * @returns {Record<string, unknown>}
  */
@@ -79,6 +108,8 @@ export function reportAppError(
     consoleLevel = "error",
     includeConsole = true,
     includeClientLog = true,
+    clientLogKey = "",
+    clientLogThrottleMs = 0,
     context = {},
   } = {},
 ) {
@@ -86,11 +117,22 @@ export function reportAppError(
 
   if (includeConsole && consoleMessage) {
     const consoleMethod = consoleLevel === "warn" ? console.warn : console.error;
-    consoleMethod(consoleMessage, error);
+    if (Object.keys(nextContext).length > 0) {
+      if (error && typeof error === "object") {
+        consoleMethod(consoleMessage, nextContext, error);
+      } else {
+        consoleMethod(consoleMessage, nextContext);
+      }
+    } else {
+      consoleMethod(consoleMessage, error);
+    }
   }
 
   if (includeClientLog && logMessage) {
-    clientLog(logMessage, nextContext);
+    clientLogWithOptions(logMessage, nextContext, {
+      key: clientLogKey || logMessage,
+      throttleMs: clientLogThrottleMs,
+    });
   }
 
   return nextContext;

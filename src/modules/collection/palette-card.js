@@ -1,7 +1,12 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
-import { loadImageElementSource } from "../image-element-loader.js";
-import { getPaletteGalleryPreviewAsset } from "./palette-preview-assets.js";
+import { reportAppError } from "../error-reporting.js";
+import { loadImageElementBlobSource } from "../image-element-loader.js";
+import {
+  getPaletteGalleryPreviewAsset,
+  getPalettePreviewDebugInfo,
+  refreshPaletteGalleryAsset,
+} from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
 const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "40px 0px";
@@ -59,10 +64,7 @@ function flushPendingPreviewStarts() {
 
   pendingPreviewStarts.sort((first, second) => first.order - second.order);
 
-  while (
-    activePreviewLoadCount < MAX_CONCURRENT_PREVIEW_LOADS &&
-    pendingPreviewStarts.length > 0
-  ) {
+  while (activePreviewLoadCount < MAX_CONCURRENT_PREVIEW_LOADS && pendingPreviewStarts.length > 0) {
     const queuedStart = pendingPreviewStarts.shift();
     activePreviewLoadCount += 1;
 
@@ -75,10 +77,7 @@ function flushPendingPreviewStarts() {
     });
   }
 
-  if (
-    pendingPreviewStarts.length > 0 &&
-    activePreviewLoadCount < MAX_CONCURRENT_PREVIEW_LOADS
-  ) {
+  if (pendingPreviewStarts.length > 0 && activePreviewLoadCount < MAX_CONCURRENT_PREVIEW_LOADS) {
     schedulePreviewFlush();
   }
 }
@@ -92,6 +91,7 @@ function schedulePreviewStart(start, order) {
 function bindLazyPreviewLoad({
   card,
   observeTarget = card,
+  palette = null,
   trigger,
   previewImage,
   previewLoader,
@@ -107,6 +107,7 @@ function bindLazyPreviewLoad({
   let isPreviewIntersecting = false;
   let previewSettleTimeout = 0;
   let observer = null;
+  let hasRetriedBlobLoad = false;
 
   const ensurePreviewImageAsset = () => {
     previewAssetPromise ??= getAsset();
@@ -114,18 +115,40 @@ function bindLazyPreviewLoad({
   };
 
   const loadPreviewIntoCard = async () => {
+    let previewAsset = null;
+
     try {
       if (!isCardConnected(card)) {
         return;
       }
 
       const asset = await ensurePreviewImageAsset();
+      previewAsset = asset;
       if (!isCardConnected(card)) {
         return;
       }
 
       previewLoader.hidden = false;
-      await loadImageElementSource(previewImage, asset.objectUrl);
+      try {
+        await loadImageElementBlobSource(previewImage, asset.blob);
+      } catch (loadError) {
+        if (!isCardConnected(card) || hasRetriedBlobLoad) {
+          throw loadError;
+        }
+
+        hasRetriedBlobLoad = true;
+        previewAssetPromise = undefined;
+        refreshPaletteGalleryAsset(palette, paletteId);
+        hasStartedPreviewLoad = false;
+        previewImage.hidden = true;
+        previewImage.removeAttribute("src");
+        previewLoader.hidden = true;
+        if (isPreviewIntersecting) {
+          queuePreviewLoad();
+        }
+        return;
+      }
+
       if (!isCardConnected(card)) {
         return;
       }
@@ -141,7 +164,15 @@ function bindLazyPreviewLoad({
       previewImage.hidden = true;
       previewImage.removeAttribute("src");
       previewLoader.hidden = true;
-      console.error(`Failed to render preview for palette ${paletteId}:`, error);
+      const debugPalette =
+        palette && typeof palette === "object" ? { ...palette, id: paletteId } : { id: paletteId };
+      reportAppError(error, {
+        logMessage: "Failed to render palette gallery preview.",
+        consoleMessage: `Failed to render preview for palette ${paletteId}:`,
+        clientLogKey: "preview-gallery-failure",
+        clientLogThrottleMs: 15000,
+        context: getPalettePreviewDebugInfo(debugPalette, previewAsset, "gallery"),
+      });
     }
   };
 
@@ -252,6 +283,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 
   bindLazyPreviewLoad({
     card,
+    palette,
     trigger,
     previewImage,
     previewLoader,
@@ -317,6 +349,7 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
 
   bindLazyPreviewLoad({
     card,
+    palette,
     trigger,
     previewImage,
     previewLoader,

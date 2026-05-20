@@ -2,16 +2,8 @@ import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-s
 import { openDirectPaletteViewer, PALETTE_DELETED_EVENT } from "./collection-ui.js";
 import { setLocale, t } from "./i18n.js";
 import { createCameraController } from "./modules/camera-controller.js";
-import {
-  DEFAULT_CAMERA_RESUME_DELAY_MS,
-  getCameraResumeDelay,
-} from "./modules/camera-resume-policy.js";
-import { drawFrameToCanvas, renderOutputSwatches } from "./modules/camera-ui.js";
-import { clientLog } from "./modules/client-log.js";
-import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
-import { findClosestRAL, getRalQualityLabel } from "./modules/color-matching-ral.js";
-import { relativeLuminance } from "./modules/color-space-oklch.js";
-import { formatErrorDetails } from "./modules/error-format.js";
+import { renderOutputSwatches } from "./modules/camera-ui.js";
+import { reportAppError } from "./modules/error-reporting.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
 import { createCameraGridUiController } from "./modules/camera-grid-ui.js";
 import {
@@ -19,43 +11,34 @@ import {
   PHOTO_QUALITY_EXPORT_VALUES,
 } from "./modules/photo-quality-ui.js";
 import { createCaptureMicroInteractions } from "./modules/micro-interactions.js";
-import {
-  extractPaletteColors,
-  getDominantColor,
-  renderPaletteBars,
-  resetColorSmoothing,
-  smoothColors,
-} from "./modules/palette-extraction.js";
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudController } from "./modules/performance-hud.js";
-import { sampleColorFromContextAtPoint } from "./modules/ral-live-sampling.js";
 import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
 import { showToast } from "./modules/toast-ui.js";
+import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
-import { warmSavedPalettePreview } from "./modules/collection/palette-preview-persistence.js";
-import { savePalette } from "./palette-storage.js";
-import { trackCaptureStatAsync } from "./capture-stat-service.js";
+import { createCameraLifecycleController } from "./modules/app/camera-lifecycle-controller.js";
+import { createCaptureController } from "./modules/app/capture-controller.js";
+import { CAMERA_FRAME_ASPECT_RATIO, getContainedSize } from "./modules/app/geometry.js";
+import { createLivePreviewController } from "./modules/app/live-preview-controller.js";
+import { isIOSDevice, supportsCameraStartup } from "./modules/platform.js";
+import { createPhotoOutputController } from "./modules/app/photo-output.js";
+import { createRalPreviewController } from "./modules/app/ral-preview.js";
+import { createViewportHeightController } from "./modules/app/viewport-height.js";
 import "./modules/panels/config-panel.js";
 import "./modules/panels/settings-panel.js";
 
-const PHOTO_EXPORT_MAX_WIDTH = 2048;
-const CAMERA_FRAME_ASPECT_RATIO = 4 / 3;
-const CAMERA_FRAME_ASPECT_RATIO_LABEL = "4:3";
-const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
-const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
-const APP_VIEWPORT_HEIGHT_CSS_VAR = "--app-height";
-const APP_VIEWPORT_RESYNC_DELAYS_MS = [120, 360];
-const ANALYSIS_MAX_WIDTH = 640;
-const PREVIEW_SMOOTHING_FACTOR = 0.16;
-const RAL_SMOOTHING_FACTOR = 0.18;
-const RAL_COLOR_DISTANCE_THRESHOLD = 12;
-
+bindUncaughtErrorHandlers();
 setLocale(getAppSettings().locale, { force: true });
 
 const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
-const captureButton = /** @type {HTMLButtonElement | null} */ (document.querySelector(".btn-capture"));
-const captureModeToggle = /** @type {HTMLButtonElement | null} */ (document.querySelector('.btn-capture-mode-toggle'));
+const captureButton = /** @type {HTMLButtonElement | null} */ (
+  document.querySelector(".btn-capture")
+);
+const captureModeToggle = /** @type {HTMLButtonElement | null} */ (
+  document.querySelector(".btn-capture-mode-toggle")
+);
 const allowButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-allow-media"));
 const allowText = /** @type {HTMLElement | null} */ (
   document.querySelector(".allow-container span")
@@ -75,8 +58,9 @@ const frameCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElement
 const paletteCanvas = /** @type {HTMLCanvasElement | null} */ (
   document.getElementById("canvas-palette")
 );
-const analysisCanvas = document.createElement("canvas");
-const rotateButton = /** @type {HTMLButtonElement | null} */ (document.querySelector(".btn-rotate"));
+const rotateButton = /** @type {HTMLButtonElement | null} */ (
+  document.querySelector(".btn-rotate")
+);
 const swatchSlider = /** @type {HTMLInputElement | null} */ (
   document.querySelector('.swatch-slider input[type="range"]')
 );
@@ -88,9 +72,6 @@ const ralLiveSwatchName = document.getElementById("ralLiveSwatchName");
 const ralLiveSwatchQuality = document.getElementById("ralLiveSwatchQuality");
 const slidersContainer = document.querySelector(".sliders-container");
 const paletteCaptureStage = document.querySelector(".capture-palette-stage");
-function isIOSDevice() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
-}
 
 const cameraViewportFrame = document.createElement("div");
 const cameraSourceMount = document.createElement("div");
@@ -111,47 +92,27 @@ if (shouldUseCanvasPreview) {
   }
 }
 
-const frameContext =
-  frameCanvas?.getContext("2d", { willReadFrequently: true }) ?? frameCanvas?.getContext("2d");
-const paletteContext = paletteCanvas?.getContext("2d");
-const analysisContext =
-  analysisCanvas.getContext("2d", { willReadFrequently: true }) ?? analysisCanvas.getContext("2d");
-
-let frameWidth = 0;
-let frameHeight = 0;
-let analysisWidth = 0;
-let analysisHeight = 0;
-let isStreaming = false;
 let swatchCount = Number(swatchSlider?.value) || 4;
-let _isPreviewExpanded = false;
-let extractionFrame = 0;
-let lastExtractedColors = null;
-let lastVisiblePaletteColors = [];
 let currentCaptureMode = "palette";
 let oneMoreColor = Boolean(getAppSettings().oneMoreColor);
-let photoExportQuality = PHOTO_QUALITY_EXPORT_VALUES[getAppSettings().photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
+let photoExportQuality =
+  PHOTO_QUALITY_EXPORT_VALUES[getAppSettings().photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let paletteScoringSettings = { ...getAppSettings().paletteScoring };
-const EXTRACTION_INTERVAL = 4;
 let lastCameraViewportLayout = null;
-let cachedPaletteWidth = 0;
-let cachedPaletteHeight = 0;
-let previewFrameRequestId = 0;
 let unsubscribeFromAppSettings = () => {};
-const appEventCleanups = [];
 let isAppDestroyed = false;
-let isInitialStartupComplete = false;
-let shouldResumeCameraOnForeground = false;
-let cameraResumeTimeoutId = 0;
-let cameraResumeAttemptId = 0;
-let viewportHeightSyncFrameId = 0;
-const viewportHeightSyncTimeoutIds = [];
-let lastViewportHeight = 0;
-let currentPhotoObjectUrl = "";
-let isCaptureSavePending = false;
-let latestPaletteWorkerDurationMs = null;
-let activeCameraStartPromise = null;
 let currentLocale = getAppSettings().locale;
+let livePreviewController = null;
+let captureController = null;
+const eventAbortController = new AbortController();
+const eventListenerSignal = eventAbortController.signal;
+function bindManagedEventListener(target, eventName, listener) {
+  target?.addEventListener?.(eventName, listener, { signal: eventListenerSignal });
+}
+const photoOutputController = createPhotoOutputController(photoOutput);
+const clearPhotoOutput = photoOutputController.clear;
+let cameraLifecycleController = null;
 const performanceHud = createPerformanceHudController({
   initialEnabled: getAppSettings().performanceHudEnabled,
 });
@@ -164,6 +125,14 @@ const captureMicroInteractions = createCaptureMicroInteractions({
 const visualEffects = createVisualEffects({
   captureButton,
 });
+const ralPreview = createRalPreviewController({
+  ralLiveSwatch,
+  ralLiveSwatchColor,
+  ralLiveSwatchCode,
+  ralLiveSwatchName,
+  ralLiveSwatchQuality,
+  visualEffects,
+});
 const paletteExtractionWorker = createPaletteExtractionWorkerController({
   onError: (error) => {
     reportAppError(error, {
@@ -172,16 +141,15 @@ const paletteExtractionWorker = createPaletteExtractionWorkerController({
     });
   },
   onResult: ({ colors, durationMs }) => {
-    latestPaletteWorkerDurationMs = durationMs;
-    lastExtractedColors = colors;
+    livePreviewController?.handleWorkerResult({ colors, durationMs });
   },
 });
 const swatchSliderUi = createSwatchSliderUiController({
   swatchSlider,
   onSwatchCountChange: (nextSwatchCount) => {
     swatchCount = nextSwatchCount;
-    resetPalettePreviewState();
-    schedulePreviewRefresh();
+    livePreviewController?.reset();
+    livePreviewController?.scheduleRefresh();
   },
 });
 
@@ -202,465 +170,7 @@ function syncCameraFeedOrientation() {
   cameraFeed.style.transform = shouldMirrorUserFacingCamera() ? "scaleX(-1)" : "scaleX(1)";
 }
 
-function getPaletteViewportSize() {
-  const paletteViewport =
-    currentCaptureMode === "ral" || paletteCaptureStage?.hidden
-      ? captureContainer
-      : (capturePaletteStage ?? captureContainer);
-
-  return {
-    width: paletteViewport?.clientWidth ?? 0,
-    height: paletteViewport?.clientHeight ?? 0,
-  };
-}
-
-function bindManagedEventListener(target, eventName, listener, options) {
-  if (!target || typeof target.addEventListener !== "function") {
-    return;
-  }
-
-  target.addEventListener(eventName, listener, options);
-  appEventCleanups.push(() => {
-    target.removeEventListener(eventName, listener, options);
-  });
-}
-
-function supportsCameraStartup() {
-  return typeof navigator.mediaDevices?.getUserMedia === "function";
-}
-
-function setButtonDisabled(button, shouldDisable) {
-  if (!button) {
-    return;
-  }
-
-  button.disabled = shouldDisable;
-}
-
-function syncCameraActionAvailability() {
-  const shouldDisableActions = !supportsCameraStartup() || Boolean(activeCameraStartPromise);
-  setButtonDisabled(captureButton, shouldDisableActions);
-  setButtonDisabled(rotateButton, shouldDisableActions);
-  captureButton?.classList.toggle("is-loading", Boolean(activeCameraStartPromise));
-}
-
-function getCameraStartToastOptions(error) {
-  const name = error?.name ?? "";
-
-  if (name === "NotAllowedError" || name === "SecurityError") {
-    return {
-      message: t("camera.start.notAllowed"),
-      duration: 4200,
-    };
-  }
-
-  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-    return {
-      message: t("camera.start.notFound"),
-      duration: 3800,
-    };
-  }
-
-  if (name === "NotReadableError" || name === "TrackStartError" || name === "AbortError") {
-    return {
-      message: t("camera.start.notReadable"),
-      duration: 3800,
-    };
-  }
-
-  if (name === "OverconstrainedError") {
-    return {
-      message: t("camera.start.overconstrained"),
-      duration: 3800,
-    };
-  }
-
-  return {
-    message: t("camera.start.generic"),
-    duration: 3500,
-    details: formatErrorDetails(error),
-  };
-}
-
-function handleCameraStartError(error) {
-  const { message, duration, details } = getCameraStartToastOptions(error);
-  showToast(message, {
-    variant: "error",
-    duration,
-    details,
-  });
-}
-
-function finalizeStartedCameraStream(started) {
-  if (!started) {
-    return false;
-  }
-
-  syncCameraViewportLayout();
-  updateCachedPreviewDimensions();
-  zoomUi?.syncCapabilities();
-  exposureUi?.syncCapabilities();
-  shouldResumeCameraOnForeground = true;
-
-  if (!isStreaming) {
-    isStreaming = true;
-    schedulePreviewRefresh();
-  }
-
-  return true;
-}
-
-async function runCameraStartOperation(startOperation) {
-  if (!supportsCameraStartup()) {
-    syncCameraActionAvailability();
-    return false;
-  }
-
-  if (activeCameraStartPromise) {
-    return activeCameraStartPromise;
-  }
-
-  const startPromise = (async () => {
-    cancelScheduledCameraResume();
-    invalidateCameraResumeChecks();
-    isStreaming = false;
-    cancelPreviewRefresh();
-
-    const started = await startOperation();
-
-    return finalizeStartedCameraStream(started);
-  })();
-
-  activeCameraStartPromise = startPromise;
-  syncCameraActionAvailability();
-
-  try {
-    return await startPromise;
-  } finally {
-    if (activeCameraStartPromise === startPromise) {
-      activeCameraStartPromise = null;
-    }
-    syncCameraActionAvailability();
-  }
-}
-
-function clearManagedEventListeners() {
-  while (appEventCleanups.length > 0) {
-    const cleanup = appEventCleanups.pop();
-    cleanup?.();
-  }
-}
-
-function clearScheduledViewportHeightSync() {
-  if (viewportHeightSyncFrameId) {
-    window.cancelAnimationFrame(viewportHeightSyncFrameId);
-    viewportHeightSyncFrameId = 0;
-  }
-
-  while (viewportHeightSyncTimeoutIds.length > 0) {
-    window.clearTimeout(viewportHeightSyncTimeoutIds.pop());
-  }
-}
-
-function getLiveViewportHeight() {
-  const viewportHeightCandidates = [
-    window.visualViewport?.height ?? 0,
-    window.innerHeight,
-    document.documentElement?.clientHeight ?? 0,
-  ].filter((value) => Number.isFinite(value) && value > 0);
-
-  if (viewportHeightCandidates.length === 0) {
-    return 0;
-  }
-
-  return Math.round(Math.min(...viewportHeightCandidates));
-}
-
-function applyViewportHeight() {
-  const nextViewportHeight = getLiveViewportHeight();
-  if (nextViewportHeight <= 0 || nextViewportHeight === lastViewportHeight) {
-    return;
-  }
-
-  document.documentElement.style.setProperty(
-    APP_VIEWPORT_HEIGHT_CSS_VAR,
-    `${nextViewportHeight}px`,
-  );
-  lastViewportHeight = nextViewportHeight;
-}
-
-function syncViewportMetrics() {
-  applyViewportHeight();
-  syncCameraViewportLayout();
-  updateCachedPreviewDimensions();
-}
-
-function scheduleViewportMetricsSync() {
-  clearScheduledViewportHeightSync();
-
-  viewportHeightSyncFrameId = window.requestAnimationFrame(() => {
-    viewportHeightSyncFrameId = 0;
-    syncViewportMetrics();
-  });
-
-  for (const delayMs of APP_VIEWPORT_RESYNC_DELAYS_MS) {
-    const timeoutId = window.setTimeout(() => {
-      const timeoutIndex = viewportHeightSyncTimeoutIds.indexOf(timeoutId);
-      if (timeoutIndex >= 0) {
-        viewportHeightSyncTimeoutIds.splice(timeoutIndex, 1);
-      }
-
-      syncViewportMetrics();
-    }, delayMs);
-
-    viewportHeightSyncTimeoutIds.push(timeoutId);
-  }
-}
-
-function cancelPreviewRefresh() {
-  if (!previewFrameRequestId) {
-    return;
-  }
-
-  window.cancelAnimationFrame(previewFrameRequestId);
-  previewFrameRequestId = 0;
-}
-
-function schedulePreviewRefresh() {
-  if (!isStreaming || previewFrameRequestId) {
-    return;
-  }
-
-  previewFrameRequestId = window.requestAnimationFrame((rafTimestamp) => {
-    previewFrameRequestId = 0;
-    refreshPreview(rafTimestamp);
-  });
-}
-
-function cancelScheduledCameraResume() {
-  if (!cameraResumeTimeoutId) {
-    return;
-  }
-
-  window.clearTimeout(cameraResumeTimeoutId);
-  cameraResumeTimeoutId = 0;
-}
-
-function invalidateCameraResumeChecks() {
-  cameraResumeAttemptId += 1;
-}
-
-function updateCachedPreviewDimensions() {
-  const { width: nextPaletteWidth, height: nextPaletteHeight } = getPaletteViewportSize();
-  if (nextPaletteWidth <= 0 || nextPaletteHeight <= 0) {
-    cachedPaletteWidth = 0;
-    cachedPaletteHeight = 0;
-    frameWidth = 0;
-    frameHeight = 0;
-    analysisWidth = 0;
-    analysisHeight = 0;
-    analysisCanvas.width = 0;
-    analysisCanvas.height = 0;
-    return false;
-  }
-
-  cachedPaletteWidth = nextPaletteWidth;
-  cachedPaletteHeight = nextPaletteHeight;
-  frameWidth = nextPaletteWidth;
-  frameHeight = getTargetFrameHeight(frameWidth);
-
-  if (
-    !cameraFeed ||
-    !frameCanvas ||
-    !paletteCanvas ||
-    !analysisContext ||
-    frameWidth <= 0 ||
-    frameHeight <= 0
-  ) {
-    return false;
-  }
-
-  cameraFeed.setAttribute("width", String(frameWidth));
-  cameraFeed.setAttribute("height", String(frameHeight));
-
-  if (frameCanvas.width !== frameWidth || frameCanvas.height !== frameHeight) {
-    frameCanvas.width = frameWidth;
-    frameCanvas.height = frameHeight;
-  }
-
-  if (paletteCanvas.width !== frameWidth || paletteCanvas.height !== cachedPaletteHeight) {
-    paletteCanvas.width = frameWidth;
-    paletteCanvas.height = cachedPaletteHeight;
-  }
-
-  updateAnalysisDimensions();
-  return true;
-}
-
-function waitForDelay(delayMs) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, delayMs);
-  });
-}
-
-function waitForNextAnimationFrame() {
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => resolve());
-  });
-}
-
-function revokePhotoOutputObjectUrl() {
-  if (!currentPhotoObjectUrl) {
-    return;
-  }
-
-  URL.revokeObjectURL(currentPhotoObjectUrl);
-  currentPhotoObjectUrl = "";
-}
-
-function clearPhotoOutput() {
-  revokePhotoOutputObjectUrl();
-  photoOutput?.removeAttribute("src");
-  photoOutput?.removeAttribute("data-palette-id");
-  if (photoOutput) {
-    photoOutput.hidden = true;
-  }
-}
-
-function setPhotoOutputBlob(blob) {
-  if (!(blob instanceof Blob) || !photoOutput) {
-    return;
-  }
-
-  revokePhotoOutputObjectUrl();
-  currentPhotoObjectUrl = URL.createObjectURL(blob);
-  photoOutput.hidden = true;
-  photoOutput.setAttribute("src", currentPhotoObjectUrl);
-}
-
-function getContainedSize(width, height, aspectRatio) {
-  if (width <= 0 || height <= 0 || aspectRatio <= 0) {
-    return { width: 0, height: 0 };
-  }
-
-  const containerAspectRatio = width / height;
-
-  if (containerAspectRatio > aspectRatio) {
-    const nextHeight = Math.max(1, Math.floor(height));
-    const nextWidth = Math.max(1, Math.floor(nextHeight * aspectRatio));
-    return { width: nextWidth, height: nextHeight };
-  }
-
-  const nextWidth = Math.max(1, Math.floor(width));
-  const nextHeight = Math.max(1, Math.floor(nextWidth / aspectRatio));
-  return { width: nextWidth, height: nextHeight };
-}
-
-function getTargetFrameHeight(width) {
-  if (width <= 0) {
-    return 0;
-  }
-
-  return Math.max(1, Math.floor(width / CAMERA_FRAME_ASPECT_RATIO));
-}
-
-function updateAnalysisDimensions() {
-  if (frameWidth <= 0 || frameHeight <= 0) {
-    analysisWidth = 0;
-    analysisHeight = 0;
-    analysisCanvas.width = 0;
-    analysisCanvas.height = 0;
-    return false;
-  }
-
-  const scale = Math.min(1, ANALYSIS_MAX_WIDTH / frameWidth);
-  const nextAnalysisWidth = Math.max(1, Math.round(frameWidth * scale));
-  const nextAnalysisHeight = Math.max(1, Math.round(frameHeight * scale));
-
-  analysisWidth = nextAnalysisWidth;
-  analysisHeight = nextAnalysisHeight;
-
-  if (analysisCanvas.width !== nextAnalysisWidth || analysisCanvas.height !== nextAnalysisHeight) {
-    analysisCanvas.width = nextAnalysisWidth;
-    analysisCanvas.height = nextAnalysisHeight;
-  }
-
-  return true;
-}
-
-function getCenteredAspectCropRect(
-  sourceWidth,
-  sourceHeight,
-  targetAspectRatio = CAMERA_FRAME_ASPECT_RATIO,
-) {
-  if (sourceWidth <= 0 || sourceHeight <= 0 || targetAspectRatio <= 0) {
-    return null;
-  }
-
-  const sourceAspectRatio = sourceWidth / sourceHeight;
-
-  if (Math.abs(sourceAspectRatio - targetAspectRatio) < 0.0001) {
-    return {
-      x: 0,
-      y: 0,
-      width: sourceWidth,
-      height: sourceHeight,
-    };
-  }
-
-  if (sourceAspectRatio > targetAspectRatio) {
-    const width = Math.max(1, Math.round(sourceHeight * targetAspectRatio));
-    const x = Math.max(0, Math.floor((sourceWidth - width) / 2));
-
-    return {
-      x,
-      y: 0,
-      width: Math.min(width, sourceWidth),
-      height: sourceHeight,
-    };
-  }
-
-  const height = Math.max(1, Math.round(sourceWidth / targetAspectRatio));
-  const y = Math.max(0, Math.floor((sourceHeight - height) / 2));
-
-  return {
-    x: 0,
-    y,
-    width: sourceWidth,
-    height: Math.min(height, sourceHeight),
-  };
-}
-
-function getCameraFrameSourceRect() {
-  return getCenteredAspectCropRect(cameraFeed?.videoWidth ?? 0, cameraFeed?.videoHeight ?? 0);
-}
-
-function roundNormalizedCropValue(value) {
-  return Math.round(value * 1_000_000) / 1_000_000;
-}
-
-function toNormalizedCropRect(sourceRect, sourceWidth, sourceHeight) {
-  if (sourceWidth <= 0 || sourceHeight <= 0) {
-    return null;
-  }
-
-  const safeRect =
-    sourceRect && sourceRect.width > 0 && sourceRect.height > 0
-      ? sourceRect
-      : { x: 0, y: 0, width: sourceWidth, height: sourceHeight };
-
-  const clampedX = Math.max(0, Math.min(Math.round(safeRect.x), Math.max(0, sourceWidth - 1)));
-  const clampedY = Math.max(0, Math.min(Math.round(safeRect.y), Math.max(0, sourceHeight - 1)));
-  const clampedWidth = Math.max(1, Math.min(Math.round(safeRect.width), sourceWidth - clampedX));
-  const clampedHeight = Math.max(1, Math.min(Math.round(safeRect.height), sourceHeight - clampedY));
-
-  return {
-    x: roundNormalizedCropValue(clampedX / sourceWidth),
-    y: roundNormalizedCropValue(clampedY / sourceHeight),
-    width: roundNormalizedCropValue(clampedWidth / sourceWidth),
-    height: roundNormalizedCropValue(clampedHeight / sourceHeight),
-  };
-}
+let viewportHeightController = null;
 
 function syncCameraViewportLayout() {
   const hostElement = cameraViewportFrame.parentElement;
@@ -690,6 +200,13 @@ function syncCameraViewportLayout() {
   lastCameraViewportLayout = nextLayoutKey;
 }
 
+viewportHeightController = createViewportHeightController({
+  onSync: () => {
+    syncCameraViewportLayout();
+    livePreviewController?.updateCachedDimensions();
+  },
+});
+
 function getPaletteExtractionOptions() {
   return {
     medianCut: { ...medianCutExtractionSettings },
@@ -697,127 +214,10 @@ function getPaletteExtractionOptions() {
   };
 }
 
-function clonePaletteColors(colors) {
-  if (!Array.isArray(colors)) {
-    return [];
-  }
-
-  return colors.map((color) => ({ ...color }));
-}
-
-function clearRalPreviewState() {
-  ralLiveSwatch?.classList.remove("is-light-bg");
-  if (ralLiveSwatchColor) {
-    ralLiveSwatchColor.style.backgroundColor = "";
-  }
-  if (ralLiveSwatchCode) {
-    ralLiveSwatchCode.textContent = "";
-  }
-  if (ralLiveSwatchName) {
-    ralLiveSwatchName.textContent = "";
-  }
-  if (ralLiveSwatchQuality) {
-    ralLiveSwatchQuality.textContent = "";
-  }
-}
-
-function syncRalPreview(match, sampledColor) {
-  if (ralLiveSwatch) {
-    const isLight = relativeLuminance(match.ral.r, match.ral.g, match.ral.b) > 0.179;
-    ralLiveSwatch.classList.toggle("is-light-bg", isLight);
-  }
-  if (ralLiveSwatchColor) {
-    ralLiveSwatchColor.style.backgroundColor = `rgb(${match.ral.r}, ${match.ral.g}, ${match.ral.b})`;
-  }
-  if (ralLiveSwatchCode) {
-    ralLiveSwatchCode.textContent = match.ral.code;
-  }
-  if (ralLiveSwatchName) {
-    ralLiveSwatchName.textContent = match.ral.name;
-  }
-  if (ralLiveSwatchQuality) {
-    ralLiveSwatchQuality.textContent = `${getRalQualityLabel(match.deltaE)}`;
-  }
-
-  visualEffects.setCaptureButtonGlowColor(sampledColor);
-  visualEffects.setCaptureGlowActive(true);
-}
-
-/** @type {{ r: number, g: number, b: number } | null} */
-let previousRalSampledColor = null;
-/** @type {{ match: RalMatch, sampledColor: { r: number, g: number, b: number } } | null} */
-let currentLiveRalPreview = null;
-
 function syncUserFacingCopy() {
   cameraPreviewSurface?.setAttribute("aria-label", t("capture.cameraPreview"));
   swatchSliderUi.initialize(swatchCount);
-
-  if (currentLiveRalPreview) {
-    syncRalPreview(currentLiveRalPreview.match, currentLiveRalPreview.sampledColor);
-  }
-}
-
-function smoothRalSampledColor(raw) {
-  if (!previousRalSampledColor) {
-    previousRalSampledColor = raw;
-    return raw;
-  }
-
-  const distance = Math.hypot(
-    raw.r - previousRalSampledColor.r,
-    raw.g - previousRalSampledColor.g,
-    raw.b - previousRalSampledColor.b,
-  );
-
-  if (distance < RAL_COLOR_DISTANCE_THRESHOLD) {
-    return previousRalSampledColor;
-  }
-
-  const smoothed = {
-    r: Math.round(previousRalSampledColor.r + (raw.r - previousRalSampledColor.r) * RAL_SMOOTHING_FACTOR),
-    g: Math.round(previousRalSampledColor.g + (raw.g - previousRalSampledColor.g) * RAL_SMOOTHING_FACTOR),
-    b: Math.round(previousRalSampledColor.b + (raw.b - previousRalSampledColor.b) * RAL_SMOOTHING_FACTOR),
-  };
-
-  previousRalSampledColor = smoothed;
-  return smoothed;
-}
-
-function resetRalSmoothing() {
-  previousRalSampledColor = null;
-  currentLiveRalPreview = null;
-}
-
-function readCurrentRalMatch(context = frameContext, width = frameWidth, height = frameHeight) {
-  const rawColor = sampleColorFromContextAtPoint(context, width, height, width / 2, height / 2);
-  const sampledColor = smoothRalSampledColor(rawColor);
-  const matches = findClosestRAL(sampledColor.r, sampledColor.g, sampledColor.b, 1);
-  const match = matches[0] ?? null;
-
-  if (!match) {
-    currentLiveRalPreview = null;
-    clearRalPreviewState();
-    visualEffects.setCaptureGlowActive(false);
-    return null;
-  }
-
-  currentLiveRalPreview = {
-    match,
-    sampledColor: { ...sampledColor },
-  };
-  syncRalPreview(match, sampledColor);
-  return match;
-}
-
-function resetPalettePreviewState() {
-  extractionFrame = 0;
-  lastExtractedColors = null;
-  lastVisiblePaletteColors = [];
-  latestPaletteWorkerDurationMs = null;
-  clearRalPreviewState();
-  paletteExtractionWorker.invalidate();
-  resetColorSmoothing();
-  resetRalSmoothing();
+  ralPreview.resyncCopy();
 }
 
 function syncCaptureMode(mode) {
@@ -825,9 +225,15 @@ function syncCaptureMode(mode) {
   currentCaptureMode = mode;
 
   if (captureModeToggle) {
-    captureModeToggle.textContent = mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral");
+    captureModeToggle.textContent =
+      mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral");
     captureModeToggle.dataset.captureMode = mode;
-    captureModeToggle.setAttribute("aria-label", t("capture.mode.toggleAria", { mode: mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral") }));
+    captureModeToggle.setAttribute(
+      "aria-label",
+      t("capture.mode.toggleAria", {
+        mode: mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral"),
+      }),
+    );
   }
 
   // Toggle camera UI elements
@@ -838,37 +244,11 @@ function syncCaptureMode(mode) {
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
 
   syncCameraViewportLayout();
-  updateCachedPreviewDimensions();
+  livePreviewController?.updateCachedDimensions();
 
   // Reset state when switching modes
-  resetPalettePreviewState();
-  schedulePreviewRefresh();
-}
-
-function getEffectiveSwatchCount() {
-  return swatchCount + (oneMoreColor ? 1 : 0);
-}
-
-function removeDarkestColor(colors) {
-  if (colors.length <= 1) return colors;
-  let darkestIndex = 0;
-  let lowestLuma = Infinity;
-  for (let i = 0; i < colors.length; i++) {
-    const luma = 0.2126 * colors[i].r + 0.7152 * colors[i].g + 0.0722 * colors[i].b;
-    if (luma < lowestLuma) {
-      lowestLuma = luma;
-      darkestIndex = i;
-    }
-  }
-  return colors.filter((_, i) => i !== darkestIndex);
-}
-
-function getCapturePaletteColors() {
-  if (lastVisiblePaletteColors.length === swatchCount) {
-    return clonePaletteColors(lastVisiblePaletteColors);
-  }
-
-  return [];
+  livePreviewController?.reset();
+  livePreviewController?.scheduleRefresh();
 }
 
 function applyAppSettings({
@@ -887,12 +267,13 @@ function applyAppSettings({
   }
 
   oneMoreColor = Boolean(nextOneMoreColor);
-  photoExportQuality = PHOTO_QUALITY_EXPORT_VALUES[photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
+  photoExportQuality =
+    PHOTO_QUALITY_EXPORT_VALUES[photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
   photoQualityUi?.syncMode(photoQualityMode);
   performanceHud.setEnabled(performanceHudEnabled);
   medianCutExtractionSettings = { ...medianCut };
   paletteScoringSettings = { ...paletteScoring };
-  resetPalettePreviewState();
+  livePreviewController?.reset();
   syncCaptureMode(captureMode);
 }
 
@@ -932,7 +313,6 @@ function setPreviewExpanded(shouldExpand) {
   }
 
   const nextExpandedState = Boolean(shouldExpand);
-  _isPreviewExpanded = nextExpandedState;
 
   captureContainer.classList.toggle("is-preview-expanded", nextExpandedState);
   document.body.classList.toggle("is-preview-expanded", nextExpandedState);
@@ -942,7 +322,7 @@ function setPreviewExpanded(shouldExpand) {
   mountCameraFeed(nextExpandedState ? cameraStageMount : cameraPreviewDock);
   syncCameraFeedOrientation();
   syncCameraViewportLayout();
-  updateCachedPreviewDimensions();
+  livePreviewController?.updateCachedDimensions();
 }
 
 let zoomUi = null;
@@ -957,45 +337,59 @@ function handleCameraControllerError(error) {
     includeConsole: false,
   });
 
-  handleCameraStartError(error);
+  cameraLifecycleController?.handleCameraStartError(error);
 }
 
 const cameraController = createCameraController({
   cameraFeed,
   onError: handleCameraControllerError,
-  onCameraActiveChange: (isCameraActive) => {
-    syncCameraFeedOrientation();
-    if (!isCameraActive) {
-      resetPalettePreviewState();
-      zoomUi?.setDisabled();
-      exposureUi?.setDisabled();
-      visualEffects.setCaptureGlowActive(false);
-    } else {
-      zoomUi?.syncCapabilities();
-      exposureUi?.syncCapabilities();
-    }
-
-    if (isCameraActive) {
-      shouldResumeCameraOnForeground = true;
-    } else {
-      isStreaming = false;
-    }
-  },
+  onCameraActiveChange: (isCameraActive) =>
+    cameraLifecycleController?.handleCameraActiveChange(isCameraActive),
   onZoomChange: (zoomValue) => {
     zoomUi?.handleZoomChange(zoomValue);
   },
   onExposureChange: (exposureValue) => {
     exposureUi?.handleExposureChange(exposureValue);
   },
-  onStreamInterrupted: ({ type }) => {
-    shouldResumeCameraOnForeground = true;
+  onStreamInterrupted: (event) => cameraLifecycleController?.handleStreamInterrupted(event),
+});
 
-    if (document.visibilityState !== "visible") {
-      return;
-    }
+livePreviewController = createLivePreviewController({
+  cameraFeed,
+  frameCanvas,
+  paletteCanvas,
+  captureContainer,
+  capturePaletteStage,
+  paletteCaptureStage,
+  cameraController,
+  paletteExtractionWorker,
+  performanceHud,
+  ralPreview,
+  visualEffects,
+  getCurrentCaptureMode: () => currentCaptureMode,
+  getIsCaptureSavePending: () => Boolean(captureController?.isSavePending()),
+  getMedianCutExtractionSettings: () => medianCutExtractionSettings,
+  getOneMoreColor: () => oneMoreColor,
+  getPaletteScoringSettings: () => paletteScoringSettings,
+  getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
+  getSwatchCount: () => swatchCount,
+  shouldUseCanvasPreview,
+});
 
-    scheduleCameraResume(`track-${type}`, 0);
-  },
+captureController = createCaptureController({
+  cameraFeed,
+  frameCanvas,
+  outputPalette,
+  cameraController,
+  captureMicroInteractions,
+  livePreviewController,
+  photoOutputController,
+  ralPreview,
+  getCaptureMode: () => currentCaptureMode,
+  getOneMoreColor: () => oneMoreColor,
+  getPaletteExtractionOptions,
+  getPhotoExportQuality: () => photoExportQuality,
+  getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
 });
 
 zoomUi = createZoomUiController({
@@ -1017,20 +411,42 @@ gridUi = createCameraGridUiController({
   overlayHost: cameraViewportFrame,
 });
 
+cameraLifecycleController = createCameraLifecycleController({
+  cameraFeed,
+  cameraController,
+  captureButton,
+  rotateButton,
+  captureMicroInteractions,
+  isIOS,
+  livePreviewController,
+  visualEffects,
+  getExposureUi: () => exposureUi,
+  getIsAppDestroyed: () => isAppDestroyed,
+  getZoomUi: () => zoomUi,
+  scheduleViewportMetricsSync: () => viewportHeightController?.schedule(),
+  syncCameraFeedOrientation,
+  syncCameraViewportLayout,
+  updateCachedPreviewDimensions: () => livePreviewController?.updateCachedDimensions() ?? false,
+});
+
 function handleCaptureButtonClick(event) {
   event.preventDefault();
 
-  if (!isStreaming || frameWidth <= 0 || frameHeight <= 0) {
-    void startCameraStream();
+  if (
+    !livePreviewController?.getIsStreaming() ||
+    livePreviewController.getFrameWidth() <= 0 ||
+    livePreviewController.getFrameHeight() <= 0
+  ) {
+    void cameraLifecycleController?.startCameraStream();
     return;
   }
 
-  void captureCurrentFrame();
+  void captureController?.captureCurrentFrame();
 }
 
 async function handleMiniOutputClick() {
-  const paletteId = getMiniOutputPaletteId();
-  if (!photoOutput?.getAttribute("src") || paletteId === null) {
+  const paletteId = photoOutputController.getPaletteId();
+  if (!photoOutputController.hasPhoto() || paletteId === null) {
     return;
   }
 
@@ -1050,278 +466,6 @@ async function handleMiniOutputClick() {
   showToast(t("collection.viewerMissing"), {
     duration: 1800,
   });
-}
-
-async function handleRotateButtonClick() {
-  stopCurrentStream({ preserveResumeIntent: true });
-  await runCameraStartOperation(() => cameraController.toggleFacingMode());
-}
-
-function handleWindowResize() {
-  scheduleViewportMetricsSync();
-}
-
-function drawCurrentFrameToAnalysisCanvas() {
-  if (!analysisContext || analysisWidth <= 0 || analysisHeight <= 0) {
-    return false;
-  }
-
-  drawFrameToCanvas({
-    context: analysisContext,
-    cameraFeed,
-    width: analysisWidth,
-    height: analysisHeight,
-    facingMode: cameraController.getFacingMode(),
-    shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
-    sourceRect: getCameraFrameSourceRect(),
-  });
-
-  return true;
-}
-
-function copyVisibleFrameToAnalysisCanvas() {
-  if (
-    !analysisContext ||
-    !frameCanvas ||
-    analysisWidth <= 0 ||
-    analysisHeight <= 0 ||
-    frameWidth <= 0 ||
-    frameHeight <= 0
-  ) {
-    return false;
-  }
-
-  analysisContext.drawImage(
-    frameCanvas,
-    0,
-    0,
-    frameWidth,
-    frameHeight,
-    0,
-    0,
-    analysisWidth,
-    analysisHeight,
-  );
-
-  return true;
-}
-
-function getCameraTrackSettings() {
-  const stream = cameraFeed?.srcObject;
-  if (!(stream instanceof MediaStream)) {
-    return null;
-  }
-
-  return stream.getVideoTracks()[0]?.getSettings?.() ?? null;
-}
-
-function pauseCameraPreview() {
-  isStreaming = false;
-  cancelPreviewRefresh();
-  resetPalettePreviewState();
-  cameraFeed?.pause?.();
-  visualEffects.setCaptureGlowActive(false);
-  captureMicroInteractions.cleanup();
-  performanceHud.recordFrame({
-    captureMode: currentCaptureMode,
-    streaming: false,
-  });
-}
-
-function shouldHandleCameraLifecycle() {
-  return !isAppDestroyed && Boolean(cameraFeed);
-}
-
-function getShouldKeepCameraWarmInBackground() {
-  return !isIOS;
-}
-
-async function resumePreviewFromActiveStream() {
-  if (!cameraFeed) {
-    return false;
-  }
-
-  try {
-    await cameraFeed.play();
-  } catch {
-    return false;
-  }
-
-  syncCameraViewportLayout();
-  if (!updateCachedPreviewDimensions()) {
-    return false;
-  }
-
-  zoomUi?.syncCapabilities();
-  isStreaming = true;
-  schedulePreviewRefresh();
-
-  return true;
-}
-
-async function isCameraStreamHealthy(resumeAttemptId) {
-  if (!cameraFeed) {
-    return false;
-  }
-
-  const initialState = cameraController.getStreamState();
-  if (
-    !initialState.hasStream ||
-    !initialState.hasVideoTrack ||
-    initialState.trackReadyState !== "live" ||
-    initialState.videoReadyState < HTMLMediaElement.HAVE_CURRENT_DATA
-  ) {
-    return false;
-  }
-
-  try {
-    await cameraFeed.play();
-  } catch {
-    return false;
-  }
-
-  const initialTime = cameraFeed.currentTime;
-  await waitForDelay(CAMERA_HEALTH_CHECK_DELAY_MS);
-
-  if (
-    resumeAttemptId !== cameraResumeAttemptId ||
-    !shouldHandleCameraLifecycle() ||
-    document.visibilityState !== "visible"
-  ) {
-    return false;
-  }
-
-  const nextState = cameraController.getStreamState();
-  if (
-    !nextState.hasStream ||
-    !nextState.hasVideoTrack ||
-    nextState.trackReadyState !== "live" ||
-    nextState.videoWidth <= 0 ||
-    nextState.videoHeight <= 0
-  ) {
-    return false;
-  }
-
-  return cameraFeed.currentTime > initialTime + CAMERA_MIN_TIME_ADVANCE_SECONDS;
-}
-
-async function resumeCameraIfNeeded(reason) {
-  if (
-    !shouldHandleCameraLifecycle() ||
-    !shouldResumeCameraOnForeground ||
-    document.visibilityState !== "visible"
-  ) {
-    return;
-  }
-
-  const resumeAttemptId = ++cameraResumeAttemptId;
-  const streamState = cameraController.getStreamState();
-
-  if (
-    !streamState.hasStream ||
-    !streamState.hasVideoTrack ||
-    streamState.trackReadyState !== "live" ||
-    !getShouldKeepCameraWarmInBackground()
-  ) {
-    await startCameraStream();
-    return;
-  }
-
-  const isHealthy = await isCameraStreamHealthy(resumeAttemptId);
-  if (
-    resumeAttemptId !== cameraResumeAttemptId ||
-    !shouldHandleCameraLifecycle() ||
-    !shouldResumeCameraOnForeground ||
-    document.visibilityState !== "visible"
-  ) {
-    return;
-  }
-
-  if (isHealthy) {
-    const resumed = await resumePreviewFromActiveStream();
-    if (resumed) {
-      return;
-    }
-  }
-
-  clientLog("Restarting camera after app resume.", {
-    reason,
-    isIOS,
-  });
-  await startCameraStream();
-}
-
-function scheduleCameraResume(reason, delayMs = DEFAULT_CAMERA_RESUME_DELAY_MS) {
-  if (
-    !isInitialStartupComplete ||
-    !shouldHandleCameraLifecycle() ||
-    !shouldResumeCameraOnForeground ||
-    document.visibilityState !== "visible"
-  ) {
-    return;
-  }
-
-  cancelScheduledCameraResume();
-  const effectiveDelayMs = getCameraResumeDelay({
-    isIOS,
-    reason,
-    requestedDelayMs: delayMs,
-  });
-
-  cameraResumeTimeoutId = window.setTimeout(() => {
-    cameraResumeTimeoutId = 0;
-    void resumeCameraIfNeeded(reason);
-  }, effectiveDelayMs);
-}
-
-function handleAppHidden() {
-  if (!shouldHandleCameraLifecycle()) {
-    return;
-  }
-
-  const streamState = cameraController.getStreamState();
-  // Preserve an earlier resume intent so repeated background events do not
-  // clear it after the stream has already been paused/stopped once.
-  shouldResumeCameraOnForeground =
-    shouldResumeCameraOnForeground ||
-    isStreaming ||
-    streamState.hasStream ||
-    streamState.trackReadyState === "live";
-  invalidateCameraResumeChecks();
-  cancelScheduledCameraResume();
-  pauseCameraPreview();
-
-  if (!getShouldKeepCameraWarmInBackground()) {
-    cameraController.stopStream();
-  }
-}
-
-function handleDocumentVisibilityChange() {
-  if (document.visibilityState === "hidden") {
-    handleAppHidden();
-    return;
-  }
-
-  scheduleViewportMetricsSync();
-  scheduleCameraResume("visibilitychange");
-}
-
-function handleWindowPageHide() {
-  handleAppHidden();
-}
-
-function handleWindowPageShow() {
-  scheduleViewportMetricsSync();
-  scheduleCameraResume("pageshow");
-}
-
-function handleWindowFocus() {
-  if (document.visibilityState !== "visible") {
-    return;
-  }
-
-  scheduleViewportMetricsSync();
-  scheduleCameraResume("focus");
 }
 
 function handleWindowBeforeUnload() {
@@ -1346,7 +490,7 @@ function initializeApp() {
   }
 
   isAppDestroyed = false;
-  syncViewportMetrics();
+  viewportHeightController?.sync();
   applyAppSettings(getAppSettings());
   setPreviewExpanded(true);
   bindCameraPermissionEvents();
@@ -1359,14 +503,22 @@ function initializeApp() {
   bindRotationEvents();
   swatchSliderUi.bindEvents();
   bindManagedEventListener(window, "beforeunload", handleWindowBeforeUnload);
-  bindManagedEventListener(window, "focus", handleWindowFocus);
-  bindManagedEventListener(window, "pagehide", handleWindowPageHide);
-  bindManagedEventListener(window, "pageshow", handleWindowPageShow);
-  bindManagedEventListener(window, "resize", handleWindowResize);
-  bindManagedEventListener(window, "orientationchange", handleWindowResize);
-  bindManagedEventListener(window.visualViewport, "resize", handleWindowResize);
-  bindManagedEventListener(window.visualViewport, "scroll", handleWindowResize);
-  bindManagedEventListener(document, "visibilitychange", handleDocumentVisibilityChange);
+  bindManagedEventListener(window, "focus", cameraLifecycleController?.handleWindowFocus);
+  bindManagedEventListener(window, "pagehide", cameraLifecycleController?.handleAppHidden);
+  bindManagedEventListener(window, "pageshow", cameraLifecycleController?.handleWindowPageShow);
+  bindManagedEventListener(window, "resize", () => viewportHeightController?.schedule());
+  bindManagedEventListener(window, "orientationchange", () => viewportHeightController?.schedule());
+  bindManagedEventListener(window.visualViewport, "resize", () =>
+    viewportHeightController?.schedule(),
+  );
+  bindManagedEventListener(window.visualViewport, "scroll", () =>
+    viewportHeightController?.schedule(),
+  );
+  bindManagedEventListener(
+    document,
+    "visibilitychange",
+    cameraLifecycleController?.handleDocumentVisibilityChange,
+  );
 
   const configPanelEl = /** @type {HTMLElement | null} */ (document.querySelector("config-panel"));
   let configPipVideo = null;
@@ -1400,7 +552,7 @@ function initializeApp() {
       gridUi?.show();
     }
   });
-  bindManagedEventListener(document, 'settings-drawer-change', (event) => {
+  bindManagedEventListener(document, "settings-drawer-change", (event) => {
     if (event.detail.isOpen) {
       zoomUi?.setDisabled();
       exposureUi?.setDisabled();
@@ -1413,6 +565,10 @@ function initializeApp() {
       gridUi?.show();
     }
   });
+  bindManagedEventListener(document, "toggle-performance-hud", () => {
+    const next = !getAppSettings().performanceHudEnabled;
+    updateAppSettings({ performanceHudEnabled: next });
+  });
   unsubscribeFromAppSettings = subscribeAppSettings(applyAppSettings);
   syncCameraFeedOrientation();
 
@@ -1421,16 +577,16 @@ function initializeApp() {
   photoQualityUi.initialize(getAppSettings().photoQualityMode);
   gridUi.initialize();
   swatchSliderUi.initialize(swatchCount);
-  syncCameraActionAvailability();
+  cameraLifecycleController?.syncActionAvailability();
   clearPhotoOutput();
   renderOutputSwatches(outputPalette, []);
 
   if (supportsCameraStartup()) {
-    void startCameraStream().then(() => {
-      isInitialStartupComplete = true;
+    void cameraLifecycleController?.startCameraStream()?.then(() => {
+      cameraLifecycleController?.setInitialStartupComplete();
     });
   } else {
-    isInitialStartupComplete = true;
+    cameraLifecycleController?.setInitialStartupComplete();
   }
 }
 
@@ -1439,12 +595,16 @@ function bindCameraPermissionEvents() {
     return;
   }
 
-  bindManagedEventListener(allowButton, "click", startCameraStream);
-  bindManagedEventListener(allowText, "click", startCameraStream);
+  bindManagedEventListener(allowButton, "click", () =>
+    cameraLifecycleController?.startCameraStream(),
+  );
+  bindManagedEventListener(allowText, "click", () =>
+    cameraLifecycleController?.startCameraStream(),
+  );
 }
 
 function bindCaptureEvents() {
-  bindManagedEventListener(cameraFeed, "canplay", handleCameraCanPlay);
+  bindManagedEventListener(cameraFeed, "canplay", cameraLifecycleController?.handleCameraCanPlay);
   bindManagedEventListener(
     captureButton,
     "pointerdown",
@@ -1453,14 +613,12 @@ function bindCaptureEvents() {
   bindManagedEventListener(captureButton, "click", handleCaptureButtonClick);
 }
 
-function getMiniOutputPaletteId() {
-  const paletteId = Number(photoOutput?.dataset.paletteId);
-  return Number.isFinite(paletteId) ? paletteId : null;
-}
-
 function handlePaletteDeleted(event) {
   const deletedPaletteId = Number(event?.detail?.paletteId);
-  if (!Number.isFinite(deletedPaletteId) || getMiniOutputPaletteId() !== deletedPaletteId) {
+  if (
+    !Number.isFinite(deletedPaletteId) ||
+    photoOutputController.getPaletteId() !== deletedPaletteId
+  ) {
     return;
   }
 
@@ -1485,410 +643,7 @@ function bindMiniOutputEvents() {
 }
 
 function bindRotationEvents() {
-  bindManagedEventListener(rotateButton, "click", handleRotateButtonClick);
-}
-
-async function startCameraStream() {
-  return runCameraStartOperation(() => cameraController.startStream());
-}
-
-function handleCameraCanPlay() {
-  if (cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
-    return;
-  }
-
-  syncCameraViewportLayout();
-  if (!updateCachedPreviewDimensions()) {
-    return;
-  }
-
-  if (!isStreaming) {
-    isStreaming = true;
-    schedulePreviewRefresh();
-  }
-}
-
-function refreshPreview(rafTimestamp = 0) {
-  if (
-    !isStreaming ||
-    !analysisContext ||
-    (shouldUseCanvasPreview && !frameContext) ||
-    !paletteContext
-  ) {
-    return;
-  }
-
-  if (
-    cachedPaletteWidth <= 0 ||
-    cachedPaletteHeight <= 0 ||
-    frameWidth <= 0 ||
-    frameHeight <= 0 ||
-    analysisWidth <= 0 ||
-    analysisHeight <= 0 ||
-    cameraFeed.videoWidth <= 0 ||
-    cameraFeed.videoHeight <= 0
-  ) {
-    schedulePreviewRefresh();
-    return;
-  }
-  const frameStartTime = performance.now();
-  let analysisDurationMs = latestPaletteWorkerDurationMs;
-  latestPaletteWorkerDurationMs = null;
-
-  if (shouldUseCanvasPreview) {
-    drawFrameToCanvas({
-      context: frameContext,
-      cameraFeed,
-      width: frameWidth,
-      height: frameHeight,
-      facingMode: cameraController.getFacingMode(),
-      shouldMirrorUserFacing: shouldMirrorUserFacingCamera(),
-      sourceRect: getCameraFrameSourceRect(),
-    });
-  }
-
-  if (isCaptureSavePending) {
-    visualEffects.setCaptureGlowActive(false);
-  } else if (currentCaptureMode === "ral") {
-    const analysisStartTime = performance.now();
-    if (!shouldUseCanvasPreview) {
-      drawCurrentFrameToAnalysisCanvas();
-    }
-
-    readCurrentRalMatch(
-      shouldUseCanvasPreview ? frameContext : analysisContext,
-      shouldUseCanvasPreview ? frameWidth : analysisWidth,
-      shouldUseCanvasPreview ? frameHeight : analysisHeight,
-    );
-    analysisDurationMs = performance.now() - analysisStartTime;
-  } else {
-    extractionFrame += 1;
-    if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
-      const analysisStartTime = performance.now();
-      const analysisFrameReady = shouldUseCanvasPreview
-        ? copyVisibleFrameToAnalysisCanvas()
-        : drawCurrentFrameToAnalysisCanvas();
-
-      if (analysisFrameReady) {
-        const frameImageData = analysisContext.getImageData(
-          0,
-          0,
-          analysisWidth,
-          analysisHeight,
-        ).data;
-        const extractionDelegatedToWorker = paletteExtractionWorker.requestExtraction({
-          imageData: frameImageData,
-          width: analysisWidth,
-          height: analysisHeight,
-          swatchCount: getEffectiveSwatchCount(),
-          options: getPaletteExtractionOptions(),
-        });
-
-        if (!extractionDelegatedToWorker) {
-          const result = extractPaletteColors(
-            frameImageData,
-            analysisWidth,
-            analysisHeight,
-            getEffectiveSwatchCount(),
-            getPaletteExtractionOptions(),
-          );
-
-          lastExtractedColors = result.colors;
-          analysisDurationMs = performance.now() - analysisStartTime;
-        }
-      }
-    }
-
-    if (!lastExtractedColors || lastExtractedColors.length === 0) {
-      schedulePreviewRefresh();
-      return;
-    }
-
-    const smoothedColors = smoothColors(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
-    const displayColors = oneMoreColor ? removeDarkestColor(smoothedColors) : smoothedColors;
-    lastVisiblePaletteColors = clonePaletteColors(displayColors);
-    const dominantColor = getDominantColor(displayColors);
-
-    renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
-
-    if (dominantColor) {
-      visualEffects.setCaptureButtonGlowColor(dominantColor);
-      visualEffects.setCaptureGlowActive(true);
-    } else {
-      visualEffects.setCaptureGlowActive(false);
-    }
-  }
-
-  const cameraTrackSettings = getCameraTrackSettings();
-  performanceHud.recordFrame({
-    analysisDurationMs,
-    analysisHeight:
-      currentCaptureMode === "ral" && shouldUseCanvasPreview ? frameHeight : analysisHeight,
-    analysisWidth:
-      currentCaptureMode === "ral" && shouldUseCanvasPreview ? frameWidth : analysisWidth,
-    cameraFps: Number(cameraTrackSettings?.frameRate) || null,
-    captureMode: currentCaptureMode,
-    extractionInterval: currentCaptureMode === "ral" ? 1 : EXTRACTION_INTERVAL,
-    rafTimestamp,
-    refreshDurationMs: performance.now() - frameStartTime,
-    sourceHeight: cameraFeed.videoHeight,
-    sourceWidth: cameraFeed.videoWidth,
-    streaming: isStreaming,
-  });
-  schedulePreviewRefresh();
-}
-
-async function captureCurrentFrame() {
-  if (!frameContext || frameWidth <= 0 || frameHeight <= 0 || isCaptureSavePending) {
-    return;
-  }
-
-  captureMicroInteractions.triggerCaptureFlash();
-
-  const facingMode = cameraController.getFacingMode();
-  const shouldMirrorUserFacing = shouldMirrorUserFacingCamera();
-  const captureSourceWidth = cameraFeed.videoWidth || frameWidth;
-  const captureSourceHeight = cameraFeed.videoHeight || frameHeight;
-  const captureSourceRect = getCenteredAspectCropRect(captureSourceWidth, captureSourceHeight);
-  const captureCropRect = toNormalizedCropRect(
-    captureSourceRect,
-    captureSourceWidth,
-    captureSourceHeight,
-  );
-
-  const captureModeSnapshot = currentCaptureMode;
-
-  frameCanvas.width = frameWidth;
-  frameCanvas.height = frameHeight;
-
-  drawFrameToCanvas({
-    context: frameContext,
-    cameraFeed,
-    width: frameWidth,
-    height: frameHeight,
-    facingMode,
-    shouldMirrorUserFacing,
-    sourceRect: captureSourceRect,
-  });
-
-  let paletteColors;
-  let ralMatchData = null;
-
-  if (captureModeSnapshot === "ral") {
-    const currentRalMatch = currentLiveRalPreview?.match ?? readCurrentRalMatch();
-    if (currentRalMatch) {
-      paletteColors = [
-        { r: currentRalMatch.ral.r, g: currentRalMatch.ral.g, b: currentRalMatch.ral.b, deltaE: currentRalMatch.deltaE },
-      ];
-      ralMatchData = {
-        code: currentRalMatch.ral.code,
-        name: currentRalMatch.ral.name,
-        r: currentRalMatch.ral.r,
-        g: currentRalMatch.ral.g,
-        b: currentRalMatch.ral.b,
-        deltaE: currentRalMatch.deltaE,
-      };
-    } else {
-      paletteColors = [];
-    }
-  } else {
-    paletteColors = getCapturePaletteColors();
-    if (paletteColors.length === 0) {
-      const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-      const { colors: extractedPaletteColors } = extractPaletteColors(
-        imageData,
-        frameWidth,
-        frameHeight,
-        getEffectiveSwatchCount(),
-        getPaletteExtractionOptions(),
-      );
-      paletteColors = clonePaletteColors(
-        oneMoreColor ? removeDarkestColor(extractedPaletteColors) : extractedPaletteColors
-      );
-    }
-  }
-
-  renderOutputSwatches(outputPalette, paletteColors);
-  photoOutput?.removeAttribute("data-palette-id");
-
-  isCaptureSavePending = true;
-  try {
-    await waitForNextAnimationFrame();
-    const masterPhotoBlob = await exportPhotoBlob({
-      fallbackCanvas: frameCanvas,
-      fallbackWidth: frameWidth,
-      fallbackHeight: frameHeight,
-      cameraFeed,
-      facingMode,
-      shouldMirrorUserFacing,
-      sourceRect: null,
-    });
-
-    setPhotoOutputBlob(masterPhotoBlob);
-
-    if (paletteColors.length > 0) {
-      const savedPalette = await savePalette(paletteColors, {
-        photoBlob: masterPhotoBlob,
-        captureAspectRatio: CAMERA_FRAME_ASPECT_RATIO_LABEL,
-        captureCropRect,
-        captureMode: captureModeSnapshot,
-        ralMatch: ralMatchData,
-        polaroidRenderSettings: {
-          footerLabel: getAppSettings().polaroidFooterLabel,
-          showColorNames: Boolean(getAppSettings().polaroidShowColorNames),
-        },
-      });
-      scheduleSavedPalettePreviewWarmup(savedPalette);
-      trackCaptureStatAsync();
-      if (savedPalette?.id !== undefined && savedPalette?.id !== null) {
-        photoOutput.dataset.paletteId = String(savedPalette.id);
-      } else {
-        photoOutput.removeAttribute("data-palette-id");
-      }
-    }
-  } catch (error) {
-    photoOutput?.removeAttribute("data-palette-id");
-    reportAppError(error, {
-      logMessage: "Failed to save palette.",
-    });
-    showToast(
-      t("camera.captureSaveFailed"),
-      createErrorToastOptions(error, {
-        variant: "error",
-        duration: 2500,
-      }),
-    );
-  } finally {
-    isCaptureSavePending = false;
-  }
-}
-
-function createPhotoExportCanvas({
-  fallbackCanvas,
-  fallbackWidth,
-  fallbackHeight,
-  cameraFeed,
-  facingMode,
-  shouldMirrorUserFacing,
-  sourceRect = undefined,
-}) {
-  const photoCanvas = document.createElement("canvas");
-  const photoContext = photoCanvas.getContext("2d");
-
-  if (!photoContext) {
-    return null;
-  }
-
-  const hasNativeVideoFrame = Boolean(
-    cameraFeed && cameraFeed.videoWidth > 0 && cameraFeed.videoHeight > 0,
-  );
-  const sourceWidth = hasNativeVideoFrame ? cameraFeed.videoWidth : fallbackWidth;
-  const sourceHeight = hasNativeVideoFrame ? cameraFeed.videoHeight : fallbackHeight;
-  const defaultSourceRect = hasNativeVideoFrame
-    ? getCenteredAspectCropRect(sourceWidth, sourceHeight)
-    : null;
-  const effectiveSourceRect = sourceRect === undefined ? defaultSourceRect : sourceRect;
-  const exportSourceWidth = effectiveSourceRect?.width ?? sourceWidth;
-  const exportSourceHeight = effectiveSourceRect?.height ?? sourceHeight;
-
-  if (exportSourceWidth <= 0 || exportSourceHeight <= 0) {
-    return null;
-  }
-
-  const photoWidth = Math.min(exportSourceWidth, PHOTO_EXPORT_MAX_WIDTH);
-  const photoHeight = Math.max(
-    1,
-    Math.round((exportSourceHeight / exportSourceWidth) * photoWidth),
-  );
-
-  photoCanvas.width = photoWidth;
-  photoCanvas.height = photoHeight;
-  photoContext.imageSmoothingEnabled = true;
-  photoContext.imageSmoothingQuality = "high";
-
-  if (hasNativeVideoFrame) {
-    drawFrameToCanvas({
-      context: photoContext,
-      cameraFeed,
-      width: photoWidth,
-      height: photoHeight,
-      facingMode,
-      shouldMirrorUserFacing,
-      sourceRect: effectiveSourceRect,
-    });
-  } else {
-    photoContext.drawImage(
-      fallbackCanvas,
-      0,
-      0,
-      fallbackWidth,
-      fallbackHeight,
-      0,
-      0,
-      photoWidth,
-      photoHeight,
-    );
-  }
-
-  return photoCanvas;
-}
-
-function canvasToBlob(canvas, type) {
-  return new Promise((resolve) => {
-    canvas.toBlob(resolve, type, photoExportQuality);
-  });
-}
-
-async function exportPhotoBlob({
-  fallbackCanvas,
-  fallbackWidth,
-  fallbackHeight,
-  cameraFeed,
-  facingMode,
-  shouldMirrorUserFacing,
-  sourceRect = undefined,
-}) {
-  const photoCanvas = createPhotoExportCanvas({
-    fallbackCanvas,
-    fallbackWidth,
-    fallbackHeight,
-    cameraFeed,
-    facingMode,
-    shouldMirrorUserFacing,
-    sourceRect,
-  });
-
-  if (!photoCanvas) {
-    return canvasToBlob(fallbackCanvas, "image/jpeg");
-  }
-
-  const webpBlob = await canvasToBlob(photoCanvas, "image/webp");
-  if (webpBlob?.type === "image/webp") {
-    return webpBlob;
-  }
-
-  return canvasToBlob(photoCanvas, "image/jpeg");
-}
-
-function stopCurrentStream({ preserveResumeIntent = shouldResumeCameraOnForeground } = {}) {
-  shouldResumeCameraOnForeground = preserveResumeIntent;
-  invalidateCameraResumeChecks();
-  cancelScheduledCameraResume();
-  pauseCameraPreview();
-  cameraController.stopStream();
-}
-
-function scheduleSavedPalettePreviewWarmup(palette) {
-  const warmPreview = () => {
-    void warmSavedPalettePreview(palette);
-  };
-
-  if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(warmPreview, { timeout: 1200 });
-    return;
-  }
-
-  window.setTimeout(warmPreview, 0);
+  bindManagedEventListener(rotateButton, "click", () => cameraLifecycleController?.rotateCamera());
 }
 
 function destroyApp() {
@@ -1897,8 +652,8 @@ function destroyApp() {
   }
 
   isAppDestroyed = true;
-  clearScheduledViewportHeightSync();
-  stopCurrentStream({ preserveResumeIntent: false });
+  viewportHeightController?.clear();
+  cameraLifecycleController?.stopCurrentStream({ preserveResumeIntent: false });
   swatchSliderUi.destroy?.();
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
@@ -1909,7 +664,7 @@ function destroyApp() {
   performanceHud.destroy?.();
   unsubscribeFromAppSettings();
   unsubscribeFromAppSettings = () => {};
-  clearManagedEventListeners();
+  eventAbortController.abort();
   clearPhotoOutput();
 }
 

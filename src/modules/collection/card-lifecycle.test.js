@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { createCollectionCardLifecycle } from "./card-lifecycle.js";
-import { FakeElement, installFakeDom } from "./test-support/fake-dom.js";
+import { FakeElement, installFakeDom } from "../test-support/fake-dom.js";
 
 function createCard() {
   const card = new FakeElement("div");

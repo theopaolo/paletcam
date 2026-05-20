@@ -84,16 +84,18 @@ export class FakeElement {
     this.hidden = false;
     this.id = "";
     this.listeners = new Map();
+    this.offsetHeight = 0;
     this.parentElement = null;
     this.style = {
       setProperty(name, value) {
         this[name] = value;
       },
     };
+    this.tabIndex = -1;
     this.textContent = "";
     this.type = "";
     this._className = "";
-    this.offsetHeight = 0;
+    this.boundingRect = { bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0 };
   }
 
   get className() {
@@ -119,6 +121,14 @@ export class FakeElement {
     this.listeners.set(type, handlers);
   }
 
+  removeEventListener(type, handler) {
+    const handlers = this.listeners.get(type) ?? [];
+    this.listeners.set(
+      type,
+      handlers.filter((candidate) => candidate !== handler),
+    );
+  }
+
   append(...nodes) {
     for (const node of nodes) {
       this.appendChild(node);
@@ -129,6 +139,14 @@ export class FakeElement {
     node.parentElement = this;
     this.children.push(node);
     return node;
+  }
+
+  replaceChildren(...nodes) {
+    this.children = [];
+    for (const node of nodes) {
+      node.parentElement = this;
+      this.children.push(node);
+    }
   }
 
   click() {
@@ -151,7 +169,13 @@ export class FakeElement {
   dispatch(type, eventInit = {}) {
     const event = {
       button: 0,
+      clientX: 0,
+      clientY: 0,
       currentTarget: this,
+      deltaX: 0,
+      deltaY: 0,
+      key: "",
+      pointerId: 1,
       preventDefault() {},
       stopPropagation() {},
       target: this,
@@ -234,6 +258,26 @@ export class FakeElement {
   getAttribute(name) {
     return this.attributes.get(name) ?? null;
   }
+
+  getBoundingClientRect() {
+    const { left, top, width, height } = this.boundingRect;
+    return {
+      bottom: top + height,
+      height,
+      left,
+      right: left + width,
+      top,
+      width,
+      x: left,
+      y: top,
+    };
+  }
+
+  setBoundingRect(rect) {
+    this.boundingRect = { ...this.boundingRect, ...rect };
+  }
+
+  setPointerCapture() {}
 }
 
 export function installFakeDom({

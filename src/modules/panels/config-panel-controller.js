@@ -7,8 +7,7 @@ import {
 import { t } from "../../i18n.js";
 import {
   areAlgorithmSettingsEqual,
-  getAlgorithmSettingsPatch,
-  getAlgorithmSettingsSnapshot,
+  cloneAlgorithmSettings,
 } from "../algorithm-settings.js";
 import { createAlgorithmSettingsHistory } from "./algorithm-settings-history.js";
 import {
@@ -55,9 +54,9 @@ function getNextTabId(currentTabId, direction) {
 export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   const dom = getConfigDom(root);
   const cleanups = [];
-  const defaultAlgorithmSettings = getAlgorithmSettingsSnapshot(getDefaultAppSettings());
+  const defaultAlgorithmSettings = cloneAlgorithmSettings(getDefaultAppSettings());
   const history = createAlgorithmSettingsHistory({
-    initialSnapshot: getAlgorithmSettingsSnapshot(getAppSettings()),
+    initialSnapshot: cloneAlgorithmSettings(getAppSettings()),
   });
   let activeTabId = "analysis";
   let isDrawerOpen = false;
@@ -164,10 +163,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   }
 
   function applyAlgorithmSettings(mutator) {
-    const nextSnapshot = getAlgorithmSettingsSnapshot(getAppSettings());
+    const nextSnapshot = cloneAlgorithmSettings(getAppSettings());
     mutator(nextSnapshot);
     history.setCurrentSnapshot(nextSnapshot);
-    updateAppSettings(getAlgorithmSettingsPatch(nextSnapshot));
+    updateAppSettings(cloneAlgorithmSettings(nextSnapshot));
   }
 
   function bindSliderControl(control) {
@@ -210,11 +209,11 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   }
 
   function beginAlgorithmInteraction() {
-    history.beginInteraction(getAlgorithmSettingsSnapshot(getAppSettings()));
+    history.beginInteraction(cloneAlgorithmSettings(getAppSettings()));
   }
 
   function commitAlgorithmInteraction() {
-    history.commitInteraction(getAlgorithmSettingsSnapshot(getAppSettings()));
+    history.commitInteraction(cloneAlgorithmSettings(getAppSettings()));
     syncHistoryButtons();
   }
 
@@ -332,7 +331,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   ].filter(Boolean);
 
   function renderConfigUi(settings) {
-    const algorithmSnapshot = getAlgorithmSettingsSnapshot(settings);
+    const algorithmSnapshot = cloneAlgorithmSettings(settings);
     const historyState = history.getState();
 
     if (
@@ -384,7 +383,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       return;
     }
 
-    updateAppSettings(getAlgorithmSettingsPatch(nextSnapshot));
+    updateAppSettings(cloneAlgorithmSettings(nextSnapshot));
     syncHistoryButtons();
   });
 
@@ -394,7 +393,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       return;
     }
 
-    updateAppSettings(getAlgorithmSettingsPatch(nextSnapshot));
+    updateAppSettings(cloneAlgorithmSettings(nextSnapshot));
     syncHistoryButtons();
   });
 
@@ -404,7 +403,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       return;
     }
 
-    updateAppSettings(getAlgorithmSettingsPatch(defaultAlgorithmSettings));
+    updateAppSettings(cloneAlgorithmSettings(defaultAlgorithmSettings));
     syncHistoryButtons();
   });
 

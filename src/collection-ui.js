@@ -19,7 +19,7 @@ import { createCollectionCardLifecycle } from "./modules/collection/card-lifecyc
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import { createPaletteCard, createSwatchCard } from "./modules/collection/palette-card.js";
 import {
-  disposePalettePreviewPolaroidAsset,
+  disposePalettePreviewAsset,
   exportPalettePolaroidImage,
   getPaletteViewerPreviewAsset,
   hasPaletteMasterPhoto,
@@ -38,6 +38,7 @@ import {
 } from "./modules/collection/panel-state.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
+import { clientLog } from "./modules/client-log.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import {
   closeSharedPanel,
@@ -77,8 +78,6 @@ let isModerationSyncInProgress = false;
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
 let currentLocale = getAppSettings().locale;
-let currentPolaroidFooterLabel = getAppSettings().polaroidFooterLabel;
-let currentPolaroidShowColorNames = getAppSettings().polaroidShowColorNames;
 let currentFilter = null;
 let isSelectMode = false;
 let longPressTimer = null;
@@ -93,8 +92,8 @@ const cardLifecycle = createCollectionCardLifecycle({
 });
 
 function getPublicationActions() {
-  return Object.freeze({
-    publish: Object.freeze({
+  return {
+    publish: {
       run: publishPaletteToCommunityFeed,
       authMessage: t("collection.publish.auth"),
       successMessage: t("collection.publish.success"),
@@ -103,8 +102,8 @@ function getPublicationActions() {
       failureMessage: t("collection.publish.failure"),
       shouldScheduleModerationSync: true,
       shouldReloadOnAlreadyDone: false,
-    }),
-    unpublish: Object.freeze({
+    },
+    unpublish: {
       run: unpublishPaletteFromCommunityFeed,
       authMessage: t("collection.unpublish.auth"),
       successMessage: t("collection.unpublish.success"),
@@ -113,8 +112,8 @@ function getPublicationActions() {
       failureMessage: t("collection.unpublish.failure"),
       shouldScheduleModerationSync: false,
       shouldReloadOnAlreadyDone: true,
-    }),
-  });
+    },
+  };
 }
 
 function canSharePalette(palette) {
@@ -380,7 +379,7 @@ async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = fal
     }
 
     pendingDeletionIds.delete(palette.id);
-    disposePalettePreviewPolaroidAsset(palette);
+    disposePalettePreviewAsset(palette);
     dispatchPaletteDeletedEvent(palette.id);
 
     const resolvedRemoteCleanupResult =
@@ -606,12 +605,34 @@ function renderCollectionUi(palettes) {
 }
 
 async function loadCollectionUi() {
+  const startTime = performance.now();
   try {
-    const palettes = (await getSavedPalettes()).filter(
-      (palette) => !pendingDeletionIds.has(palette.id),
-    );
+    const fetchStartTime = performance.now();
+    const fetchedPalettes = await getSavedPalettes();
+    const fetchMs = performance.now() - fetchStartTime;
+
+    const filterStartTime = performance.now();
+    const palettes = fetchedPalettes.filter((palette) => !pendingDeletionIds.has(palette.id));
+    const filterMs = performance.now() - filterStartTime;
+
+    const renderStartTime = performance.now();
     renderCollectionUi(palettes);
+    const renderMs = performance.now() - renderStartTime;
+
+    clientLog("loadCollectionUi:success", {
+      totalMs: Math.round(performance.now() - startTime),
+      fetchMs: Math.round(fetchMs),
+      filterMs: Math.round(filterMs),
+      renderMs: Math.round(renderMs),
+      fetchedCount: fetchedPalettes.length,
+      displayedCount: palettes.length,
+    });
   } catch (error) {
+    clientLog("loadCollectionUi:error", {
+      totalMs: Math.round(performance.now() - startTime),
+      errorName: error?.name ?? "",
+      errorMessage: error?.message ?? "",
+    });
     currentPalettes = [];
     collectionGrid.innerHTML = `<p class="empty-message">${t("collection.loadErrorInline")}</p>`;
     collectionGrid.dataset.viewMode = currentCollectionViewMode;
@@ -652,36 +673,19 @@ function handleCollectionViewModeChange(nextViewMode) {
 
 function handleCollectionSettingsChange(settings) {
   handleCollectionViewModeChange(settings.collectionViewMode);
-  const localeChanged = settings.locale !== currentLocale;
-  currentLocale = settings.locale;
-  const polaroidSettingsChanged =
-    settings.polaroidFooterLabel !== currentPolaroidFooterLabel ||
-    settings.polaroidShowColorNames !== currentPolaroidShowColorNames;
 
-  if (!polaroidSettingsChanged) {
-    if (localeChanged) {
-      if (collectionPanel?.classList.contains("visible")) {
-        renderCollectionUi(currentPalettes);
-        return;
-      }
-
-      syncCollectionPanelChrome();
-      refreshPaletteViewerOverlay();
-    }
+  if (settings.locale === currentLocale) {
     return;
   }
 
-  currentPolaroidFooterLabel = settings.polaroidFooterLabel;
-  currentPolaroidShowColorNames = settings.polaroidShowColorNames;
-  currentPalettes.forEach((palette) => {
-    disposePalettePreviewPolaroidAsset(palette);
-  });
+  currentLocale = settings.locale;
 
   if (collectionPanel?.classList.contains("visible")) {
     renderCollectionUi(currentPalettes);
     return;
   }
 
+  syncCollectionPanelChrome();
   refreshPaletteViewerOverlay();
 }
 

@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 import { createNetlifyHeadersFile } from "./security-headers.js";
@@ -20,6 +21,10 @@ const precacheExcludedFiles = new Set(["service-worker.js", precacheManifestFile
 const precacheExcludedExtensions = new Set([".map"]);
 const bundleNodeEnv = "production";
 const deployBranchName = resolveDeployBranchName();
+const logApiBaseUrl = process.env.PALETCAM_LOG_API_BASE_URL ?? "";
+const appVersion =
+  JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version || "";
+const commitHash = getGitCommitHash();
 const browserBuildConfig = {
   target: "browser",
   format: "esm",
@@ -29,6 +34,9 @@ const browserBuildConfig = {
   define: {
     "process.env.NODE_ENV": JSON.stringify(bundleNodeEnv),
     __PALETCAM_DEPLOY_BRANCH__: JSON.stringify(deployBranchName),
+    __PALETCAM_LOG_API_BASE_URL__: JSON.stringify(logApiBaseUrl),
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __COMMIT_HASH__: JSON.stringify(commitHash),
   },
 };
 
@@ -109,14 +117,20 @@ function getGitCommitHash() {
 }
 
 async function stampAppVersion() {
-  const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
-  const commitHash = getGitCommitHash();
-  const indexPath = join(outDir, "index.html");
-  const source = await readFile(indexPath, "utf8");
-  const stamped = source
-    .replaceAll(appVersionPlaceholder, packageJson.version)
-    .replaceAll(appCommitHashPlaceholder, commitHash);
-  await writeFile(indexPath, stamped, "utf8");
+  const stampFile = async (filePath) => {
+    const source = await readFile(filePath, "utf8");
+    const stamped = source
+      .replaceAll(appVersionPlaceholder, appVersion)
+      .replaceAll(appCommitHashPlaceholder, commitHash);
+    await writeFile(filePath, stamped, "utf8");
+  };
+
+  const allFiles = await listFilesRecursively(outDir);
+  const stampTargets = allFiles
+    .filter((f) => f.endsWith(".html") || f.endsWith(".js"))
+    .map((f) => join(outDir, f));
+
+  await Promise.all(stampTargets.map(stampFile));
 }
 
 async function stampServiceWorkerBuildId(buildId) {

@@ -9,6 +9,7 @@ async function loadCoreModule({ storedPalettes = [] } = {}) {
   const add = mock(async () => 101);
   const bulkPut = mock(async () => {});
   const put = mock(async () => {});
+  const update = mock(async () => 1);
   const transaction = mock(async (_mode, _palettes, _paletteAssets, callback) => callback());
 
   mock.module(dbModuleUrl, () => ({
@@ -22,6 +23,7 @@ async function loadCoreModule({ storedPalettes = [] } = {}) {
             toArray: mock(async () => storedPalettes),
           })),
         })),
+        update,
       },
       paletteAssets: {
         put,
@@ -37,6 +39,7 @@ async function loadCoreModule({ storedPalettes = [] } = {}) {
     module,
     put,
     transaction,
+    update,
   };
 }
 
@@ -48,12 +51,13 @@ afterEach(() => {
 describe("palette-storage/core", () => {
   test("freezes missing polaroid render settings when palettes are read", async () => {
     updateAppSettings({ polaroidFooterLabel: "captured", polaroidShowColorNames: true });
-    const { bulkPut, module } = await loadCoreModule({
+    const { bulkPut, module, update } = await loadCoreModule({
       storedPalettes: [
         {
           id: 7,
           timestamp: "2026-05-01T10:00:00.000Z",
           colors: [{ r: 1, g: 2, b: 3 }],
+          previewViewerBlob: new Blob(["preview"], { type: "image/webp" }),
         },
       ],
     });
@@ -62,12 +66,36 @@ describe("palette-storage/core", () => {
 
     expect(palettes[0].polaroidRenderSettings).toEqual({
       footerLabel: "captured",
-      showColorNames: true,
+      showColorNames: false,
     });
-    expect(bulkPut.mock.calls[0][0][0].polaroidRenderSettings).toEqual({
-      footerLabel: "captured",
-      showColorNames: true,
+    expect(update).toHaveBeenCalledWith(7, {
+      polaroidRenderSettings: {
+        footerLabel: "captured",
+        showColorNames: false,
+      },
     });
+    expect(bulkPut).not.toHaveBeenCalled();
+  });
+
+  test("does not rewrite blob-bearing palette records when freezing read settings", async () => {
+    const { bulkPut, module, update } = await loadCoreModule({
+      storedPalettes: [
+        {
+          id: 8,
+          timestamp: "2026-05-01T10:00:00.000Z",
+          colors: [{ r: 1, g: 2, b: 3 }],
+          previewGalleryBlob: new Blob(["preview"], { type: "image/webp" }),
+        },
+      ],
+    });
+
+    await module.getSavedPalettes();
+
+    expect(update.mock.calls[0][1].polaroidRenderSettings).toEqual({
+      footerLabel: "colorcatchers.co",
+      showColorNames: false,
+    });
+    expect(bulkPut).not.toHaveBeenCalled();
   });
 
   test("stores current polaroid render settings on new captures", async () => {
@@ -79,7 +107,7 @@ describe("palette-storage/core", () => {
 
     expect(add.mock.calls[0][0].polaroidRenderSettings).toEqual({
       footerLabel: "new capture",
-      showColorNames: true,
+      showColorNames: false,
     });
   });
 });

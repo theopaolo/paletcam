@@ -1,0 +1,13 @@
+{
+  "name": "paletcam-log-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/server.js",
+    "dev": "bun --watch src/server.js"
+  },
+  "dependencies": {
+    "hono": "^4.7.0"
+  }
+}

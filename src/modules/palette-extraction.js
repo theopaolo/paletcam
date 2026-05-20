@@ -140,6 +140,24 @@ function averageAccumulatedColors(accumulator) {
   return averaged;
 }
 
+export function removeDarkestColor(colors) {
+  if (colors.length <= 1) {
+    return colors;
+  }
+
+  let darkestIndex = 0;
+  let lowestLuma = Infinity;
+  for (let index = 0; index < colors.length; index += 1) {
+    const luma = getColorLuma(colors[index]);
+    if (luma < lowestLuma) {
+      lowestLuma = luma;
+      darkestIndex = index;
+    }
+  }
+
+  return colors.filter((_, index) => index !== darkestIndex);
+}
+
 export function getDominantColor(colors) {
   if (!Array.isArray(colors) || colors.length === 0) {
     return null;

@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { withSecurityHeaders } from './security-headers.js';
 import { resolveDeployBranchName } from './git-utils.js';
@@ -8,6 +10,16 @@ const sourceRoot = join(projectRoot, 'src');
 const initialPort = Number(process.env.PORT ?? 3000);
 const browserBundleNodeEnv = process.env.BROWSER_BUNDLE_NODE_ENV ?? 'production';
 const deployBranchName = resolveDeployBranchName();
+const { version: appVersion } = await Bun.file(join(projectRoot, 'package.json')).json();
+const appCommitHash = (() => {
+  const env = String(process.env.COMMIT_HASH || '').trim();
+  if (env) return env.slice(0, 12);
+  try {
+    return Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD']).stdout.toString().trim();
+  } catch {
+    return 'unknown';
+  }
+})();
 const communityApiProxyPrefix = '/api/v1';
 const communityApiProxyTarget = (
   process.env.COMMUNITY_API_PROXY_TARGET
@@ -183,6 +195,9 @@ async function bundleSourceModule(filePath) {
     define: {
       'process.env.NODE_ENV': JSON.stringify(browserBundleNodeEnv),
       __PALETCAM_DEPLOY_BRANCH__: JSON.stringify(deployBranchName),
+      __PALETCAM_LOG_API_BASE_URL__: JSON.stringify(process.env.PALETCAM_LOG_API_BASE_URL ?? ''),
+      __APP_VERSION__: JSON.stringify(appVersion),
+      __COMMIT_HASH__: JSON.stringify(appCommitHash),
     },
   });
 
