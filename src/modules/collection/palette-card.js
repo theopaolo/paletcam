@@ -31,23 +31,10 @@ function buildPaletteBloomBackground(palette) {
   return blooms.join(", ");
 }
 
-function pickPaletteRippleColor(palette) {
-  const colors = Array.isArray(palette?.colors) ? palette.colors : [];
-  if (colors.length === 0) {
-    return null;
-  }
-  const middle = colors[Math.floor(colors.length / 2)];
-  return `rgba(${middle.r}, ${middle.g}, ${middle.b}, 0.55)`;
-}
-
 function applyPaletteBloomToCard(card, palette) {
   const bloom = buildPaletteBloomBackground(palette);
   if (bloom) {
     card.style.setProperty("--palette-card-bloom", bloom);
-  }
-  const ripple = pickPaletteRippleColor(palette);
-  if (ripple) {
-    card.style.setProperty("--palette-card-ripple-color", ripple);
   }
 }
 

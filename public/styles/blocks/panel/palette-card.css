@@ -1,7 +1,6 @@
 .palette-card {
   position: relative;
   background: rgb(0 0 0 / 28%);
-  overflow: hidden;
   transition:
     transform var(--duration-fast) var(--easing-standard),
     filter var(--duration-fast) var(--easing-standard);
@@ -10,46 +9,6 @@
 .palette-card:active {
   transform: rotate(-0.6deg) scale(0.98);
   filter: brightness(0.94);
-}
-
-.palette-card-ripple {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  pointer-events: none;
-  background: var(--palette-card-ripple-color, rgb(255 255 255 / 55%));
-  transform: translate(-50%, -50%) scale(0);
-  opacity: 0;
-  z-index: 4;
-  animation: palette-card-ripple-grow 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.palette-card-ripple.is-cancelled {
-  animation: palette-card-ripple-cancel 160ms ease-out forwards;
-}
-
-@keyframes palette-card-ripple-grow {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 0;
-  }
-
-  18% {
-    opacity: 0.85;
-  }
-
-  100% {
-    transform: translate(-50%, -50%) scale(34);
-    opacity: 0;
-  }
-}
-
-@keyframes palette-card-ripple-cancel {
-  to {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(2);
-  }
 }
 
 .palette-card-publication-badge {
@@ -106,39 +65,6 @@
 .collection-session:not(.is-collapsed) .palette-card.is-revealing {
   animation: session-palette-reveal 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: calc(var(--reveal-index, 0) * 42ms);
-}
-
-.palette-card[data-fresh-capture],
-.collection-session .palette-card.is-revealing[data-fresh-capture],
-.collection-day-grid .palette-card[data-fresh-capture] {
-  animation: palette-card-fly-in 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  z-index: 5;
-}
-
-@keyframes palette-card-fly-in {
-  0% {
-    opacity: 0;
-    transform: scale(1.22) rotate(-2.4deg) translateY(-12px);
-    box-shadow: 0 14px 38px rgb(0 0 0 / 50%);
-    filter: brightness(1.08);
-  }
-
-  55% {
-    opacity: 1;
-    transform: scale(1.05) rotate(0.6deg) translateY(0);
-    box-shadow: 0 10px 24px rgb(0 0 0 / 38%);
-  }
-
-  80% {
-    transform: scale(0.99) rotate(-0.2deg) translateY(0);
-  }
-
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg) translateY(0);
-    box-shadow: none;
-    filter: brightness(1);
-  }
 }
 
 @keyframes session-palette-reveal {
