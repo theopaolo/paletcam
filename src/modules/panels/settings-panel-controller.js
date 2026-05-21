@@ -1,7 +1,8 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "../../app-settings.js";
 import { t } from "../../i18n.js";
-import { flushAllLocalData } from "../local-data-reset.js";
 import { exportAllPalettesBlob, importAllPalettes } from "../../palette-storage.js";
+import { flushAllLocalData } from "../local-data-reset.js";
+import { isIOSDevice } from "../platform.js";
 import { showToast } from "../toast-ui.js";
 
 const TAB_IDS = ["login", "language", "watermark", "data"];
@@ -398,33 +399,61 @@ export function mountSettingsPanel({ root, toggleButton }) {
         elapsed: formatElapsedDuration(latestExportProgress.elapsedMs),
       });
 
-      if (typeof navigator.canShare === "function") {
-        const file = new File([blob], filename, { type: "application/json" });
-        if (navigator.canShare({ files: [file] })) {
+      const isIOS = isIOSDevice();
+      const shareMimeCandidates = isIOS ? ["application/json", "text/plain"] : ["application/json"];
+      const reportExportSuccess = () => {
+        setExportStatus(exportDoneMessage);
+        showToast(t("settings.toast.exportDone"), { duration: 1400 });
+      };
+      const canShareFile = (file) => {
+        if (typeof navigator.canShare !== "function") {
+          return true;
+        }
+        try {
+          return navigator.canShare({ files: [file] });
+        } catch {
+          return false;
+        }
+      };
+
+      if (typeof navigator.share === "function") {
+        for (const mimeType of shareMimeCandidates) {
+          const file = new File([blob], filename, { type: mimeType });
+          if (!canShareFile(file)) {
+            continue;
+          }
+
           try {
             await navigator.share({ files: [file], title: filename });
-            setExportStatus(exportDoneMessage);
-            showToast(t("settings.toast.exportDone"), { duration: 1400 });
+            reportExportSuccess();
             return;
           } catch (shareError) {
             if (shareError instanceof Error && shareError.name === "AbortError") {
               setExportStatus("");
               return;
             }
+            console.warn("Palette export share failed", { mimeType, shareError });
           }
         }
       }
 
       const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = filename;
-      anchor.click();
-      window.setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 60000);
-      setExportStatus(exportDoneMessage);
-      showToast(t("settings.toast.exportDone"), { duration: 1400 });
+      const revokeUrlLater = () => {
+        window.setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 60000);
+      };
+
+      if (isIOS) {
+        window.open(url, "_blank");
+      } else {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
+      }
+      revokeUrlLater();
+      reportExportSuccess();
     } catch (error) {
       console.error("Export failed:", error);
       setExportStatus(t("settings.data.exportFailedStatus"), { isError: true });

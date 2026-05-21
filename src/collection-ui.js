@@ -15,7 +15,9 @@ import {
 import { buildCommunityUrl } from "./config.js";
 import { t } from "./i18n.js";
 import { openLoginPanel } from "./login-ui.js";
+import { clientLog } from "./modules/client-log.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
+import { createDayContentVirtualizer } from "./modules/collection/day-virtualizer.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import { createPaletteCard, createSwatchCard } from "./modules/collection/palette-card.js";
 import {
@@ -36,17 +38,14 @@ import {
   getCollectionSessionIds,
   toggleAllCollectionSessions,
 } from "./modules/collection/panel-state.js";
-import { createDayContentVirtualizer } from "./modules/collection/day-virtualizer.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
-import { clientLog } from "./modules/client-log.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import {
   closeSharedPanel,
   openSharedPanel,
   subscribeSharedPanelClosing,
 } from "./modules/panels/panel-manager.js";
-import { isIOSDevice } from "./modules/platform.js";
 import { dismissToast, showToast, showUndoToast } from "./modules/toast-ui.js";
 import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
 
@@ -123,7 +122,7 @@ function canSharePalette(palette) {
 }
 
 function canExportPalette(palette) {
-  return hasPaletteMasterPhoto(palette) && !isIOSDevice();
+  return hasPaletteMasterPhoto(palette);
 }
 
 function isRalCapture(palette) {
@@ -1001,7 +1000,6 @@ function syncSelectionBar() {
   }
 
   if (collectionSelectionExport instanceof HTMLButtonElement) {
-    collectionSelectionExport.hidden = isIOSDevice();
     collectionSelectionExport.disabled = !selected.some(canExportPalette);
   }
 

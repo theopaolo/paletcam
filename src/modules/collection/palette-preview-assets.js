@@ -1,4 +1,5 @@
 import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
+import { isIOSDevice } from "../platform.js";
 import { hasPaletteMasterPhoto, renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
 import {
   ensurePalettePolaroidColorNames,
@@ -103,22 +104,56 @@ function getPaletteIdFromCacheKey(cacheKey) {
   }
 }
 
-function downloadBlob(blob, filename) {
+async function downloadBlob(blob, filename) {
   if (!blob) {
     return false;
   }
 
-  const link = document.createElement("a");
-  const downloadUrl = URL.createObjectURL(blob);
+  const isIOS = isIOSDevice();
 
+  if (isIOS && typeof navigator.share === "function") {
+    const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+    const canShareFiles =
+      typeof navigator.canShare === "function"
+        ? (() => {
+            try {
+              return navigator.canShare({ files: [file] });
+            } catch (_error) {
+              return false;
+            }
+          })()
+        : true;
+
+    if (canShareFiles) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return true;
+      } catch (shareError) {
+        if (shareError instanceof Error && shareError.name === "AbortError") {
+          return false;
+        }
+      }
+    }
+  }
+
+  const downloadUrl = URL.createObjectURL(blob);
+  const revokeUrlLater = () => {
+    window.setTimeout(() => {
+      URL.revokeObjectURL(downloadUrl);
+    }, 60000);
+  };
+
+  if (isIOS) {
+    window.open(downloadUrl, "_blank");
+    revokeUrlLater();
+    return true;
+  }
+
+  const link = document.createElement("a");
   link.download = filename;
   link.href = downloadUrl;
   link.click();
-
-  window.setTimeout(() => {
-    URL.revokeObjectURL(downloadUrl);
-  }, 0);
-
+  revokeUrlLater();
   return true;
 }
 
