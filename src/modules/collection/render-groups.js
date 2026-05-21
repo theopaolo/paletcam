@@ -212,6 +212,12 @@ function createDayGrid(dayGroup, createPaletteCard) {
  * @param {number} config.sessionRevealDurationMs
  * @param {number} config.sessionRevealStaggerMs
  * @param {"list" | "grid" | "swatch"} [config.viewMode]
+ * @returns {{
+ *   element: HTMLElement,
+ *   contentContainer: HTMLElement,
+ *   mountContent: () => void,
+ *   unmountContent: (preMeasuredHeight?: number) => void,
+ * }}
  */
 export function createDayGroup({
   dayGroup,
@@ -226,6 +232,7 @@ export function createDayGroup({
   daySection.className = "collection-day";
   daySection.dataset.dayId = dayGroup.id;
   daySection.dataset.viewMode = viewMode;
+  daySection.dataset.paletteCount = String(dayGroup.paletteCount);
 
   const dayHeader = document.createElement("div");
   dayHeader.className = "collection-day-header dock";
@@ -242,27 +249,55 @@ export function createDayGroup({
 
   dayHeader.append(dayTitle, dayCount);
 
-  if (viewMode === "grid" || viewMode === "swatch") {
-    daySection.append(dayHeader, createDayGrid(dayGroup, createPaletteCard));
-    return daySection;
-  }
+  const contentContainer = document.createElement("div");
+  contentContainer.className = "collection-day-content";
 
-  const sessionsContainer = document.createElement("div");
-  sessionsContainer.className = "collection-day-sessions";
+  daySection.append(dayHeader, contentContainer);
 
-  dayGroup.sessions.forEach((session) => {
-    sessionsContainer.appendChild(
-      createSessionGroup({
-        session,
-        createPaletteCard,
-        isSessionCollapsed,
-        onSessionCollapsedChange,
-        sessionRevealDurationMs,
-        sessionRevealStaggerMs,
-      }),
-    );
-  });
+  let lastMeasuredHeight = 0;
 
-  daySection.append(dayHeader, sessionsContainer);
-  return daySection;
+  const mountContent = () => {
+    contentContainer.style.minHeight = "";
+
+    if (viewMode === "grid" || viewMode === "swatch") {
+      contentContainer.appendChild(createDayGrid(dayGroup, createPaletteCard));
+      return;
+    }
+
+    const sessionsContainer = document.createElement("div");
+    sessionsContainer.className = "collection-day-sessions";
+
+    dayGroup.sessions.forEach((session) => {
+      sessionsContainer.appendChild(
+        createSessionGroup({
+          session,
+          createPaletteCard,
+          isSessionCollapsed,
+          onSessionCollapsedChange,
+          sessionRevealDurationMs,
+          sessionRevealStaggerMs,
+        }),
+      );
+    });
+
+    contentContainer.appendChild(sessionsContainer);
+  };
+
+  const unmountContent = (preMeasuredHeight) => {
+    const height = preMeasuredHeight ?? contentContainer.offsetHeight;
+    if (height > 0) {
+      lastMeasuredHeight = height;
+    }
+    contentContainer.replaceChildren();
+    if (lastMeasuredHeight > 0) {
+      contentContainer.style.minHeight = `${lastMeasuredHeight}px`;
+    }
+  };
+
+  return {
+    element: daySection,
+    contentContainer,
+    mountContent,
+    unmountContent,
+  };
 }

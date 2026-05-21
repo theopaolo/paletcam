@@ -5,13 +5,38 @@ import { loadImageElementBlobSource } from "../image-element-loader.js";
 import {
   getPaletteGalleryPreviewAsset,
   getPalettePreviewDebugInfo,
+  getStoredPaletteGalleryPreviewAssetSync,
   refreshPaletteGalleryAsset,
 } from "./palette-preview-assets.js";
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
 const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "40px 0px";
-const MAX_CONCURRENT_PREVIEW_LOADS = 3;
+const MAX_CONCURRENT_PREVIEW_LOADS = 6;
 const LAZY_PREVIEW_SETTLE_MS = 120;
+const LOADER_REVEAL_DELAY_MS = 140;
+const LOADER_FADE_OUT_MS = 220;
+
+function buildPaletteBloomBackground(palette) {
+  const colors = Array.isArray(palette?.colors) ? palette.colors : [];
+  if (colors.length === 0) {
+    return null;
+  }
+
+  const blooms = colors.map((color, index) => {
+    const positionX = ((index + 0.5) / colors.length) * 100;
+    const positionY = index % 2 === 0 ? 32 : 68;
+    return `radial-gradient(circle at ${positionX}% ${positionY}%, rgba(${color.r}, ${color.g}, ${color.b}, 0.55) 0%, rgba(${color.r}, ${color.g}, ${color.b}, 0) 55%)`;
+  });
+
+  return blooms.join(", ");
+}
+
+function applyPaletteBloomToCard(card, palette) {
+  const bloom = buildPaletteBloomBackground(palette);
+  if (bloom) {
+    card.style.setProperty("--palette-card-bloom", bloom);
+  }
+}
 
 function createSelectionIndicator() {
   const el = document.createElement("span");
@@ -106,12 +131,83 @@ function bindLazyPreviewLoad({
   let hasQueuedPreviewLoad = false;
   let isPreviewIntersecting = false;
   let previewSettleTimeout = 0;
+  let loaderRevealTimeout = 0;
+  let loaderFadeOutTimeout = 0;
   let observer = null;
   let hasRetriedBlobLoad = false;
+
+  previewLoader.hidden = true;
+
+  const clearLoaderFadeOutTimeout = () => {
+    if (!loaderFadeOutTimeout) {
+      return;
+    }
+    window.clearTimeout(loaderFadeOutTimeout);
+    loaderFadeOutTimeout = 0;
+  };
+
+  const hideLoaderImmediately = () => {
+    clearLoaderFadeOutTimeout();
+    previewLoader.classList.remove("is-fading-out");
+    previewLoader.hidden = true;
+  };
+
+  const fadeOutLoader = () => {
+    if (previewLoader.hidden) {
+      return;
+    }
+    clearLoaderFadeOutTimeout();
+    previewLoader.classList.add("is-fading-out");
+    loaderFadeOutTimeout = window.setTimeout(() => {
+      loaderFadeOutTimeout = 0;
+      previewLoader.classList.remove("is-fading-out");
+      previewLoader.hidden = true;
+    }, LOADER_FADE_OUT_MS);
+  };
 
   const ensurePreviewImageAsset = () => {
     previewAssetPromise ??= getAsset();
     return previewAssetPromise;
+  };
+
+  const clearLoaderRevealTimeout = () => {
+    if (!loaderRevealTimeout) {
+      return;
+    }
+
+    window.clearTimeout(loaderRevealTimeout);
+    loaderRevealTimeout = 0;
+  };
+
+  const scheduleLoaderReveal = () => {
+    clearLoaderRevealTimeout();
+    loaderRevealTimeout = window.setTimeout(() => {
+      loaderRevealTimeout = 0;
+      if (!isCardConnected(card)) {
+        return;
+      }
+      if (previewImage.hidden) {
+        previewLoader.hidden = false;
+      }
+    }, LOADER_REVEAL_DELAY_MS);
+  };
+
+  const tryRenderCachedAsset = () => {
+    if (!palette || typeof palette !== "object") {
+      return false;
+    }
+
+    const cachedAsset = getStoredPaletteGalleryPreviewAssetSync(palette);
+    if (!cachedAsset?.source) {
+      return false;
+    }
+
+    hasStartedPreviewLoad = true;
+    previewAssetPromise = Promise.resolve(cachedAsset);
+    previewImage.src = cachedAsset.source;
+    previewImage.hidden = false;
+    hideLoaderImmediately();
+    return true;
   };
 
   const loadPreviewIntoCard = async () => {
@@ -128,9 +224,10 @@ function bindLazyPreviewLoad({
         return;
       }
 
-      previewLoader.hidden = false;
+      scheduleLoaderReveal();
       try {
-        await loadImageElementBlobSource(previewImage, asset.blob);
+        const { source } = await loadImageElementBlobSource(previewImage, asset.blob);
+        asset.source = source;
       } catch (loadError) {
         if (!isCardConnected(card) || hasRetriedBlobLoad) {
           throw loadError;
@@ -142,7 +239,8 @@ function bindLazyPreviewLoad({
         hasStartedPreviewLoad = false;
         previewImage.hidden = true;
         previewImage.removeAttribute("src");
-        previewLoader.hidden = true;
+        clearLoaderRevealTimeout();
+        hideLoaderImmediately();
         if (isPreviewIntersecting) {
           queuePreviewLoad();
         }
@@ -153,8 +251,9 @@ function bindLazyPreviewLoad({
         return;
       }
 
+      clearLoaderRevealTimeout();
       previewImage.hidden = false;
-      previewLoader.hidden = true;
+      fadeOutLoader();
     } catch (error) {
       if (!isCardConnected(card)) {
         return;
@@ -163,7 +262,8 @@ function bindLazyPreviewLoad({
       previewAssetPromise = undefined;
       previewImage.hidden = true;
       previewImage.removeAttribute("src");
-      previewLoader.hidden = true;
+      clearLoaderRevealTimeout();
+      hideLoaderImmediately();
       const debugPalette =
         palette && typeof palette === "object" ? { ...palette, id: paletteId } : { id: paletteId };
       reportAppError(error, {
@@ -216,6 +316,10 @@ function bindLazyPreviewLoad({
     void onOpenViewer?.(paletteId);
   });
 
+  if (tryRenderCachedAsset()) {
+    return;
+  }
+
   const IntersectionObserverCtor = window.IntersectionObserver;
   if (IntersectionObserverCtor) {
     observer = new IntersectionObserverCtor(
@@ -255,6 +359,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   const card = document.createElement("div");
   card.className = "palette-card";
   card.dataset.paletteId = String(palette.id);
+  applyPaletteBloomToCard(card, palette);
 
   const trigger = document.createElement("button");
   trigger.type = "button";

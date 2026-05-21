@@ -53,7 +53,7 @@ describe("createDayGroup", () => {
   });
 
   test("renders grouped sessions in list mode and honors collapsed state", () => {
-    const dayElement = createDayGroup({
+    const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
       isSessionCollapsed: (sessionId) => sessionId === "session-day-evening",
@@ -62,6 +62,8 @@ describe("createDayGroup", () => {
       sessionRevealStaggerMs: 42,
       viewMode: "list",
     });
+
+    mountContent();
 
     expect(dayElement.querySelectorAll(".collection-session")).toHaveLength(2);
     expect(dayElement.querySelector(".collection-day-grid")).toBeNull();
@@ -75,7 +77,7 @@ describe("createDayGroup", () => {
   });
 
   test("renders a day-level grid in grid mode without session rows", () => {
-    const dayElement = createDayGroup({
+    const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
       isSessionCollapsed: () => false,
@@ -84,6 +86,8 @@ describe("createDayGroup", () => {
       sessionRevealStaggerMs: 42,
       viewMode: "grid",
     });
+
+    mountContent();
 
     const dayGrid = dayElement.querySelector(".collection-day-grid");
 
@@ -95,7 +99,7 @@ describe("createDayGroup", () => {
 
   test("updates collapse state when a session toggle is clicked", () => {
     const collapseEvents = [];
-    const dayElement = createDayGroup({
+    const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
       isSessionCollapsed: () => false,
@@ -106,6 +110,8 @@ describe("createDayGroup", () => {
       sessionRevealStaggerMs: 42,
       viewMode: "list",
     });
+
+    mountContent();
 
     const firstToggle = dayElement.querySelector(".collection-session-toggle");
     firstToggle?.click();

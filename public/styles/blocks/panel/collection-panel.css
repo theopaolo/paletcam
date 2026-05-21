@@ -642,3 +642,46 @@
   white-space: pre-line;
   line-height: 1.4;
 }
+
+.collection-empty {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  overflow: hidden;
+}
+
+.collection-empty .empty-message {
+  position: relative;
+  z-index: 1;
+  opacity: 0.78;
+}
+
+.collection-empty-bloom {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 30%, rgb(255 200 0 / 26%) 0%, rgb(255 200 0 / 0) 42%),
+    radial-gradient(circle at 78% 28%, rgb(255 138 95 / 22%) 0%, rgb(255 138 95 / 0) 45%),
+    radial-gradient(circle at 30% 78%, rgb(140 188 255 / 20%) 0%, rgb(140 188 255 / 0) 48%),
+    radial-gradient(circle at 75% 72%, rgb(189 156 255 / 22%) 0%, rgb(189 156 255 / 0) 46%),
+    radial-gradient(circle at 50% 50%, rgb(255 224 109 / 18%) 0%, rgb(255 224 109 / 0) 52%);
+  background-blend-mode: screen;
+  filter: blur(2px);
+  animation: collection-empty-bloom-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes collection-empty-bloom-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(2%, 1.5%, 0) scale(1.04);
+  }
+
+  100% {
+    transform: translate3d(-1.5%, 2%, 0) scale(1.02);
+  }
+}

@@ -4,6 +4,7 @@ const BASE64_BYTE_CHUNK_SIZE = 0x6000;
 const BASE64_YIELD_CHUNK_INTERVAL = 32;
 const SERIALIZATION_YIELD_INTERVAL = 1;
 const EXPORT_CONTENT_TYPE = "application/json";
+const EXPORT_BLOB_BATCH_SIZE_BYTES = 8 * 1024 * 1024;
 const OMITTED_EXPORT_FIELDS = [
   "id",
   "previewGalleryBlob",
@@ -167,6 +168,17 @@ export async function serializePalettesForExport(palettes, options) {
   return (await serializePalettesForExportParts(palettes, options)).join("");
 }
 
+async function serializePaletteEntryForExport(palette) {
+  const entry = { ...palette };
+
+  if (entry.photoBlob instanceof Blob) {
+    entry.photoBlob = await blobToDataUrl(entry.photoBlob);
+  }
+
+  stripNonExportFields(entry);
+  return JSON.stringify(entry);
+}
+
 export async function serializePalettesForExportParts(
   palettes,
   { onProgress, yieldInterval = SERIALIZATION_YIELD_INTERVAL } = {},
@@ -175,15 +187,7 @@ export async function serializePalettesForExportParts(
   const parts = [`{"version":${PALETTE_EXPORT_VERSION},"palettes":[`];
 
   for (let index = 0; index < total; index += 1) {
-    const palette = palettes[index];
-    const entry = { ...palette };
-
-    if (entry.photoBlob instanceof Blob) {
-      entry.photoBlob = await blobToDataUrl(entry.photoBlob);
-    }
-
-    stripNonExportFields(entry);
-    parts.push(index > 0 ? "," : "", JSON.stringify(entry));
+    parts.push(index > 0 ? "," : "", await serializePaletteEntryForExport(palettes[index]));
 
     if (typeof onProgress === "function") {
       onProgress({
@@ -202,9 +206,67 @@ export async function serializePalettesForExportParts(
   return parts;
 }
 
-export async function serializePalettesForExportBlob(palettes, options) {
-  const parts = await serializePalettesForExportParts(palettes, options);
-  return new Blob(parts, { type: EXPORT_CONTENT_TYPE });
+function getExportBlobBatchSizeBytes(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return EXPORT_BLOB_BATCH_SIZE_BYTES;
+  }
+
+  return Math.max(1024, Math.floor(numericValue));
+}
+
+export async function serializePalettesForExportBlob(
+  palettes,
+  {
+    blobBatchSizeBytes = EXPORT_BLOB_BATCH_SIZE_BYTES,
+    onProgress,
+    yieldInterval = SERIALIZATION_YIELD_INTERVAL,
+  } = {},
+) {
+  const total = Array.isArray(palettes) ? palettes.length : 0;
+  const maxBatchSizeBytes = getExportBlobBatchSizeBytes(blobBatchSizeBytes);
+  const blobParts = [];
+  let currentParts = [`{"version":${PALETTE_EXPORT_VERSION},"palettes":[`];
+  let currentBatchSize = currentParts[0].length;
+
+  function flushCurrentParts() {
+    if (currentParts.length === 0) {
+      return;
+    }
+
+    blobParts.push(new Blob(currentParts, { type: EXPORT_CONTENT_TYPE }));
+    currentParts = [];
+    currentBatchSize = 0;
+  }
+
+  for (let index = 0; index < total; index += 1) {
+    const prefix = index > 0 ? "," : "";
+    const serializedEntry = await serializePaletteEntryForExport(palettes[index]);
+
+    currentParts.push(prefix, serializedEntry);
+    currentBatchSize += prefix.length + serializedEntry.length;
+
+    if (typeof onProgress === "function") {
+      onProgress({
+        completed: index + 1,
+        phase: "serializing",
+        total,
+      });
+    }
+
+    if (currentBatchSize >= maxBatchSizeBytes && index + 1 < total) {
+      flushCurrentParts();
+    }
+
+    if (yieldInterval > 0 && (index + 1) % yieldInterval === 0 && index + 1 < total) {
+      await waitForNextTask();
+    }
+  }
+
+  currentParts.push("]}");
+  flushCurrentParts();
+
+  return new Blob(blobParts, { type: EXPORT_CONTENT_TYPE });
 }
 
 export async function deserializePalettesFromImport(jsonString) {

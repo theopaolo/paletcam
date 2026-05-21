@@ -58,11 +58,19 @@ async function loadPalettePreviewAssets({
     renderPalettePolaroidBlob,
   }));
 
+  const hydratePalettePreviewBlobFromIdb = mock(async (palette, variant = "viewer") => {
+    if (variant === "gallery") {
+      return palette?.previewGalleryBlob instanceof Blob ? palette.previewGalleryBlob : null;
+    }
+    return palette?.previewViewerBlob instanceof Blob ? palette.previewViewerBlob : null;
+  });
+
   mock.module(palettePreviewPersistenceModuleUrl, () => ({
     ensurePalettePolaroidColorNames,
     ensureSavedPalettePreviewBlob,
     getPalettePreviewFingerprint,
     getStoredPalettePreviewBlob,
+    hydratePalettePreviewBlobFromIdb,
     renderSavedPalettePreviewBlob,
   }));
   const palettePreviewAssets = await import(
@@ -108,7 +116,7 @@ describe("getPaletteViewerPreviewAsset", () => {
       hasPhotoAsset: true,
     });
 
-    expect(asset).toEqual({ blob: storedPreviewBlob });
+    expect(asset).toEqual({ blob: storedPreviewBlob, source: null });
     expect(ensurePaletteMasterPhotoBlob).not.toHaveBeenCalled();
   });
 
@@ -226,7 +234,7 @@ describe("variant helpers", () => {
     const asset = await palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
 
     expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "gallery");
-    expect(asset).toEqual({ blob: renderedPreviewBlob });
+    expect(asset).toEqual({ blob: renderedPreviewBlob, source: null });
   });
 
   test("uses the viewer preview asset path for the overlay", async () => {
@@ -246,7 +254,7 @@ describe("variant helpers", () => {
 
     expect(ensureSavedPalettePreviewBlob).not.toHaveBeenCalled();
     expect(renderSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "viewer");
-    expect(asset).toEqual({ blob: renderedPreviewBlob });
+    expect(asset).toEqual({ blob: renderedPreviewBlob, source: null });
   });
 });
 

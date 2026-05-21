@@ -16,7 +16,7 @@ const palettePreviewPersistenceModuleUrl = new URL(
 let restoreDom = () => {};
 
 async function loadPaletteCardModule({
-  loadImageElementBlobSource = mock(async () => {}),
+  loadImageElementBlobSource = mock(async () => ({ source: "data:image/webp;base64,test" })),
   getPaletteGalleryPreviewAsset = null,
 } = {}) {
   const galleryPreviewBlob = new Blob(["gallery"], { type: "image/webp" });
@@ -24,8 +24,10 @@ async function loadPaletteCardModule({
     getPaletteGalleryPreviewAsset ??
     mock(async () => ({
       blob: galleryPreviewBlob,
+      source: null,
     }));
   const getPalettePreviewDebugInfo = mock(() => ({ paletteId: 5, variant: "gallery" }));
+  const getStoredPaletteGalleryPreviewAssetSync = mock(() => null);
   const refreshPaletteGalleryAsset = mock(() => {});
   const reportAppError = mock(() => ({}));
 
@@ -48,6 +50,7 @@ async function loadPaletteCardModule({
   mock.module(palettePreviewAssetsModuleUrl, () => ({
     getPaletteGalleryPreviewAsset: resolvedGetPaletteGalleryPreviewAsset,
     getPalettePreviewDebugInfo,
+    getStoredPaletteGalleryPreviewAssetSync,
     refreshPaletteGalleryAsset,
   }));
 
@@ -164,6 +167,7 @@ describe("createSwatchCard", () => {
     let nextPreviewBlobIndex = 0;
     const getPaletteGalleryPreviewAsset = mock(async () => ({
       blob: previewBlobs[nextPreviewBlobIndex++],
+      source: null,
     }));
     let loadAttemptCount = 0;
     const loadImageElementBlobSource = mock(async () => {
@@ -171,6 +175,7 @@ describe("createSwatchCard", () => {
       if (loadAttemptCount === 1) {
         throw new Error("Unable to read image blob");
       }
+      return { source: "data:image/webp;base64,fresh" };
     });
 
     const { paletteCard, refreshPaletteGalleryAsset, reportAppError } = await loadPaletteCardModule(

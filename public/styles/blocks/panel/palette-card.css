@@ -1,6 +1,14 @@
 .palette-card {
   position: relative;
   background: rgb(0 0 0 / 28%);
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    filter var(--duration-fast) var(--easing-standard);
+}
+
+.palette-card:active {
+  transform: rotate(-0.6deg) scale(0.98);
+  filter: brightness(0.94);
 }
 
 .palette-card-publication-badge {
@@ -73,8 +81,10 @@
 
 .palette-card-trigger {
   appearance: none;
+  position: relative;
   display: block;
   width: 100%;
+  aspect-ratio: 1 / 1.22;
   padding: 0;
   margin: 0;
   border: none;
@@ -92,15 +102,35 @@
   height: auto;
   /* stylelint-disable-next-line scale-unlimited/declaration-strict-value */
   background: #050505;
+  animation: palette-card-image-fade-in 320ms var(--easing-standard) both;
+}
+
+@keyframes palette-card-image-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .palette-card-loader {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1.22;
+  position: absolute;
+  inset: 0;
   /* stylelint-disable-next-line scale-unlimited/declaration-strict-value */
-  background: #050505;
+  background: var(--palette-card-bloom, #050505), #050505;
+  background-blend-mode: screen, normal;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity 220ms var(--easing-standard);
+  pointer-events: none;
+}
+
+.palette-card-loader.is-fading-out {
+  opacity: 0;
 }
 
 .palette-card-loader::before {
@@ -242,6 +272,41 @@
 .collection-grid.is-select-mode .palette-card {
   cursor: pointer;
   user-select: none;
+  animation: palette-card-jiggle 360ms ease-out 1 both;
+}
+
+.collection-grid.is-select-mode .palette-card:nth-child(3n + 2) {
+  animation-delay: 40ms;
+}
+
+.collection-grid.is-select-mode .palette-card:nth-child(3n + 3) {
+  animation-delay: 80ms;
+}
+
+@keyframes palette-card-jiggle {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  20% {
+    transform: rotate(-0.9deg);
+  }
+
+  40% {
+    transform: rotate(0.9deg);
+  }
+
+  60% {
+    transform: rotate(-0.6deg);
+  }
+
+  80% {
+    transform: rotate(0.4deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
 }
 
 .collection-grid.is-select-mode .palette-card.is-selected::before {

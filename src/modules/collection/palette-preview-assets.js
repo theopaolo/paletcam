@@ -5,6 +5,7 @@ import {
   ensureSavedPalettePreviewBlob,
   getPalettePreviewFingerprint,
   getStoredPalettePreviewBlob,
+  hydratePalettePreviewBlobFromIdb,
   renderSavedPalettePreviewBlob,
 } from "./palette-preview-persistence.js";
 
@@ -43,7 +44,7 @@ function describeObjectUrl(objectUrl) {
 }
 
 function createAssetFromBlob(blob) {
-  return { blob };
+  return { blob, source: null };
 }
 
 function getCachedAsset(cache, cacheKey) {
@@ -168,6 +169,23 @@ function getStoredPreviewAsset(
   return asset;
 }
 
+/**
+ * Synchronously returns a cached or freshly-built gallery preview asset.
+ * Returns null when no preview blob is available without doing async I/O.
+ * The asset's `source` field is populated only if a prior load memoized it.
+ * @param {Palette} palette
+ * @returns {{ blob: Blob, source: string | null } | null}
+ */
+export function getStoredPaletteGalleryPreviewAssetSync(palette) {
+  const variant = "gallery";
+  const cacheKey = buildPreviewAssetCacheKey(palette, variant);
+  const asset = getStoredPreviewAsset(palette, variant, cacheKey);
+  if (!asset || asset.promise || !(asset.blob instanceof Blob)) {
+    return null;
+  }
+  return asset;
+}
+
 async function renderHighQualityPalettePolaroidBlob(palette) {
   const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
   if (!(masterPhotoBlob instanceof Blob)) {
@@ -231,6 +249,13 @@ export async function getPaletteViewerPreviewAsset(palette) {
   }
 
   const promise = (async () => {
+    const hydratedPreviewBlob = await hydratePalettePreviewBlobFromIdb(palette, variant);
+    if (hydratedPreviewBlob instanceof Blob) {
+      const asset = createAssetFromBlob(hydratedPreviewBlob);
+      setPreviewAssetCacheEntry(cacheKey, asset);
+      return asset;
+    }
+
     const previewBlob = await renderSavedPalettePreviewBlob(palette, variant);
     if (!(previewBlob instanceof Blob)) {
       throw new Error("Unable to generate palette preview");

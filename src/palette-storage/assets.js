@@ -53,6 +53,32 @@ export async function readPalettePhotoBlobById(paletteId) {
 }
 
 /**
+ * Reads a single palette preview blob from IDB without materializing the full
+ * record into memory afterwards. Returns the blob and its footer label, or
+ * null when no blob exists.
+ * @param {number | string} id
+ * @param {"gallery" | "viewer"} variant
+ * @returns {Promise<{ blob: Blob, footerLabel: string | null } | null>}
+ */
+export async function readPalettePreviewBlobById(id, variant = "viewer") {
+  const paletteId = Number(id);
+  if (!Number.isFinite(paletteId)) {
+    return null;
+  }
+
+  const { blobKey, footerKey } = getPreviewVariantFieldKeys(variant);
+  const paletteRecord = await db.palettes.get(paletteId);
+  if (!paletteRecord || !(paletteRecord[blobKey] instanceof Blob)) {
+    return null;
+  }
+
+  return {
+    blob: paletteRecord[blobKey],
+    footerLabel: normalizePreviewFooterLabel(paletteRecord[footerKey]),
+  };
+}
+
+/**
  * @param {Palette} palette
  * @returns {Promise<Blob | null>}
  */

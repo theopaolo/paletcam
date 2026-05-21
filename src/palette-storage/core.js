@@ -58,8 +58,14 @@ async function freezeMissingPolaroidRenderSettings(paletteRecords) {
   return nextRecords;
 }
 
-/** @returns {Promise<Palette[]>} */
-export async function getSavedPalettes() {
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.includeViewerPreviewBlob] Defaults to false — keep the listing lean
+ *   on iOS by skipping the larger viewer-variant blob refs. Callers that need the viewer blob
+ *   hydrate it on demand via the preview-asset pipeline.
+ * @returns {Promise<Palette[]>}
+ */
+export async function getSavedPalettes({ includeViewerPreviewBlob = false } = {}) {
   const startTime = performance.now();
   try {
     const dexieReadStartTime = performance.now();
@@ -71,13 +77,17 @@ export async function getSavedPalettes() {
     const freezeMs = performance.now() - freezeStartTime;
 
     const result = palettes.map((palette) =>
-      normalizeStoredPaletteRecord(palette, { includePhotoBlob: false }));
+      normalizeStoredPaletteRecord(palette, {
+        includePhotoBlob: false,
+        includeViewerPreviewBlob,
+      }));
 
     clientLog("getSavedPalettes:success", {
       totalMs: Math.round(performance.now() - startTime),
       dexieReadMs: Math.round(dexieReadMs),
       freezeMs: Math.round(freezeMs),
       rawCount: rawRecords.length,
+      includeViewerPreviewBlob,
     });
 
     return result;

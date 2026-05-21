@@ -3,8 +3,8 @@ import { readPalettePhotoBlobById } from "./assets.js";
 import { db } from "./db.js";
 import {
   deserializePalettesFromImport,
-  serializePalettesForExportBlob,
   serializePalettesForExport,
+  serializePalettesForExportBlob,
 } from "./json-transfer.js";
 import {
   createPaletteAssetRecord,
@@ -75,6 +75,24 @@ function createSerializationProgressReporter(onProgress, startedAtMs) {
   };
 }
 
+function createExportPaletteEntry(palette, fallbackPhotoBlob) {
+  const {
+    previewBlob: _previewBlob,
+    previewFooterLabel: _previewFooterLabel,
+    previewGalleryBlob: _previewGalleryBlob,
+    previewGalleryFooterLabel: _previewGalleryFooterLabel,
+    previewViewerBlob: _previewViewerBlob,
+    previewViewerFooterLabel: _previewViewerFooterLabel,
+    ...exportPalette
+  } = palette;
+
+  if (fallbackPhotoBlob instanceof Blob) {
+    exportPalette.photoBlob = fallbackPhotoBlob;
+  }
+
+  return exportPalette;
+}
+
 async function preparePalettesForExport({ onProgress, startedAtMs }) {
   const palettes = await db.palettes.toArray();
   const preparedPalettes = [];
@@ -103,11 +121,7 @@ async function preparePalettesForExport({ onProgress, startedAtMs }) {
             : palette.previewBlob instanceof Blob
               ? palette.previewBlob
               : null;
-    const entry = {
-      ...palette,
-      ...(fallbackPhotoBlob instanceof Blob ? { photoBlob: fallbackPhotoBlob } : {}),
-    };
-    preparedPalettes.push(entry);
+    preparedPalettes.push(createExportPaletteEntry(palette, fallbackPhotoBlob));
 
     const completed = index + 1;
     notifyExportProgress(onProgress, {

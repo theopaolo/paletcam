@@ -36,6 +36,7 @@ import {
   getCollectionSessionIds,
   toggleAllCollectionSessions,
 } from "./modules/collection/panel-state.js";
+import { createDayContentVirtualizer } from "./modules/collection/day-virtualizer.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
 import { clientLog } from "./modules/client-log.js";
@@ -83,6 +84,7 @@ let isSelectMode = false;
 let longPressTimer = null;
 let longPressStartPos = null;
 let suppressNextSelectionClick = false;
+let activeDayVirtualizer = null;
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
@@ -567,26 +569,56 @@ function syncSelectModeAfterRender() {
 
   collectionGrid.classList.add("is-select-mode");
 
+  const availablePaletteIds = new Set(currentPalettes.map((palette) => palette.id));
+
   selectedIds.forEach((paletteId) => {
+    if (!availablePaletteIds.has(paletteId)) {
+      selectedIds.delete(paletteId);
+      return;
+    }
+
     const card = getCollectionCardByPaletteId(paletteId);
     if (card) {
       card.classList.add("is-selected");
-    } else {
-      selectedIds.delete(paletteId);
     }
   });
 
   syncSelectionBar();
 }
 
+function applyCardSelectionState(card) {
+  if (!isSelectMode) {
+    return;
+  }
+
+  const rawId = card?.dataset?.paletteId;
+  const paletteId = Number(rawId);
+  if (!Number.isFinite(paletteId)) {
+    return;
+  }
+
+  if (selectedIds.has(paletteId)) {
+    card.classList.add("is-selected");
+  }
+}
+
 function renderCollectionUi(palettes) {
   currentPalettes = palettes;
   const displayPalettes = getDisplayPalettes();
+
+  activeDayVirtualizer?.destroy();
+  activeDayVirtualizer = null;
+
   collectionGrid.innerHTML = "";
   collectionGrid.dataset.viewMode = currentCollectionViewMode;
 
   if (displayPalettes.length === 0) {
-    collectionGrid.innerHTML = `<p class="empty-message">${t("collection.empty")}</p>`;
+    collectionGrid.innerHTML = `
+      <div class="collection-empty">
+        <div class="collection-empty-bloom" aria-hidden="true"></div>
+        <p class="empty-message">${t("collection.empty")}</p>
+      </div>
+    `;
     syncCollectionPanelChrome([]);
     refreshPaletteViewerOverlay();
     return;
@@ -596,8 +628,23 @@ function renderCollectionUi(palettes) {
   pruneUnavailableCollapsedSessions(dayGroups);
   syncCollectionPanelChrome(dayGroups);
 
+  const scrollRoot = collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null;
+  activeDayVirtualizer = createDayContentVirtualizer({
+    scrollRoot,
+    onCardMount: applyCardSelectionState,
+  });
+
   dayGroups.forEach((dayGroup) => {
-    collectionGrid.appendChild(createCollectionDayGroup(dayGroup));
+    const dayRender = createCollectionDayGroup(dayGroup);
+    collectionGrid.appendChild(dayRender.element);
+    activeDayVirtualizer.register({
+      element: dayRender.element,
+      contentContainer: dayRender.contentContainer,
+      mountContent: dayRender.mountContent,
+      unmountContent: dayRender.unmountContent,
+      dayGroup,
+      viewMode: currentCollectionViewMode,
+    });
   });
 
   syncSelectModeAfterRender();
@@ -1396,6 +1443,8 @@ function bindCollectionUiEvents() {
   subscribeSharedPanelClosing("collection", () => {
     clearModerationSyncLoop();
     closePaletteViewerOverlay();
+    activeDayVirtualizer?.destroy();
+    activeDayVirtualizer = null;
   });
 
   subscribeAppSettings(handleCollectionSettingsChange);
