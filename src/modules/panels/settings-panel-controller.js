@@ -6,6 +6,7 @@ import { isIOSDevice } from "../platform.js";
 import { showToast } from "../toast-ui.js";
 
 const TAB_IDS = ["login", "language", "watermark", "data"];
+const SETTINGS_TOGGLE_CLOSE_ICON_SRC = "icons/close.svg";
 
 function queryById(root, id) {
   if (!id) {
@@ -77,14 +78,22 @@ function syncLocaleToggle(dom, settings) {
   });
 }
 
-function getNextTabId(currentTabId, direction) {
-  const currentIndex = TAB_IDS.indexOf(currentTabId);
+function getAvailableTabIds(dom) {
+  const tabIds = dom.tabButtons
+    .map((button) => button.getAttribute("data-settings-tab"))
+    .filter((tabId) => TAB_IDS.includes(tabId));
+
+  return tabIds.length > 0 ? tabIds : TAB_IDS;
+}
+
+function getNextTabId(currentTabId, direction, tabIds = TAB_IDS) {
+  const currentIndex = tabIds.indexOf(currentTabId);
   if (currentIndex < 0) {
-    return TAB_IDS[0];
+    return tabIds[0];
   }
 
-  const nextIndex = (currentIndex + direction + TAB_IDS.length) % TAB_IDS.length;
-  return TAB_IDS[nextIndex];
+  const nextIndex = (currentIndex + direction + tabIds.length) % tabIds.length;
+  return tabIds[nextIndex];
 }
 
 function formatElapsedDuration(elapsedMs) {
@@ -112,8 +121,15 @@ function buildExportFilename({ exportedAt = new Date(), paletteCount = 0 } = {})
 
 export function mountSettingsPanel({ root, toggleButton }) {
   const dom = getSettingsDom(root);
+  const availableTabIds = getAvailableTabIds(dom);
+  const toggleButtonIcon = /** @type {HTMLImageElement | null} */ (
+    toggleButton?.querySelector("img") ?? null
+  );
+  const toggleButtonOpenIconSrc = toggleButtonIcon?.getAttribute("src") || "icons/menu.svg";
+  const toggleButtonOpenLabelKey =
+    toggleButton?.getAttribute("data-i18n-aria-label") || "header.settingsOpen";
   const cleanups = [];
-  let activeTabId = "login";
+  let activeTabId = availableTabIds[0] ?? TAB_IDS[0];
   let isDrawerOpen = false;
   let isExportInProgress = false;
   let isImportInProgress = false;
@@ -211,16 +227,33 @@ export function mountSettingsPanel({ root, toggleButton }) {
     });
   };
 
+  function syncSettingsToggleButton() {
+    if (!toggleButton) {
+      return;
+    }
+
+    toggleButton.classList.toggle("is-active", isDrawerOpen);
+    toggleButton.setAttribute("aria-expanded", String(isDrawerOpen));
+    toggleButton.setAttribute(
+      "aria-label",
+      t(isDrawerOpen ? "settings.panelClose" : toggleButtonOpenLabelKey),
+    );
+
+    if (toggleButtonIcon) {
+      const nextIconSrc = isDrawerOpen ? SETTINGS_TOGGLE_CLOSE_ICON_SRC : toggleButtonOpenIconSrc;
+      if (toggleButtonIcon.getAttribute("src") !== nextIconSrc) {
+        toggleButtonIcon.setAttribute("src", nextIconSrc);
+      }
+    }
+  }
+
   function syncDrawerState() {
     if (dom.drawer) {
       dom.drawer.hidden = !isDrawerOpen;
       dom.drawer.setAttribute("aria-hidden", String(!isDrawerOpen));
     }
 
-    if (toggleButton) {
-      toggleButton.classList.toggle("is-active", isDrawerOpen);
-      toggleButton.setAttribute("aria-expanded", String(isDrawerOpen));
-    }
+    syncSettingsToggleButton();
 
     root.classList.toggle("is-open", isDrawerOpen);
     document.dispatchEvent(
@@ -243,7 +276,7 @@ export function mountSettingsPanel({ root, toggleButton }) {
   }
 
   function setActiveTab(nextTabId, { focusButton = false } = {}) {
-    activeTabId = TAB_IDS.includes(nextTabId) ? nextTabId : TAB_IDS[0];
+    activeTabId = availableTabIds.includes(nextTabId) ? nextTabId : availableTabIds[0];
 
     dom.tabButtons.forEach((button) => {
       const tabId = button.getAttribute("data-settings-tab");
@@ -268,6 +301,7 @@ export function mountSettingsPanel({ root, toggleButton }) {
     syncLocaleToggle(dom, settings);
     syncExportButtonState();
     syncImportUi();
+    syncSettingsToggleButton();
   }
 
   function bindTabButton(button) {
@@ -282,25 +316,25 @@ export function mountSettingsPanel({ root, toggleButton }) {
       const currentTabId = button.getAttribute("data-settings-tab") || activeTabId;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        setActiveTab(getNextTabId(currentTabId, -1), { focusButton: true });
+        setActiveTab(getNextTabId(currentTabId, -1, availableTabIds), { focusButton: true });
         return;
       }
 
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        setActiveTab(getNextTabId(currentTabId, 1), { focusButton: true });
+        setActiveTab(getNextTabId(currentTabId, 1, availableTabIds), { focusButton: true });
         return;
       }
 
       if (event.key === "Home") {
         event.preventDefault();
-        setActiveTab(TAB_IDS[0], { focusButton: true });
+        setActiveTab(availableTabIds[0], { focusButton: true });
         return;
       }
 
       if (event.key === "End") {
         event.preventDefault();
-        setActiveTab(TAB_IDS[TAB_IDS.length - 1], { focusButton: true });
+        setActiveTab(availableTabIds[availableTabIds.length - 1], { focusButton: true });
       }
     });
   }
