@@ -32,7 +32,12 @@
       "Bash(node --check src/modules/uncaught-error-handler.js)",
       "Bash(node --check src/modules/client-log.js)",
       "Bash(node --check src/modules/error-reporting.js)",
-      "Bash(node --check scripts/build.js)"
+      "Bash(node --check scripts/build.js)",
+      "Bash(grep -rn \"generateMagicLink\\\\|magic_link\\\\|redirect_route\\\\|auth.magic\" /Users/alexis/Herd/ccs/app/Services/ /Users/alexis/Herd/ccs/config/services.php 2>/dev/null | head)",
+      "Read(//Users/alexis/Herd/ccs/app/Services/**)",
+      "Bash(cd /Users/alexis/Herd/ccs && grep -n \"magic\" tests/Feature/Api/V1/AuthTest.php)",
+      "Read(//Users/alexis/Herd/ccs/**)",
+      "Bash(php artisan *)"
     ]
   }
 }

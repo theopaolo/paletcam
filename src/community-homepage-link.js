@@ -1,7 +1,50 @@
 import * as communityApi from "./community-api.js";
 import { getCommunityAccessToken } from "./community-session.js";
-import { COMMUNITY_BASE_URL } from "./config.js";
+import { buildCommunityUrl, COMMUNITY_BASE_URL } from "./config.js";
 import { clientLog } from "./modules/client-log.js";
+
+/**
+ * Open a new tab and keep a handle to it so we can redirect it once an async
+ * magic link resolves. We intentionally avoid "noopener" (which makes
+ * window.open return null and orphan the tab) and sever the back-reference
+ * manually to retain anti-tabnabbing protection.
+ *
+ * @param {string} url
+ * @returns {Window | null}
+ */
+function defaultOpenWindow(url) {
+  const pendingWindow = window.open(url, "_blank");
+  if (pendingWindow) {
+    pendingWindow.opener = null;
+  }
+  return pendingWindow;
+}
+
+/** @param {string} url */
+function defaultNavigateCurrent(url) {
+  window.location.href = url;
+}
+
+/**
+ * Redirect the placeholder tab to the resolved URL, falling back to navigating
+ * the current window when the popup was blocked.
+ *
+ * @param {Window | null} pendingWindow
+ * @param {string} url
+ * @param {(url: string) => void} navigateCurrent
+ */
+function redirectResolvedWindow(pendingWindow, url, navigateCurrent) {
+  if (pendingWindow) {
+    try {
+      pendingWindow.location.href = url;
+    } catch (_error) {
+      pendingWindow.location = url;
+    }
+    return;
+  }
+
+  navigateCurrent(url);
+}
 
 /**
  * Resolve the destination URL for the "Catchers Community" header link.
@@ -10,7 +53,7 @@ import { clientLog } from "./modules/client-log.js";
  *
  * @param {object} options
  * @param {string} options.token
- * @param {(args: { token: string }) => Promise<{ magic_link?: string }>} options.requestMagicLink
+ * @param {(args: { token: string, redirect?: string }) => Promise<{ magic_link?: string }>} options.requestMagicLink
  * @param {string} options.fallbackUrl
  * @returns {Promise<string>}
  */
@@ -39,7 +82,7 @@ export async function resolveCommunityHomepageUrl({ token, requestMagicLink, fal
  * @param {object} [options]
  * @param {HTMLAnchorElement | null} [options.link]
  * @param {() => string} [options.getToken]
- * @param {(args: { token: string }) => Promise<{ magic_link?: string }>} [options.requestMagicLink]
+ * @param {(args: { token: string, redirect?: string }) => Promise<{ magic_link?: string }>} [options.requestMagicLink]
  * @param {(url: string) => (Window | null)} [options.openWindow]
  * @param {(url: string) => void} [options.navigateCurrent]
  */
@@ -50,20 +93,8 @@ export function initCommunityHomepageLink(options = {}) {
     ),
     getToken = getCommunityAccessToken,
     requestMagicLink = (args) => communityApi.requestCommunityMagicLink(args),
-    openWindow = (url) => {
-      // Note: do not pass "noopener" here — it makes window.open() return null,
-      // which would orphan the pending tab on "about:blank". We keep the handle
-      // so we can redirect it once the magic link resolves, and sever the
-      // back-reference manually to retain anti-tabnabbing protection.
-      const pendingWindow = window.open(url, "_blank");
-      if (pendingWindow) {
-        pendingWindow.opener = null;
-      }
-      return pendingWindow;
-    },
-    navigateCurrent = (url) => {
-      window.location.href = url;
-    },
+    openWindow = defaultOpenWindow,
+    navigateCurrent = defaultNavigateCurrent,
   } = options;
 
   if (!link) {
@@ -82,16 +113,47 @@ export function initCommunityHomepageLink(options = {}) {
     const pendingWindow = openWindow("about:blank");
 
     resolveCommunityHomepageUrl({ token, requestMagicLink, fallbackUrl }).then((url) => {
-      if (pendingWindow) {
-        try {
-          pendingWindow.location.href = url;
-        } catch (_error) {
-          pendingWindow.location = url;
-        }
-        return;
-      }
-
-      navigateCurrent(url);
+      redirectResolvedWindow(pendingWindow, url, navigateCurrent);
     });
+  });
+}
+
+/**
+ * Open a community URL, auto-logging the user in via a magic link when a
+ * session token is available so they land already authenticated on the target
+ * page. Anonymous users (and any failure) just navigate to the plain URL.
+ *
+ * @param {object} [options]
+ * @param {string} [options.path] Relative community path to land on (default "/").
+ * @param {() => string} [options.getToken]
+ * @param {(args: { token: string, redirect?: string }) => Promise<{ magic_link?: string }>} [options.requestMagicLink]
+ * @param {(url: string) => (Window | null)} [options.openWindow]
+ * @param {(url: string) => void} [options.navigateCurrent]
+ */
+export function openCommunityWithAutoLogin({
+  path = "/",
+  getToken = getCommunityAccessToken,
+  requestMagicLink = (args) => communityApi.requestCommunityMagicLink(args),
+  openWindow = defaultOpenWindow,
+  navigateCurrent = defaultNavigateCurrent,
+} = {}) {
+  const fallbackUrl = buildCommunityUrl(path);
+  const token = getToken();
+
+  if (!token) {
+    if (!openWindow(fallbackUrl)) {
+      navigateCurrent(fallbackUrl);
+    }
+    return;
+  }
+
+  const pendingWindow = openWindow("about:blank");
+
+  resolveCommunityHomepageUrl({
+    token,
+    requestMagicLink: (args) => requestMagicLink({ ...args, redirect: path }),
+    fallbackUrl,
+  }).then((url) => {
+    redirectResolvedWindow(pendingWindow, url, navigateCurrent);
   });
 }
