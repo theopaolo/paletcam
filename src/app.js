@@ -26,6 +26,7 @@ import { isIOSDevice, supportsCameraStartup } from "./modules/platform.js";
 import { createPhotoOutputController } from "./modules/app/photo-output.js";
 import { createRalPreviewController } from "./modules/app/ral-preview.js";
 import { createViewportHeightController } from "./modules/app/viewport-height.js";
+import { initCommunityHomepageLink } from "./community-homepage-link.js";
 import "./modules/panels/config-panel.js";
 import "./modules/panels/settings-panel.js";
 
@@ -668,4 +669,5 @@ function destroyApp() {
   clearPhotoOutput();
 }
 
+initCommunityHomepageLink();
 initializeApp();

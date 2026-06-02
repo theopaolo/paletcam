@@ -4,3 +4,4 @@ dist/
 src/color-thief-src/
 color-thief-src/*
 color-thief-src/**/*
+.env

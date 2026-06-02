@@ -22,6 +22,7 @@ const precacheExcludedExtensions = new Set([".map"]);
 const bundleNodeEnv = "production";
 const deployBranchName = resolveDeployBranchName();
 const logApiBaseUrl = process.env.PALETCAM_LOG_API_BASE_URL ?? "";
+const communityBaseUrl = (process.env.COMMUNITY_API_PROXY_TARGET ?? "").replace(/\/+$/, "");
 const appVersion =
   JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version || "";
 const commitHash = getGitCommitHash();
@@ -33,6 +34,7 @@ const browserBuildConfig = {
   sourcemap: "external",
   define: {
     "process.env.NODE_ENV": JSON.stringify(bundleNodeEnv),
+    __COMMUNITY_BASE_URL__: JSON.stringify(communityBaseUrl),
     __PALETCAM_DEPLOY_BRANCH__: JSON.stringify(deployBranchName),
     __PALETCAM_LOG_API_BASE_URL__: JSON.stringify(logApiBaseUrl),
     __APP_VERSION__: JSON.stringify(appVersion),
