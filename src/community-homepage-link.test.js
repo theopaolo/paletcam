@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import {
+  createCommunityAutoLoginOpener,
   initCommunityHomepageLink,
-  openCommunityWithAutoLogin,
   resolveCommunityHomepageUrl,
 } from "./community-homepage-link.js";
 
@@ -9,23 +9,16 @@ const FALLBACK = "https://colorcatchers.co/";
 const MAGIC = "https://colorcatchers.co/auth/magic/42?expires=1&signature=abc";
 
 function createFakeLink({ href = FALLBACK } = {}) {
-  let handler = null;
+  const handlers = {};
   return {
     href,
+    target: "",
+    rel: "",
     addEventListener: (type, fn) => {
-      if (type === "click") {
-        handler = fn;
-      }
+      handlers[type] = fn;
     },
-    click() {
-      const event = {
-        defaultPrevented: false,
-        preventDefault() {
-          this.defaultPrevented = true;
-        },
-      };
-      handler?.(event);
-      return event;
+    fire(type) {
+      handlers[type]?.();
     },
   };
 }
@@ -87,129 +80,115 @@ describe("resolveCommunityHomepageUrl", () => {
 });
 
 describe("initCommunityHomepageLink", () => {
-  let openWindow;
-  let navigateCurrent;
-  let pendingWindow;
-
-  beforeEach(() => {
-    pendingWindow = { location: { href: "about:blank" } };
-    openWindow = mock(() => pendingWindow);
-    navigateCurrent = mock(() => {});
-  });
-
-  test("keeps the default navigation for anonymous users", () => {
-    const link = createFakeLink();
-
-    initCommunityHomepageLink({
-      link,
-      getToken: () => "",
-      requestMagicLink: mock(async () => ({ magic_link: MAGIC })),
-      openWindow,
-      navigateCurrent,
-    });
-
-    const event = link.click();
-
-    expect(event.defaultPrevented).toBe(false);
-    expect(openWindow).not.toHaveBeenCalled();
-  });
-
-  test("opens the magic link in the pending window for authenticated users", async () => {
+  test("opens natively in a new tab via target=_blank", () => {
     const link = createFakeLink();
 
     initCommunityHomepageLink({
       link,
       getToken: () => "tok",
       requestMagicLink: mock(async () => ({ magic_link: MAGIC })),
-      openWindow,
-      navigateCurrent,
     });
 
-    const event = link.click();
-    await flush();
-
-    expect(event.defaultPrevented).toBe(true);
-    expect(openWindow).toHaveBeenCalledWith("about:blank");
-    expect(pendingWindow.location.href).toBe(MAGIC);
-    expect(navigateCurrent).not.toHaveBeenCalled();
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toBe("noopener noreferrer");
   });
 
-  test("navigates the current window when the popup is blocked", async () => {
+  test("refreshes the href to a magic link when an authenticated user interacts", async () => {
     const link = createFakeLink();
+    const requestMagicLink = mock(async () => ({ magic_link: MAGIC }));
 
-    initCommunityHomepageLink({
-      link,
-      getToken: () => "tok",
-      requestMagicLink: mock(async () => ({ magic_link: MAGIC })),
-      openWindow: mock(() => null),
-      navigateCurrent,
-    });
+    initCommunityHomepageLink({ link, getToken: () => "tok", requestMagicLink });
 
-    link.click();
+    link.fire("pointerenter");
     await flush();
 
-    expect(navigateCurrent).toHaveBeenCalledWith(MAGIC);
+    expect(requestMagicLink).toHaveBeenCalledWith({ token: "tok", redirect: undefined });
+    expect(link.href).toBe(MAGIC);
+  });
+
+  test("leaves the plain href untouched for anonymous users", async () => {
+    const link = createFakeLink();
+    const requestMagicLink = mock(async () => ({ magic_link: MAGIC }));
+
+    initCommunityHomepageLink({ link, getToken: () => "", requestMagicLink });
+
+    link.fire("pointerdown");
+    await flush();
+
+    expect(requestMagicLink).not.toHaveBeenCalled();
+    expect(link.href).toBe(FALLBACK);
+  });
+
+  test("does not fire overlapping fetches while one is pending", async () => {
+    const link = createFakeLink();
+    const requestMagicLink = mock(async () => ({ magic_link: MAGIC }));
+
+    initCommunityHomepageLink({ link, getToken: () => "tok", requestMagicLink });
+
+    link.fire("pointerenter");
+    link.fire("pointerdown");
+    link.fire("focus");
+    await flush();
+
+    expect(requestMagicLink).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("openCommunityWithAutoLogin", () => {
-  let openWindow;
-  let navigateCurrent;
-  let pendingWindow;
-
-  beforeEach(() => {
-    pendingWindow = { location: { href: "about:blank" } };
-    openWindow = mock(() => pendingWindow);
-    navigateCurrent = mock(() => {});
-  });
-
-  test("auto-logs in and lands the pending tab on the requested path", async () => {
+describe("createCommunityAutoLoginOpener", () => {
+  test("opens the magic link once it has resolved before the click", async () => {
+    const openExternal = mock(() => {});
     const requestMagicLink = mock(async () => ({ magic_link: MAGIC }));
 
-    openCommunityWithAutoLogin({
+    const open = createCommunityAutoLoginOpener({
       path: "/my/catches",
       getToken: () => "tok",
       requestMagicLink,
-      openWindow,
-      navigateCurrent,
+      openExternal,
     });
-    await flush();
 
-    expect(openWindow).toHaveBeenCalledWith("about:blank");
+    await flush();
+    open();
+
     expect(requestMagicLink).toHaveBeenCalledWith({ token: "tok", redirect: "/my/catches" });
-    expect(pendingWindow.location.href).toBe(MAGIC);
-    expect(navigateCurrent).not.toHaveBeenCalled();
+    expect(openExternal).toHaveBeenCalledTimes(1);
+    expect(openExternal.mock.calls[0][0]).toBe(MAGIC);
   });
 
   test("opens the plain url for anonymous users without requesting a magic link", () => {
+    const openExternal = mock(() => {});
     const requestMagicLink = mock(async () => ({ magic_link: MAGIC }));
 
-    openCommunityWithAutoLogin({
+    const open = createCommunityAutoLoginOpener({
       path: "/my/catches",
       getToken: () => "",
       requestMagicLink,
-      openWindow,
-      navigateCurrent,
+      openExternal,
     });
 
+    open();
+
     expect(requestMagicLink).not.toHaveBeenCalled();
-    expect(openWindow).toHaveBeenCalledTimes(1);
-    const openedUrl = openWindow.mock.calls[0][0];
+    expect(openExternal).toHaveBeenCalledTimes(1);
+    const openedUrl = openExternal.mock.calls[0][0];
     expect(openedUrl).toContain("/my/catches");
-    expect(openedUrl).not.toBe("about:blank");
-    expect(navigateCurrent).not.toHaveBeenCalled();
   });
 
-  test("navigates the current window when the popup is blocked", async () => {
-    openCommunityWithAutoLogin({
+  test("falls back to the plain url when clicked before the magic link resolves", () => {
+    const openExternal = mock(() => {});
+
+    const open = createCommunityAutoLoginOpener({
       path: "/my/catches",
       getToken: () => "tok",
       requestMagicLink: mock(async () => ({ magic_link: MAGIC })),
-      openWindow: mock(() => null),
-      navigateCurrent,
+      openExternal,
     });
-    await flush();
 
-    expect(navigateCurrent).toHaveBeenCalledWith(MAGIC);
+    // Click immediately, before the pending fetch resolves.
+    open();
+
+    expect(openExternal).toHaveBeenCalledTimes(1);
+    const openedUrl = openExternal.mock.calls[0][0];
+    expect(openedUrl).toContain("/my/catches");
+    expect(openedUrl).not.toBe(MAGIC);
   });
 });

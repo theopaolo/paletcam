@@ -12,7 +12,7 @@ import {
   syncPublishedPalettesModerationStatus,
   unpublishPaletteFromCommunityFeed,
 } from "./community-service.js";
-import { openCommunityWithAutoLogin } from "./community-homepage-link.js";
+import { createCommunityAutoLoginOpener } from "./community-homepage-link.js";
 import { t } from "./i18n.js";
 import { openLoginPanel } from "./login-ui.js";
 import { clientLog } from "./modules/client-log.js";
@@ -845,9 +845,7 @@ async function handlePublishPalette(palette, action = "publish") {
     };
     if (action === "publish") {
       toastOptions.actionLabel = t("collection.publish.cta");
-      toastOptions.onAction = () => {
-        openCommunityWithAutoLogin({ path: "/my/catches" });
-      };
+      toastOptions.onAction = createCommunityAutoLoginOpener({ path: "/my/catches" });
     }
     showToast(actionConfig.successMessage, toastOptions);
 
@@ -1284,9 +1282,7 @@ async function handleSelectionPublicationAction(action, palettes) {
 
     if (action === "publish") {
       toastOptions.actionLabel = t("collection.publish.cta");
-      toastOptions.onAction = () => {
-        openCommunityWithAutoLogin({ path: "/my/catches" });
-      };
+      toastOptions.onAction = createCommunityAutoLoginOpener({ path: "/my/catches" });
     }
 
     showToast(t(successMessageKey, { count: successCount }), toastOptions);
