@@ -41,15 +41,6 @@ export function formatCompactThousands(value) {
   return String(safeValue);
 }
 
-export function formatScaleValue(value) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return "0";
-  }
-
-  return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
-}
-
 export function updateSliderShellTicks(shell, rangeInput) {
   if (!shell || !rangeInput) {
     return;
@@ -84,8 +75,6 @@ export function createRangeControl({
   onInteractionStart,
   onInteractionCommit,
   getAriaLabel,
-  inputValueFromSettings = (value) => value,
-  settingValueFromInput = (value) => value,
   formatInlineValue = (value) => String(value),
   formatDisplayValue = formatInlineValue,
 }) {
@@ -99,15 +88,14 @@ export function createRangeControl({
   }
 
   function renderFromSettings(settings) {
-    const settingValue = getValueFromSettings(settings);
-    const inputValue = inputValueFromSettings(settingValue);
-    input.value = String(inputValue);
-    input.setAttribute("aria-label", getAriaLabel(inputValue));
+    const value = getValueFromSettings(settings);
+    input.value = String(value);
+    input.setAttribute("aria-label", getAriaLabel(value));
     if (inlineValue) {
-      inlineValue.textContent = formatInlineValue(inputValue);
+      inlineValue.textContent = formatInlineValue(value);
     }
     if (displayValue) {
-      displayValue.textContent = formatDisplayValue(inputValue);
+      displayValue.textContent = formatDisplayValue(value);
     }
     updateSliderShellTicks(shell, input);
   }
@@ -122,7 +110,7 @@ export function createRangeControl({
 
   function bindEvents(on) {
     on(input, "input", () => {
-      onValueInput?.(settingValueFromInput(Number(input.value)));
+      onValueInput?.(Number(input.value));
     });
 
     on(input, "pointerdown", () => {

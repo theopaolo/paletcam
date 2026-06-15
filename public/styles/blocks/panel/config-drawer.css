@@ -48,9 +48,9 @@ config-panel.is-open .config-drawer {
 
 .config-drawer-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
-  gap: var(--space-4);
+  gap: var(--space-8);
 }
 
 .config-drawer-tab {
@@ -63,15 +63,14 @@ config-panel.is-open .config-drawer {
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--color-text-muted);
-  padding: unset;
-  padding-bottom: var(--space-4);
-  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-control-gap);
   font: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: 600;
+  letter-spacing: 0.04em;
   line-height: 1;
   text-transform: uppercase;
-  min-width: 0;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 0.14s var(--easing-standard),
@@ -88,15 +87,6 @@ config-panel.is-open .config-drawer {
 .config-drawer-tab-label,
 .config-drawer-action-label {
   display: block;
-}
-
-.config-drawer-tab-label {
-  min-width: 0;
-  text-align: center;
-  white-space: normal;
-}
-
-.config-drawer-action-label {
   white-space: nowrap;
 }
 
@@ -129,10 +119,6 @@ config-panel.is-open .config-drawer {
   --config-icon-url: url("/icons/contrast.svg");
 }
 
-.config-drawer-icon-presets {
-  --config-icon-url: url("/icons/cog.svg");
-}
-
 .config-drawer-icon-undo {
   --config-icon-url: url("/icons/arrow-bend-left.svg");
 }
@@ -147,95 +133,6 @@ config-panel.is-open .config-drawer {
 
 .config-drawer-panels {
   display: grid;
-}
-
-.config-drawer-presets {
-  display: grid;
-  gap: var(--space-8);
-}
-
-.config-drawer-presets-grid {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-y: hidden;
-  overflow-x: auto;
-  gap: var(--space-8);
-  padding-bottom: var(--space-4);
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(255 200 0 / 0%) rgb(255 255 255 / 0%);
-  transition: scrollbar-color 0.18s var(--easing-standard);
-}
-
-.config-drawer-presets-grid:hover,
-.config-drawer-presets-grid:focus-within {
-  scrollbar-color: rgb(255 200 0 / 45%) rgb(255 255 255 / 8%);
-}
-
-.config-drawer-presets-grid::-webkit-scrollbar {
-  height: 0.4rem;
-}
-
-.config-drawer-presets-grid::-webkit-scrollbar-track {
-  background: rgb(255 255 255 / 0%);
-  border-radius: 999px;
-  transition: background-color 0.18s var(--easing-standard);
-}
-
-.config-drawer-presets-grid::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, rgb(255 200 0 / 0%) 0%, rgb(255 214 102 / 0%) 100%);
-  border-radius: 999px;
-  transition: background 0.18s var(--easing-standard);
-}
-
-.config-drawer-presets-grid:hover::-webkit-scrollbar-track,
-.config-drawer-presets-grid:focus-within::-webkit-scrollbar-track {
-  background: rgb(255 255 255 / 8%);
-}
-
-.config-drawer-presets-grid:hover::-webkit-scrollbar-thumb,
-.config-drawer-presets-grid:focus-within::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, rgb(255 200 0 / 55%) 0%, rgb(255 214 102 / 75%) 100%);
-}
-
-.config-drawer-presets-grid::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, rgb(255 200 0 / 72%) 0%, rgb(255 224 140 / 92%) 100%);
-}
-
-.config-drawer-preset {
-  flex: 0 0 clamp(5rem, 25vw, 7rem);
-  appearance: none;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: var(--radius-02);
-  background: linear-gradient(180deg, rgb(255 255 255 / 4%) 0%, rgb(0 0 0 / 10%) 100%), rgb(18 18 18 / 90%);
-  color: var(--color-text-secondary);
-  aspect-ratio: 1 / 1;
-  margin: 2.25rem 0;
-  padding: var(--space-8) var(--space-16);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  scroll-snap-align: start;
-  cursor: pointer;
-  transition:
-    color 0.14s var(--easing-standard),
-    border-color 0.14s var(--easing-standard),
-    background-color 0.14s var(--easing-standard),
-    box-shadow 0.14s var(--easing-standard);
-}
-
-.config-drawer-preset:hover {
-  color: var(--color-text-primary);
-  border-color: rgb(255 255 255 / 14%);
-}
-
-.config-drawer-preset[aria-pressed="true"],
-.config-drawer-preset.is-active {
-  color: var(--color-text-accent);
-  border-color: var(--color-accent-border);
-  background: linear-gradient(180deg, rgb(255 200 0 / 12%) 0%, rgb(18 16 8 / 100%) 100%);
-  box-shadow: var(--shadow-accent-outline);
 }
 
 .config-drawer-panel {
@@ -268,7 +165,8 @@ config-panel.is-open .config-drawer {
 }
 
 .config-drawer-darkest-toggle .panel-form-checkbox-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
+  letter-spacing: -0.04em;
 }
 
 .config-drawer-darkest-toggle
@@ -276,7 +174,7 @@ config-panel.is-open .config-drawer {
   + .panel-form-checkbox-box
   + .panel-form-checkbox-label {
   color: var(--color-text-warning);
-  font-size: var(--font-size-sm);
+  font-size: .75rem;
   font-weight: 400;
   text-transform: unset;
 }

@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
 describe("panel markup regression", () => {
-  test("settings panel keeps app-level controls and drops algorithm sliders", async () => {
+  test("settings panel keeps account, language, and data controls", async () => {
     const source = await Bun.file(new URL("./settings-panel.js", import.meta.url)).text();
 
-    expect(source).toContain("settingsPolaroidFooterLabelInput");
-    expect(source).toContain("settingsPolaroidColorNamesToggle");
+    expect(source).toContain("settingsTabLogin");
+    expect(source).toContain("settingsTabLanguage");
+    expect(source).toContain("settingsTabData");
+    expect(source).toContain("communityEmailInput");
+    expect(source).toContain("settingsExportButton");
+    expect(source).toContain("settingsImportInput");
     expect(source).toContain("settingsFlushDataButton");
+    expect(source).not.toContain("settingsPolaroidFooterLabelInput");
+    expect(source).not.toContain("settingsPolaroidColorNamesToggle");
     expect(source).not.toContain("data-settings-capture-mode");
     expect(source).not.toContain("data-settings-one-more-color");
     expect(source).not.toContain("settingsMedianCutPoolRange");
@@ -23,18 +29,20 @@ describe("panel markup regression", () => {
     const analysisStart = source.indexOf('id="configPanelAnalysis"');
     const colorsStart = source.indexOf('id="configPanelColors"');
     const balanceStart = source.indexOf('id="configPanelBalance"');
-    const presetsStart = source.indexOf('id="configPanelPresets"');
+    const footerStart = source.indexOf('class="config-drawer-footer');
+    const darkestToggleStart = source.indexOf('class="panel-form-checkbox config-drawer-darkest-toggle"');
     const analysisMarkup = source.slice(analysisStart, colorsStart);
     const colorsMarkup = source.slice(colorsStart, balanceStart);
-    const balanceMarkup = source.slice(balanceStart, presetsStart);
-    const presetsMarkup = source.slice(presetsStart);
+    const balanceMarkup = source.slice(balanceStart, footerStart);
+    const footerMarkup = source.slice(footerStart, darkestToggleStart);
+    const darkestToggleMarkup = source.slice(darkestToggleStart);
 
     expect(source).toContain('data-config-tab="analysis"');
     expect(source).toContain('data-config-tab="colors"');
     expect(source).toContain('data-config-tab="balance"');
-    expect(source).toContain('data-config-tab="presets"');
-    expect(source).toContain("CONFIG_PANEL_PRESETS.map");
-    expect(source).toContain("data-config-preset=${preset.id}");
+    expect(source).not.toContain('data-config-tab="presets"');
+    expect(source).not.toContain("CONFIG_PANEL_PRESETS.map");
+    expect(source).not.toContain("data-config-preset");
     expect(source).toContain("configScoringDiversityRange");
     expect(source).toContain("configScoringContrastRange");
     expect(source).toContain("configScoringVibrancyRange");
@@ -50,9 +58,13 @@ describe("panel markup regression", () => {
     expect(analysisMarkup).not.toContain("configScoringDiversityRange");
     expect(colorsMarkup).toContain("configScoringVibrancyRange");
     expect(colorsMarkup).toContain("configScoringRarityRange");
+    expect(colorsMarkup).not.toContain("configOneMoreColorToggle");
     expect(balanceMarkup).toContain("configScoringDiversityRange");
     expect(balanceMarkup).toContain("configScoringContrastRange");
     expect(balanceMarkup).not.toContain("configMedianCutPoolRange");
-    expect(presetsMarkup).toContain("data-config-preset=${preset.id}");
+    expect(footerMarkup).toContain("configUndoButton");
+    expect(footerMarkup).toContain("configRedoButton");
+    expect(footerMarkup).toContain("configResetButton");
+    expect(darkestToggleMarkup).toContain("configOneMoreColorToggle");
   });
 });
