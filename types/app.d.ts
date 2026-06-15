@@ -598,6 +598,16 @@ interface Navigator {
   standalone?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+//  Build-time injected globals (replaced via bundler `define`)
+// ---------------------------------------------------------------------------
+
+declare const __COMMUNITY_BASE_URL__: string;
+declare const __PALETCAM_LOG_API_BASE_URL__: string;
+declare const __PALETCAM_DEPLOY_BRANCH__: string;
+declare const __APP_VERSION__: string;
+declare const __COMMIT_HASH__: string;
+
 declare module "bun:test" {
   export function describe(name: string, fn: () => void): void;
   export function test(name: string, fn: () => void | Promise<void>): void;

@@ -392,6 +392,12 @@
   mask-size: contain;
 }
 
+.btn-config-icon.is-close {
+  width: 0.75rem;
+  height: 0.75rem;
+  mask-image: url("/icons/close.svg");
+}
+
 .btn-open-settings,
 .btn-open-login {
   display: grid;

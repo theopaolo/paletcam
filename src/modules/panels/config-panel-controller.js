@@ -18,6 +18,7 @@ import {
 } from "./settings-range-control.js";
 
 const TAB_IDS = ["analysis", "colors", "balance"];
+const CONFIG_TOGGLE_CLOSE_ICON_CLASS = "is-close";
 
 function queryById(root, id) {
   if (!id) {
@@ -51,8 +52,31 @@ function getNextTabId(currentTabId, direction) {
   return TAB_IDS[nextIndex];
 }
 
+function isEventInsideElement(event, element) {
+  if (!element) {
+    return false;
+  }
+
+  const eventPath = typeof event.composedPath === "function" ? event.composedPath() : [];
+  if (eventPath.includes(element)) {
+    return true;
+  }
+
+  return Boolean(event.target && typeof element.contains === "function" && element.contains(event.target));
+}
+
 export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   const dom = getConfigDom(root);
+  const toggleButtonIcon = /** @type {HTMLElement | null} */ (
+    toggleButton?.querySelector(".btn-config-icon") ?? null
+  );
+  const toggleButtonLabel = /** @type {HTMLElement | null} */ (
+    toggleButton?.querySelector(".btn-config-label") ?? null
+  );
+  const toggleButtonOpenAriaLabelKey =
+    toggleButton?.getAttribute("data-i18n-aria-label") || "capture.configOpen";
+  const toggleButtonOpenLabelKey =
+    toggleButtonLabel?.getAttribute("data-i18n") || "capture.configLabel";
   const cleanups = [];
   const defaultAlgorithmSettings = cloneAlgorithmSettings(getDefaultAppSettings());
   const history = createAlgorithmSettingsHistory({
@@ -72,16 +96,34 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     });
   };
 
+  function syncConfigToggleButton() {
+    if (!toggleButton) {
+      return;
+    }
+
+    toggleButton.classList.toggle("is-active", isDrawerOpen);
+    toggleButton.setAttribute("aria-expanded", String(isDrawerOpen));
+    toggleButton.setAttribute(
+      "aria-label",
+      t(isDrawerOpen ? "capture.configClose" : toggleButtonOpenAriaLabelKey),
+    );
+
+    toggleButtonIcon?.classList.toggle(CONFIG_TOGGLE_CLOSE_ICON_CLASS, isDrawerOpen);
+
+    if (toggleButtonLabel) {
+      toggleButtonLabel.textContent = t(
+        isDrawerOpen ? "capture.configCloseLabel" : toggleButtonOpenLabelKey,
+      );
+    }
+  }
+
   function syncDrawerState() {
     if (dom.drawer) {
       dom.drawer.hidden = !isDrawerOpen;
       dom.drawer.setAttribute("aria-hidden", String(!isDrawerOpen));
     }
 
-    if (toggleButton) {
-      toggleButton.classList.toggle("is-active", isDrawerOpen);
-      toggleButton.setAttribute("aria-expanded", String(isDrawerOpen));
-    }
+    syncConfigToggleButton();
 
     root.classList.toggle("is-open", isDrawerOpen);
     root.dispatchEvent?.(
@@ -346,6 +388,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     });
     syncOneMoreColorToggle(settings);
     syncDrawerAvailability(settings);
+    syncConfigToggleButton();
     syncHistoryButtons();
   }
 
@@ -363,6 +406,19 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       event.preventDefault();
       setDrawerOpen(false, { restoreFocus: true });
     }
+  });
+
+  on(document, "pointerdown", (event) => {
+    if (
+      !isDrawerOpen ||
+      isEventInsideElement(event, root) ||
+      isEventInsideElement(event, toggleButton) ||
+      isEventInsideElement(event, toggleSection)
+    ) {
+      return;
+    }
+
+    setDrawerOpen(false);
   });
 
   dom.tabButtons.forEach(bindTabButton);

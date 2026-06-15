@@ -68,7 +68,7 @@ function shouldBypassRequest(request, requestUrl) {
   );
 }
 
-function isNetworkFirstAssetRequest(request) {
+function isCacheFirstAssetRequest(request) {
   return (
     request.destination === 'script' ||
     request.destination === 'style' ||
@@ -78,6 +78,27 @@ function isNetworkFirstAssetRequest(request) {
 
 function createFreshRequest(request) {
   return new Request(request, { cache: 'no-store' });
+}
+
+// Fetches `request`, stores a successful response under `cacheKey`, and returns
+// the network response (or null on failure). When `freshRequest` is true the
+// browser HTTP cache is bypassed (used for app-shell/asset revalidation); set
+// it to false to respect the HTTP cache for ordinary same-origin requests.
+async function fetchAndCache(request, cache, { cacheKey = request, freshRequest = true } = {}) {
+  try {
+    const networkResponse = await fetch(freshRequest ? createFreshRequest(request) : request);
+    if (shouldCacheResponse(networkResponse)) {
+      try {
+        await cache.put(cacheKey, networkResponse.clone());
+      } catch (error) {
+        console.warn('Service Worker cache write failed:', error);
+      }
+    }
+
+    return networkResponse;
+  } catch {
+    return null;
+  }
 }
 
 self.addEventListener('install', (event) => {
@@ -110,70 +131,77 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.mode === 'navigate') {
+    const cachePromise = caches.open(CACHE_NAME);
+    // Cache the navigation response under the app-shell key. This assumes a
+    // pure SPA where the server returns index.html for every route; route-
+    // specific server HTML would be stored under the wrong key.
+    const networkResponsePromise = cachePromise.then((cache) =>
+      fetchAndCache(request, cache, { cacheKey: INDEX_FALLBACK_URL })
+    );
+    event.waitUntil(networkResponsePromise);
+
     event.respondWith(
       (async () => {
-        const cache = await caches.open(CACHE_NAME);
-        try {
-          const networkResponse = await fetch(createFreshRequest(request));
-          cache.put(INDEX_FALLBACK_URL, networkResponse.clone());
-          return networkResponse;
-        } catch (error) {
-          const appShellFallback = await caches.match(INDEX_FALLBACK_URL);
-          if (appShellFallback) {
-            return appShellFallback;
-          }
+        const cache = await cachePromise;
+        const appShellFallback = await cache.match(INDEX_FALLBACK_URL);
 
-          const fallbackResponse = await caches.match(OFFLINE_FALLBACK_URL);
-          if (fallbackResponse) {
-            return fallbackResponse;
-          }
-
-          throw error;
+        if (appShellFallback) {
+          return appShellFallback;
         }
+
+        const networkResponse = await networkResponsePromise;
+        if (networkResponse) {
+          return networkResponse;
+        }
+
+        const fallbackResponse = await cache.match(OFFLINE_FALLBACK_URL);
+        if (fallbackResponse) {
+          return fallbackResponse;
+        }
+
+        return new Response('Offline', { status: 503, statusText: 'Offline' });
       })()
     );
     return;
   }
 
-  if (isNetworkFirstAssetRequest(request)) {
+  if (isCacheFirstAssetRequest(request)) {
+    const cachePromise = caches.open(CACHE_NAME);
+    const networkResponsePromise = cachePromise.then((cache) => fetchAndCache(request, cache));
+    event.waitUntil(networkResponsePromise);
+
     event.respondWith(
       (async () => {
-        const cache = await caches.open(CACHE_NAME);
+        const cache = await cachePromise;
+        const cachedResponse = await cache.match(request);
 
-        try {
-          const networkResponse = await fetch(createFreshRequest(request));
-          if (shouldCacheResponse(networkResponse)) {
-            cache.put(request, networkResponse.clone());
-          }
-
-          return networkResponse;
-        } catch {
-          const cachedResponse = await cache.match(request);
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-
-          return new Response('Offline', { status: 503, statusText: 'Offline' });
+        if (cachedResponse) {
+          return cachedResponse;
         }
+
+        const networkResponse = await networkResponsePromise;
+        if (networkResponse) {
+          return networkResponse;
+        }
+
+        return new Response('Offline', { status: 503, statusText: 'Offline' });
       })()
     );
     return;
   }
+
+  const cachePromise = caches.open(CACHE_NAME);
+  // Stale-while-revalidate for ordinary same-origin requests; respect the HTTP
+  // cache rather than forcing a fresh fetch.
+  const networkResponsePromise = cachePromise.then((cache) =>
+    fetchAndCache(request, cache, { freshRequest: false })
+  );
+  event.waitUntil(networkResponsePromise);
 
   event.respondWith(
     (async () => {
-      const cache = await caches.open(CACHE_NAME);
+      const cache = await cachePromise;
       const cachedResponse = await cache.match(request);
-
-      const networkResponsePromise = fetch(request)
-        .then(async (networkResponse) => {
-          if (shouldCacheResponse(networkResponse)) {
-            cache.put(request, networkResponse.clone());
-          }
-
-          return networkResponse;
-        })
-        .catch(() => null);
 
       if (cachedResponse) {
         return cachedResponse;

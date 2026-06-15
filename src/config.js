@@ -1,4 +1,6 @@
-export const COMMUNITY_BASE_URL = "https://colorcatchers.co";
+const COMMUNITY_BASE_URL_OVERRIDE =
+  typeof __COMMUNITY_BASE_URL__ === "string" ? __COMMUNITY_BASE_URL__ : "";
+export const COMMUNITY_BASE_URL = COMMUNITY_BASE_URL_OVERRIDE || "https://colorcatchers.co";
 export const LOCAL_API_BASE_URL = `${COMMUNITY_BASE_URL}/api/v1`;
 export const LIVE_API_BASE_URL = `${COMMUNITY_BASE_URL}/api/v1`;
 const LOG_API_BASE_URL_OVERRIDE =

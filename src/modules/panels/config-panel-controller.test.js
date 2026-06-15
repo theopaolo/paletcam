@@ -5,6 +5,22 @@ import { mountConfigPanel } from "./config-panel-controller.js";
 
 const SETTINGS_STORAGE_KEY = "paletcam:settings:v1";
 const GLOBAL_SETTINGS_STORE_KEY = "__paletcamAppSettingsStore__";
+const CONFIG_OPEN_ARIA_LABELS = [
+  "Ouvrir la configuration",
+  "Open configuration",
+  "capture.configOpen",
+];
+const CONFIG_CLOSE_ARIA_LABELS = [
+  "Fermer la configuration",
+  "Close configuration",
+  "capture.configClose",
+];
+const CONFIG_OPEN_LABELS = ["Config", "Tune", "capture.configLabel"];
+const CONFIG_CLOSE_LABELS = ["Fermer", "Close", "capture.configCloseLabel"];
+
+function expectOneOf(actualValue, expectedValues) {
+  expect(expectedValues).toContain(actualValue);
+}
 
 class FakeClassList {
   constructor(element) {
@@ -185,6 +201,14 @@ class FakeElement extends FakeEventTarget {
     this.wasFocused = true;
   }
 
+  contains(node) {
+    if (node === this) {
+      return true;
+    }
+
+    return this.children.some((child) => typeof child.contains === "function" && child.contains(node));
+  }
+
   getAttribute(name) {
     return this.attributes.get(name) ?? null;
   }
@@ -211,6 +235,10 @@ class FakeElement extends FakeEventTarget {
   setAttribute(name, value) {
     const normalizedValue = String(value);
     this.attributes.set(name, normalizedValue);
+
+    if (name === "class") {
+      this.className = normalizedValue;
+    }
 
     if (name === "id") {
       this.id = normalizedValue;
@@ -368,7 +396,18 @@ function createConfigFixture() {
   drawer.append(tabList, analysisPanel, colorsPanel, balancePanel, footer);
 
   const toggleSection = new FakeElement("section");
-  const toggleButton = createButton("", { class: "btn-config" });
+  const toggleButton = createButton("", {
+    "aria-label": "Ouvrir la configuration",
+    class: "btn-config",
+    "data-i18n-aria-label": "capture.configOpen",
+  });
+  const toggleIcon = new FakeElement("span");
+  toggleIcon.setAttribute("class", "btn-config-icon");
+  const toggleLabel = new FakeElement("span");
+  toggleLabel.setAttribute("class", "btn-config-label");
+  toggleLabel.setAttribute("data-i18n", "capture.configLabel");
+  toggleLabel.textContent = "Config";
+  toggleButton.append(toggleIcon, toggleLabel);
   toggleSection.appendChild(toggleButton);
 
   return {
@@ -384,6 +423,8 @@ function createConfigFixture() {
     redoButton,
     root,
     toggleButton,
+    toggleIcon,
+    toggleLabel,
     toggleSection,
     undoButton,
   };
@@ -424,17 +465,26 @@ describe("mountConfigPanel", () => {
 
     expect(fixture.drawer.hidden).toBe(true);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
+    expectOneOf(fixture.toggleButton.getAttribute("aria-label"), CONFIG_OPEN_ARIA_LABELS);
+    expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
+    expectOneOf(fixture.toggleLabel.textContent, CONFIG_OPEN_LABELS);
 
     fixture.toggleButton.click();
 
     expect(fixture.drawer.hidden).toBe(false);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("true");
+    expectOneOf(fixture.toggleButton.getAttribute("aria-label"), CONFIG_CLOSE_ARIA_LABELS);
     expect(fixture.toggleButton.classList.contains("is-active")).toBe(true);
+    expect(fixture.toggleIcon.classList.contains("is-close")).toBe(true);
+    expectOneOf(fixture.toggleLabel.textContent, CONFIG_CLOSE_LABELS);
 
     fakeDocument.dispatch("keydown", { key: "Escape" });
 
     expect(fixture.drawer.hidden).toBe(true);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
+    expectOneOf(fixture.toggleButton.getAttribute("aria-label"), CONFIG_OPEN_ARIA_LABELS);
+    expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
+    expectOneOf(fixture.toggleLabel.textContent, CONFIG_OPEN_LABELS);
     expect(fixture.toggleButton.wasFocused).toBe(true);
 
     cleanup();
@@ -466,6 +516,38 @@ describe("mountConfigPanel", () => {
 
     expect(fixture.balanceTab.getAttribute("aria-selected")).toBe("true");
     expect(fixture.balanceTab.wasFocused).toBe(true);
+
+    cleanup();
+  });
+
+  test("closes the drawer when a pointer starts outside the panel and trigger", () => {
+    const fixture = createConfigFixture();
+    const outsideElement = new FakeElement("main");
+    const fakeDocument = new FakeEventTarget();
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: fakeDocument,
+    });
+
+    const cleanup = mountConfigPanel({
+      root: fixture.root,
+      toggleButton: fixture.toggleButton,
+      toggleSection: fixture.toggleSection,
+    });
+
+    fixture.toggleButton.click();
+    expect(fixture.drawer.hidden).toBe(false);
+
+    fakeDocument.dispatch("pointerdown", { target: fixture.drawer });
+    expect(fixture.drawer.hidden).toBe(false);
+
+    fakeDocument.dispatch("pointerdown", { target: fixture.toggleButton });
+    expect(fixture.drawer.hidden).toBe(false);
+
+    fakeDocument.dispatch("pointerdown", { target: outsideElement });
+    expect(fixture.drawer.hidden).toBe(true);
+    expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
+    expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
 
     cleanup();
   });
@@ -524,13 +606,14 @@ describe("mountConfigPanel", () => {
       toggleSection: fixture.toggleSection,
     });
 
-    expect(fixture.oneMoreColorToggle.checked).toBe(false);
+    expect(fixture.oneMoreColorToggle.checked).toBe(true);
+    expect(getAppSettings().oneMoreColor).toBe(true);
 
-    fixture.oneMoreColorToggle.checked = true;
+    fixture.oneMoreColorToggle.checked = false;
     fixture.oneMoreColorToggle.dispatch("change");
 
-    expect(getAppSettings().oneMoreColor).toBe(true);
-    expect(fixture.oneMoreColorToggle.checked).toBe(true);
+    expect(getAppSettings().oneMoreColor).toBe(false);
+    expect(fixture.oneMoreColorToggle.checked).toBe(false);
 
     cleanup();
   });
@@ -558,6 +641,8 @@ describe("mountConfigPanel", () => {
     expect(fixture.toggleButton.hidden).toBe(true);
     expect(fixture.drawer.hidden).toBe(true);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
+    expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
+    expectOneOf(fixture.toggleLabel.textContent, CONFIG_OPEN_LABELS);
 
     cleanup();
   });

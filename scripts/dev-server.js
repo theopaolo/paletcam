@@ -194,6 +194,7 @@ async function bundleSourceModule(filePath) {
     write: false,
     define: {
       'process.env.NODE_ENV': JSON.stringify(browserBundleNodeEnv),
+      __COMMUNITY_BASE_URL__: JSON.stringify(communityApiProxyTarget),
       __PALETCAM_DEPLOY_BRANCH__: JSON.stringify(deployBranchName),
       __PALETCAM_LOG_API_BASE_URL__: JSON.stringify(process.env.PALETCAM_LOG_API_BASE_URL ?? ''),
       __APP_VERSION__: JSON.stringify(appVersion),

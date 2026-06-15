@@ -57,7 +57,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   collectionViewMode: "list",
   locale: "fr",
   performanceHudEnabled: false,
-  oneMoreColor: false,
+  oneMoreColor: true,
   photoQualityMode: "hd",
   polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
   polaroidShowColorNames: false,

@@ -149,6 +149,20 @@ export function requestCommunityLoginCode({ email }) {
   });
 }
 
+/**
+ * @param {object} options
+ * @param {string} options.token
+ * @param {string} [options.redirect] Relative path the magic link should land on after auto-login.
+ * @returns {Promise<{ magic_link?: string, expires_at?: string }>}
+ */
+export function requestCommunityMagicLink({ token, redirect }) {
+  return requestCommunityApi("/auth/magic-link", {
+    method: "POST",
+    token,
+    body: typeof redirect === "string" && redirect ? { redirect } : undefined,
+  });
+}
+
 export function requestAccountDeletionCode({ token }) {
   return requestCommunityApi("/account/deletion-code", {
     method: "POST",
