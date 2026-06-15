@@ -119,6 +119,19 @@ function buildExportFilename({ exportedAt = new Date(), paletteCount = 0 } = {})
   return `colorcatches-${timestamp}-${imageLabel}.json`;
 }
 
+function isEventInsideElement(event, element) {
+  if (!element) {
+    return false;
+  }
+
+  const eventPath = typeof event.composedPath === "function" ? event.composedPath() : [];
+  if (eventPath.includes(element)) {
+    return true;
+  }
+
+  return Boolean(event.target && typeof element.contains === "function" && element.contains(event.target));
+}
+
 export function mountSettingsPanel({ root, toggleButton }) {
   const dom = getSettingsDom(root);
   const availableTabIds = getAvailableTabIds(dom);
@@ -353,6 +366,18 @@ export function mountSettingsPanel({ root, toggleButton }) {
       event.preventDefault();
       setDrawerOpen(false, { restoreFocus: true });
     }
+  });
+
+  on(document, "pointerdown", (event) => {
+    if (
+      !isDrawerOpen ||
+      isEventInsideElement(event, root) ||
+      isEventInsideElement(event, toggleButton)
+    ) {
+      return;
+    }
+
+    setDrawerOpen(false);
   });
 
   on(document, "open-settings-panel", (event) => {

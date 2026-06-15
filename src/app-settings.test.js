@@ -208,6 +208,34 @@ describe("app-settings performanceHudEnabled", () => {
   });
 });
 
+describe("app-settings oneMoreColor", () => {
+  test("defaults to enabled", async () => {
+    const { module } = await loadAppSettingsModule();
+
+    expect(module.getDefaultAppSettings().oneMoreColor).toBe(true);
+    expect(module.getAppSettings().oneMoreColor).toBe(true);
+  });
+
+  test("loads a persisted disabled state", async () => {
+    const { module } = await loadAppSettingsModule({
+      oneMoreColor: false,
+    });
+
+    expect(module.getAppSettings().oneMoreColor).toBe(false);
+  });
+
+  test("persists toggle updates", async () => {
+    const { module, localStorageMock } = await loadAppSettingsModule();
+
+    module.updateAppSettings({
+      oneMoreColor: false,
+    });
+
+    expect(module.getAppSettings().oneMoreColor).toBe(false);
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).oneMoreColor).toBe(false);
+  });
+});
+
 describe("app-settings photoQualityMode", () => {
   test("defaults to hd", async () => {
     const { module } = await loadAppSettingsModule();
