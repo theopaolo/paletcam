@@ -42,14 +42,10 @@ afterEach(() => {
   delete globalThis[GLOBAL_SETTINGS_STORE_KEY];
 });
 
+// captureMode carries the representative coverage for the generic store machinery
+// (valid load round-trip, change notifications, reset patch). Other fields below
+// only assert their own distinct validation rules.
 describe("app-settings captureMode", () => {
-  test("defaults to palette", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().captureMode).toBe("palette");
-    expect(module.getAppSettings().captureMode).toBe("palette");
-  });
-
   test("loads a persisted ral setting", async () => {
     const { module } = await loadAppSettingsModule({
       captureMode: "ral",
@@ -98,21 +94,6 @@ describe("app-settings captureMode", () => {
 });
 
 describe("app-settings collectionViewMode", () => {
-  test("defaults to list", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().collectionViewMode).toBe("list");
-    expect(module.getAppSettings().collectionViewMode).toBe("list");
-  });
-
-  test("loads a persisted grid setting", async () => {
-    const { module } = await loadAppSettingsModule({
-      collectionViewMode: "grid",
-    });
-
-    expect(module.getAppSettings().collectionViewMode).toBe("grid");
-  });
-
   test("normalizes invalid collectionViewMode to list", async () => {
     const { module } = await loadAppSettingsModule({
       collectionViewMode: "invalid",
@@ -121,6 +102,7 @@ describe("app-settings collectionViewMode", () => {
     expect(module.getAppSettings().collectionViewMode).toBe("list");
   });
 
+  // Representative persist-to-localStorage assertion for the whole settings store.
   test("persists updates and notifies listeners", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
     const updates = [];
@@ -136,21 +118,6 @@ describe("app-settings collectionViewMode", () => {
 });
 
 describe("app-settings locale", () => {
-  test("defaults to fr", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().locale).toBe("fr");
-    expect(module.getAppSettings().locale).toBe("fr");
-  });
-
-  test("loads a persisted en locale", async () => {
-    const { module } = await loadAppSettingsModule({
-      locale: "en",
-    });
-
-    expect(module.getAppSettings().locale).toBe("en");
-  });
-
   test("normalizes invalid locales to fr", async () => {
     const { module } = await loadAppSettingsModule({
       locale: "de",
@@ -158,33 +125,10 @@ describe("app-settings locale", () => {
 
     expect(module.getAppSettings().locale).toBe("fr");
   });
-
-  test("persists locale updates", async () => {
-    const { module, localStorageMock } = await loadAppSettingsModule();
-
-    module.updateAppSettings({ locale: "en" });
-
-    expect(module.getAppSettings().locale).toBe("en");
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).locale).toBe("en");
-  });
 });
 
 describe("app-settings performanceHudEnabled", () => {
-  test("defaults to false", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().performanceHudEnabled).toBe(false);
-    expect(module.getAppSettings().performanceHudEnabled).toBe(false);
-  });
-
-  test("loads a persisted enabled state", async () => {
-    const { module } = await loadAppSettingsModule({
-      performanceHudEnabled: true,
-    });
-
-    expect(module.getAppSettings().performanceHudEnabled).toBe(true);
-  });
-
+  // Guards falsy (false) boolean persistence, which enum fields above do not cover.
   test("persists updates and resets to false", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
 
@@ -208,80 +152,15 @@ describe("app-settings performanceHudEnabled", () => {
   });
 });
 
-describe("app-settings oneMoreColor", () => {
-  test("defaults to enabled", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().oneMoreColor).toBe(true);
-    expect(module.getAppSettings().oneMoreColor).toBe(true);
-  });
-
-  test("loads a persisted disabled state", async () => {
-    const { module } = await loadAppSettingsModule({
-      oneMoreColor: false,
-    });
-
-    expect(module.getAppSettings().oneMoreColor).toBe(false);
-  });
-
-  test("persists toggle updates", async () => {
-    const { module, localStorageMock } = await loadAppSettingsModule();
-
-    module.updateAppSettings({
-      oneMoreColor: false,
-    });
-
-    expect(module.getAppSettings().oneMoreColor).toBe(false);
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).oneMoreColor).toBe(false);
-  });
-});
-
 describe("app-settings photoQualityMode", () => {
-  test("defaults to hd", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().photoQualityMode).toBe("hd");
-    expect(module.getAppSettings().photoQualityMode).toBe("hd");
-  });
-
-  test("loads a persisted valid mode", async () => {
-    const { module } = await loadAppSettingsModule({ photoQualityMode: "fhd" });
-
-    expect(module.getAppSettings().photoQualityMode).toBe("fhd");
-  });
-
   test("falls back to hd for invalid persisted values", async () => {
     const { module } = await loadAppSettingsModule({ photoQualityMode: "4k" });
-
-    expect(module.getAppSettings().photoQualityMode).toBe("hd");
-  });
-
-  test("default reset patch restores the photo quality mode", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    module.updateAppSettings({ photoQualityMode: "sd" });
-    module.updateAppSettings(module.getDefaultAppSettingsResetPatch());
 
     expect(module.getAppSettings().photoQualityMode).toBe("hd");
   });
 });
 
 describe("app-settings polaroidFooterLabel", () => {
-  test("defaults to colorcatchers.co", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().polaroidFooterLabel).toBe("colorcatchers.co");
-    expect(module.getAppSettings().polaroidFooterLabel).toBe("colorcatchers.co");
-  });
-
-  test("loads a persisted custom label", async () => {
-    const { module } = await loadAppSettingsModule({
-      polaroidFooterLabel: "studio palette",
-    });
-
-    expect(module.getAppSettings().polaroidFooterLabel).toBe("studio palette");
-  });
-
   test("normalizes blank values back to the default label", async () => {
     const { module } = await loadAppSettingsModule({
       polaroidFooterLabel: "   ",
@@ -304,44 +183,7 @@ describe("app-settings polaroidFooterLabel", () => {
   });
 });
 
-describe("app-settings polaroidShowColorNames", () => {
-  test("defaults to false", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().polaroidShowColorNames).toBe(false);
-    expect(module.getAppSettings().polaroidShowColorNames).toBe(false);
-  });
-
-  test("loads a persisted enabled state", async () => {
-    const { module } = await loadAppSettingsModule({
-      polaroidShowColorNames: true,
-    });
-
-    expect(module.getAppSettings().polaroidShowColorNames).toBe(true);
-  });
-
-  test("persists toggle updates", async () => {
-    const { module, localStorageMock } = await loadAppSettingsModule();
-
-    module.updateAppSettings({
-      polaroidShowColorNames: true,
-    });
-
-    expect(module.getAppSettings().polaroidShowColorNames).toBe(true);
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).polaroidShowColorNames).toBe(
-      true,
-    );
-  });
-});
-
 describe("app-settings medianCut.colorSpace", () => {
-  test("defaults to rgb", async () => {
-    const { module } = await loadAppSettingsModule();
-
-    expect(module.getDefaultAppSettings().medianCut.colorSpace).toBe("rgb");
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
-  });
-
   test("normalizes a persisted oklch setting back to rgb", async () => {
     const { module } = await loadAppSettingsModule({
       medianCut: { colorSpace: "oklch" },

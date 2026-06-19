@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun run scripts/dev-server.js",
     "build": "bun run scripts/build.js",
-    "test": "bun test",
+    "test": "bun run scripts/test-isolated.js",
     "css:audit": "bun run scripts/css-token-audit.js",
     "lint:css": "stylelint 'public/styles/**/*.css'",
     "lint": "biome lint .",
