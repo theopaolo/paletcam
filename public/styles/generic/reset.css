@@ -97,5 +97,6 @@ h6 {
 }
 
 [hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: the hidden attribute must win over any element display rule */
   display: none !important;
 }

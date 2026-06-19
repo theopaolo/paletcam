@@ -56,7 +56,7 @@
 
 .panel-form-field {
   display: grid;
-  gap: var(--space-);
+  gap: var(--space-8);
 }
 
 .panel-form-field[hidden] {

@@ -770,10 +770,10 @@ export function extractLitCssSources(source, filePath = "") {
   const matches = [];
   const lineBreaks = buildLineIndex(source);
   const pattern = /\bcss`([\s\S]*?)`/g;
-  let match;
   let blockIndex = 0;
 
-  while ((match = pattern.exec(source)) !== null) {
+  let match = pattern.exec(source);
+  while (match !== null) {
     const contentStartIndex = match.index + 4;
 
     matches.push({
@@ -785,6 +785,7 @@ export function extractLitCssSources(source, filePath = "") {
     });
 
     blockIndex += 1;
+    match = pattern.exec(source);
   }
 
   return matches;

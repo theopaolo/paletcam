@@ -1,5 +1,3 @@
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { withSecurityHeaders } from './security-headers.js';
 import { resolveDeployBranchName } from './git-utils.js';
