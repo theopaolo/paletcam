@@ -1,11 +1,8 @@
+import { srgbToLinear } from "./color-math.js";
+
 const XN = 0.95047;
 const YN = 1;
 const ZN = 1.08883;
-
-function srgbToLinear(channel) {
-  const value = channel / 255;
-  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-}
 
 function rgbToXyz(r, g, b) {
   const linearR = srgbToLinear(r);

@@ -9,9 +9,9 @@
  * are available for any new code that wants richer color info.
  */
 
+import { rgbToHsl } from './color-math.js';
 import {
   rgbToOklch,
-  rgbToHsl,
   relativeLuminance,
   contrastRatio,
 } from './color-space-oklch.js';
