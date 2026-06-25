@@ -82,7 +82,7 @@ describe('extractMedianCutPaletteColors', () => {
     expect(result.colors.length).toBe(1);
   });
 
-  test('clamps invalid or fractional maxQuantizerPixels on the oklch path', () => {
+  test('clamps invalid or fractional maxQuantizerPixels', () => {
     const imageData = createRgbaData([
       [255, 0, 0, 255],
       [0, 255, 0, 255],
@@ -93,12 +93,10 @@ describe('extractMedianCutPaletteColors', () => {
     const zeroBudgetResult = extractMedianCutPaletteColors(imageData, 2, 2, 2, {
       quantizedPoolSize: 4,
       maxQuantizerPixels: 0,
-      colorSpace: 'oklch',
     });
     const fractionalBudgetResult = extractMedianCutPaletteColors(imageData, 2, 2, 2, {
       quantizedPoolSize: 4,
       maxQuantizerPixels: 0.5,
-      colorSpace: 'oklch',
     });
 
     expect(zeroBudgetResult.colors.length).toBeGreaterThan(0);

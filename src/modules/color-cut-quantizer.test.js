@@ -69,31 +69,4 @@ describe('ColorCutQuantizer', () => {
     expect(getPopulationTotal(swatches)).toBe(8);
     expectSwatchesWithinRgbRange(swatches);
   });
-
-  test('excludes colors blocked by optional filters', () => {
-    const pixels = new Int32Array([
-      packArgb8888(255, 0, 0),
-      packArgb8888(250, 20, 20),
-      packArgb8888(0, 255, 0),
-      packArgb8888(0, 0, 255),
-    ]);
-    const filters = [{
-      isAllowed(rgb888) {
-        const { r, g, b } = unpackRgb888(rgb888);
-        return !(r > g && r > b);
-      },
-    }];
-
-    const quantizer = new ColorCutQuantizer(pixels, 4, filters);
-    const swatches = quantizer.getQuantizedColors();
-
-    expect(getPopulationTotal(swatches)).toBe(2);
-
-    for (const swatch of swatches) {
-      const { r, g, b } = unpackRgb888(swatch.rgb);
-      expect(!(r > g && r > b)).toBe(true);
-    }
-
-    expectSwatchesWithinRgbRange(swatches);
-  });
 });

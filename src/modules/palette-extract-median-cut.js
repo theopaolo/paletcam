@@ -1,6 +1,5 @@
 import { ColorCutQuantizer } from './color-cut-quantizer.js';
-import { packImageDataToOklchArgb, swatchOklchToRgb } from './color-space-oklch.js';
-import { computePixelStride, packImageDataToArgb8888 } from './palette-pixel-pack.js';
+import { packImageDataToArgb8888 } from './palette-pixel-pack.js';
 import {
   buildHueRarityMap,
   createPaletteScoringProfile,
@@ -9,8 +8,6 @@ import {
 
 const MIN_SWATCH_COUNT = 1;
 export const DEFAULT_QUANTIZED_POOL_SIZE = 24;
-const QUANTIZED_POOL_MULTIPLIER = 3;
-const MAX_QUANTIZED_POOL_SIZE = 24;
 export const DEFAULT_MAX_QUANTIZER_PIXELS = 40_000;
 const POPULATION_WEIGHT = 0.15;
 const BASE_SCORE_WEIGHT = 1 - POPULATION_WEIGHT;
@@ -34,17 +31,13 @@ function buildCandidateFromSwatch(swatch) {
   };
 }
 
-function getQuantizedPoolSize(swatchCount, requestedPoolSize) {
+function getQuantizedPoolSize(requestedPoolSize) {
   const normalizedRequested = Number(requestedPoolSize);
   if (Number.isFinite(normalizedRequested) && normalizedRequested > 0) {
     return Math.floor(normalizedRequested);
   }
 
-  const scaledPoolSize = swatchCount * QUANTIZED_POOL_MULTIPLIER;
-  return Math.max(
-    DEFAULT_QUANTIZED_POOL_SIZE,
-    Math.min(MAX_QUANTIZED_POOL_SIZE, scaledPoolSize)
-  );
+  return DEFAULT_QUANTIZED_POOL_SIZE;
 }
 
 function getPopulationScore(population, maxPopulation) {
@@ -113,7 +106,6 @@ function rankQuantizedCandidates(candidatePool, swatchCount, scoringProfile) {
  * @param {object} [options]
  * @param {number} [options.quantizedPoolSize]
  * @param {number} [options.maxQuantizerPixels]
- * @param {'rgb' | 'oklch'} [options.colorSpace]  Quantization color space (default 'rgb')
  * @param {Partial<PaletteScoringWeights> | ScoringProfile} [options.scoring]
  * @returns {PaletteExtractionResult}
  */
@@ -125,7 +117,6 @@ export function extractMedianCutPaletteColors(
   {
     quantizedPoolSize,
     maxQuantizerPixels = DEFAULT_MAX_QUANTIZER_PIXELS,
-    colorSpace = 'rgb',
     scoring,
   } = {} ) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
@@ -134,22 +125,14 @@ export function extractMedianCutPaletteColors(
     return { colors: [] };
   }
 
-  const useOklch = colorSpace === 'oklch';
   const scoringOptions = {
     ...(scoring ?? {}),
-    model: scoring?.model ?? (useOklch ? "perceptual" : "classic"),
+    model: scoring?.model ?? "classic",
   };
 
-  // Pack pixels — either as RGB or scaled OKLCH, both into ARGB8888 ints
-  let packedPixels;
-  if (useOklch) {
-    const stride = computePixelStride(frameWidth, frameHeight, maxQuantizerPixels);
-    packedPixels = packImageDataToOklchArgb(imageData, frameWidth, frameHeight, stride);
-  } else {
-    packedPixels = packImageDataToArgb8888(imageData, frameWidth, frameHeight, {
-      maxPixels: maxQuantizerPixels,
-    });
-  }
+  const packedPixels = packImageDataToArgb8888(imageData, frameWidth, frameHeight, {
+    maxPixels: maxQuantizerPixels,
+  });
 
   if (packedPixels.length === 0) {
     return { colors: [] };
@@ -157,7 +140,7 @@ export function extractMedianCutPaletteColors(
 
   const targetQuantizedSwatchCount = Math.max(
     normalizedSwatchCount,
-    getQuantizedPoolSize(normalizedSwatchCount, quantizedPoolSize)
+    getQuantizedPoolSize(quantizedPoolSize)
   );
 
   const quantizer = new ColorCutQuantizer(packedPixels, targetQuantizedSwatchCount);
@@ -176,9 +159,7 @@ export function extractMedianCutPaletteColors(
       continue;
     }
 
-    const candidate = useOklch
-      ? { ...swatchOklchToRgb(swatch.rgb), population: swatch.population ?? 0 }
-      : buildCandidateFromSwatch(swatch);
+    const candidate = buildCandidateFromSwatch(swatch);
     const key = `${candidate.r},${candidate.g},${candidate.b}`;
     if (seenRgbKeys.has(key)) {
       continue;

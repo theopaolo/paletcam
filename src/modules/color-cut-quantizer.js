@@ -1,5 +1,7 @@
+import { rgbToOklab } from "./color-space-oklch.js";
+
 /**
- * ColorCutQuantizer (JS port of AndroidX Palette's ColorCutQuantizer.java)
+ * ColorCutQuantizer — median-cut color quantization.
  *
  * - Quantizes RGB into 5 bits/channel (32 levels each) => 32^3 = 32768 bins
  * - Builds a histogram of bins
@@ -7,12 +9,13 @@
  * - Else: splits color-space "boxes" (Vboxes) by volume until maxColors
  * - Returns average color of each box weighted by histogram population
  *
- * Notes:
- * - Android version supports filters using HSL; here it's optional.
- * - This is focused on correctness + clarity; you can micro-opt later.
+ * Each Swatch also carries a `vividRgb` exemplar — the highest-chroma
+ * quantized color in the box (expanded to 8-bit). Consumers that want the
+ * "mean" use `rgb`; consumers that want the "vivid peak" use `vividRgb`.
+ * The two are identical when a box contains a single distinct color.
  */
 
-/** ----- Bit packing constants (same as Android) ----- */
+/** ----- Bit packing constants ----- */
 const QUANTIZE_WORD_WIDTH = 5;
 const QUANTIZE_WORD_MASK = (1 << QUANTIZE_WORD_WIDTH) - 1; // 31
 
@@ -100,23 +103,24 @@ function modifySignificantOctet(a, dimension, lower, upper) {
   }
 }
 
-/** ----- Tiny Swatch object like Palette.Swatch ----- */
+/** ----- Tiny Swatch object (rgb + population + vivid exemplar) ----- */
 class Swatch {
-  constructor(rgb, population) {
-    this.rgb = rgb; // 0xFFRRGGBB
+  constructor(rgb, population, vividRgb) {
+    this.rgb = rgb; // 0xFFRRGGBB — population-weighted mean of the box
     this.population = population;
+    this.vividRgb = vividRgb ?? rgb;
   }
 }
 
-/**
- * Optional filter shape:
- * filter.isAllowed(rgb888, hslArray) => boolean
- * You can omit filters or pass [].
- */
-export class ColorCutQuantizer {
-  constructor(pixelsRgb888, maxColors, filters = null) {
-    this.filters = filters;
+/** OKLab chroma of a 5-bit quantized color, expanded to 8-bit first. */
+function quantizedChroma(colorQ) {
+  const rgb888 = approximateToRgb888FromQuant(colorQ);
+  const lab = rgbToOklab(red888(rgb888), green888(rgb888), blue888(rgb888));
+  return Math.hypot(lab.a, lab.b);
+}
 
+export class ColorCutQuantizer {
+  constructor(pixelsRgb888, maxColors) {
     // 32^3 = 32768 bins
     this.histogram = new Int32Array(1 << (QUANTIZE_WORD_WIDTH * 3));
     const hist = this.histogram;
@@ -124,16 +128,13 @@ export class ColorCutQuantizer {
     // Quantize each pixel into histogram bins
     for (let i = 0; i < pixelsRgb888.length; i++) {
       const q = quantizeFromRgb888(pixelsRgb888[i]);
-      pixelsRgb888[i] = q;       // same as Android: overwrite
+      pixelsRgb888[i] = q;       // overwrite with quantized value
       hist[q] += 1;
     }
 
-    // Count distinct colors (after optional filtering)
+    // Count distinct colors
     let distinctCount = 0;
     for (let c = 0; c < hist.length; c++) {
-      if (hist[c] > 0 && this.shouldIgnoreQuantColor(c)) {
-        hist[c] = 0;
-      }
       if (hist[c] > 0) distinctCount++;
     }
 
@@ -182,35 +183,11 @@ export class ColorCutQuantizer {
   }
 
   generateAverageColors(vboxes) {
-    const out = [];
-    for (const v of vboxes) {
-      const sw = v.getAverageColor();
-      if (!this.shouldIgnoreSwatch(sw)) out.push(sw);
-    }
-    return out;
-  }
-
-  shouldIgnoreQuantColor(colorQ) {
-    if (!this.filters || this.filters.length === 0) return false;
-    const rgb = approximateToRgb888FromQuant(colorQ);
-    const hsl = rgbToHsl(rgb);
-    for (const f of this.filters) {
-      if (!f.isAllowed(rgb, hsl)) return true;
-    }
-    return false;
-  }
-
-  shouldIgnoreSwatch(swatch) {
-    if (!this.filters || this.filters.length === 0) return false;
-    const hsl = rgbToHsl(swatch.rgb);
-    for (const f of this.filters) {
-      if (!f.isAllowed(swatch.rgb, hsl)) return true;
-    }
-    return false;
+    return vboxes.map((vbox) => vbox.getAverageColor());
   }
 }
 
-/** ----- Vbox (inner class in Android) ----- */
+/** ----- Vbox: a box in quantized color space ----- */
 class Vbox {
   constructor(quantizer, lowerIndex, upperIndex) {
     this.q = quantizer;
@@ -322,6 +299,8 @@ class Vbox {
 
     let rSum = 0, gSum = 0, bSum = 0;
     let total = 0;
+    let bestQ = -1;
+    let bestChroma = -1;
 
     for (let i = this.lower; i <= this.upper; i++) {
       const c = colors[i];
@@ -331,13 +310,20 @@ class Vbox {
       rSum += pop * quantizedRed(c);
       gSum += pop * quantizedGreen(c);
       bSum += pop * quantizedBlue(c);
+
+      const chroma = quantizedChroma(c);
+      if (chroma > bestChroma) {
+        bestChroma = chroma;
+        bestQ = c;
+      }
     }
 
     const rMean = Math.round(rSum / total);
     const gMean = Math.round(gSum / total);
     const bMean = Math.round(bSum / total);
 
-    return new Swatch(approximateToRgb888(rMean, gMean, bMean), total);
+    const vividRgb = bestQ >= 0 ? approximateToRgb888FromQuant(bestQ) : undefined;
+    return new Swatch(approximateToRgb888(rMean, gMean, bMean), total, vividRgb);
   }
 }
 
@@ -393,28 +379,4 @@ class MaxHeap {
       i = best;
     }
   }
-}
-
-/** ----- RGB->HSL (for optional filtering) ----- */
-function rgbToHsl(rgb) {
-  const r = red888(rgb) / 255;
-  const g = green888(rgb) / 255;
-  const b = blue888(rgb) / 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h = 0, s = 0;
-  const l = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h *= 60;
-  }
-  return [h, s, l];
 }

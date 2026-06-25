@@ -1,3 +1,4 @@
+import { rgbDistance, rgbToHsl } from "./color-math.js";
 import { rgbToOklch } from "./color-space-oklch.js";
 
 const DEFAULT_SCORING_MODEL = "classic";
@@ -77,35 +78,6 @@ function getPerceptualColorFeatures(color) {
   return rgbToOklch(color.r, color.g, color.b);
 }
 
-export function rgbToHsl(color) {
-  let h = 0;
-  let s = 0;
-  let l = 0;
-
-  const rNorm = color.r / 255;
-  const gNorm = color.g / 255;
-  const bNorm = color.b / 255;
-  const max = Math.max(rNorm, gNorm, bNorm);
-  const min = Math.min(rNorm, gNorm, bNorm);
-  l = (max + min) / 2;
-
-  if (min === max) {
-    return { h, s, l };
-  }
-
-  const delta = max - min;
-  s = delta / (1 - Math.abs(2 * l - 1));
-
-  if (max === rNorm) h = ((gNorm - bNorm) / delta) % 6;
-  else if (max === gNorm) h = (bNorm - rNorm) / delta + 2;
-  else h = (rNorm - gNorm) / delta + 4;
-
-  h *= 60;
-  if (h < 0) h += 360;
-
-  return { h, s, l };
-}
-
 function getPerceptualHueBucket(colorFeatures, bucketCount) {
   return Math.floor(colorFeatures.h / (360 / bucketCount)) % bucketCount;
 }
@@ -143,7 +115,7 @@ export function buildHueRarityMap(pool, scoringOptions = null) {
       if (colorFeatures.c < MIN_OKLCH_CHROMA_FOR_HUE) continue;
       bucket = getPerceptualHueBucket(colorFeatures, BUCKET_COUNT);
     } else {
-      const hsl = rgbToHsl(color);
+      const hsl = rgbToHsl(color.r, color.g, color.b);
       if (hsl.s < MIN_HSL_SATURATION_FOR_HUE) continue;
       bucket = Math.floor(hsl.h / (360 / BUCKET_COUNT)) % BUCKET_COUNT;
     }
@@ -197,7 +169,7 @@ export function scoreCandidate(candidate, chosenColors, rarityMap, scoringOption
       diversityScore = Math.min(1, minDistance / MAX_OKLCH_DISTANCE);
     }
   } else {
-    const hsl = rgbToHsl(candidate);
+    const hsl = rgbToHsl(candidate.r, candidate.g, candidate.b);
 
     chromaScore = hsl.s;
     lumaSpreadScore = Math.abs(hsl.l - 0.5) / 0.5;
@@ -206,11 +178,7 @@ export function scoreCandidate(candidate, chosenColors, rarityMap, scoringOption
     if (chosenColors.length > 0) {
       let minDistance = Infinity;
       for (const chosen of chosenColors) {
-        const dist = Math.hypot(
-          candidate.r - chosen.r,
-          candidate.g - chosen.g,
-          candidate.b - chosen.b,
-        );
+        const dist = rgbDistance(candidate, chosen);
         if (dist < minDistance) minDistance = dist;
       }
       diversityScore = Math.min(1, minDistance / MAX_RGB_DISTANCE);

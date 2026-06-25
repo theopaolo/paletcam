@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
-import { extractPaletteColors, resetColorSmoothing, smoothColors } from "./palette-extraction.js";
+import { extractPaletteColors } from "./palette-extraction.js";
 
 function createRgbaData(pixels) {
   const channels = [];
@@ -12,41 +12,8 @@ function createRgbaData(pixels) {
   return new Uint8ClampedArray(channels);
 }
 
-describe("smoothColors", () => {
-  beforeEach(() => {
-    resetColorSmoothing();
-  });
-
-  test("returns the raw palette on the first frame after a reset", () => {
-    const colors = [
-      { r: 24, g: 48, b: 72 },
-      { r: 180, g: 120, b: 60 },
-    ];
-
-    expect(smoothColors(colors, 0.1)).toEqual(colors);
-  });
-
-  test("clears accumulated smoothing state when resetColorSmoothing is called", () => {
-    const firstPalette = [
-      { r: 20, g: 30, b: 40 },
-      { r: 200, g: 210, b: 220 },
-    ];
-    const secondPalette = [
-      { r: 240, g: 30, b: 40 },
-      { r: 20, g: 210, b: 220 },
-    ];
-
-    expect(smoothColors(firstPalette, 0.1)).toEqual(firstPalette);
-    expect(smoothColors(secondPalette, 0.1)).not.toEqual(secondPalette);
-
-    resetColorSmoothing();
-
-    expect(smoothColors(secondPalette, 0.1)).toEqual(secondPalette);
-  });
-});
-
 describe("extractPaletteColors", () => {
-  test("keeps rgb as the median-cut default and honors colorSpace overrides", () => {
+  test("quantizes in rgb and ignores any stray colorSpace option", () => {
     const imageData = createRgbaData([
       [255, 0, 0, 255],
       [255, 128, 0, 255],
@@ -64,15 +31,8 @@ describe("extractPaletteColors", () => {
         maxQuantizerPixels: 12_000,
       },
     });
-    const nestedOklchResult = extractPaletteColors(imageData, 4, 2, 4, {
-      medianCut: {
-        quantizedPoolSize: 8,
-        maxQuantizerPixels: 12_000,
-        colorSpace: "oklch",
-      },
-    });
-    const aliasOverrideResult = extractPaletteColors(imageData, 4, 2, 4, {
-      colorSpace: "rgb",
+    // A leftover colorSpace flag from older settings must not change the result.
+    const strayColorSpaceResult = extractPaletteColors(imageData, 4, 2, 4, {
       medianCut: {
         quantizedPoolSize: 8,
         maxQuantizerPixels: 12_000,
@@ -86,12 +46,6 @@ describe("extractPaletteColors", () => {
       { r: 248, g: 0, b: 0 },
       { r: 248, g: 0, b: 128 },
     ]);
-    expect(nestedOklchResult.colors).toEqual([
-      { r: 103, g: 242, b: 0 },
-      { r: 119, g: 0, b: 243 },
-      { r: 252, g: 8, b: 56 },
-      { r: 243, g: 12, b: 130 },
-    ]);
-    expect(aliasOverrideResult.colors).toEqual(defaultResult.colors);
+    expect(strayColorSpaceResult.colors).toEqual(defaultResult.colors);
   });
 });
