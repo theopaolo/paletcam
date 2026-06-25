@@ -187,6 +187,13 @@ await buildBrowserEntrypoints(
   workersOutDir,
 );
 
+const debugEntrypoints = deployBranchName === "pwa/preprod"
+  ? [join(sourceRoot, "debug-extraction.js")]
+  : [];
+if (debugEntrypoints.length > 0) {
+  await buildBrowserEntrypoints(debugEntrypoints, outDir);
+}
+
 await copyPublicAssets();
 await writeNetlifyHeaders();
 await stampAppVersion();
