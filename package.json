@@ -24,6 +24,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.35.2",
     "source-map-explorer": "^2.5.3"
   }
 }
