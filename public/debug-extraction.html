@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Palette Extraction — OKLab Debug</title>
+    <link rel="stylesheet" href="/styles/settings/tokens.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: row;
+        background: var(--color-surface-shell);
+        color: var(--color-text-primary);
+        font-family: var(--font-family-mono);
+        font-size: var(--font-size-sm);
+      }
+
+      .main {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .source-preview {
+        position: absolute;
+        bottom: 0.5rem;
+        right: 5rem;
+        z-index: 2;
+        width: 200px;
+        object-fit: cover;
+        border: 1px solid var(--color-border-default);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-chrome-tight);
+        cursor: zoom-in;
+      }
+
+      .source-frame {
+        position: absolute;
+        bottom: 0.5rem;
+        right: 5rem;
+        z-index: 3;
+        width: 200px;
+        height: 150px;
+        pointer-events: none;
+      }
+
+      .source-frame canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        border-radius: var(--radius-md);
+      }
+
+      .image-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-32);
+        background: var(--color-surface-overlay);
+        cursor: zoom-out;
+      }
+
+      .image-overlay img {
+        max-width: 90vw;
+        max-height: 90vh;
+        object-fit: contain;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-chrome);
+      }
+
+      .gallery {
+        flex: 0 0 140px;
+        width: 140px;
+        height: 100vh;
+        overflow-y: auto;
+        padding: var(--space-8);
+        background: var(--color-surface-ink);
+        border-right: 1px solid var(--color-border-subtle);
+      }
+
+      .gallery-group-label {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: var(--space-4) 0;
+        background: var(--color-surface-ink);
+        color: var(--color-text-muted);
+        font-size: var(--font-size-2xs);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(1, 1fr);
+        gap: var(--space-4);
+        margin-bottom: var(--space-8);
+      }
+
+      .thumb {
+        padding: 0;
+        aspect-ratio: 1;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        background: var(--color-surface-base);
+        cursor: pointer;
+      }
+
+      .thumb img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .thumb.is-active {
+        border-color: var(--color-accent);
+      }
+
+      .thumb:focus-visible {
+        outline: var(--focus-ring);
+        outline-offset: -1px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-16);
+        padding: var(--space-8) var(--space-16);
+        border-bottom: 1px solid var(--color-border-subtle);
+        background: var(--color-surface-ink);
+      }
+
+      .field {
+        display: flex;
+        align-items: center;
+        gap: var(--space-8);
+        color: var(--color-text-muted);
+      }
+
+      .field label {
+        white-space: nowrap;
+      }
+
+      select,
+      input[type="file"] {
+        background: var(--color-surface-base);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: var(--radius-md);
+        padding: var(--space-4) var(--space-8);
+        font-family: var(--font-family-mono);
+        font-size: var(--font-size-xs);
+      }
+
+      button {
+        background: var(--color-surface-base);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: var(--radius-md);
+        padding: var(--space-4) var(--space-8);
+        font-family: var(--font-family-mono);
+        font-size: var(--font-size-xs);
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: var(--color-accent);
+        color: var(--color-accent);
+      }
+
+      button[aria-pressed="true"] {
+        background: var(--color-accent-dim);
+        border-color: var(--color-accent-border);
+        color: var(--color-text-accent);
+      }
+
+      .layers {
+        display: flex;
+        gap: var(--space-16);
+        margin-left: auto;
+      }
+
+      .layers label {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        color: var(--color-text-muted);
+        cursor: pointer;
+      }
+
+      .value {
+        color: var(--color-accent);
+        min-width: 3ch;
+        display: inline-block;
+      }
+
+      input[type="range"] {
+        width: 92px;
+      }
+
+      .toolbar--tuning {
+        background: var(--color-surface-shell);
+      }
+
+      .control-group {
+        display: contents;
+      }
+
+      .toolbar--tuning .field label {
+        color: var(--color-text-secondary);
+      }
+
+      .toolbar--tuning .field small {
+        color: var(--color-text-muted);
+        opacity: 0.6;
+      }
+
+      #scatter {
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+        touch-action: none;
+        cursor: grab;
+        background: radial-gradient(
+          circle at 50% 40%,
+          #141414,
+          var(--color-surface-shell)
+        );
+      }
+
+      #scatter:active {
+        cursor: grabbing;
+      }
+
+      .footer {
+        display: flex;
+        align-items: center;
+        gap: var(--space-16);
+        padding: var(--space-8) var(--space-16);
+        border-top: 1px solid var(--color-border-subtle);
+        background: var(--color-surface-ink);
+      }
+
+      #stats {
+        white-space: pre-line;
+        color: var(--color-text-muted);
+        font-size: var(--font-size-xs);
+        line-height: 1.5;
+      }
+
+      #palette {
+        display: flex;
+        gap: 2px;
+        margin-left: auto;
+        flex-direction: column;
+        position: absolute;
+        right: 0.5rem;
+        bottom: 0.5rem;
+      }
+
+      .swatch {
+        width: 4rem;
+        height: 4rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--color-border-subtle);
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .swatch.is-frozen {
+        border: 2px solid var(--color-accent);
+        box-shadow: 0 0 0 2px var(--color-accent-dim);
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="gallery" id="gallery"></aside>
+
+    <div class="main">
+      <div class="toolbar">
+        <div class="field">
+          <label for="image-upload">Upload</label>
+          <input id="image-upload" type="file" accept="image/*" />
+        </div>
+
+        <div class="field">
+          <button id="camera-toggle" type="button">Camera</button>
+        </div>
+
+        <div class="field">
+          <label for="swatch-count">Swatches</label>
+          <input
+            id="swatch-count"
+            type="range"
+            min="2"
+            max="12"
+            step="1"
+            value="6"
+          />
+          <span class="value" id="swatch-count-value">6</span>
+        </div>
+
+        <div class="field">
+          <label for="repulsion-radius">Repulsion r</label>
+          <input
+            id="repulsion-radius"
+            type="range"
+            min="0.02"
+            max="0.15"
+            step="0.005"
+            value="0.075"
+          />
+          <span class="value" id="repulsion-value">0.075</span>
+        </div>
+
+        <div class="field">
+          <label for="selector">Selector</label>
+          <select id="selector">
+            <option value="current">Current</option>
+            <option value="new">New</option>
+            <option value="hybrid">Hybrid (C)</option>
+          </select>
+        </div>
+
+        <div class="layers">
+          <label
+            ><input id="layer-pixels" type="checkbox" checked /> Pixels</label
+          >
+          <label
+            ><input id="layer-candidates" type="checkbox" /> Candidates</label
+          >
+          <label
+            ><input id="layer-selected" type="checkbox" checked />
+            Selected</label
+          >
+          <label
+            ><input id="layer-repulsion" type="checkbox" /> Repulsion</label
+          >
+          <label
+            ><input id="layer-pixel-locations" type="checkbox" checked />
+            Locations</label
+          >
+          <label
+            ><input id="smooth-toggle" type="checkbox" checked /> Smooth</label
+          >
+        </div>
+      </div>
+
+      <div class="toolbar toolbar--tuning">
+        <span id="current-controls" class="control-group">
+        <div class="field">
+          <label for="weight-chroma" title="paletteScoring.chromaWeight"
+            >Vivid</label
+          >
+          <input
+            id="weight-chroma"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="25"
+          />
+          <span class="value" id="weight-chroma-value">25</span>
+        </div>
+
+        <div class="field">
+          <label for="weight-luma" title="paletteScoring.lumaSpreadWeight"
+            >Light/Dark</label
+          >
+          <input
+            id="weight-luma"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="15"
+          />
+          <span class="value" id="weight-luma-value">15</span>
+        </div>
+
+        <div class="field">
+          <label for="weight-rarity" title="paletteScoring.rarityWeight"
+            >Rare hue</label
+          >
+          <input
+            id="weight-rarity"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="20"
+          />
+          <span class="value" id="weight-rarity-value">20</span>
+        </div>
+
+        <div class="field">
+          <label for="weight-diversity" title="paletteScoring.diversityWeight"
+            >Spread</label
+          >
+          <input
+            id="weight-diversity"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="40"
+          />
+          <span class="value" id="weight-diversity-value">40</span>
+        </div>
+
+        <div class="field">
+          <label for="pool-size" title="medianCut.quantizedPoolSize"
+            >Analyze</label
+          >
+          <input
+            id="pool-size"
+            type="range"
+            min="4"
+            max="64"
+            step="1"
+            value="24"
+          />
+          <span class="value" id="pool-size-value">24</span>
+        </div>
+        </span>
+
+        <span id="new-controls" class="control-group" hidden>
+        <div class="field">
+          <label for="variety" title="hue coverage (monochrome → rainbow)">Variety</label>
+          <input id="variety" type="range" min="0" max="100" step="1" value="80" />
+          <span class="value" id="variety-value">80</span>
+        </div>
+
+        <div class="field">
+          <label for="tone" title="representative: soft (mean) → vivid (peak chroma)">Tone</label>
+          <input id="tone" type="range" min="0" max="100" step="1" value="85" />
+          <span class="value" id="tone-value">85</span>
+        </div>
+
+        <div class="field">
+          <label for="auto-bias"><input id="auto-bias" type="checkbox" checked /> Auto</label>
+        </div>
+        </span>
+
+        <div class="field">
+          <label for="max-pixels" title="medianCut.maxQuantizerPixels"
+            >Density</label
+          >
+          <input
+            id="max-pixels"
+            type="range"
+            min="2000"
+            max="60000"
+            step="2000"
+            value="40000"
+          />
+          <span class="value" id="max-pixels-value">40000</span>
+        </div>
+      </div>
+
+      <canvas id="scatter"></canvas>
+      <img
+        id="source-preview"
+        class="source-preview"
+        alt="selected source"
+        hidden
+      />
+      <video
+        id="camera-preview"
+        class="source-preview"
+        autoplay
+        muted
+        playsinline
+        hidden
+      ></video>
+      <div class="source-frame" id="source-frame" hidden>
+        <canvas id="source-frame-canvas"></canvas>
+      </div>
+
+      <div id="palette"></div>
+
+      <div class="footer">
+        <div id="stats"></div>
+      </div>
+    </div>
+
+    <div id="image-overlay" class="image-overlay" hidden>
+      <img id="image-overlay-img" alt="selected source enlarged" />
+    </div>
+
+    <script type="module" src="debug-extraction.js"></script>
+  </body>
+</html>
