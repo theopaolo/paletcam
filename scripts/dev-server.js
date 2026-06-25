@@ -227,12 +227,47 @@ async function bundleSourceModule(filePath) {
   });
 }
 
+// Read-only listing of public/assets/img for the extraction debug harness, so
+// the gallery stays in sync with the folder without a hardcoded list.
+async function serveDebugImageManifest() {
+  const imageRoot = join(publicRoot, 'assets', 'img');
+  const glob = new Bun.Glob('**/*.{jpg,jpeg,png,webp,gif}');
+  const entries = [];
+
+  try {
+    for await (const relativePath of glob.scan({ cwd: imageRoot })) {
+      const normalized = relativePath.split('\\').join('/');
+      const segments = normalized.split('/');
+      const set = segments[0] === 'sets' && segments.length > 2 ? segments[1] : '';
+      entries.push({
+        url: encodeURI(`/assets/img/${normalized}`),
+        name: segments[segments.length - 1],
+        set,
+      });
+    }
+  } catch {
+    // Return whatever was collected before the failure.
+  }
+
+  entries.sort(
+    (a, b) => (a.set || '').localeCompare(b.set || '') || a.name.localeCompare(b.name),
+  );
+
+  return new Response(JSON.stringify(entries), {
+    headers: withSecurityHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
+  });
+}
+
 async function handleRequest(request) {
   const url = new URL(request.url);
   const decodedPathname = decodeURIComponent(url.pathname);
 
   if (shouldProxyCommunityApi(decodedPathname)) {
     return proxyCommunityApiRequest(request, decodedPathname, url.search);
+  }
+
+  if (decodedPathname === '/debug/images.json') {
+    return serveDebugImageManifest();
   }
 
   const candidatePaths = resolveRequestCandidates(decodedPathname);
