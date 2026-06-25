@@ -1,11 +1,10 @@
 import { drawFrameToCanvas } from "../camera-ui.js";
+import { createColorSmoother } from "../color-smoothing.js";
 import {
   extractPaletteColors,
   getDominantColor,
   removeDarkestColor,
   renderPaletteBars,
-  resetColorSmoothing,
-  smoothColors,
 } from "../palette-extraction.js";
 import { getCenteredAspectCropRect, getTargetFrameHeight } from "./geometry.js";
 
@@ -40,6 +39,7 @@ export function createLivePreviewController({
   const frameContext =
     frameCanvas?.getContext("2d", { willReadFrequently: true }) ?? frameCanvas?.getContext("2d");
   const paletteContext = paletteCanvas?.getContext("2d");
+  const colorSmoother = createColorSmoother();
 
   let frameWidth = 0;
   let frameHeight = 0;
@@ -179,7 +179,7 @@ export function createLivePreviewController({
     latestPaletteWorkerDurationMs = null;
     ralPreview.clear();
     paletteExtractionWorker.invalidate();
-    resetColorSmoothing();
+    colorSmoother.reset();
     ralPreview.reset();
   }
 
@@ -357,7 +357,7 @@ export function createLivePreviewController({
         return;
       }
 
-      const smoothedColors = smoothColors(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
+      const smoothedColors = colorSmoother.smooth(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
       const displayColors = getOneMoreColor() ? removeDarkestColor(smoothedColors) : smoothedColors;
       lastVisiblePaletteColors = displayColors.map((color) => ({ ...color }));
       const dominantColor = getDominantColor(displayColors);

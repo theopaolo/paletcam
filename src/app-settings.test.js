@@ -183,34 +183,6 @@ describe("app-settings polaroidFooterLabel", () => {
   });
 });
 
-describe("app-settings medianCut.colorSpace", () => {
-  test("normalizes a persisted oklch setting back to rgb", async () => {
-    const { module } = await loadAppSettingsModule({
-      medianCut: { colorSpace: "oklch" },
-    });
-
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
-  });
-
-  test("ignores oklch updates and persists rgb", async () => {
-    const { module, localStorageMock } = await loadAppSettingsModule();
-
-    module.updateAppSettings({
-      medianCut: { colorSpace: "oklch" },
-    });
-
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
-    expect(localStorageMock.dump(SETTINGS_STORAGE_KEY)).toBeNull();
-
-    module.updateAppSettings({
-      medianCut: module.getDefaultAppSettings().medianCut,
-    });
-
-    expect(module.getAppSettings().medianCut.colorSpace).toBe("rgb");
-    expect(localStorageMock.dump(SETTINGS_STORAGE_KEY)).toBeNull();
-  });
-});
-
 describe("app-settings paletteScoring", () => {
   test("persists manual scoring updates", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();

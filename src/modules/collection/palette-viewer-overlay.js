@@ -1,8 +1,9 @@
 import { subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
+import { rgbToHsl } from "../color-math.js";
 import { toColorNameHex } from "../color-name-api.js";
-import { relativeLuminance, rgbToHsl } from "../color-space-oklch.js";
+import { relativeLuminance } from "../color-space-oklch.js";
 import { reportAppError } from "../error-reporting.js";
 import { loadImageElementBlobSource } from "../image-element-loader.js";
 import {

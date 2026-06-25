@@ -24,7 +24,6 @@ const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
 const DEFAULT_MEDIAN_CUT_SETTINGS = Object.freeze({
   quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
   maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
-  colorSpace: "rgb",
 });
 
 function normalizeCaptureMode(value) {
@@ -113,7 +112,6 @@ function normalizeMedianCutSettings(candidate) {
       fallback.maxQuantizerPixels,
       MEDIAN_CUT_MAX_PIXELS_RANGE,
     ),
-    colorSpace: "rgb",
   };
 }
 

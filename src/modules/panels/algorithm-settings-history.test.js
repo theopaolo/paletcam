@@ -5,7 +5,6 @@ import { createAlgorithmSettingsHistory } from "./algorithm-settings-history.js"
 function createSnapshot(overrides = {}) {
   return {
     medianCut: {
-      colorSpace: "rgb",
       maxQuantizerPixels: 12000,
       quantizedPoolSize: 16,
       ...(overrides.medianCut ?? {}),
