@@ -17,3 +17,8 @@ output/
 
 # Stray Playwright CLI session dumps
 .playwright-cli/
+
+# Local debug extraction galleries
+.sisyphus/
+public/assets/img/*
+!public/assets/img/image.png
