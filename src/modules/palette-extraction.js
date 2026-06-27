@@ -25,7 +25,11 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
     frameHeight,
     swatchCount,
     hasOptions
-      ? { ...(options.medianCut ?? {}), scoring: options.scoring }
+      ? {
+          ...(options.medianCut ?? {}),
+          scoring: options.scoring,
+          selector: options.paletteSelector,
+        }
       : undefined
   );
 }

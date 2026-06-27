@@ -5,6 +5,7 @@ import {
   createPaletteScoringProfile,
   scoreCandidate,
 } from './palette-scoring.js';
+import { selectPaletteHybrid } from './hybrid-selector.js';
 
 const MIN_SWATCH_COUNT = 1;
 export const DEFAULT_QUANTIZED_POOL_SIZE = 24;
@@ -118,11 +119,19 @@ export function extractMedianCutPaletteColors(
     quantizedPoolSize,
     maxQuantizerPixels = DEFAULT_MAX_QUANTIZER_PIXELS,
     scoring,
+    selector,
   } = {} ) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
 
   if (!imageData || frameWidth <= 0 || frameHeight <= 0) {
     return { colors: [] };
+  }
+
+  if (selector === "hybrid") {
+    return selectPaletteHybrid(imageData, frameWidth, frameHeight, normalizedSwatchCount, {
+      maxQuantizerPixels,
+      quantizedPoolSize: getQuantizedPoolSize(quantizedPoolSize),
+    });
   }
 
   const scoringOptions = {

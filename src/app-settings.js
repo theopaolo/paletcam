@@ -12,6 +12,7 @@ const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid", "swatch"]);
 const VALID_LOCALES = new Set(["fr", "en"]);
 const VALID_PHOTO_QUALITY_MODES = new Set(["sd", "hd", "fhd"]);
+const VALID_PALETTE_SELECTORS = new Set(["current", "hybrid"]);
 const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
 
 const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
@@ -42,6 +43,10 @@ function normalizePhotoQualityMode(value) {
   return VALID_PHOTO_QUALITY_MODES.has(value) ? value : "hd";
 }
 
+function normalizePaletteSelector(value) {
+  return VALID_PALETTE_SELECTORS.has(value) ? value : "current";
+}
+
 function normalizePolaroidFooterLabel(value) {
   if (typeof value !== "string") {
     return DEFAULT_POLAROID_FOOTER_LABEL;
@@ -58,6 +63,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   performanceHudEnabled: false,
   oneMoreColor: true,
   photoQualityMode: "hd",
+  paletteSelector: "current",
   polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
   polaroidShowColorNames: false,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
@@ -150,6 +156,7 @@ function normalizeSettings(candidate) {
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),
     photoQualityMode: normalizePhotoQualityMode(candidate?.photoQualityMode),
+    paletteSelector: normalizePaletteSelector(candidate?.paletteSelector),
     polaroidFooterLabel: normalizePolaroidFooterLabel(candidate?.polaroidFooterLabel),
     polaroidShowColorNames: Boolean(candidate?.polaroidShowColorNames),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
