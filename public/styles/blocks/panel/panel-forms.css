@@ -343,8 +343,3 @@
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
 }
-
-.config-selector-hybrid .config-drawer-tab[data-config-tab="colors"],
-.config-selector-hybrid .config-drawer-tab[data-config-tab="balance"] {
-  display: none;
-}

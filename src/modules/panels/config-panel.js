@@ -186,7 +186,7 @@ class ConfigPanel extends LitElement {
             data-config-tabpanel="colors"
             hidden
           >
-            <div class="panel-form-field">
+            <div class="panel-form-field" data-mode="current">
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configScoringVibrancyRange">
                   ${t("config.colors.vibrancy.title")}
@@ -219,7 +219,7 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="panel-form-field">
+            <div class="panel-form-field" data-mode="current">
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configScoringRarityRange">
                   ${t("config.colors.rarity.title")}
@@ -251,6 +251,72 @@ class ConfigPanel extends LitElement {
                 </div>
               </div>
             </div>
+
+            <div class="panel-form-field" data-mode="hybrid" hidden>
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configHybridToneRange">
+                  ${t("config.hybrid.tone.title")}
+                </summary>
+                <p class="panel-form-hint">
+                  ${t("config.hybrid.tone.hint")}
+                </p>
+              </details>
+
+              <div
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
+                id="configHybridToneSlider"
+              >
+                <input
+                  id="configHybridToneRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="85"
+                  step="1"
+                  aria-label=${t("config.hybrid.tone.aria", { value: 85 })}
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
+                  <span class="swatch-count-indicator" data-config-hybrid-tone-display>
+                    85
+                  </span>
+                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-form-field" data-mode="hybrid" hidden>
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configHybridRarityRange">
+                  ${t("config.hybrid.rarity.title")}
+                </summary>
+                <p class="panel-form-hint">
+                  ${t("config.hybrid.rarity.hint")}
+                </p>
+              </details>
+
+              <div
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
+                id="configHybridRaritySlider"
+              >
+                <input
+                  id="configHybridRarityRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="20"
+                  step="1"
+                  aria-label=${t("config.hybrid.rarity.aria", { value: 20 })}
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
+                  <span class="swatch-count-indicator" data-config-hybrid-rarity-display>
+                    20
+                  </span>
+                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section
@@ -261,7 +327,7 @@ class ConfigPanel extends LitElement {
             data-config-tabpanel="balance"
             hidden
           >
-            <div class="panel-form-field">
+            <div class="panel-form-field" data-mode="current">
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configScoringDiversityRange">
                   ${t("config.balance.diversity.title")}
@@ -294,7 +360,7 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="panel-form-field">
+            <div class="panel-form-field" data-mode="current">
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configScoringContrastRange">
                   ${t("config.balance.contrast.title")}
@@ -323,6 +389,72 @@ class ConfigPanel extends LitElement {
                     15
                   </span>
                   <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-form-field" data-mode="hybrid" hidden>
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configHybridSpreadRange">
+                  ${t("config.hybrid.spread.title")}
+                </summary>
+                <p class="panel-form-hint">
+                  ${t("config.hybrid.spread.hint")}
+                </p>
+              </details>
+
+              <div
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
+                id="configHybridSpreadSlider"
+              >
+                <input
+                  id="configHybridSpreadRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="60"
+                  step="1"
+                  aria-label=${t("config.hybrid.spread.aria", { value: 60 })}
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
+                  <span class="swatch-count-indicator" data-config-hybrid-spread-display>
+                    60
+                  </span>
+                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-form-field" data-mode="hybrid" hidden>
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configHybridRepulsionRange">
+                  ${t("config.hybrid.repulsion.title")}
+                </summary>
+                <p class="panel-form-hint">
+                  ${t("config.hybrid.repulsion.hint")}
+                </p>
+              </details>
+
+              <div
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
+                id="configHybridRepulsionSlider"
+              >
+                <input
+                  id="configHybridRepulsionRange"
+                  type="range"
+                  min="0"
+                  max="20"
+                  value="8"
+                  step="1"
+                  aria-label=${t("config.hybrid.repulsion.aria", { value: 8 })}
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
+                  <span class="swatch-count-indicator" data-config-hybrid-repulsion-display>
+                    8
+                  </span>
+                  <span class="swatch-scale-label swatch-scale-label-max">20</span>
                 </div>
               </div>
             </div>

@@ -181,23 +181,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
 
     root.classList.toggle("config-selector-hybrid", isHybrid);
 
-    dom.tabButtons.forEach((button) => {
-      const tabId = button.getAttribute("data-config-tab");
-      if (tabId === "colors" || tabId === "balance") {
-        button.hidden = isHybrid;
-      }
+    root.querySelectorAll("[data-mode]").forEach((field) => {
+      const mode = field.getAttribute("data-mode");
+      field.hidden = isHybrid ? mode !== "hybrid" : mode !== "current";
     });
-
-    dom.tabPanels.forEach((panel) => {
-      const tabId = panel.getAttribute("data-config-tabpanel");
-      if ((tabId === "colors" || tabId === "balance") && isHybrid) {
-        panel.hidden = true;
-      }
-    });
-
-    if (isHybrid && (activeTabId === "colors" || activeTabId === "balance")) {
-      setActiveTab("analysis");
-    }
   }
 
   function setActiveTab(nextTabId, { focusButton = false } = {}) {
@@ -400,6 +387,80 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       getAriaLabel: (value) => t("config.analysis.pixels.aria", { value }),
       formatInlineValue: (value) => formatThousands(value),
       formatDisplayValue: (value) => formatCompactThousands(value),
+    }),
+    createRangeControl({
+      root,
+      shellId: "configHybridToneSlider",
+      inputId: "configHybridToneRange",
+      displaySelector: "[data-config-hybrid-tone-display]",
+      getValueFromSettings: (settings) =>
+        Math.round((settings.hybrid?.tone ?? defaultAlgorithmSettings.hybrid.tone) * 100),
+      onValueInput: (value) => {
+        applyAlgorithmSettings((snapshot) => {
+          snapshot.hybrid.tone =
+            Math.round(value) / 100;
+        });
+      },
+      onInteractionStart: beginAlgorithmInteraction,
+      onInteractionCommit: commitAlgorithmInteraction,
+      getAriaLabel: (value) => t("config.hybrid.tone.aria", { value }),
+    }),
+    createRangeControl({
+      root,
+      shellId: "configHybridRaritySlider",
+      inputId: "configHybridRarityRange",
+      displaySelector: "[data-config-hybrid-rarity-display]",
+      getValueFromSettings: (settings) =>
+        Math.round(
+          (settings.hybrid?.rarityStrength ?? defaultAlgorithmSettings.hybrid.rarityStrength) *
+            100,
+        ),
+      onValueInput: (value) => {
+        applyAlgorithmSettings((snapshot) => {
+          snapshot.hybrid.rarityStrength = Math.round(value) / 100;
+        });
+      },
+      onInteractionStart: beginAlgorithmInteraction,
+      onInteractionCommit: commitAlgorithmInteraction,
+      getAriaLabel: (value) => t("config.hybrid.rarity.aria", { value }),
+    }),
+    createRangeControl({
+      root,
+      shellId: "configHybridSpreadSlider",
+      inputId: "configHybridSpreadRange",
+      displaySelector: "[data-config-hybrid-spread-display]",
+      getValueFromSettings: (settings) =>
+        Math.round(
+          (settings.hybrid?.spreadStrength ?? defaultAlgorithmSettings.hybrid.spreadStrength) *
+            100,
+        ),
+      onValueInput: (value) => {
+        applyAlgorithmSettings((snapshot) => {
+          snapshot.hybrid.spreadStrength = Math.round(value) / 100;
+        });
+      },
+      onInteractionStart: beginAlgorithmInteraction,
+      onInteractionCommit: commitAlgorithmInteraction,
+      getAriaLabel: (value) => t("config.hybrid.spread.aria", { value }),
+    }),
+    createRangeControl({
+      root,
+      shellId: "configHybridRepulsionSlider",
+      inputId: "configHybridRepulsionRange",
+      displaySelector: "[data-config-hybrid-repulsion-display]",
+      getValueFromSettings: (settings) =>
+        Math.round(
+          (settings.hybrid?.repulsionRadius ?? defaultAlgorithmSettings.hybrid.repulsionRadius) *
+            100,
+        ),
+      onValueInput: (value) => {
+        applyAlgorithmSettings((snapshot) => {
+          snapshot.hybrid.repulsionRadius = Math.round(value) / 100;
+        });
+      },
+      onInteractionStart: beginAlgorithmInteraction,
+      onInteractionCommit: commitAlgorithmInteraction,
+      getAriaLabel: (value) => t("config.hybrid.repulsion.aria", { value }),
     }),
   ].filter(Boolean);
 
