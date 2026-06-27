@@ -242,6 +242,22 @@ const en = {
   "config.selector.hint": "Hybrid uses OKLab perceptual selection with vivid exemplars. Current uses the classic median-cut scorer.",
   "config.selector.current": "Current",
   "config.selector.hybrid": "Hybrid",
+  "config.hybrid.tone.title": "Vivid blend",
+  "config.hybrid.tone.hint":
+    "Blend between mean and vivid exemplar. 0 = mean, 100 = vivid.",
+  "config.hybrid.tone.aria": "Vivid blend: {value}",
+  "config.hybrid.rarity.title": "Rare hue bonus",
+  "config.hybrid.rarity.hint":
+    "Higher values favor rare colors over common ones during selection.",
+  "config.hybrid.rarity.aria": "Rare hue bonus: {value}",
+  "config.hybrid.spread.title": "Hue spread",
+  "config.hybrid.spread.hint":
+    "Repulsion strength between picked colors. Higher spreads picks across hues.",
+  "config.hybrid.spread.aria": "Hue spread: {value}",
+  "config.hybrid.repulsion.title": "Repulsion radius",
+  "config.hybrid.repulsion.hint":
+    "Minimum OKLab distance between picks. Higher forces more distinct colors.",
+  "config.hybrid.repulsion.aria": "Repulsion radius: {value}",
   "camera.start.notAllowed": "Allow camera access to capture palettes.",
   "camera.start.notFound": "No camera was detected on this device.",
   "camera.start.notReadable": "The camera is already in use or temporarily unavailable.",

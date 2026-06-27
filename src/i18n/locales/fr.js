@@ -250,6 +250,22 @@ const fr = {
   "config.selector.hint": "Hybrid utilise la sélection perceptuelle OKLab avec des échantillons vifs. Current utilise le scoreur classique median-cut.",
   "config.selector.current": "Current",
   "config.selector.hybrid": "Hybrid",
+  "config.hybrid.tone.title": "Mélange vif",
+  "config.hybrid.tone.hint":
+    "Mélange entre moyenne et échantillon vif. 0 = moyenne, 100 = vif.",
+  "config.hybrid.tone.aria": "Mélange vif : {value}",
+  "config.hybrid.rarity.title": "Bonus teintes rares",
+  "config.hybrid.rarity.hint":
+    "Les valeurs élevées privilégient les couleurs rares lors de la sélection.",
+  "config.hybrid.rarity.aria": "Bonus teintes rares : {value}",
+  "config.hybrid.spread.title": "Dispersion des teintes",
+  "config.hybrid.spread.hint":
+    "Force de répulsion entre couleurs choisies. Plus élevé = plus de dispersion.",
+  "config.hybrid.spread.aria": "Dispersion des teintes : {value}",
+  "config.hybrid.repulsion.title": "Rayon de répulsion",
+  "config.hybrid.repulsion.hint":
+    "Distance OKLab minimale entre couleurs. Plus élevé = couleurs plus distinctes.",
+  "config.hybrid.repulsion.aria": "Rayon de répulsion : {value}",
   "camera.start.notAllowed": "Autorisez l'accès à la caméra pour capturer des palettes.",
   "camera.start.notFound": "Aucune caméra n'a été détectée sur cet appareil.",
   "camera.start.notReadable": "La caméra est déjà utilisée ou momentanément indisponible.",
