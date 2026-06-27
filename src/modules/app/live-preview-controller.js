@@ -32,6 +32,7 @@ export function createLivePreviewController({
   getOneMoreColor,
   getPaletteScoringSettings,
   getMedianCutExtractionSettings,
+  getPaletteSelector,
   getShouldMirrorUserFacingCamera,
   getSwatchCount,
   shouldUseCanvasPreview,
@@ -149,6 +150,7 @@ export function createLivePreviewController({
     return {
       medianCut: { ...getMedianCutExtractionSettings() },
       scoring: { ...getPaletteScoringSettings() },
+      paletteSelector: getPaletteSelector?.() ?? "current",
     };
   }
 
