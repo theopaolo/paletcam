@@ -12,7 +12,7 @@ import { rgbToOklab } from "../color-space-oklch.js";
 import { extractMedianCutPaletteColors } from "../palette-extract-median-cut.js";
 import { packImageDataToArgb8888 } from "../palette-pixel-pack.js";
 import { selectPaletteExperimental } from "./experimental-selector.js";
-import { selectPaletteHybrid } from "./hybrid-selector.js";
+import { selectPaletteHybrid } from "../hybrid-selector.js";
 
 function argbToRgb(argb) {
   return {

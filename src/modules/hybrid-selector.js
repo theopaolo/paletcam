@@ -1,6 +1,6 @@
-import { ColorCutQuantizer } from "../color-cut-quantizer.js";
-import { rgbToOklab } from "../color-space-oklch.js";
-import { packImageDataToArgb8888 } from "../palette-pixel-pack.js";
+import { ColorCutQuantizer } from "./color-cut-quantizer.js";
+import { rgbToOklab } from "./color-space-oklch.js";
+import { packImageDataToArgb8888 } from "./palette-pixel-pack.js";
 
 function argbToRgb(argb) {
   return { r: (argb >>> 16) & 0xff, g: (argb >>> 8) & 0xff, b: argb & 0xff };
