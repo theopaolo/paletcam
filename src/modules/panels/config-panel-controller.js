@@ -34,6 +34,9 @@ function getConfigDom(root) {
     oneMoreColorToggle: /** @type {HTMLInputElement | null} */ (
       queryById(root, "configOneMoreColorToggle")
     ),
+    paletteSelectorSelect: /** @type {HTMLSelectElement | null} */ (
+      queryById(root, "configPaletteSelectorSelect")
+    ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
     tabButtons: Array.from(root.querySelectorAll("[data-config-tab]")),
@@ -167,6 +170,34 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     }
 
     dom.oneMoreColorToggle.checked = Boolean(settings.oneMoreColor);
+  }
+
+  function syncPaletteSelector(settings) {
+    const isHybrid = settings.paletteSelector === "hybrid";
+
+    if (dom.paletteSelectorSelect) {
+      dom.paletteSelectorSelect.value = isHybrid ? "hybrid" : "current";
+    }
+
+    root.classList.toggle("config-selector-hybrid", isHybrid);
+
+    dom.tabButtons.forEach((button) => {
+      const tabId = button.getAttribute("data-config-tab");
+      if (tabId === "colors" || tabId === "balance") {
+        button.hidden = isHybrid;
+      }
+    });
+
+    dom.tabPanels.forEach((panel) => {
+      const tabId = panel.getAttribute("data-config-tabpanel");
+      if ((tabId === "colors" || tabId === "balance") && isHybrid) {
+        panel.hidden = true;
+      }
+    });
+
+    if (isHybrid && (activeTabId === "colors" || activeTabId === "balance")) {
+      setActiveTab("analysis");
+    }
   }
 
   function setActiveTab(nextTabId, { focusButton = false } = {}) {
@@ -387,6 +418,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       control.renderFromSettings(settings);
     });
     syncOneMoreColorToggle(settings);
+    syncPaletteSelector(settings);
     syncDrawerAvailability(settings);
     syncConfigToggleButton();
     syncHistoryButtons();
@@ -430,6 +462,22 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     updateAppSettings({
       oneMoreColor: dom.oneMoreColorToggle.checked,
     });
+  });
+  on(dom.paletteSelectorSelect, "change", () => {
+    if (!dom.paletteSelectorSelect) {
+      return;
+    }
+
+    const value = dom.paletteSelectorSelect.value;
+    if (value !== "current" && value !== "hybrid") {
+      return;
+    }
+
+    beginAlgorithmInteraction();
+    applyAlgorithmSettings((snapshot) => {
+      snapshot.paletteSelector = value;
+    });
+    commitAlgorithmInteraction();
   });
   rangeControls.forEach(bindSliderControl);
 
