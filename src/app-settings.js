@@ -8,6 +8,9 @@ const GLOBAL_SETTINGS_STORE_KEY = "__paletcamAppSettingsStore__";
 const MEDIAN_CUT_POOL_SIZE_RANGE = { min: 4, max: 64 };
 const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
+const HYBRID_REPULSION_RADIUS_RANGE = { min: 0, max: 0.2 };
+const HYBRID_STRENGTH_RANGE = { min: 0, max: 1 };
+const HYBRID_TONE_RANGE = { min: 0, max: 1 };
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid", "swatch"]);
 const VALID_LOCALES = new Set(["fr", "en"]);
@@ -25,6 +28,13 @@ const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
 const DEFAULT_MEDIAN_CUT_SETTINGS = Object.freeze({
   quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
   maxQuantizerPixels: DEFAULT_MAX_QUANTIZER_PIXELS,
+});
+
+const DEFAULT_HYBRID_SETTINGS = Object.freeze({
+  repulsionRadius: 0.08,
+  spreadStrength: 0.6,
+  rarityStrength: 0.2,
+  tone: 0.85,
 });
 
 function normalizeCaptureMode(value) {
@@ -68,6 +78,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   polaroidShowColorNames: false,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
   paletteScoring: DEFAULT_PALETTE_SCORING_SETTINGS,
+  hybrid: DEFAULT_HYBRID_SETTINGS,
 });
 
 function getGlobalSettingsStore() {
@@ -121,6 +132,39 @@ function normalizeMedianCutSettings(candidate) {
   };
 }
 
+function clampFloatInRange(rawValue, fallbackValue, range) {
+  const numericValue =
+    typeof rawValue === "number" ? rawValue : Number.parseFloat(rawValue);
+  if (!Number.isFinite(numericValue)) {
+    return fallbackValue;
+  }
+
+  return Math.min(range.max, Math.max(range.min, numericValue));
+}
+
+function normalizeHybridSettings(candidate) {
+  const fallback = DEFAULT_SETTINGS.hybrid;
+
+  return {
+    repulsionRadius: clampFloatInRange(
+      candidate?.repulsionRadius,
+      fallback.repulsionRadius,
+      HYBRID_REPULSION_RADIUS_RANGE,
+    ),
+    spreadStrength: clampFloatInRange(
+      candidate?.spreadStrength,
+      fallback.spreadStrength,
+      HYBRID_STRENGTH_RANGE,
+    ),
+    rarityStrength: clampFloatInRange(
+      candidate?.rarityStrength,
+      fallback.rarityStrength,
+      HYBRID_STRENGTH_RANGE,
+    ),
+    tone: clampFloatInRange(candidate?.tone, fallback.tone, HYBRID_TONE_RANGE),
+  };
+}
+
 function normalizePaletteScoringSettings(candidate) {
   const fallback = DEFAULT_SETTINGS.paletteScoring;
 
@@ -161,6 +205,7 @@ function normalizeSettings(candidate) {
     polaroidShowColorNames: Boolean(candidate?.polaroidShowColorNames),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
     paletteScoring: normalizePaletteScoringSettings(candidate?.paletteScoring),
+    hybrid: normalizeHybridSettings(candidate?.hybrid),
   };
 }
 
@@ -204,6 +249,10 @@ function loadSettings() {
       ...DEFAULT_SETTINGS.paletteScoring,
       ...(storedSettings?.paletteScoring ?? {}),
     },
+    hybrid: {
+      ...DEFAULT_SETTINGS.hybrid,
+      ...(storedSettings?.hybrid ?? {}),
+    },
   });
 }
 
@@ -224,6 +273,7 @@ export function getDefaultAppSettings() {
     ...DEFAULT_SETTINGS,
     medianCut: { ...DEFAULT_SETTINGS.medianCut },
     paletteScoring: { ...DEFAULT_SETTINGS.paletteScoring },
+    hybrid: { ...DEFAULT_SETTINGS.hybrid },
   };
 }
 
@@ -238,6 +288,7 @@ export function getAppSettings() {
     ...settingsStore.currentSettings,
     medianCut: { ...settingsStore.currentSettings.medianCut },
     paletteScoring: { ...settingsStore.currentSettings.paletteScoring },
+    hybrid: { ...settingsStore.currentSettings.hybrid },
   };
 }
 
@@ -256,6 +307,10 @@ export function updateAppSettings(partialSettings) {
     paletteScoring: {
       ...settingsStore.currentSettings.paletteScoring,
       ...(partialSettings?.paletteScoring ?? {}),
+    },
+    hybrid: {
+      ...settingsStore.currentSettings.hybrid,
+      ...(partialSettings?.hybrid ?? {}),
     },
   });
 
@@ -295,5 +350,11 @@ export const APP_SETTINGS_LIMITS = Object.freeze({
     lumaSpreadWeight: Object.freeze({ ...SCORING_WEIGHT_RANGE }),
     rarityWeight: Object.freeze({ ...SCORING_WEIGHT_RANGE }),
     diversityWeight: Object.freeze({ ...SCORING_WEIGHT_RANGE }),
+  }),
+  hybrid: Object.freeze({
+    repulsionRadius: Object.freeze({ ...HYBRID_REPULSION_RADIUS_RANGE }),
+    spreadStrength: Object.freeze({ ...HYBRID_STRENGTH_RANGE }),
+    rarityStrength: Object.freeze({ ...HYBRID_STRENGTH_RANGE }),
+    tone: Object.freeze({ ...HYBRID_TONE_RANGE }),
   }),
 });

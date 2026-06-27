@@ -28,6 +28,7 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
       ? {
           ...(options.medianCut ?? {}),
           scoring: options.scoring,
+          hybrid: options.hybrid,
           selector: options.paletteSelector,
         }
       : undefined

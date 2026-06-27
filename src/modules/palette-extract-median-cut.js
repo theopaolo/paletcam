@@ -119,6 +119,7 @@ export function extractMedianCutPaletteColors(
     quantizedPoolSize,
     maxQuantizerPixels = DEFAULT_MAX_QUANTIZER_PIXELS,
     scoring,
+    hybrid,
     selector,
   } = {} ) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
@@ -131,6 +132,10 @@ export function extractMedianCutPaletteColors(
     return selectPaletteHybrid(imageData, frameWidth, frameHeight, normalizedSwatchCount, {
       maxQuantizerPixels,
       quantizedPoolSize: getQuantizedPoolSize(quantizedPoolSize),
+      repulsionRadius: hybrid?.repulsionRadius,
+      spreadStrength: hybrid?.spreadStrength,
+      rarityStrength: hybrid?.rarityStrength,
+      tone: hybrid?.tone,
     });
   }
 

@@ -100,6 +100,7 @@ let photoExportQuality =
   PHOTO_QUALITY_EXPORT_VALUES[getAppSettings().photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let paletteScoringSettings = { ...getAppSettings().paletteScoring };
+let hybridSettings = { ...getAppSettings().hybrid };
 let paletteSelector = getAppSettings().paletteSelector;
 let lastCameraViewportLayout = null;
 let unsubscribeFromAppSettings = () => {};
@@ -213,6 +214,7 @@ function getPaletteExtractionOptions() {
   return {
     medianCut: { ...medianCutExtractionSettings },
     scoring: { ...paletteScoringSettings },
+    hybrid: { ...hybridSettings },
     paletteSelector,
   };
 }
@@ -263,6 +265,7 @@ function applyAppSettings({
   paletteSelector: nextPaletteSelector,
   medianCut,
   paletteScoring,
+  hybrid,
 }) {
   if (locale !== currentLocale) {
     currentLocale = locale;
@@ -277,6 +280,7 @@ function applyAppSettings({
   performanceHud.setEnabled(performanceHudEnabled);
   medianCutExtractionSettings = { ...medianCut };
   paletteScoringSettings = { ...paletteScoring };
+  hybridSettings = { ...hybrid };
   paletteSelector = nextPaletteSelector;
   livePreviewController?.reset();
   syncCaptureMode(captureMode);
@@ -376,6 +380,7 @@ livePreviewController = createLivePreviewController({
   getMedianCutExtractionSettings: () => medianCutExtractionSettings,
   getOneMoreColor: () => oneMoreColor,
   getPaletteScoringSettings: () => paletteScoringSettings,
+  getHybridSettings: () => hybridSettings,
   getPaletteSelector: () => paletteSelector,
   getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
   getSwatchCount: () => swatchCount,
