@@ -34,6 +34,24 @@ class ConfigPanel extends LitElement {
         aria-hidden="true"
         hidden
       >
+        <div class="config-drawer-selector panel-form-field">
+          <details class="panel-form-field-header">
+            <summary class="panel-form-label" for="configPaletteSelectorSelect">
+              ${t("config.selector.title")}
+            </summary>
+            <p class="panel-form-hint">
+              ${t("config.selector.hint")}
+            </p>
+          </details>
+          <select
+            id="configPaletteSelectorSelect"
+            class="panel-form-select"
+          >
+            <option value="current">${t("config.selector.current")}</option>
+            <option value="hybrid">${t("config.selector.hybrid")}</option>
+          </select>
+        </div>
+
         <div class="config-drawer-tabs" role="tablist" aria-label=${t("config.tabsAria")}>
           <button
             class="config-drawer-tab"
