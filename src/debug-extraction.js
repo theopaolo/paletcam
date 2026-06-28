@@ -92,7 +92,7 @@ function getDebugOptions() {
 
 // New/Hybrid modes show Variety / Tone / Auto; Current shows the scorer weights.
 function syncSelectorMode() {
-  const isNew = els.selector.value === "new" || els.selector.value === "hybrid";
+  const isNew = els.selector.value === "grid" || els.selector.value === "perceptual";
   els.currentControls.hidden = isNew;
   els.newControls.hidden = !isNew;
 }
@@ -100,7 +100,7 @@ function syncSelectorMode() {
 // David's "preset from the image": when Auto is on, derive Variety + Distinctness
 // from the current image so good output needs no manual tuning.
 function maybeApplyAutoParams() {
-  if (!lastImageData || (els.selector.value !== "new" && els.selector.value !== "hybrid") || !els.autoBias.checked) return;
+  if (!lastImageData || (els.selector.value !== "grid" && els.selector.value !== "perceptual") || !els.autoBias.checked) return;
   const { variety, distinctness } = suggestSelectorParams(
     lastImageData.data,
     lastImageData.width,
@@ -578,9 +578,9 @@ els.swatchCount.addEventListener("input", () => {
 
 els.repulsion.addEventListener("input", () => {
   els.repulsionValue.textContent = Number(els.repulsion.value).toFixed(3);
-  // In "new" mode the radius IS the Distinctness control, so re-trace; a manual
+  // In grid/perceptual modes the radius IS the Distinctness control, so re-trace; a manual
   // move counts as an override, so turn Auto off.
-  if (els.selector.value === "new" || els.selector.value === "hybrid") {
+  if (els.selector.value === "grid" || els.selector.value === "perceptual") {
     els.autoBias.checked = false;
     rerunTrace();
   } else {

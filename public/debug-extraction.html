@@ -336,8 +336,8 @@
           <label for="selector">Selector</label>
           <select id="selector">
             <option value="current">Current</option>
-            <option value="new">New</option>
-            <option value="hybrid" selected>Hybrid (C)</option>
+            <option value="grid">Grid</option>
+            <option value="perceptual" selected>Perceptual</option>
           </select>
         </div>
 
@@ -367,98 +367,120 @@
 
       <div class="toolbar toolbar--tuning">
         <span id="current-controls" class="control-group">
-        <div class="field">
-          <label for="weight-chroma" title="paletteScoring.chromaWeight"
-            >Vivid</label
-          >
-          <input
-            id="weight-chroma"
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value="25"
-          />
-          <span class="value" id="weight-chroma-value">25</span>
-        </div>
+          <div class="field">
+            <label for="weight-chroma" title="paletteScoring.chromaWeight"
+              >Vivid</label
+            >
+            <input
+              id="weight-chroma"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="25"
+            />
+            <span class="value" id="weight-chroma-value">25</span>
+          </div>
 
-        <div class="field">
-          <label for="weight-luma" title="paletteScoring.lumaSpreadWeight"
-            >Light/Dark</label
-          >
-          <input
-            id="weight-luma"
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value="15"
-          />
-          <span class="value" id="weight-luma-value">15</span>
-        </div>
+          <div class="field">
+            <label for="weight-luma" title="paletteScoring.lumaSpreadWeight"
+              >Light/Dark</label
+            >
+            <input
+              id="weight-luma"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="15"
+            />
+            <span class="value" id="weight-luma-value">15</span>
+          </div>
 
-        <div class="field">
-          <label for="weight-rarity" title="paletteScoring.rarityWeight"
-            >Rare hue</label
-          >
-          <input
-            id="weight-rarity"
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value="20"
-          />
-          <span class="value" id="weight-rarity-value">20</span>
-        </div>
+          <div class="field">
+            <label for="weight-rarity" title="paletteScoring.rarityWeight"
+              >Rare hue</label
+            >
+            <input
+              id="weight-rarity"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="20"
+            />
+            <span class="value" id="weight-rarity-value">20</span>
+          </div>
 
-        <div class="field">
-          <label for="weight-diversity" title="paletteScoring.diversityWeight"
-            >Spread</label
-          >
-          <input
-            id="weight-diversity"
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value="40"
-          />
-          <span class="value" id="weight-diversity-value">40</span>
-        </div>
+          <div class="field">
+            <label for="weight-diversity" title="paletteScoring.diversityWeight"
+              >Spread</label
+            >
+            <input
+              id="weight-diversity"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="40"
+            />
+            <span class="value" id="weight-diversity-value">40</span>
+          </div>
 
-        <div class="field">
-          <label for="pool-size" title="medianCut.quantizedPoolSize"
-            >Analyze</label
-          >
-          <input
-            id="pool-size"
-            type="range"
-            min="4"
-            max="64"
-            step="1"
-            value="24"
-          />
-          <span class="value" id="pool-size-value">24</span>
-        </div>
+          <div class="field">
+            <label for="pool-size" title="medianCut.quantizedPoolSize"
+              >Analyze</label
+            >
+            <input
+              id="pool-size"
+              type="range"
+              min="4"
+              max="64"
+              step="1"
+              value="24"
+            />
+            <span class="value" id="pool-size-value">24</span>
+          </div>
         </span>
 
         <span id="new-controls" class="control-group" hidden>
-        <div class="field">
-          <label for="variety" title="hue coverage (monochrome → rainbow)">Variety</label>
-          <input id="variety" type="range" min="0" max="100" step="1" value="80" />
-          <span class="value" id="variety-value">80</span>
-        </div>
+          <div class="field">
+            <label for="variety" title="hue coverage (monochrome → rainbow)"
+              >Variety</label
+            >
+            <input
+              id="variety"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="80"
+            />
+            <span class="value" id="variety-value">80</span>
+          </div>
 
-        <div class="field">
-          <label for="tone" title="representative: soft (mean) → vivid (peak chroma)">Tone</label>
-          <input id="tone" type="range" min="0" max="100" step="1" value="85" />
-          <span class="value" id="tone-value">85</span>
-        </div>
+          <div class="field">
+            <label
+              for="tone"
+              title="representative: soft (mean) → vivid (peak chroma)"
+              >Tone</label
+            >
+            <input
+              id="tone"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="85"
+            />
+            <span class="value" id="tone-value">85</span>
+          </div>
 
-        <div class="field">
-          <label for="auto-bias"><input id="auto-bias" type="checkbox" checked /> Auto</label>
-        </div>
+          <div class="field">
+            <label for="auto-bias"
+              ><input id="auto-bias" type="checkbox" checked /> Auto</label
+            >
+          </div>
         </span>
 
         <div class="field">

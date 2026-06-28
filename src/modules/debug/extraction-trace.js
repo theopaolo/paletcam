@@ -115,7 +115,7 @@ export function traceExtraction(imageData, width, height, swatchCount, options =
   let selected;
   let extraStats = {};
 
-  if (debugOptions.selector === "new") {
+  if (debugOptions.selector === "grid") {
     // Experimental OKLab pipeline: reserve neutrals + cluster + repulsion +
     // representative pixel. Candidates here are its chromatic clusters.
     const result = selectPaletteExperimental(imageData, width, height, swatchCount, {
@@ -130,7 +130,7 @@ export function traceExtraction(imageData, width, height, swatchCount, options =
     );
     selected = result.colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
     extraStats = { neutralCount: result.neutralCount, neutralThreshold: result.neutralThreshold };
-  } else if (debugOptions.selector === "hybrid") {
+  } else if (debugOptions.selector === "perceptual") {
     // Option C: median-cut candidates (augmented with vivid exemplars) + OKLab
     // greedy selection. The hybrid keeps median-cut's temporal stability while
     // recovering the anti-muting vivid representative via the per-box exemplar.
