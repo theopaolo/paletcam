@@ -468,6 +468,19 @@ function setActiveThumb(thumb) {
   thumb?.classList.add("is-active");
 }
 
+const CURATED_DEBUG_IMAGES = new Set([
+  "01.jpg",
+  "08.jpg",
+  "14.jpg",
+  "17.jpg",
+  "23.jpg",
+  "fish.jpeg",
+  "sleepingcat.jpeg",
+  "northern-lights.jpeg",
+  "winters-night.jpeg",
+  "morts-thriumphans.jpeg",
+]);
+
 async function buildGallery() {
   let entries = [];
   try {
@@ -476,57 +489,57 @@ async function buildGallery() {
     els.stats.textContent = "Could not load image manifest (/debug/images.json).";
     return;
   }
+
+  // Filter to the curated 10. Loose top-level images only (no sets/).
+  entries = entries.filter(
+    (entry) => !entry.set && CURATED_DEBUG_IMAGES.has(entry.name),
+  );
+
   if (entries.length === 0) {
     els.stats.textContent = "No images found in public/assets/img.";
     return;
   }
 
-  // Group by set; loose top-level images go first under "img/".
-  const groups = new Map();
-  for (const entry of entries) {
-    const key = entry.set || "img/";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(entry);
-  }
+  // Keep a stable, curated order (matches CURATED_DEBUG_IMAGES insertion).
+  const order = [...CURATED_DEBUG_IMAGES];
+  entries.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
   const fragment = document.createDocumentFragment();
   let firstThumb = null;
   let firstSrc = null;
 
-  for (const [label, items] of groups) {
-    const heading = document.createElement("div");
-    heading.className = "gallery-group-label";
-    heading.textContent = label;
-    fragment.append(heading);
+  const heading = document.createElement("div");
+  heading.className = "gallery-group-label";
+  heading.textContent = "curated";
+  fragment.append(heading);
 
-    const grid = document.createElement("div");
-    grid.className = "gallery-grid";
-    for (const item of items) {
-      const thumb = document.createElement("button");
-      thumb.type = "button";
-      thumb.className = "thumb";
-      thumb.title = `${item.set ? `${item.set} / ` : ""}${item.name}`;
+  const grid = document.createElement("div");
+  grid.className = "gallery-grid";
+  for (const item of entries) {
+    const thumb = document.createElement("button");
+    thumb.type = "button";
+    thumb.className = "thumb";
+    thumb.title = item.name;
 
-      const img = document.createElement("img");
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.src = item.url;
-      img.alt = item.name;
-      thumb.append(img);
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.src = item.url;
+    img.alt = item.name;
+    thumb.append(img);
 
-      thumb.addEventListener("click", () => {
-        setActiveThumb(thumb);
-        loadImage(item.url);
-      });
+    thumb.addEventListener("click", () => {
+      setActiveThumb(thumb);
+      loadImage(item.url);
+    });
 
-      grid.append(thumb);
-      if (!firstThumb) {
-        firstThumb = thumb;
-        firstSrc = item.url;
-      }
+    grid.append(thumb);
+    if (!firstThumb) {
+      firstThumb = thumb;
+      firstSrc = item.url;
     }
-    fragment.append(grid);
   }
+  fragment.append(grid);
 
   els.gallery.replaceChildren(fragment);
 
