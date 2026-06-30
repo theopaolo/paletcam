@@ -48,7 +48,7 @@ class ConfigPanel extends LitElement {
             class="panel-form-select"
           >
             <option value="current">${t("config.selector.current")}</option>
-            <option value="hybrid">${t("config.selector.hybrid")}</option>
+            <option value="perceptual">${t("config.selector.perceptual")}</option>
           </select>
         </div>
 
@@ -252,7 +252,7 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="panel-form-field" data-mode="hybrid" hidden>
+            <div class="panel-form-field" data-mode="perceptual" hidden>
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configHybridToneRange">
                   ${t("config.hybrid.tone.title")}
@@ -285,7 +285,7 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="panel-form-field" data-mode="hybrid" hidden>
+            <div class="panel-form-field" data-mode="perceptual" hidden>
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configHybridRarityRange">
                   ${t("config.hybrid.rarity.title")}
@@ -393,7 +393,7 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="panel-form-field" data-mode="hybrid" hidden>
+            <div class="panel-form-field" data-mode="perceptual" hidden>
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configHybridSpreadRange">
                   ${t("config.hybrid.spread.title")}
@@ -426,7 +426,7 @@ class ConfigPanel extends LitElement {
               </div>
             </div>
 
-            <div class="panel-form-field" data-mode="hybrid" hidden>
+            <div class="panel-form-field" data-mode="perceptual" hidden>
               <details class="panel-form-field-header">
                 <summary class="panel-form-label" for="configHybridRepulsionRange">
                   ${t("config.hybrid.repulsion.title")}

@@ -239,9 +239,9 @@ const en = {
   "config.history.redo": "Redo",
   "config.history.reset": "Reset",
   "config.selector.title": "Extraction mode",
-  "config.selector.hint": "Hybrid uses OKLab perceptual selection with vivid exemplars. Current uses the classic median-cut scorer.",
+  "config.selector.hint": "Perceptual uses OKLab perceptual selection with vivid exemplars. Current uses the classic median-cut scorer.",
   "config.selector.current": "Current",
-  "config.selector.hybrid": "Hybrid",
+  "config.selector.perceptual": "Perceptual",
   "config.hybrid.tone.title": "Vivid blend",
   "config.hybrid.tone.hint":
     "Blend between mean and vivid exemplar. 0 = mean, 100 = vivid.",

@@ -15,7 +15,7 @@ const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid", "swatch"]);
 const VALID_LOCALES = new Set(["fr", "en"]);
 const VALID_PHOTO_QUALITY_MODES = new Set(["sd", "hd", "fhd"]);
-const VALID_PALETTE_SELECTORS = new Set(["current", "hybrid"]);
+const VALID_PALETTE_SELECTORS = new Set(["current", "perceptual"]);
 const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
 
 const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({

@@ -173,17 +173,17 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   }
 
   function syncPaletteSelector(settings) {
-    const isHybrid = settings.paletteSelector === "hybrid";
+    const isHybrid = settings.paletteSelector === "perceptual";
 
     if (dom.paletteSelectorSelect) {
-      dom.paletteSelectorSelect.value = isHybrid ? "hybrid" : "current";
+      dom.paletteSelectorSelect.value = isHybrid ? "perceptual" : "current";
     }
 
-    root.classList.toggle("config-selector-hybrid", isHybrid);
+    root.classList.toggle("config-selector-perceptual", isHybrid);
 
     root.querySelectorAll("[data-mode]").forEach((field) => {
       const mode = field.getAttribute("data-mode");
-      field.hidden = isHybrid ? mode !== "hybrid" : mode !== "current";
+      field.hidden = isHybrid ? mode !== "perceptual" : mode !== "current";
     });
   }
 
@@ -530,7 +530,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     }
 
     const value = dom.paletteSelectorSelect.value;
-    if (value !== "current" && value !== "hybrid") {
+    if (value !== "current" && value !== "perceptual") {
       return;
     }
 

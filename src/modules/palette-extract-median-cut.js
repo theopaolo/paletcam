@@ -128,7 +128,7 @@ export function extractMedianCutPaletteColors(
     return { colors: [] };
   }
 
-  if (selector === "hybrid") {
+  if (selector === "perceptual") {
     return selectPaletteHybrid(imageData, frameWidth, frameHeight, normalizedSwatchCount, {
       maxQuantizerPixels,
       quantizedPoolSize: getQuantizedPoolSize(quantizedPoolSize),
