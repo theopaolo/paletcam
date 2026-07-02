@@ -557,6 +557,7 @@ export function createPerformanceHudController({ initialEnabled = false } = {}) 
     cameraFps = null,
     captureMode = "palette",
     extractionInterval = 1,
+    extractionIntervalMs = null,
     paletteAlgorithm = "median-cut",
     rafTimestamp = 0,
     refreshDurationMs = null,
@@ -574,7 +575,10 @@ export function createPerformanceHudController({ initialEnabled = false } = {}) 
     analysisResolutionLabel = formatResolution(analysisWidth, analysisHeight);
     captureModeLabel = captureMode;
     paletteAlgorithmLabel = paletteAlgorithm;
-    frameIntervalLabel = `1/${Math.max(1, Math.round(extractionInterval) || 1)}`;
+    frameIntervalLabel =
+      Number.isFinite(extractionIntervalMs) && extractionIntervalMs > 0
+        ? `${Math.round(extractionIntervalMs)} ms`
+        : `1/${Math.max(1, Math.round(extractionInterval) || 1)}`;
 
     if (Number.isFinite(rafTimestamp) && rafTimestamp > 0) {
       if (lastFrameTimestamp > 0) {

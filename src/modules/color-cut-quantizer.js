@@ -112,17 +112,46 @@ class Swatch {
   }
 }
 
-/** OKLab chroma of a 5-bit quantized color, expanded to 8-bit first. */
+/**
+ * OKLab chroma of a 5-bit quantized color, expanded to 8-bit first.
+ *
+ * Chroma is a pure function of the 15-bit code, and live extraction calls
+ * this for every distinct color on every frame, so results are cached in a
+ * lazily-filled lookup table (-1 marks unset entries; chroma is never
+ * negative).
+ */
+let chromaLut = null;
+
 function quantizedChroma(colorQ) {
+  if (chromaLut === null) {
+    chromaLut = new Float32Array(1 << (QUANTIZE_WORD_WIDTH * 3)).fill(-1);
+  }
+
+  const cached = chromaLut[colorQ];
+  if (cached >= 0) {
+    return cached;
+  }
+
   const rgb888 = approximateToRgb888FromQuant(colorQ);
   const lab = rgbToOklab(red888(rgb888), green888(rgb888), blue888(rgb888));
-  return Math.hypot(lab.a, lab.b);
+  const chroma = Math.hypot(lab.a, lab.b);
+  chromaLut[colorQ] = chroma;
+  return chroma;
 }
+
+// Shared histogram buffer: the quantizer only reads it during construction,
+// so reusing one buffer per realm avoids a 128KB allocation per extraction.
+let sharedHistogram = null;
 
 export class ColorCutQuantizer {
   constructor(pixelsRgb888, maxColors) {
     // 32^3 = 32768 bins
-    this.histogram = new Int32Array(1 << (QUANTIZE_WORD_WIDTH * 3));
+    if (sharedHistogram === null) {
+      sharedHistogram = new Int32Array(1 << (QUANTIZE_WORD_WIDTH * 3));
+    } else {
+      sharedHistogram.fill(0);
+    }
+    this.histogram = sharedHistogram;
     const hist = this.histogram;
 
     // Quantize each pixel into histogram bins
@@ -272,12 +301,8 @@ class Vbox {
     // Repack so sort prioritizes the chosen component
     modifySignificantOctet(colors, longest, this.lower, this.upper);
 
-    // Sort subrange (numeric ascending)
-    // NOTE: Int32Array doesn't have built-in range sort; convert slice for this range.
-    // For speed later, you can keep colors as a normal Array and use in-place sort.
-    const tmp = Array.from(colors.slice(this.lower, this.upper + 1));
-    tmp.sort((a, b) => a - b);
-    colors.set(tmp, this.lower);
+    // Sort subrange in place — TypedArray#sort is numeric ascending by default.
+    colors.subarray(this.lower, this.upper + 1).sort();
 
     // Revert packing back to RGB
     modifySignificantOctet(colors, longest, this.lower, this.upper);

@@ -8,9 +8,14 @@ import {
 } from "../palette-extraction.js";
 import { getCenteredAspectCropRect, getTargetFrameHeight } from "./geometry.js";
 
-const ANALYSIS_MAX_WIDTH = 640;
+// The quantizer samples at most ~40k pixels, so anything above ~320px wide is
+// pure getImageData readback cost with no extraction-quality gain.
+const ANALYSIS_MAX_WIDTH = 320;
 const PREVIEW_SMOOTHING_FACTOR = 0.16;
-const EXTRACTION_INTERVAL = 4;
+// Extraction cadence is time-based so cost stays constant across 60/120Hz
+// displays; the palette is intentionally slower than the camera preview.
+const EXTRACTION_MIN_INTERVAL_MS = 200;
+const CAMERA_TRACK_SETTINGS_REFRESH_MS = 1000;
 
 export function createLivePreviewController({
   cameraFeed,
@@ -48,13 +53,18 @@ export function createLivePreviewController({
   let analysisWidth = 0;
   let analysisHeight = 0;
   let isStreaming = false;
-  let extractionFrame = 0;
+  let lastExtractionAt = 0;
   let lastExtractedColors = null;
   let lastVisiblePaletteColors = [];
+  let lastPaintedColors = null;
+  let paintedPaletteWidth = 0;
+  let paintedPaletteHeight = 0;
   let cachedPaletteWidth = 0;
   let cachedPaletteHeight = 0;
   let previewFrameRequestId = 0;
   let latestPaletteWorkerDurationMs = null;
+  let cachedCameraTrackSettings = null;
+  let cameraTrackSettingsRefreshedAt = 0;
 
   function getPaletteViewportSize() {
     const currentCaptureMode = getCurrentCaptureMode();
@@ -151,7 +161,12 @@ export function createLivePreviewController({
     return {
       medianCut: { ...getMedianCutExtractionSettings() },
       scoring: { ...getPaletteScoringSettings() },
-      hybrid: { ...getHybridSettings() },
+      hybrid: {
+        ...getHybridSettings(),
+        // Previous raw extraction, used by the perceptual selector as a
+        // stability bias so picks don't flip between near-equal candidates.
+        previousColors: lastExtractedColors ?? [],
+      },
       paletteSelector: getPaletteSelector?.() ?? "current",
     };
   }
@@ -177,10 +192,15 @@ export function createLivePreviewController({
   }
 
   function reset() {
-    extractionFrame = 0;
+    lastExtractionAt = 0;
     lastExtractedColors = null;
     lastVisiblePaletteColors = [];
+    lastPaintedColors = null;
+    paintedPaletteWidth = 0;
+    paintedPaletteHeight = 0;
     latestPaletteWorkerDurationMs = null;
+    cachedCameraTrackSettings = null;
+    cameraTrackSettingsRefreshedAt = 0;
     ralPreview.clear();
     paletteExtractionWorker.invalidate();
     colorSmoother.reset();
@@ -248,13 +268,19 @@ export function createLivePreviewController({
     return ralPreview.readCurrentMatch(context, width, height);
   }
 
-  function getCameraTrackSettings() {
-    const stream = cameraFeed?.srcObject;
-    if (!(stream instanceof MediaStream)) {
-      return null;
+  function getCameraTrackSettings(now = performance.now()) {
+    if (
+      cachedCameraTrackSettings &&
+      now - cameraTrackSettingsRefreshedAt < CAMERA_TRACK_SETTINGS_REFRESH_MS
+    ) {
+      return cachedCameraTrackSettings;
     }
 
-    return stream.getVideoTracks()[0]?.getSettings?.() ?? null;
+    const stream = cameraFeed?.srcObject;
+    cachedCameraTrackSettings =
+      stream instanceof MediaStream ? (stream.getVideoTracks()[0]?.getSettings?.() ?? null) : null;
+    cameraTrackSettingsRefreshedAt = now;
+    return cachedCameraTrackSettings;
   }
 
   function recordStoppedFrame() {
@@ -306,6 +332,8 @@ export function createLivePreviewController({
 
     if (getIsCaptureSavePending()) {
       visualEffects.setCaptureGlowActive(false);
+      // Force a repaint + glow refresh on the next palette frame.
+      lastPaintedColors = null;
     } else if (currentCaptureMode === "ral") {
       const analysisStartTime = performance.now();
       if (!shouldUseCanvasPreview) {
@@ -319,14 +347,14 @@ export function createLivePreviewController({
       );
       analysisDurationMs = performance.now() - analysisStartTime;
     } else {
-      extractionFrame += 1;
-      if (extractionFrame % EXTRACTION_INTERVAL === 1 || !lastExtractedColors) {
+      if (frameStartTime - lastExtractionAt >= EXTRACTION_MIN_INTERVAL_MS || !lastExtractedColors) {
         const analysisStartTime = performance.now();
         const analysisFrameReady = shouldUseCanvasPreview
           ? copyVisibleFrameToAnalysisCanvas()
           : drawCurrentFrameToAnalysisCanvas();
 
         if (analysisFrameReady) {
+          lastExtractionAt = frameStartTime;
           const frameImageData = analysisContext.getImageData(
             0,
             0,
@@ -363,20 +391,35 @@ export function createLivePreviewController({
 
       const smoothedColors = colorSmoother.smooth(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
       const displayColors = getOneMoreColor() ? removeDarkestColor(smoothedColors) : smoothedColors;
-      lastVisiblePaletteColors = displayColors.map((color) => ({ ...color }));
-      const dominantColor = getDominantColor(displayColors);
 
-      renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
+      // The smoother returns the same color objects while the palette is
+      // stable (deadband), so identical refs mean nothing on screen changes.
+      const paletteUnchanged =
+        lastPaintedColors !== null &&
+        paintedPaletteWidth === paletteCanvas.width &&
+        paintedPaletteHeight === paletteCanvas.height &&
+        lastPaintedColors.length === displayColors.length &&
+        displayColors.every((color, index) => color === lastPaintedColors[index]);
 
-      if (dominantColor) {
-        visualEffects.setCaptureButtonGlowColor(dominantColor);
-        visualEffects.setCaptureGlowActive(true);
-      } else {
-        visualEffects.setCaptureGlowActive(false);
+      if (!paletteUnchanged) {
+        lastVisiblePaletteColors = displayColors.map((color) => ({ ...color }));
+        const dominantColor = getDominantColor(displayColors);
+
+        renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
+        lastPaintedColors = displayColors;
+        paintedPaletteWidth = paletteCanvas.width;
+        paintedPaletteHeight = paletteCanvas.height;
+
+        if (dominantColor) {
+          visualEffects.setCaptureButtonGlowColor(dominantColor);
+          visualEffects.setCaptureGlowActive(true);
+        } else {
+          visualEffects.setCaptureGlowActive(false);
+        }
       }
     }
 
-    const cameraTrackSettings = getCameraTrackSettings();
+    const cameraTrackSettings = getCameraTrackSettings(frameStartTime);
     performanceHud.recordFrame({
       analysisDurationMs,
       analysisHeight:
@@ -385,7 +428,7 @@ export function createLivePreviewController({
         currentCaptureMode === "ral" && shouldUseCanvasPreview ? frameWidth : analysisWidth,
       cameraFps: Number(cameraTrackSettings?.frameRate) || null,
       captureMode: currentCaptureMode,
-      extractionInterval: currentCaptureMode === "ral" ? 1 : EXTRACTION_INTERVAL,
+      extractionIntervalMs: currentCaptureMode === "ral" ? null : EXTRACTION_MIN_INTERVAL_MS,
       rafTimestamp,
       refreshDurationMs: performance.now() - frameStartTime,
       sourceHeight: cameraFeed.videoHeight,

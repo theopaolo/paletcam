@@ -4,6 +4,7 @@ const DEFAULT_ZOOM_STEP = 0.1;
 const DEFAULT_EXPOSURE_STEP = 0.1;
 const IDEAL_CAMERA_WIDTH = 1600;
 const IDEAL_CAMERA_HEIGHT = 1200;
+const IDEAL_CAMERA_FRAME_RATE = 60;
 
 /**
  * @param {CameraControllerOptions} options
@@ -365,7 +366,12 @@ export function createCameraController({
     const currentStartPromise = (async () => {
       try {
         const videoConstraintCandidates = [
-          { facingMode, width: { ideal: IDEAL_CAMERA_WIDTH }, height: { ideal: IDEAL_CAMERA_HEIGHT } },
+          {
+            facingMode,
+            width: { ideal: IDEAL_CAMERA_WIDTH },
+            height: { ideal: IDEAL_CAMERA_HEIGHT },
+            frameRate: { ideal: IDEAL_CAMERA_FRAME_RATE },
+          },
           { facingMode },
           true,
         ];

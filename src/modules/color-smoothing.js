@@ -1,7 +1,9 @@
 import { rgbDistance, rgbDistanceSquared } from "./color-math.js";
 
 const COLOR_DISTANCE_THRESHOLD = 24;
-const ACCUMULATOR_MAX_SIZE = 3;
+// Extractions arrive ~5x/second (time-based cadence), so a deeper rolling
+// average covers ~1s of history and filters sensor noise without visible lag.
+const ACCUMULATOR_MAX_SIZE = 5;
 
 function buildRgbColor(red, green, blue) {
   return { r: red, g: green, b: blue };
