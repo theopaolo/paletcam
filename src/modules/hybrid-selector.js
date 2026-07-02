@@ -67,7 +67,12 @@ function computeNeutralThreshold(candidates, totalMass) {
   return Math.min(0.06, baseThreshold);
 }
 
-function pickNeutralBands(neutralCandidates, slots, minBandMass) {
+// Loyalty bonus (in chroma units) for neutral exemplars near a previous
+// palette color, so a band doesn't flap between two similarly-clean grays
+// from one extraction to the next.
+const NEUTRAL_LOYALTY_WEIGHT = 0.02;
+
+function pickNeutralBands(neutralCandidates, slots, minBandMass, previousLabs) {
   if (slots <= 0 || neutralCandidates.length === 0) return [];
   const bands = [
     { lo: 0, hi: 0.34, items: [] },
@@ -78,11 +83,14 @@ function pickNeutralBands(neutralCandidates, slots, minBandMass) {
     const band = bands.find((b) => cand.L >= b.lo && cand.L < b.hi) ?? bands[2];
     band.items.push(cand);
   }
+  const exemplarScore = (c) => c.c - NEUTRAL_LOYALTY_WEIGHT * computeLoyalty(c, previousLabs);
   return bands
     .filter((band) => band.items.reduce((sum, c) => sum + c.mass, 0) >= minBandMass)
     .sort((a, b) => totalMass(b) - totalMass(a))
     .slice(0, slots)
-    .map((band) => band.items.reduce((cleanest, c) => (c.c < cleanest.c ? c : cleanest)));
+    .map((band) =>
+      band.items.reduce((cleanest, c) => (exemplarScore(c) < exemplarScore(cleanest) ? c : cleanest)),
+    );
 }
 
 function totalMass(band) {
@@ -241,14 +249,19 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
   const neutralFraction = neutralCandidates.reduce((sum, c) => sum + c.mass, 0) / totalMass;
   const maxNeutral = chromaticCandidates.length > 0 ? Math.min(swatchCount - 1, 3) : swatchCount;
   const requestedNeutral = Math.min(Math.round(swatchCount * neutralFraction), maxNeutral);
-  const minBandMass = Math.max(1, totalMass * 0.05);
-  const neutralPicks = pickNeutralBands(neutralCandidates, Math.max(0, requestedNeutral), minBandMass);
-
   const previousLabs = Array.isArray(previousColors)
     ? previousColors
         .filter((color) => color && Number.isFinite(color.r))
         .map((color) => rgbToOklab(color.r, color.g, color.b))
     : [];
+
+  const minBandMass = Math.max(1, totalMass * 0.05);
+  const neutralPicks = pickNeutralBands(
+    neutralCandidates,
+    Math.max(0, requestedNeutral),
+    minBandMass,
+    previousLabs,
+  );
 
   const chromaticSlots = swatchCount - neutralPicks.length;
   const chromaticPicks = greedySelectChromatic(

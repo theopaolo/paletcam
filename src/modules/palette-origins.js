@@ -10,6 +10,28 @@
 
 const RGB_MATCH_THRESHOLD = 32;
 const MAX_SAMPLED_PIXELS = 8000;
+// Neutral swatches (grays/whites/blacks) need stricter matching: with the
+// plain RGB sphere they match soft gradients all over the frame (walls,
+// shadows, highlights), producing many near-parity regions whose densities
+// wobble with exposure — which makes their badges jumpy. A neutral badge
+// should only sit on pixels that are themselves neutral and close in
+// brightness, and it defends its region harder.
+const NEUTRAL_SWATCH_CHANNEL_SPREAD = 28;
+const NEUTRAL_PIXEL_CHANNEL_SPREAD = 32;
+const NEUTRAL_LUMA_THRESHOLD = 18;
+const NEUTRAL_STICKINESS_RATIO = 0.25;
+// Neutral-to-neutral carryover between extractions matches by luminance:
+// extracted grays drift more than chromatic colors, and a failed match
+// silently drops the badge's region memory for a frame.
+const TRACKER_NEUTRAL_LUMA_MATCH_THRESHOLD = 45;
+
+function channelSpread(color) {
+  return Math.max(color.r, color.g, color.b) - Math.min(color.r, color.g, color.b);
+}
+
+function colorLuma(color) {
+  return (color.r + color.g + color.b) / 3;
+}
 // Coarse density grid used to find each color's dominant region.
 const CLUSTER_GRID_COLUMNS = 12;
 const CLUSTER_GRID_ROWS = 9;
@@ -69,6 +91,10 @@ export function computeSwatchOrigins(imageData, width, height, colors, previousO
   const cellCounts = colors.map(() => new Int32Array(CLUSTER_CELL_COUNT));
   const cellSumsX = colors.map(() => new Float64Array(CLUSTER_CELL_COUNT));
   const cellSumsY = colors.map(() => new Float64Array(CLUSTER_CELL_COUNT));
+  const swatchTraits = colors.map((swatch) => ({
+    isNeutral: channelSpread(swatch) <= NEUTRAL_SWATCH_CHANNEL_SPREAD,
+    luma: colorLuma(swatch),
+  }));
 
   const totalPixels = width * height;
   const stride = Math.max(1, Math.floor(totalPixels / MAX_SAMPLED_PIXELS));
@@ -85,8 +111,24 @@ export function computeSwatchOrigins(imageData, width, height, colors, previousO
         CLUSTER_GRID_COLUMNS +
       Math.min(CLUSTER_GRID_COLUMNS - 1, Math.floor((x / width) * CLUSTER_GRID_COLUMNS));
 
+    const pixelSpread = Math.max(r, g, b) - Math.min(r, g, b);
+    const pixelLuma = (r + g + b) / 3;
+
     for (let s = 0; s < colors.length; s += 1) {
       const swatch = colors[s];
+
+      if (swatchTraits[s].isNeutral) {
+        if (
+          pixelSpread <= NEUTRAL_PIXEL_CHANNEL_SPREAD &&
+          Math.abs(pixelLuma - swatchTraits[s].luma) <= NEUTRAL_LUMA_THRESHOLD
+        ) {
+          cellCounts[s][cell] += 1;
+          cellSumsX[s][cell] += x;
+          cellSumsY[s][cell] += y;
+        }
+        continue;
+      }
+
       const dr = r - swatch.r;
       const dg = g - swatch.g;
       const db = b - swatch.b;
@@ -125,9 +167,12 @@ export function computeSwatchOrigins(imageData, width, height, colors, previousO
       if (previousCell !== bestCell) {
         const previousRegionCount = sumCellNeighborhood(counts, previousCell);
         const bestRegionCount = sumCellNeighborhood(counts, bestCell);
+        const stickinessRatio = swatchTraits[s].isNeutral
+          ? NEUTRAL_STICKINESS_RATIO
+          : CLUSTER_STICKINESS_RATIO;
         if (
           previousRegionCount > 0 &&
-          previousRegionCount >= bestRegionCount * CLUSTER_STICKINESS_RATIO
+          previousRegionCount >= bestRegionCount * stickinessRatio
         ) {
           chosenCell = previousCell;
         }
@@ -174,6 +219,25 @@ export function createSwatchOriginTracker() {
   let previousEntries = []; // [{ color, origin }]
 
   function findPreviousOrigin(color) {
+    const isNeutral = channelSpread(color) <= NEUTRAL_SWATCH_CHANNEL_SPREAD;
+
+    // Neutral swatches drift in luminance between extractions more than
+    // chromatic ones move in RGB, so match gray-to-gray by luma.
+    if (isNeutral) {
+      const luma = colorLuma(color);
+      let bestOrigin = null;
+      let bestLumaDistance = TRACKER_NEUTRAL_LUMA_MATCH_THRESHOLD;
+      for (const entry of previousEntries) {
+        if (channelSpread(entry.color) > NEUTRAL_SWATCH_CHANNEL_SPREAD) continue;
+        const lumaDistance = Math.abs(colorLuma(entry.color) - luma);
+        if (lumaDistance < bestLumaDistance) {
+          bestLumaDistance = lumaDistance;
+          bestOrigin = entry.origin;
+        }
+      }
+      return bestOrigin;
+    }
+
     let bestOrigin = null;
     let bestDistanceSquared = TRACKER_COLOR_MATCH_THRESHOLD * TRACKER_COLOR_MATCH_THRESHOLD;
 
