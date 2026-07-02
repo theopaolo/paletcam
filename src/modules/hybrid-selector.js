@@ -89,7 +89,17 @@ function totalMass(band) {
   return band.items.reduce((sum, c) => sum + c.mass, 0);
 }
 
-function greedySelectChromatic(candidates, slots, radius, spreadStrength, rarityStrength, tone, hueRadiusDeg) {
+function greedySelectChromatic(
+  candidates,
+  slots,
+  radius,
+  spreadStrength,
+  rarityStrength,
+  tone,
+  hueRadiusDeg,
+  previousLabs,
+  loyaltyStrength,
+) {
   if (slots <= 0 || candidates.length === 0) return [];
   const maxChroma = Math.max(...candidates.map((c) => c.vividC)) || 1;
   const maxMass = Math.max(...candidates.map((c) => c.mass)) || 1;
@@ -106,6 +116,7 @@ function greedySelectChromatic(candidates, slots, radius, spreadStrength, rarity
       hue: blendedHue < 0 ? blendedHue + 360 : blendedHue,
       chromaNorm: c.vividC / maxChroma,
       rarityNorm: 1 - c.mass / maxMass,
+      loyaltyNorm: computeLoyalty(blendedLab, previousLabs),
     };
   });
   const picked = [];
@@ -123,7 +134,8 @@ function greedySelectChromatic(candidates, slots, radius, spreadStrength, rarity
       const score =
         candidate.chromaNorm +
         spreadStrength * hueSpread +
-        rarityStrength * candidate.rarityNorm;
+        rarityStrength * candidate.rarityNorm +
+        loyaltyStrength * candidate.loyaltyNorm;
       if (score > bestScore) {
         bestScore = score;
         bestIndex = i;
@@ -144,6 +156,24 @@ function greedySelectChromatic(candidates, slots, radius, spreadStrength, rarity
     picked.push(available.splice(bestIndex, 1)[0]);
   }
   return picked;
+}
+
+// Hysteresis: candidates near a swatch from the previous extraction get a
+// score bonus, so near-equal alternatives don't flip the palette every frame.
+const LOYALTY_RADIUS = 0.1;
+
+function computeLoyalty(candidateLab, previousLabs) {
+  if (!previousLabs || previousLabs.length === 0) return 0;
+  let minDistance = Infinity;
+  for (const prev of previousLabs) {
+    const distance = Math.hypot(
+      candidateLab.L - prev.L,
+      candidateLab.a - prev.a,
+      candidateLab.b - prev.b,
+    );
+    if (distance < minDistance) minDistance = distance;
+  }
+  return Math.max(0, 1 - minDistance / LOYALTY_RADIUS);
 }
 
 function blendedDist(picked, candidate) {
@@ -181,6 +211,8 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
     spreadStrength = 0.6,
     rarityStrength = 0.2,
     tone = 0.85,
+    previousColors = [],
+    loyaltyStrength = 0.3,
   } = params;
 
   const empty = { colors: [], candidates: [], neutralCount: 0, neutralThreshold: 0 };
@@ -192,7 +224,8 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
   if (packed.length === 0) return empty;
 
   const poolSize = Math.max(swatchCount, quantizedPoolSize);
-  const quantizer = new ColorCutQuantizer(Int32Array.from(packed), poolSize);
+  // `packed` is a fresh throwaway buffer, so the quantizer may mutate it.
+  const quantizer = new ColorCutQuantizer(packed, poolSize);
   const swatches = quantizer.getQuantizedColors?.() ?? [];
   if (swatches.length === 0) return empty;
 
@@ -211,6 +244,12 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
   const minBandMass = Math.max(1, totalMass * 0.05);
   const neutralPicks = pickNeutralBands(neutralCandidates, Math.max(0, requestedNeutral), minBandMass);
 
+  const previousLabs = Array.isArray(previousColors)
+    ? previousColors
+        .filter((color) => color && Number.isFinite(color.r))
+        .map((color) => rgbToOklab(color.r, color.g, color.b))
+    : [];
+
   const chromaticSlots = swatchCount - neutralPicks.length;
   const chromaticPicks = greedySelectChromatic(
     chromaticCandidates,
@@ -220,6 +259,8 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
     rarityStrength,
     tone,
     25,
+    previousLabs,
+    loyaltyStrength,
   );
 
   const neutralColors = neutralPicks.map((c) => ({

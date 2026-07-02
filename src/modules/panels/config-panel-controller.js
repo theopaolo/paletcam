@@ -462,6 +462,25 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       onInteractionCommit: commitAlgorithmInteraction,
       getAriaLabel: (value) => t("config.hybrid.repulsion.aria", { value }),
     }),
+    createRangeControl({
+      root,
+      shellId: "configHybridLoyaltySlider",
+      inputId: "configHybridLoyaltyRange",
+      displaySelector: "[data-config-hybrid-loyalty-display]",
+      getValueFromSettings: (settings) =>
+        Math.round(
+          (settings.hybrid?.loyaltyStrength ?? defaultAlgorithmSettings.hybrid.loyaltyStrength) *
+            100,
+        ),
+      onValueInput: (value) => {
+        applyAlgorithmSettings((snapshot) => {
+          snapshot.hybrid.loyaltyStrength = Math.round(value) / 100;
+        });
+      },
+      onInteractionStart: beginAlgorithmInteraction,
+      onInteractionCommit: commitAlgorithmInteraction,
+      getAriaLabel: (value) => t("config.hybrid.loyalty.aria", { value }),
+    }),
   ].filter(Boolean);
 
   function renderConfigUi(settings) {

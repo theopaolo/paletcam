@@ -35,6 +35,7 @@ const DEFAULT_HYBRID_SETTINGS = Object.freeze({
   spreadStrength: 0.6,
   rarityStrength: 0.2,
   tone: 0.85,
+  loyaltyStrength: 0.3,
 });
 
 function normalizeCaptureMode(value) {
@@ -162,6 +163,11 @@ function normalizeHybridSettings(candidate) {
       HYBRID_STRENGTH_RANGE,
     ),
     tone: clampFloatInRange(candidate?.tone, fallback.tone, HYBRID_TONE_RANGE),
+    loyaltyStrength: clampFloatInRange(
+      candidate?.loyaltyStrength,
+      fallback.loyaltyStrength,
+      HYBRID_STRENGTH_RANGE,
+    ),
   };
 }
 
@@ -356,5 +362,6 @@ export const APP_SETTINGS_LIMITS = Object.freeze({
     spreadStrength: Object.freeze({ ...HYBRID_STRENGTH_RANGE }),
     rarityStrength: Object.freeze({ ...HYBRID_STRENGTH_RANGE }),
     tone: Object.freeze({ ...HYBRID_TONE_RANGE }),
+    loyaltyStrength: Object.freeze({ ...HYBRID_STRENGTH_RANGE }),
   }),
 });

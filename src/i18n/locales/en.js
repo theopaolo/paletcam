@@ -258,6 +258,10 @@ const en = {
   "config.hybrid.repulsion.hint":
     "Minimum OKLab distance between picks. Higher forces more distinct colors.",
   "config.hybrid.repulsion.aria": "Repulsion radius: {value}",
+  "config.hybrid.loyalty.title": "Stability",
+  "config.hybrid.loyalty.hint":
+    "Bonus for colors close to the previous palette. Higher = steadier palette, lower = faster reaction to scene changes.",
+  "config.hybrid.loyalty.aria": "Stability: {value}",
   "camera.start.notAllowed": "Allow camera access to capture palettes.",
   "camera.start.notFound": "No camera was detected on this device.",
   "camera.start.notReadable": "The camera is already in use or temporarily unavailable.",

@@ -136,6 +136,8 @@ export function extractMedianCutPaletteColors(
       spreadStrength: hybrid?.spreadStrength,
       rarityStrength: hybrid?.rarityStrength,
       tone: hybrid?.tone,
+      previousColors: hybrid?.previousColors,
+      loyaltyStrength: hybrid?.loyaltyStrength,
     });
   }
 

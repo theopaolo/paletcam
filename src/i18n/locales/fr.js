@@ -266,6 +266,10 @@ const fr = {
   "config.hybrid.repulsion.hint":
     "Distance OKLab minimale entre couleurs. Plus élevé = couleurs plus distinctes.",
   "config.hybrid.repulsion.aria": "Rayon de répulsion : {value}",
+  "config.hybrid.loyalty.title": "Stabilité",
+  "config.hybrid.loyalty.hint":
+    "Bonus pour les couleurs proches de la palette précédente. Plus élevé = palette plus stable, plus bas = réaction plus rapide aux changements de scène.",
+  "config.hybrid.loyalty.aria": "Stabilité : {value}",
   "camera.start.notAllowed": "Autorisez l'accès à la caméra pour capturer des palettes.",
   "camera.start.notFound": "Aucune caméra n'a été détectée sur cet appareil.",
   "camera.start.notReadable": "La caméra est déjà utilisée ou momentanément indisponible.",

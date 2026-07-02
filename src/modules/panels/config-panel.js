@@ -458,6 +458,39 @@ class ConfigPanel extends LitElement {
                 </div>
               </div>
             </div>
+
+            <div class="panel-form-field" data-mode="perceptual" hidden>
+              <details class="panel-form-field-header">
+                <summary class="panel-form-label" for="configHybridLoyaltyRange">
+                  ${t("config.hybrid.loyalty.title")}
+                </summary>
+                <p class="panel-form-hint">
+                  ${t("config.hybrid.loyalty.hint")}
+                </p>
+              </details>
+
+              <div
+                class="swatch-slider panel-form-quality-slider config-drawer-slider"
+                id="configHybridLoyaltySlider"
+              >
+                <input
+                  id="configHybridLoyaltyRange"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="30"
+                  step="1"
+                  aria-label=${t("config.hybrid.loyalty.aria", { value: 30 })}
+                />
+                <div class="swatch-meta">
+                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
+                  <span class="swatch-count-indicator" data-config-hybrid-loyalty-display>
+                    30
+                  </span>
+                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
 
