@@ -5,7 +5,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  padding: 0 var(--space-16) calc(env(safe-area-inset-bottom, 0px) + var(--space-16));
+  padding: 0 var(--space-8) calc(env(safe-area-inset-bottom, 0px) + var(--space-8));
   pointer-events: none;
 }
 
@@ -139,12 +139,14 @@
   align-items: center;
   justify-content: center;
   min-width: 5.8ch;
-  padding: 2px var(--space-8) var(--space-4);
+  padding: var(--space-4) var(--space-8);
   border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
   background: rgb(10 10 10 / 42%);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   letter-spacing: -0.01em;
@@ -157,6 +159,10 @@
     transform 0.18s ease;
   pointer-events: auto;
   touch-action: none;
+}
+
+.camera-ev-indicator:active {
+  background: rgb(10 10 10 / 65%);
 }
 
 .camera-ev-indicator.is-offset {

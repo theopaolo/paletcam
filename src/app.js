@@ -434,6 +434,13 @@ gridUi = createCameraGridUiController({
   overlayHost: cameraViewportFrame,
 });
 
+// The capture-mode toggle overlays the live preview like the grid/quality/EV
+// controls, so it moves into the viewport frame alongside them.
+const captureModeSection = document.querySelector(".capture-mode-section");
+if (captureModeSection) {
+  cameraViewportFrame.appendChild(captureModeSection);
+}
+
 cameraLifecycleController = createCameraLifecycleController({
   cameraFeed,
   cameraController,

@@ -89,6 +89,8 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   let lastBoundaryKey = null;
   let activePointerId = null;
   let activeFeedbackTimeoutId = 0;
+  let gestureStartClientX = 0;
+  let gestureStartZoom = 1;
   const unsubscribeLocaleChange = subscribeLocaleChange(() => {
     scrubber.setAttribute("aria-label", t("camera.zoom.label"));
     updateScrubberA11y(currentZoom);
@@ -223,15 +225,15 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     });
   }
 
-  function getZoomFromClientX(clientX) {
-    const { min, max } = getZoomRange();
+  function getTrackWidth() {
     const trackRect = scrubberTrack.getBoundingClientRect?.();
-    const trackWidth = Number(trackRect?.width) > 0 ? Number(trackRect.width) : SCRUB_RANGE_PX;
-    const trackLeft = Number.isFinite(Number(trackRect?.left))
-      ? Number(trackRect.left)
-      : clientX - trackWidth / 2;
-    const normalizedValue = clampValue((clientX - trackLeft) / trackWidth, 0, 1);
-    return min + normalizedValue * (max - min);
+    return Number(trackRect?.width) > 0 ? Number(trackRect.width) : SCRUB_RANGE_PX;
+  }
+
+  function getZoomFromGesture(clientX) {
+    const { min, max } = getZoomRange();
+    const deltaX = clientX - gestureStartClientX;
+    return gestureStartZoom + (deltaX / getTrackWidth()) * (max - min);
   }
 
   function updateScrubberA11y(zoomValue) {
@@ -249,7 +251,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
 
   function updateScrubberProgress(zoomValue) {
     const { min, max } = getZoomRange();
-    const normalizedValue = max > min ? (zoomValue - min) / (max - min) : 0.495;
+    const normalizedValue = max > min ? (zoomValue - min) / (max - min) : 0.5;
     scrubberTrack.style.setProperty("--zoom-progress", String(clampValue(normalizedValue, 0, 1)));
     updateScrubberA11y(zoomValue);
   }
@@ -306,10 +308,11 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     }
 
     activePointerId = event.pointerId;
+    gestureStartClientX = event.clientX;
+    gestureStartZoom = currentZoom;
     clearActiveFeedbackTimer();
     setScrubberActive(true);
     scrubber.setPointerCapture?.(event.pointerId);
-    void applyZoomValue(getZoomFromClientX(event.clientX));
     event.preventDefault();
   }
 
@@ -318,7 +321,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
       return;
     }
 
-    void applyZoomValue(getZoomFromClientX(event.clientX));
+    void applyZoomValue(getZoomFromGesture(event.clientX));
     event.preventDefault();
   }
 

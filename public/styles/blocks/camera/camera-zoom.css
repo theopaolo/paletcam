@@ -135,7 +135,12 @@
 }
 
 .camera-zoom-ruler {
-  --zoom-progress: 0.495;
+  --zoom-progress: 0.5;
+
+  /* Dial metaphor: the needle stays centered and the tick tape slides
+     under it. Shift scale mirrors the scrubber width (11rem) so the
+     tape tracks the finger roughly 1:1. */
+  --zoom-tick-shift: calc((0.5 - var(--zoom-progress)) * 11rem);
 
   position: relative;
   z-index: 1;
@@ -151,7 +156,7 @@
 }
 
 .camera-zoom-ruler::before {
-  inset: var(--space-4) var(--space-16) 0;
+  inset: var(--space-4) 0 0;
   background:
     repeating-linear-gradient(to right, rgb(255 255 255 / 82%) 0 0, transparent 1px 6px),
     repeating-linear-gradient(to right, rgb(255 255 255 / 98%) 0 2px, transparent 2px 24px);
@@ -159,16 +164,17 @@
     12px 62%,
     18px 100%;
   background-position:
-    0 bottom,
-    0 bottom;
+    var(--zoom-tick-shift) bottom,
+    var(--zoom-tick-shift) bottom;
   background-repeat: repeat-x;
   opacity: 0.92;
+  mask-image: linear-gradient(to right, transparent, #000 16%, #000 84%, transparent);
 }
 
 .camera-zoom-ruler::after {
   top: -2px;
   bottom: -1px;
-  left: calc(var(--zoom-progress) * 100%);
+  left: 50%;
   width: 2px;
   transform: translateX(-50%);
   border-radius: var(--radius-pill);

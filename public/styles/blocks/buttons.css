@@ -306,11 +306,16 @@
   z-index: 4;
 }
 
+/* Lives inside the camera viewport frame (moved there by app.js) so it
+   overlays the live preview's bottom-left corner, mirroring the EV
+   indicator on the right and aligned with the GRID toggle above. */
 .capture-mode-section {
   position: absolute;
-  bottom: var(--space-8);
-  left: var(--space-8);
-  z-index: 4;
+  bottom: 0;
+  left: 0;
+  z-index: 7;
+  padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + var(--space-8)) var(--space-8);
+  pointer-events: none;
 }
 
 .btn-capture-mode-toggle {
@@ -326,6 +331,7 @@
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
+  pointer-events: auto;
   touch-action: none;
   user-select: none;
   transition:
