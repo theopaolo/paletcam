@@ -263,7 +263,7 @@
         border-radius: 50%;
         background: var(--color-accent-soft);
         border: 2px solid var(--color-accent);
-        margin-top: calc((var(--track-h) - var(--thumb)) / 2 + 1px);
+        margin-top: 0;
         box-shadow: 0 0 0 0 var(--color-accent-dim);
         transition: transform 0.12s ease, box-shadow 0.18s ease;
       }
@@ -626,14 +626,27 @@
           const min = Number(input.min) || 0;
           const max = Number(input.max) || 100;
           const val = Number(input.value);
-          const pct = ((val - min) / (max - min)) * 100;
-          input.style.setProperty("--fill", `${isFinite(pct) ? pct : 50}%`);
+          const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+          input.style.setProperty("--fill", `${isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 50}%`);
         };
+
+        const wire = (input) => {
+          syncFill(input);
+          input.addEventListener("input", () => syncFill(input));
+          input.addEventListener("change", () => syncFill(input));
+          const proto = Object.getPrototypeOf(input);
+          const desc = Object.getOwnPropertyDescriptor(proto, "value");
+          if (desc && desc.set) {
+            Object.defineProperty(input, "value", {
+              get() { return desc.get.call(this); },
+              set(v) { desc.set.call(this, v); syncFill(this); },
+              configurable: true,
+            });
+          }
+        };
+
         const init = () => {
-          document.querySelectorAll('input[type="range"]').forEach((input) => {
-            syncFill(input);
-            input.addEventListener("input", () => syncFill(input));
-          });
+          document.querySelectorAll('input[type="range"]').forEach(wire);
         };
         if (document.readyState === "loading") {
           document.addEventListener("DOMContentLoaded", init);
