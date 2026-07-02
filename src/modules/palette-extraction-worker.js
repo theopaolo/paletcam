@@ -82,6 +82,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
     ) {
       onResult?.({
         colors: Array.isArray(payload.colors) ? payload.colors : [],
+        origins: Array.isArray(payload.origins) ? payload.origins : [],
         durationMs: Number(payload.durationMs) || 0,
       });
     }

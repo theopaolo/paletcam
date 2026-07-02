@@ -1,4 +1,5 @@
 import { drawFrameToCanvas } from "../camera-ui.js";
+import { rgbDistanceSquared } from "../color-math.js";
 import { createColorSmoother } from "../color-smoothing.js";
 import {
   extractPaletteColors,
@@ -6,6 +7,11 @@ import {
   removeDarkestColor,
   renderPaletteBars,
 } from "../palette-extraction.js";
+import {
+  createSwatchOriginTracker,
+  drawOriginMarkers,
+  hitTestOriginMarkers,
+} from "../palette-origins.js";
 import { getCenteredAspectCropRect, getTargetFrameHeight } from "./geometry.js";
 
 // The quantizer samples at most ~40k pixels, so anything above ~320px wide is
@@ -16,6 +22,39 @@ const PREVIEW_SMOOTHING_FACTOR = 0.16;
 // displays; the palette is intentionally slower than the camera preview.
 const EXTRACTION_MIN_INTERVAL_MS = 200;
 const CAMERA_TRACK_SETTINGS_REFRESH_MS = 1000;
+const ORIGIN_MARKER_SMOOTHING_FACTOR = 0.18;
+// A frozen palette belongs to the scene it was pinned in. Each fresh
+// extraction is compared to the freeze-time snapshot (mean nearest-color
+// distance). Two release tiers: an unmistakable scene swap (hard) releases on
+// the first extraction (≤200ms), while moderate drift (soft) — reframing,
+// slow pans, autoexposure — must persist for several extractions before the
+// pins let go. Static-scene noise measures ≈ 8, a full scene change ≈ 100.
+const FROZEN_SCENE_HARD_DISTANCE = 85;
+const FROZEN_SCENE_SOFT_DISTANCE = 58;
+const FROZEN_SCENE_SOFT_BREACH_LIMIT = 3;
+// Release animation: badges hop up, tumble off the bottom of the frame, and
+// the live badge pops back in with a bounce.
+const BADGE_FALL_HOP_VELOCITY = -140; // px/s
+const BADGE_FALL_GRAVITY = 1400; // px/s^2
+const BADGE_FALL_MAX_DURATION_MS = 1400;
+const BADGE_POP_DURATION_MS = 350;
+const HAPTIC_FREEZE_MS = 15;
+const HAPTIC_UNFREEZE_MS = 8;
+const HAPTIC_SCENE_RELEASE_PATTERN = [40, 60, 40];
+
+function easeOutBack(progress) {
+  const overshoot = 1.70158;
+  const p = progress - 1;
+  return 1 + (overshoot + 1) * p * p * p + overshoot * p * p;
+}
+
+function triggerHaptic(pattern) {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    // Haptics are best-effort; iOS Safari has no vibration API.
+  }
+}
 
 export function createLivePreviewController({
   cameraFeed,
@@ -26,6 +65,7 @@ export function createLivePreviewController({
     analysisCanvas.getContext("2d"),
   captureContainer,
   capturePaletteStage,
+  originsOverlayCanvas = null,
   paletteCaptureStage,
   cameraController,
   paletteExtractionWorker,
@@ -35,6 +75,7 @@ export function createLivePreviewController({
   getCurrentCaptureMode,
   getIsCaptureSavePending = () => false,
   getOneMoreColor,
+  getOriginBadgesEnabled = () => true,
   getPaletteScoringSettings,
   getMedianCutExtractionSettings,
   getHybridSettings,
@@ -46,7 +87,10 @@ export function createLivePreviewController({
   const frameContext =
     frameCanvas?.getContext("2d", { willReadFrequently: true }) ?? frameCanvas?.getContext("2d");
   const paletteContext = paletteCanvas?.getContext("2d");
+  const originsOverlayContext = originsOverlayCanvas?.getContext("2d") ?? null;
   const colorSmoother = createColorSmoother();
+  // Only used by the sync fallback path; the worker keeps its own tracker.
+  const originTracker = createSwatchOriginTracker();
 
   let frameWidth = 0;
   let frameHeight = 0;
@@ -55,6 +99,14 @@ export function createLivePreviewController({
   let isStreaming = false;
   let lastExtractionAt = 0;
   let lastExtractedColors = null;
+  let lastExtractedOrigins = [];
+  let smoothedMarkerPositions = [];
+  let lastRenderedMarkers = [];
+  let markerBornAt = [];
+  let fallingBadges = [];
+  const frozenSlots = new Map();
+  let frozenSceneReference = null;
+  let frozenSceneBreachCount = 0;
   let lastVisiblePaletteColors = [];
   let lastPaintedColors = null;
   let paintedPaletteWidth = 0;
@@ -144,6 +196,20 @@ export function createLivePreviewController({
       frameCanvas.height = frameHeight;
     }
 
+    if (originsOverlayCanvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const overlayWidth = Math.round(frameWidth * dpr);
+      const overlayHeight = Math.round(frameHeight * dpr);
+      if (
+        originsOverlayCanvas.width !== overlayWidth ||
+        originsOverlayCanvas.height !== overlayHeight
+      ) {
+        originsOverlayCanvas.width = overlayWidth;
+        originsOverlayCanvas.height = overlayHeight;
+      }
+      originsOverlayContext?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
     if (paletteCanvas.width !== frameWidth || paletteCanvas.height !== cachedPaletteHeight) {
       paletteCanvas.width = frameWidth;
       paletteCanvas.height = cachedPaletteHeight;
@@ -191,9 +257,309 @@ export function createLivePreviewController({
     });
   }
 
+  function clearOriginMarkers() {
+    smoothedMarkerPositions = [];
+    lastRenderedMarkers = [];
+    markerBornAt = [];
+    fallingBadges = [];
+    if (originsOverlayContext && originsOverlayCanvas) {
+      originsOverlayContext.clearRect(0, 0, frameWidth || 0, frameHeight || 0);
+    }
+  }
+
+  function clearFrozenSlots({ animate = false } = {}) {
+    if (animate && frozenSlots.size > 0) {
+      const now = performance.now();
+      for (const [slot, entry] of frozenSlots) {
+        if (entry.position) {
+          fallingBadges.push({
+            x: entry.position.x,
+            y: entry.position.y,
+            color: entry.color,
+            label: slot + 1,
+            horizontalVelocity: (Math.random() - 0.5) * 160,
+            startedAt: now,
+          });
+        }
+        // Let the live badge for this slot pop back in fresh.
+        smoothedMarkerPositions[slot] = null;
+        markerBornAt[slot] = 0;
+      }
+      triggerHaptic(HAPTIC_SCENE_RELEASE_PATTERN);
+    }
+
+    frozenSlots.clear();
+    frozenSceneReference = null;
+    frozenSceneBreachCount = 0;
+    // Force repaint so unfrozen slots pick the live colors back up.
+    lastPaintedColors = null;
+  }
+
+  // Released badges hop up, tumble down past the frame edge, and fade.
+  function buildFallingBadgeMarkers(now) {
+    if (fallingBadges.length === 0) {
+      return [];
+    }
+
+    const markers = [];
+    fallingBadges = fallingBadges.filter((badge) => {
+      const elapsedSeconds = (now - badge.startedAt) / 1000;
+      if (now - badge.startedAt > BADGE_FALL_MAX_DURATION_MS) {
+        return false;
+      }
+
+      const dropPx =
+        BADGE_FALL_HOP_VELOCITY * elapsedSeconds +
+        0.5 * BADGE_FALL_GRAVITY * elapsedSeconds * elapsedSeconds;
+      const y = badge.y + dropPx / frameHeight;
+      if (y * frameHeight > frameHeight + 24) {
+        return false;
+      }
+
+      markers.push({
+        x: badge.x + (badge.horizontalVelocity * elapsedSeconds) / frameWidth,
+        y,
+        color: badge.color,
+        label: badge.label,
+        frozen: true,
+        clamp: false,
+        rotation: badge.horizontalVelocity * elapsedSeconds * 0.02,
+        alpha: 1 - (now - badge.startedAt) / BADGE_FALL_MAX_DURATION_MS,
+      });
+      return true;
+    });
+
+    return markers;
+  }
+
+  function applyFrozenColors(colors) {
+    if (frozenSlots.size === 0) {
+      return colors;
+    }
+
+    return colors.map((color, slot) => frozenSlots.get(slot)?.color ?? color);
+  }
+
+  // Scene-change watchdog: compares each fresh extraction against the palette
+  // snapshot taken when freezing. Sustained mismatch releases all frozen slots.
+  function checkFrozenSceneChange(rawColors) {
+    if (frozenSlots.size === 0 || !frozenSceneReference || frozenSceneReference.length === 0) {
+      return;
+    }
+
+    if (!Array.isArray(rawColors) || rawColors.length === 0) {
+      return;
+    }
+
+    let totalDistance = 0;
+    for (const color of rawColors) {
+      let bestDistanceSquared = Infinity;
+      for (const reference of frozenSceneReference) {
+        const distanceSquared = rgbDistanceSquared(color, reference);
+        if (distanceSquared < bestDistanceSquared) {
+          bestDistanceSquared = distanceSquared;
+        }
+      }
+      totalDistance += Math.sqrt(bestDistanceSquared);
+    }
+
+    const meanDistance = totalDistance / rawColors.length;
+    if (meanDistance > FROZEN_SCENE_HARD_DISTANCE) {
+      clearFrozenSlots({ animate: true });
+    } else if (meanDistance > FROZEN_SCENE_SOFT_DISTANCE) {
+      frozenSceneBreachCount += 1;
+      if (frozenSceneBreachCount >= FROZEN_SCENE_SOFT_BREACH_LIMIT) {
+        clearFrozenSlots({ animate: true });
+      }
+    } else {
+      frozenSceneBreachCount = 0;
+    }
+  }
+
+  function canToggleFreeze() {
+    return (
+      getOriginBadgesEnabled() &&
+      getCurrentCaptureMode() !== "ral" &&
+      frameWidth > 0 &&
+      frameHeight > 0
+    );
+  }
+
+  function toggleSlotFreeze(slot) {
+    if (frozenSlots.has(slot)) {
+      frozenSlots.delete(slot);
+      if (frozenSlots.size === 0) {
+        frozenSceneReference = null;
+        frozenSceneBreachCount = 0;
+      }
+      // Snap the badge back onto the live origin with a pop.
+      smoothedMarkerPositions[slot] = null;
+      markerBornAt[slot] = 0;
+      lastPaintedColors = null;
+      triggerHaptic(HAPTIC_UNFREEZE_MS);
+      return true;
+    }
+
+    const displayColor = lastVisiblePaletteColors[slot];
+    if (!displayColor) {
+      return false;
+    }
+
+    // Swatch-initiated freezes can land on a slot whose badge is currently
+    // hidden (no matching pixels); the color still pins, badge-less.
+    const position = smoothedMarkerPositions[slot];
+    frozenSlots.set(slot, {
+      color: { ...displayColor },
+      position: position ? { ...position } : null,
+    });
+    frozenSceneReference = (lastExtractedColors ?? []).map((color) => ({ ...color }));
+    frozenSceneBreachCount = 0;
+    lastPaintedColors = null;
+    triggerHaptic(HAPTIC_FREEZE_MS);
+    return true;
+  }
+
+  function toggleOriginFreezeAt(normalizedX, normalizedY) {
+    if (!canToggleFreeze() || lastRenderedMarkers.length === 0) {
+      return false;
+    }
+
+    const slot = hitTestOriginMarkers(
+      lastRenderedMarkers,
+      normalizedX * frameWidth,
+      normalizedY * frameHeight,
+      frameWidth,
+      frameHeight,
+    );
+    if (slot < 0) {
+      return false;
+    }
+
+    return toggleSlotFreeze(slot);
+  }
+
+  function togglePaletteSwatchFreezeAt(normalizedX) {
+    if (!canToggleFreeze() || lastVisiblePaletteColors.length === 0) {
+      return false;
+    }
+
+    const swatchCount = lastVisiblePaletteColors.length;
+    const slot = Math.min(
+      swatchCount - 1,
+      Math.max(0, Math.floor(normalizedX * swatchCount)),
+    );
+    return toggleSlotFreeze(slot);
+  }
+
+  // Each visible swatch is matched back to the raw extraction color whose
+  // scene centroid we know, then the badge glides toward that spot so sensor
+  // jitter doesn't make markers twitch.
+  function updateOriginMarkers(displayColors) {
+    if (!originsOverlayContext || frameWidth <= 0 || frameHeight <= 0) {
+      return;
+    }
+
+    if (!getOriginBadgesEnabled()) {
+      if (lastRenderedMarkers.length > 0 || fallingBadges.length > 0) {
+        clearOriginMarkers();
+      }
+      if (frozenSlots.size > 0) {
+        clearFrozenSlots();
+      }
+      return;
+    }
+
+    const now = performance.now();
+    const rawColors = lastExtractedColors ?? [];
+    const markers = [];
+
+    for (let slot = 0; slot < displayColors.length; slot += 1) {
+      const displayColor = displayColors[slot];
+
+      // Frozen badges stay where the color was pinned; the live scan no
+      // longer applies to them. A badge-less pin (frozen from the swatch bar
+      // while its color had no visible origin) keeps the slot marker-free.
+      const frozenEntry = frozenSlots.get(slot);
+      if (frozenEntry) {
+        smoothedMarkerPositions[slot] = frozenEntry.position ? { ...frozenEntry.position } : null;
+        if (frozenEntry.position) {
+          markers.push({
+            x: frozenEntry.position.x,
+            y: frozenEntry.position.y,
+            color: frozenEntry.color,
+            label: slot + 1,
+            slot,
+            frozen: true,
+          });
+        }
+        continue;
+      }
+
+      let bestIndex = -1;
+      let bestDistance = Infinity;
+      for (let i = 0; i < rawColors.length; i += 1) {
+        const distance = rgbDistanceSquared(displayColor, rawColors[i]);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = i;
+        }
+      }
+
+      const targetOrigin = bestIndex >= 0 ? lastExtractedOrigins[bestIndex] : null;
+      if (!targetOrigin) {
+        smoothedMarkerPositions[slot] = null;
+        continue;
+      }
+
+      const previousPosition = smoothedMarkerPositions[slot];
+      if (!previousPosition) {
+        // Fresh appearance (first frame, or just released) — pop in.
+        markerBornAt[slot] = now;
+      }
+      const nextPosition = previousPosition
+        ? {
+            x:
+              previousPosition.x +
+              (targetOrigin.x - previousPosition.x) * ORIGIN_MARKER_SMOOTHING_FACTOR,
+            y:
+              previousPosition.y +
+              (targetOrigin.y - previousPosition.y) * ORIGIN_MARKER_SMOOTHING_FACTOR,
+          }
+        : { x: targetOrigin.x, y: targetOrigin.y };
+
+      const popProgress = Math.min(1, (now - (markerBornAt[slot] ?? 0)) / BADGE_POP_DURATION_MS);
+
+      smoothedMarkerPositions[slot] = nextPosition;
+      markers.push({
+        x: nextPosition.x,
+        y: nextPosition.y,
+        color: displayColor,
+        label: slot + 1,
+        slot,
+        scale: popProgress < 1 ? easeOutBack(popProgress) : 1,
+      });
+    }
+
+    smoothedMarkerPositions.length = displayColors.length;
+    markerBornAt.length = displayColors.length;
+    lastRenderedMarkers = markers;
+    drawOriginMarkers(
+      originsOverlayContext,
+      [...markers, ...buildFallingBadgeMarkers(now)],
+      frameWidth,
+      frameHeight,
+    );
+  }
+
   function reset() {
     lastExtractionAt = 0;
     lastExtractedColors = null;
+    lastExtractedOrigins = [];
+    clearOriginMarkers();
+    originTracker.reset();
+    frozenSlots.clear();
+    frozenSceneReference = null;
+    frozenSceneBreachCount = 0;
     lastVisiblePaletteColors = [];
     lastPaintedColors = null;
     paintedPaletteWidth = 0;
@@ -335,6 +701,9 @@ export function createLivePreviewController({
       // Force a repaint + glow refresh on the next palette frame.
       lastPaintedColors = null;
     } else if (currentCaptureMode === "ral") {
+      if (smoothedMarkerPositions.length > 0) {
+        clearOriginMarkers();
+      }
       const analysisStartTime = performance.now();
       if (!shouldUseCanvasPreview) {
         drawCurrentFrameToAnalysisCanvas();
@@ -379,6 +748,13 @@ export function createLivePreviewController({
             );
 
             lastExtractedColors = result.colors;
+            lastExtractedOrigins = originTracker.compute(
+              frameImageData,
+              analysisWidth,
+              analysisHeight,
+              result.colors,
+            );
+            checkFrozenSceneChange(result.colors);
             analysisDurationMs = performance.now() - analysisStartTime;
           }
         }
@@ -390,7 +766,10 @@ export function createLivePreviewController({
       }
 
       const smoothedColors = colorSmoother.smooth(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
-      const displayColors = getOneMoreColor() ? removeDarkestColor(smoothedColors) : smoothedColors;
+      const liveColors = getOneMoreColor() ? removeDarkestColor(smoothedColors) : smoothedColors;
+      const displayColors = applyFrozenColors(liveColors);
+
+      updateOriginMarkers(displayColors);
 
       // The smoother returns the same color objects while the palette is
       // stable (deadband), so identical refs mean nothing on screen changes.
@@ -449,9 +828,11 @@ export function createLivePreviewController({
     getFrameHeight: () => frameHeight,
     getFrameWidth: () => frameWidth,
     getIsStreaming: () => isStreaming,
-    handleWorkerResult({ colors, durationMs }) {
+    handleWorkerResult({ colors, durationMs, origins }) {
       latestPaletteWorkerDurationMs = durationMs;
       lastExtractedColors = colors;
+      lastExtractedOrigins = Array.isArray(origins) ? origins : [];
+      checkFrozenSceneChange(colors);
     },
     readCurrentRalMatch,
     recordStoppedFrame,
@@ -460,6 +841,8 @@ export function createLivePreviewController({
     setStreaming(nextIsStreaming) {
       isStreaming = Boolean(nextIsStreaming);
     },
+    toggleOriginFreezeAt,
+    togglePaletteSwatchFreezeAt,
     updateCachedDimensions,
   };
 }

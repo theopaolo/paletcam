@@ -169,6 +169,13 @@ config-panel.is-open .config-drawer {
   letter-spacing: -0.04em;
 }
 
+.config-drawer-pins-icon {
+  width: 20px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-inline-start: var(--space-4);
+}
+
 .config-drawer-darkest-toggle
   .panel-form-checkbox-input:checked
   + .panel-form-checkbox-box

@@ -34,6 +34,9 @@ function getConfigDom(root) {
     oneMoreColorToggle: /** @type {HTMLInputElement | null} */ (
       queryById(root, "configOneMoreColorToggle")
     ),
+    originBadgesToggle: /** @type {HTMLInputElement | null} */ (
+      queryById(root, "configOriginBadgesToggle")
+    ),
     paletteSelectorSelect: /** @type {HTMLSelectElement | null} */ (
       queryById(root, "configPaletteSelectorSelect")
     ),
@@ -170,6 +173,14 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     }
 
     dom.oneMoreColorToggle.checked = Boolean(settings.oneMoreColor);
+  }
+
+  function syncOriginBadgesToggle(settings) {
+    if (!dom.originBadgesToggle) {
+      return;
+    }
+
+    dom.originBadgesToggle.checked = Boolean(settings.originBadgesEnabled);
   }
 
   function syncPaletteSelector(settings) {
@@ -498,6 +509,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       control.renderFromSettings(settings);
     });
     syncOneMoreColorToggle(settings);
+    syncOriginBadgesToggle(settings);
     syncPaletteSelector(settings);
     syncDrawerAvailability(settings);
     syncConfigToggleButton();
@@ -541,6 +553,15 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
 
     updateAppSettings({
       oneMoreColor: dom.oneMoreColorToggle.checked,
+    });
+  });
+  on(dom.originBadgesToggle, "change", () => {
+    if (!dom.originBadgesToggle) {
+      return;
+    }
+
+    updateAppSettings({
+      originBadgesEnabled: dom.originBadgesToggle.checked,
     });
   });
   on(dom.paletteSelectorSelect, "change", () => {

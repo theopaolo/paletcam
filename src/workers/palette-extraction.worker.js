@@ -1,4 +1,7 @@
 import { extractPaletteColors } from "../modules/palette-extraction.js";
+import { createSwatchOriginTracker } from "../modules/palette-origins.js";
+
+const originTracker = createSwatchOriginTracker();
 
 globalThis.addEventListener("message", (event) => {
   const payload = event?.data;
@@ -17,11 +20,14 @@ globalThis.addEventListener("message", (event) => {
       payload.options,
     );
 
+    const origins = originTracker.compute(imageData, payload.width, payload.height, result.colors);
+
     globalThis.postMessage({
       type: "palette-extraction-result",
       requestId: payload.requestId,
       generation: payload.generation,
       colors: result.colors,
+      origins,
       durationMs: performance.now() - startedAt,
     });
   } catch (error) {

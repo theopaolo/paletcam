@@ -76,6 +76,9 @@ const paletteCaptureStage = document.querySelector(".capture-palette-stage");
 
 const cameraViewportFrame = document.createElement("div");
 const cameraSourceMount = document.createElement("div");
+const paletteOriginsOverlay = document.createElement("canvas");
+paletteOriginsOverlay.className = "palette-origins-overlay";
+paletteOriginsOverlay.setAttribute("aria-hidden", "true");
 const isIOS = isIOSDevice();
 const shouldUseCanvasPreview = isIOS;
 const cameraPreviewSurface = shouldUseCanvasPreview ? frameCanvas : cameraFeed;
@@ -96,6 +99,7 @@ if (shouldUseCanvasPreview) {
 let swatchCount = Number(swatchSlider?.value) || 4;
 let currentCaptureMode = "palette";
 let oneMoreColor = Boolean(getAppSettings().oneMoreColor);
+let originBadgesEnabled = Boolean(getAppSettings().originBadgesEnabled);
 let photoExportQuality =
   PHOTO_QUALITY_EXPORT_VALUES[getAppSettings().photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
@@ -143,8 +147,8 @@ const paletteExtractionWorker = createPaletteExtractionWorkerController({
       consoleLevel: "warn",
     });
   },
-  onResult: ({ colors, durationMs }) => {
-    livePreviewController?.handleWorkerResult({ colors, durationMs });
+  onResult: ({ colors, durationMs, origins }) => {
+    livePreviewController?.handleWorkerResult({ colors, durationMs, origins });
   },
 });
 const swatchSliderUi = createSwatchSliderUiController({
@@ -261,6 +265,7 @@ function applyAppSettings({
   locale,
   performanceHudEnabled,
   oneMoreColor: nextOneMoreColor,
+  originBadgesEnabled: nextOriginBadgesEnabled,
   photoQualityMode,
   paletteSelector: nextPaletteSelector,
   medianCut,
@@ -274,6 +279,7 @@ function applyAppSettings({
   }
 
   oneMoreColor = Boolean(nextOneMoreColor);
+  originBadgesEnabled = Boolean(nextOriginBadgesEnabled);
   photoExportQuality =
     PHOTO_QUALITY_EXPORT_VALUES[photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
   photoQualityUi?.syncMode(photoQualityMode);
@@ -307,6 +313,10 @@ function mountCameraFeed(targetElement) {
 
   if (shouldUseCanvasPreview && cameraFeed && cameraFeed.parentElement !== cameraSourceMount) {
     cameraSourceMount.appendChild(cameraFeed);
+  }
+
+  if (paletteOriginsOverlay.parentElement !== cameraViewportFrame) {
+    cameraViewportFrame.appendChild(paletteOriginsOverlay);
   }
 
   if (ralReticle && ralReticle.parentElement !== cameraViewportFrame) {
@@ -369,6 +379,7 @@ livePreviewController = createLivePreviewController({
   paletteCanvas,
   captureContainer,
   capturePaletteStage,
+  originsOverlayCanvas: paletteOriginsOverlay,
   paletteCaptureStage,
   cameraController,
   paletteExtractionWorker,
@@ -379,6 +390,7 @@ livePreviewController = createLivePreviewController({
   getIsCaptureSavePending: () => Boolean(captureController?.isSavePending()),
   getMedianCutExtractionSettings: () => medianCutExtractionSettings,
   getOneMoreColor: () => oneMoreColor,
+  getOriginBadgesEnabled: () => originBadgesEnabled,
   getPaletteScoringSettings: () => paletteScoringSettings,
   getHybridSettings: () => hybridSettings,
   getPaletteSelector: () => paletteSelector,
@@ -622,6 +634,31 @@ function bindCaptureEvents() {
     captureMicroInteractions.pulseCaptureButton,
   );
   bindManagedEventListener(captureButton, "click", handleCaptureButtonClick);
+  bindManagedEventListener(cameraViewportFrame, "pointerdown", (event) => {
+    const overlayRect = paletteOriginsOverlay.getBoundingClientRect();
+    if (overlayRect.width <= 0 || overlayRect.height <= 0) {
+      return;
+    }
+
+    const normalizedX = (event.clientX - overlayRect.left) / overlayRect.width;
+    const normalizedY = (event.clientY - overlayRect.top) / overlayRect.height;
+    if (livePreviewController?.toggleOriginFreezeAt(normalizedX, normalizedY)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+  bindManagedEventListener(paletteCanvas, "pointerdown", (event) => {
+    const paletteRect = paletteCanvas?.getBoundingClientRect();
+    if (!paletteRect || paletteRect.width <= 0) {
+      return;
+    }
+
+    const normalizedX = (event.clientX - paletteRect.left) / paletteRect.width;
+    if (livePreviewController?.togglePaletteSwatchFreezeAt(normalizedX)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
 }
 
 function handlePaletteDeleted(event) {

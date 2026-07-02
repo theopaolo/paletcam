@@ -227,6 +227,7 @@ const en = {
   "config.colors.darkest.title": "Dark color",
   "config.colors.darkest.hint": "Removes the darkest color to favor a brighter palette.",
   "config.colors.darkest.checkbox": "Remove the darkest",
+  "config.pins.checkbox": "Color pins",
   "config.balance.diversity.title": "Color spread",
   "config.balance.diversity.hint":
     "Higher values make the selected colors more different from one another.",

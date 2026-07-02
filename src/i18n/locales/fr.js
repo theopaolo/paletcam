@@ -234,6 +234,7 @@ const fr = {
   "config.colors.darkest.hint":
     "Retire la couleur la plus sombre pour privilégier une palette plus lumineuse.",
   "config.colors.darkest.checkbox": "Retirer la plus sombre",
+  "config.pins.checkbox": "Pastilles couleur",
   "config.balance.diversity.title": "Écart couleurs",
   "config.balance.diversity.hint":
     "Plus la valeur est élevée, plus les couleurs choisies seront différentes les unes des autres.",

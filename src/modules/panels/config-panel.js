@@ -534,7 +534,11 @@ class ConfigPanel extends LitElement {
             <span class="config-drawer-action-label">${t("config.history.reset")}</span>
           </button>
         </div>
-        <label class="panel-form-checkbox config-drawer-darkest-toggle" for="configOneMoreColorToggle">
+        <label
+          class="panel-form-checkbox config-drawer-darkest-toggle"
+          for="configOneMoreColorToggle"
+          data-mode="current"
+        >
           <input
             class="panel-form-checkbox-input"
             id="configOneMoreColorToggle"
@@ -542,6 +546,29 @@ class ConfigPanel extends LitElement {
           />
           <span class="panel-form-checkbox-box" aria-hidden="true"></span>
           <span class="panel-form-checkbox-label">${t("config.colors.darkest.checkbox")}</span>
+        </label>
+        <label
+          class="panel-form-checkbox config-drawer-darkest-toggle"
+          for="configOriginBadgesToggle"
+          data-mode="perceptual"
+          hidden
+        >
+          <input
+            class="panel-form-checkbox-input"
+            id="configOriginBadgesToggle"
+            type="checkbox"
+          />
+          <span class="panel-form-checkbox-box" aria-hidden="true"></span>
+          <span class="panel-form-checkbox-label">${t("config.pins.checkbox")}</span>
+          <svg
+            class="config-drawer-pins-icon"
+            viewBox="0 0 20 16"
+            aria-hidden="true"
+          >
+            <circle cx="13" cy="7" r="5.5" fill="var(--color-success)" stroke="black" stroke-width="1.5" />
+            <circle cx="7" cy="9" r="5.5" fill="var(--color-accent)" stroke="black" stroke-width="1.5" />
+            <text x="7" y="9.5" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="7" font-weight="bold" fill="black">1</text>
+          </svg>
         </label>
       </section>
     `;
