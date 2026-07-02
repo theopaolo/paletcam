@@ -22,7 +22,7 @@ const PREVIEW_SMOOTHING_FACTOR = 0.16;
 // displays; the palette is intentionally slower than the camera preview.
 const EXTRACTION_MIN_INTERVAL_MS = 200;
 const CAMERA_TRACK_SETTINGS_REFRESH_MS = 1000;
-const ORIGIN_MARKER_SMOOTHING_FACTOR = 0.18;
+const ORIGIN_MARKER_SMOOTHING_FACTOR = 0.1;
 // A frozen palette belongs to the scene it was pinned in. Each fresh
 // extraction is compared to the freeze-time snapshot (mean nearest-color
 // distance). Two release tiers: an unmistakable scene swap (hard) releases on

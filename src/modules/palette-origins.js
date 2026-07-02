@@ -15,13 +15,15 @@ const CLUSTER_GRID_COLUMNS = 12;
 const CLUSTER_GRID_ROWS = 9;
 const CLUSTER_CELL_COUNT = CLUSTER_GRID_COLUMNS * CLUSTER_GRID_ROWS;
 // Region hysteresis: keep the badge in its current region unless a competing
-// region is clearly denser (here: the current one holds less than half the
-// challenger's matches). Prevents badges ping-ponging between two areas of
-// similar density.
-const CLUSTER_STICKINESS_RATIO = 0.5;
+// region is clearly denser (here: the current one holds less than 40% of the
+// challenger's matches, i.e. the challenger is ~2.5x denser). Prevents badges
+// ping-ponging between two areas of similar density.
+const CLUSTER_STICKINESS_RATIO = 0.4;
 // Previous-origin matching tolerance when carrying region state between
-// extractions (colors drift slightly frame to frame).
-const TRACKER_COLOR_MATCH_THRESHOLD = 48;
+// extractions (colors drift slightly frame to frame). Generous on purpose:
+// a failed match silently disables hysteresis for that badge for one frame,
+// which reads as a random badge jump.
+const TRACKER_COLOR_MATCH_THRESHOLD = 64;
 
 function sumCellNeighborhood(values, cell) {
   const row = Math.floor(cell / CLUSTER_GRID_COLUMNS);
