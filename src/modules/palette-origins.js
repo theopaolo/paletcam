@@ -209,9 +209,17 @@ export function computeSwatchOrigins(imageData, width, height, colors, previousO
   });
 }
 
+// Presence asks "is this color still around at all", not "where exactly", so
+// BOTH matching branches are wider than in the origin scan (when tuning one,
+// tune the other): chromatic — pinned palette colors are tone-blended toward
+// the vivid exemplar and sit at the saturated edge of their object's actual
+// pixels; neutral — grays drift in luminance with exposure.
+const PRESENCE_RGB_MATCH_THRESHOLD = 48;
+const PRESENCE_NEUTRAL_LUMA_THRESHOLD = 28;
+
 /**
- * Fraction of sampled pixels matching each color (same matching rules as the
- * origin scan, including the stricter neutral gate). Used to detect when a
+ * Fraction of sampled pixels matching each color (wide chromatic threshold,
+ * stricter neutral gate as in the origin scan). Used to detect when a
  * pinned color is no longer visible in the frame at all.
  *
  * @param {Uint8ClampedArray} imageData RGBA pixels
@@ -233,7 +241,7 @@ export function computeColorPresence(imageData, width, height, colors) {
 
   const totalPixels = width * height;
   const stride = Math.max(1, Math.floor(totalPixels / MAX_SAMPLED_PIXELS));
-  const thresholdSquared = RGB_MATCH_THRESHOLD * RGB_MATCH_THRESHOLD;
+  const thresholdSquared = PRESENCE_RGB_MATCH_THRESHOLD * PRESENCE_RGB_MATCH_THRESHOLD;
   let sampledCount = 0;
 
   for (let i = 0; i < totalPixels; i += stride) {
@@ -250,7 +258,7 @@ export function computeColorPresence(imageData, width, height, colors) {
       if (swatchTraits[s].isNeutral) {
         if (
           pixelSpread <= NEUTRAL_PIXEL_CHANNEL_SPREAD &&
-          Math.abs(pixelLuma - swatchTraits[s].luma) <= NEUTRAL_LUMA_THRESHOLD
+          Math.abs(pixelLuma - swatchTraits[s].luma) <= PRESENCE_NEUTRAL_LUMA_THRESHOLD
         ) {
           matchCounts[s] += 1;
         }

@@ -34,9 +34,13 @@ const FROZEN_SCENE_HARD_DISTANCE = 85;
 const FROZEN_SCENE_SOFT_DISTANCE = 58;
 const FROZEN_SCENE_SOFT_BREACH_LIMIT = 3;
 // Per-pin presence: a frozen color whose matching pixels vanish from the
-// frame (covered, moved away from) releases individually. Fraction of
-// sampled pixels; 0.004 ≈ a thumbnail-sized patch in the analysis frame.
-const FROZEN_PRESENCE_MIN_FRACTION = 0.004;
+// frame (covered, moved away from) releases individually. The release
+// threshold adapts per pin — a fraction of the best presence that pin ever
+// measured — so a small vivid object (which only ever matches a sliver of
+// pixels) is judged against its own normal, clamped to sane bounds.
+const FROZEN_PRESENCE_BASELINE_RATIO = 0.25;
+const FROZEN_PRESENCE_MAX_THRESHOLD = 0.004;
+const FROZEN_PRESENCE_MIN_THRESHOLD = 0.0005;
 const FROZEN_PRESENCE_BREACH_LIMIT = 2;
 // Release animation: badges hop up, tumble off the bottom of the frame, and
 // the live badge pops back in with a bounce.
@@ -332,17 +336,25 @@ export function createLivePreviewController({
         continue;
       }
 
-      if (presence < FROZEN_PRESENCE_MIN_FRACTION) {
-        const breachCount = (frozenPresenceBreaches.get(slot) ?? 0) + 1;
-        if (breachCount >= FROZEN_PRESENCE_BREACH_LIMIT) {
+      const state = frozenPresenceBreaches.get(slot) ?? { maxPresence: 0, breachCount: 0 };
+      state.maxPresence = Math.max(state.maxPresence, presence);
+
+      const releaseThreshold = Math.min(
+        FROZEN_PRESENCE_MAX_THRESHOLD,
+        Math.max(FROZEN_PRESENCE_MIN_THRESHOLD, state.maxPresence * FROZEN_PRESENCE_BASELINE_RATIO),
+      );
+
+      if (presence < releaseThreshold) {
+        state.breachCount += 1;
+        if (state.breachCount >= FROZEN_PRESENCE_BREACH_LIMIT) {
           releaseFrozenSlot(slot, { animate: true });
           releasedAny = true;
-        } else {
-          frozenPresenceBreaches.set(slot, breachCount);
+          continue;
         }
       } else {
-        frozenPresenceBreaches.delete(slot);
+        state.breachCount = 0;
       }
+      frozenPresenceBreaches.set(slot, state);
     }
 
     if (releasedAny) {
