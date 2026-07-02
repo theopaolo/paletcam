@@ -210,6 +210,66 @@ export function computeSwatchOrigins(imageData, width, height, colors, previousO
 }
 
 /**
+ * Fraction of sampled pixels matching each color (same matching rules as the
+ * origin scan, including the stricter neutral gate). Used to detect when a
+ * pinned color is no longer visible in the frame at all.
+ *
+ * @param {Uint8ClampedArray} imageData RGBA pixels
+ * @param {number} width
+ * @param {number} height
+ * @param {Array<{r: number, g: number, b: number}>} colors
+ * @returns {number[]} matched fraction (0-1) per color
+ */
+export function computeColorPresence(imageData, width, height, colors) {
+  if (!imageData || width <= 0 || height <= 0 || !Array.isArray(colors) || colors.length === 0) {
+    return Array.isArray(colors) ? colors.map(() => 0) : [];
+  }
+
+  const matchCounts = new Int32Array(colors.length);
+  const swatchTraits = colors.map((swatch) => ({
+    isNeutral: channelSpread(swatch) <= NEUTRAL_SWATCH_CHANNEL_SPREAD,
+    luma: colorLuma(swatch),
+  }));
+
+  const totalPixels = width * height;
+  const stride = Math.max(1, Math.floor(totalPixels / MAX_SAMPLED_PIXELS));
+  const thresholdSquared = RGB_MATCH_THRESHOLD * RGB_MATCH_THRESHOLD;
+  let sampledCount = 0;
+
+  for (let i = 0; i < totalPixels; i += stride) {
+    const r = imageData[i * 4];
+    const g = imageData[i * 4 + 1];
+    const b = imageData[i * 4 + 2];
+    const pixelSpread = Math.max(r, g, b) - Math.min(r, g, b);
+    const pixelLuma = (r + g + b) / 3;
+    sampledCount += 1;
+
+    for (let s = 0; s < colors.length; s += 1) {
+      const swatch = colors[s];
+
+      if (swatchTraits[s].isNeutral) {
+        if (
+          pixelSpread <= NEUTRAL_PIXEL_CHANNEL_SPREAD &&
+          Math.abs(pixelLuma - swatchTraits[s].luma) <= NEUTRAL_LUMA_THRESHOLD
+        ) {
+          matchCounts[s] += 1;
+        }
+        continue;
+      }
+
+      const dr = r - swatch.r;
+      const dg = g - swatch.g;
+      const db = b - swatch.b;
+      if (dr * dr + dg * dg + db * db < thresholdSquared) {
+        matchCounts[s] += 1;
+      }
+    }
+  }
+
+  return colors.map((_, s) => (sampledCount > 0 ? matchCounts[s] / sampledCount : 0));
+}
+
+/**
  * Stateful wrapper that carries each color's last known region between
  * extractions (matching previous colors to new ones by RGB distance), so
  * `computeSwatchOrigins` can apply region hysteresis. One instance per

@@ -48,6 +48,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
           height: nextJob.height,
           swatchCount: nextJob.swatchCount,
           options: nextJob.options,
+          frozenColors: nextJob.frozenColors,
           buffer: nextJob.buffer,
         },
         [nextJob.buffer],
@@ -83,6 +84,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
       onResult?.({
         colors: Array.isArray(payload.colors) ? payload.colors : [],
         origins: Array.isArray(payload.origins) ? payload.origins : [],
+        frozenPresence: Array.isArray(payload.frozenPresence) ? payload.frozenPresence : [],
         durationMs: Number(payload.durationMs) || 0,
       });
     }
@@ -112,7 +114,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
     return worker;
   }
 
-  function requestExtraction({ imageData, options, swatchCount, width, height }) {
+  function requestExtraction({ imageData, options, swatchCount, width, height, frozenColors }) {
     const activeWorker = ensureWorker();
     if (!activeWorker) {
       return false;
@@ -124,6 +126,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
 
     const nextJob = {
       buffer: imageData.buffer,
+      frozenColors: Array.isArray(frozenColors) ? frozenColors : [],
       generation: currentGeneration,
       height,
       options,

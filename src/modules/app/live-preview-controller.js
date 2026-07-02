@@ -8,6 +8,7 @@ import {
   renderPaletteBars,
 } from "../palette-extraction.js";
 import {
+  computeColorPresence,
   createSwatchOriginTracker,
   drawOriginMarkers,
   hitTestOriginMarkers,
@@ -32,6 +33,11 @@ const ORIGIN_MARKER_SMOOTHING_FACTOR = 0.1;
 const FROZEN_SCENE_HARD_DISTANCE = 85;
 const FROZEN_SCENE_SOFT_DISTANCE = 58;
 const FROZEN_SCENE_SOFT_BREACH_LIMIT = 3;
+// Per-pin presence: a frozen color whose matching pixels vanish from the
+// frame (covered, moved away from) releases individually. Fraction of
+// sampled pixels; 0.004 ≈ a thumbnail-sized patch in the analysis frame.
+const FROZEN_PRESENCE_MIN_FRACTION = 0.004;
+const FROZEN_PRESENCE_BREACH_LIMIT = 2;
 // Release animation: badges hop up, tumble off the bottom of the frame, and
 // the live badge pops back in with a bounce.
 const BADGE_FALL_HOP_VELOCITY = -140; // px/s
@@ -105,6 +111,7 @@ export function createLivePreviewController({
   let markerBornAt = [];
   let fallingBadges = [];
   const frozenSlots = new Map();
+  const frozenPresenceBreaches = new Map();
   let frozenSceneReference = null;
   let frozenSceneBreachCount = 0;
   let lastVisiblePaletteColors = [];
@@ -267,32 +274,80 @@ export function createLivePreviewController({
     }
   }
 
-  function clearFrozenSlots({ animate = false } = {}) {
-    if (animate && frozenSlots.size > 0) {
-      const now = performance.now();
-      for (const [slot, entry] of frozenSlots) {
-        if (entry.position) {
-          fallingBadges.push({
-            x: entry.position.x,
-            y: entry.position.y,
-            color: entry.color,
-            label: slot + 1,
-            horizontalVelocity: (Math.random() - 0.5) * 160,
-            startedAt: now,
-          });
-        }
-        // Let the live badge for this slot pop back in fresh.
-        smoothedMarkerPositions[slot] = null;
-        markerBornAt[slot] = 0;
-      }
-      triggerHaptic(HAPTIC_SCENE_RELEASE_PATTERN);
+  function releaseFrozenSlot(slot, { animate = false } = {}) {
+    const entry = frozenSlots.get(slot);
+    if (!entry) {
+      return;
     }
 
-    frozenSlots.clear();
-    frozenSceneReference = null;
-    frozenSceneBreachCount = 0;
+    if (animate && entry.position) {
+      fallingBadges.push({
+        x: entry.position.x,
+        y: entry.position.y,
+        color: entry.color,
+        label: slot + 1,
+        horizontalVelocity: (Math.random() - 0.5) * 160,
+        startedAt: performance.now(),
+      });
+    }
+
+    frozenSlots.delete(slot);
+    frozenPresenceBreaches.delete(slot);
+    // Let the live badge for this slot pop back in fresh.
+    smoothedMarkerPositions[slot] = null;
+    markerBornAt[slot] = 0;
+    if (frozenSlots.size === 0) {
+      frozenSceneReference = null;
+      frozenSceneBreachCount = 0;
+    }
     // Force repaint so unfrozen slots pick the live colors back up.
     lastPaintedColors = null;
+  }
+
+  function clearFrozenSlots({ animate = false } = {}) {
+    const hadFrozenSlots = frozenSlots.size > 0;
+    for (const slot of Array.from(frozenSlots.keys())) {
+      releaseFrozenSlot(slot, { animate });
+    }
+    if (animate && hadFrozenSlots) {
+      triggerHaptic(HAPTIC_SCENE_RELEASE_PATTERN);
+    }
+  }
+
+  function getFrozenColorEntries() {
+    return Array.from(frozenSlots, ([slot, entry]) => ({ slot, color: { ...entry.color } }));
+  }
+
+  // Per-pin presence watchdog: release a pinned color once its matching
+  // pixels have been absent from the frame for consecutive extractions.
+  function processFrozenPresence(presenceEntries) {
+    if (!Array.isArray(presenceEntries) || presenceEntries.length === 0) {
+      return;
+    }
+
+    let releasedAny = false;
+    for (const { slot, presence } of presenceEntries) {
+      if (!frozenSlots.has(slot)) {
+        frozenPresenceBreaches.delete(slot);
+        continue;
+      }
+
+      if (presence < FROZEN_PRESENCE_MIN_FRACTION) {
+        const breachCount = (frozenPresenceBreaches.get(slot) ?? 0) + 1;
+        if (breachCount >= FROZEN_PRESENCE_BREACH_LIMIT) {
+          releaseFrozenSlot(slot, { animate: true });
+          releasedAny = true;
+        } else {
+          frozenPresenceBreaches.set(slot, breachCount);
+        }
+      } else {
+        frozenPresenceBreaches.delete(slot);
+      }
+    }
+
+    if (releasedAny) {
+      triggerHaptic(HAPTIC_SCENE_RELEASE_PATTERN);
+    }
   }
 
   // Released badges hop up, tumble down past the frame edge, and fade.
@@ -387,15 +442,7 @@ export function createLivePreviewController({
 
   function toggleSlotFreeze(slot) {
     if (frozenSlots.has(slot)) {
-      frozenSlots.delete(slot);
-      if (frozenSlots.size === 0) {
-        frozenSceneReference = null;
-        frozenSceneBreachCount = 0;
-      }
-      // Snap the badge back onto the live origin with a pop.
-      smoothedMarkerPositions[slot] = null;
-      markerBornAt[slot] = 0;
-      lastPaintedColors = null;
+      releaseFrozenSlot(slot);
       triggerHaptic(HAPTIC_UNFREEZE_MS);
       return true;
     }
@@ -558,6 +605,7 @@ export function createLivePreviewController({
     clearOriginMarkers();
     originTracker.reset();
     frozenSlots.clear();
+    frozenPresenceBreaches.clear();
     frozenSceneReference = null;
     frozenSceneBreachCount = 0;
     lastVisiblePaletteColors = [];
@@ -736,6 +784,7 @@ export function createLivePreviewController({
             height: analysisHeight,
             swatchCount: getEffectiveSwatchCount(),
             options: getPaletteExtractionOptions(),
+            frozenColors: getFrozenColorEntries(),
           });
 
           if (!extractionDelegatedToWorker) {
@@ -755,6 +804,21 @@ export function createLivePreviewController({
               result.colors,
             );
             checkFrozenSceneChange(result.colors);
+            if (frozenSlots.size > 0) {
+              const frozenEntries = getFrozenColorEntries();
+              const presence = computeColorPresence(
+                frameImageData,
+                analysisWidth,
+                analysisHeight,
+                frozenEntries.map((entry) => entry.color),
+              );
+              processFrozenPresence(
+                frozenEntries.map((entry, index) => ({
+                  slot: entry.slot,
+                  presence: presence[index] ?? 0,
+                })),
+              );
+            }
             analysisDurationMs = performance.now() - analysisStartTime;
           }
         }
@@ -828,11 +892,12 @@ export function createLivePreviewController({
     getFrameHeight: () => frameHeight,
     getFrameWidth: () => frameWidth,
     getIsStreaming: () => isStreaming,
-    handleWorkerResult({ colors, durationMs, origins }) {
+    handleWorkerResult({ colors, durationMs, origins, frozenPresence }) {
       latestPaletteWorkerDurationMs = durationMs;
       lastExtractedColors = colors;
       lastExtractedOrigins = Array.isArray(origins) ? origins : [];
       checkFrozenSceneChange(colors);
+      processFrozenPresence(frozenPresence);
     },
     readCurrentRalMatch,
     recordStoppedFrame,

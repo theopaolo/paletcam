@@ -147,8 +147,8 @@ const paletteExtractionWorker = createPaletteExtractionWorkerController({
       consoleLevel: "warn",
     });
   },
-  onResult: ({ colors, durationMs, origins }) => {
-    livePreviewController?.handleWorkerResult({ colors, durationMs, origins });
+  onResult: ({ colors, durationMs, origins, frozenPresence }) => {
+    livePreviewController?.handleWorkerResult({ colors, durationMs, origins, frozenPresence });
   },
 });
 const swatchSliderUi = createSwatchSliderUiController({
