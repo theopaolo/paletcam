@@ -1,23 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  areAllCollectionSessionsCollapsed,
+  areAllCollectionDaysCollapsed,
   buildCollectionPanelTitle,
-  collapseAllCollectionSessions,
-  expandAllCollectionSessions,
-  getCollectionSessionIds,
-  toggleAllCollectionSessions,
+  collapseAllCollectionDays,
+  expandAllCollectionDays,
+  getCollectionDayIds,
+  toggleAllCollectionDays,
 } from "./panel-state.js";
 
 function createDayGroups() {
   return [
-    {
-      id: "day-1",
-      sessions: [
-        { id: "session-morning", palettes: [{ id: 1 }] },
-        { id: "session-evening", palettes: [{ id: 2 }, { id: 3 }] },
-      ],
-    },
+    { id: "day-1", palettes: [{ id: 1 }] },
+    { id: "day-2", palettes: [{ id: 2 }, { id: 3 }] },
   ];
 }
 
@@ -27,56 +22,47 @@ describe("collection panel state", () => {
     expect(buildCollectionPanelTitle(12)).toBe("Captures (12)");
   });
 
-  test("returns day session ids in order", () => {
-    expect(getCollectionSessionIds(createDayGroups())).toEqual([
-      "session-morning",
-      "session-evening",
-    ]);
+  test("returns day ids in order", () => {
+    expect(getCollectionDayIds(createDayGroups())).toEqual(["day-1", "day-2"]);
   });
 
-  test("collapse all marks every session as collapsed", () => {
-    const collapsedSessionIds = new Set(["session-morning"]);
+  test("collapse all marks every day as collapsed", () => {
+    const collapsedDayIds = new Set(["day-1"]);
 
-    const hasChanged = collapseAllCollectionSessions(createDayGroups(), collapsedSessionIds);
+    const hasChanged = collapseAllCollectionDays(createDayGroups(), collapsedDayIds);
 
     expect(hasChanged).toBe(true);
-    expect([...collapsedSessionIds]).toEqual([
-      "session-morning",
-      "session-evening",
-    ]);
-    expect(areAllCollectionSessionsCollapsed(createDayGroups(), collapsedSessionIds)).toBe(true);
+    expect([...collapsedDayIds]).toEqual(["day-1", "day-2"]);
+    expect(areAllCollectionDaysCollapsed(createDayGroups(), collapsedDayIds)).toBe(true);
   });
 
-  test("expand all clears the collapsed state for current sessions", () => {
-    const collapsedSessionIds = new Set(["session-morning", "session-evening"]);
+  test("expand all clears the collapsed state for current days", () => {
+    const collapsedDayIds = new Set(["day-1", "day-2"]);
 
-    const hasChanged = expandAllCollectionSessions(createDayGroups(), collapsedSessionIds);
+    const hasChanged = expandAllCollectionDays(createDayGroups(), collapsedDayIds);
 
     expect(hasChanged).toBe(true);
-    expect([...collapsedSessionIds]).toEqual([]);
-    expect(areAllCollectionSessionsCollapsed(createDayGroups(), collapsedSessionIds)).toBe(false);
+    expect([...collapsedDayIds]).toEqual([]);
+    expect(areAllCollectionDaysCollapsed(createDayGroups(), collapsedDayIds)).toBe(false);
   });
 
   test("toggle all collapses first and reopens on the next toggle", () => {
-    const collapsedSessionIds = new Set();
+    const collapsedDayIds = new Set();
 
-    expect(toggleAllCollectionSessions(createDayGroups(), collapsedSessionIds)).toBe(true);
-    expect([...collapsedSessionIds]).toEqual([
-      "session-morning",
-      "session-evening",
-    ]);
+    expect(toggleAllCollectionDays(createDayGroups(), collapsedDayIds)).toBe(true);
+    expect([...collapsedDayIds]).toEqual(["day-1", "day-2"]);
 
-    expect(toggleAllCollectionSessions(createDayGroups(), collapsedSessionIds)).toBe(true);
-    expect([...collapsedSessionIds]).toEqual([]);
+    expect(toggleAllCollectionDays(createDayGroups(), collapsedDayIds)).toBe(true);
+    expect([...collapsedDayIds]).toEqual([]);
   });
 
-  test("reports fully collapsed only when all session ids are present", () => {
-    const collapsedSessionIds = new Set(["session-morning"]);
+  test("reports fully collapsed only when all day ids are present", () => {
+    const collapsedDayIds = new Set(["day-1"]);
 
-    expect(areAllCollectionSessionsCollapsed(createDayGroups(), collapsedSessionIds)).toBe(false);
+    expect(areAllCollectionDaysCollapsed(createDayGroups(), collapsedDayIds)).toBe(false);
 
-    collapsedSessionIds.add("session-evening");
+    collapsedDayIds.add("day-2");
 
-    expect(areAllCollectionSessionsCollapsed(createDayGroups(), collapsedSessionIds)).toBe(true);
+    expect(areAllCollectionDaysCollapsed(createDayGroups(), collapsedDayIds)).toBe(true);
   });
 });

@@ -33,10 +33,10 @@ import {
   refreshPaletteViewerOverlay,
 } from "./modules/collection/palette-viewer-overlay.js";
 import {
-  areAllCollectionSessionsCollapsed,
+  areAllCollectionDaysCollapsed,
   buildCollectionPanelTitle,
-  getCollectionSessionIds,
-  toggleAllCollectionSessions,
+  getCollectionDayIds,
+  toggleAllCollectionDays,
 } from "./modules/collection/panel-state.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
@@ -67,11 +67,11 @@ const collectionSelectionPublish = document.getElementById("collectionSelectionP
 const collectionSelectionUnpublish = document.getElementById("collectionSelectionUnpublish");
 const viewCollectionButton = document.querySelector(".btn-view-collection");
 const DELETE_UNDO_DURATION_MS = 5000;
-const SESSION_REVEAL_DURATION_MS = 280;
-const SESSION_REVEAL_STAGGER_MS = 42;
+const CARD_REVEAL_DURATION_MS = 280;
+const CARD_REVEAL_STAGGER_MS = 42;
 const MODERATION_SYNC_DELAY_MS = 12000;
 const pendingDeletionIds = new Set();
-const collapsedSessionIds = new Set();
+const collapsedDayIds = new Set();
 const selectedIds = new Set();
 let moderationSyncTimeoutId = 0;
 let isModerationSyncInProgress = false;
@@ -88,7 +88,7 @@ let activeDayVirtualizer = null;
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
   emptyMessageText: () => t("collection.empty"),
-  collapsedSessionIds,
+  collapsedDayIds,
   reloadCollectionUi: () => loadCollectionUi(),
 });
 
@@ -164,10 +164,10 @@ function setCollectionPanelTitle(title) {
 function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
   const isListView = currentCollectionViewMode === "list";
   const isSwatchView = currentCollectionViewMode === "swatch";
-  const sessionIds = getCollectionSessionIds(dayGroups);
-  const hasSessions = isListView && sessionIds.length > 0;
-  const areAllSessionsCollapsed = areAllCollectionSessionsCollapsed(dayGroups, collapsedSessionIds);
-  const collapseAllLabel = areAllSessionsCollapsed
+  const dayIds = getCollectionDayIds(dayGroups);
+  const hasCollapsibleDays = !isSwatchView && dayIds.length > 0;
+  const areAllDaysCollapsed = areAllCollectionDaysCollapsed(dayGroups, collapsedDayIds);
+  const collapseAllLabel = areAllDaysCollapsed
     ? t("collection.expandAll")
     : t("collection.collapseAll");
 
@@ -188,10 +188,11 @@ function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
   }
 
   if (collectionCollapseAllButton instanceof HTMLButtonElement) {
-    collectionCollapseAllButton.hidden = !isListView;
-    collectionCollapseAllButton.disabled = !hasSessions;
-    collectionCollapseAllButton.textContent = collapseAllLabel;
+    collectionCollapseAllButton.hidden = isSwatchView;
+    collectionCollapseAllButton.disabled = !hasCollapsibleDays;
+    collectionCollapseAllButton.classList.toggle("is-expand-mode", areAllDaysCollapsed);
     collectionCollapseAllButton.setAttribute("aria-label", collapseAllLabel);
+    collectionCollapseAllButton.title = collapseAllLabel;
   }
 
   if (collectionFilterPublishedButton instanceof HTMLButtonElement) {
@@ -264,6 +265,7 @@ async function handleExportPalette(palette) {
   });
 }
 
+
 async function handleSharePalette(palette) {
   const result = await sharePalettePolaroidImage(palette);
 
@@ -311,7 +313,7 @@ async function handleDeletePalette(palette) {
 
   if (card instanceof HTMLElement && snapshot) {
     card.remove();
-    cardLifecycle.syncSessionStateFromCardContainer(snapshot.parent);
+    cardLifecycle.syncDayStateFromCardContainer(snapshot.parent);
   }
 
   if (shouldTrackCollectionState) {
@@ -535,28 +537,28 @@ function createCollectionDayGroup(dayGroup) {
   return renderDayGroup({
     dayGroup,
     createPaletteCard: getCardCreator(),
-    isSessionCollapsed: (sessionId) => collapsedSessionIds.has(sessionId),
-    onSessionCollapsedChange: (sessionId, isCollapsed) => {
+    isDayCollapsed: (dayId) => collapsedDayIds.has(dayId),
+    onDayCollapsedChange: (dayId, isCollapsed) => {
       if (isCollapsed) {
-        collapsedSessionIds.add(sessionId);
+        collapsedDayIds.add(dayId);
       } else {
-        collapsedSessionIds.delete(sessionId);
+        collapsedDayIds.delete(dayId);
       }
 
       syncCollectionHeaderControls();
     },
-    sessionRevealDurationMs: SESSION_REVEAL_DURATION_MS,
-    sessionRevealStaggerMs: SESSION_REVEAL_STAGGER_MS,
+    revealDurationMs: CARD_REVEAL_DURATION_MS,
+    revealStaggerMs: CARD_REVEAL_STAGGER_MS,
     viewMode: currentCollectionViewMode,
   });
 }
 
-function pruneUnavailableCollapsedSessions(dayGroups) {
-  const availableSessionIds = new Set(getCollectionSessionIds(dayGroups));
+function pruneUnavailableCollapsedDays(dayGroups) {
+  const availableDayIds = new Set(getCollectionDayIds(dayGroups));
 
-  [...collapsedSessionIds].forEach((sessionId) => {
-    if (!availableSessionIds.has(sessionId)) {
-      collapsedSessionIds.delete(sessionId);
+  [...collapsedDayIds].forEach((dayId) => {
+    if (!availableDayIds.has(dayId)) {
+      collapsedDayIds.delete(dayId);
     }
   });
 }
@@ -624,7 +626,7 @@ function renderCollectionUi(palettes) {
   }
 
   const dayGroups = groupPalettesByDay(displayPalettes);
-  pruneUnavailableCollapsedSessions(dayGroups);
+  pruneUnavailableCollapsedDays(dayGroups);
   syncCollectionPanelChrome(dayGroups);
 
   const scrollRoot = collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null;
@@ -735,10 +737,10 @@ function handleCollectionSettingsChange(settings) {
   refreshPaletteViewerOverlay();
 }
 
-function handleCollapseAllSessions() {
+function handleCollapseAllDays() {
   const dayGroups = getCurrentDayGroups();
 
-  if (!toggleAllCollectionSessions(dayGroups, collapsedSessionIds)) {
+  if (!toggleAllCollectionDays(dayGroups, collapsedDayIds)) {
     syncCollectionHeaderControls(dayGroups);
     return;
   }
@@ -1325,7 +1327,7 @@ function bindCollectionUiEvents() {
   });
 
   collectionCollapseAllButton?.addEventListener("click", () => {
-    handleCollapseAllSessions();
+    handleCollapseAllDays();
   });
 
   collectionFilterPublishedButton?.addEventListener("click", () => {

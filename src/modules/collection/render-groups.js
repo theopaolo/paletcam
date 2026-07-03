@@ -14,13 +14,13 @@ function offsetColor(color, delta) {
   };
 }
 
-function getSessionAverageColor(session) {
+function getDayAverageColor(dayGroup) {
   let totalR = 0;
   let totalG = 0;
   let totalB = 0;
   let sampleCount = 0;
 
-  session.palettes.forEach((palette) => {
+  dayGroup.palettes.forEach((palette) => {
     palette.colors.forEach((color) => {
       totalR += color.r;
       totalG += color.g;
@@ -40,9 +40,9 @@ function getSessionAverageColor(session) {
   };
 }
 
-function createSessionCaret() {
+function createDayCaret() {
   const caret = document.createElement("span");
-  caret.className = "collection-session-caret";
+  caret.className = "collection-day-caret";
 
   const svg = document.createElementNS(SVG_NAMESPACE, "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
@@ -61,12 +61,12 @@ function createSessionCaret() {
   return caret;
 }
 
-function createSessionCover(session) {
+function createDayCover(dayGroup) {
   const cover = document.createElement("div");
-  cover.className = "collection-session-cover";
+  cover.className = "collection-day-cover";
   cover.setAttribute("aria-hidden", "true");
 
-  const averageColor = getSessionAverageColor(session);
+  const averageColor = getDayAverageColor(dayGroup);
   const darkColor = offsetColor(averageColor, -38);
   const lightColor = offsetColor(averageColor, 26);
 
@@ -77,25 +77,12 @@ function createSessionCover(session) {
   return cover;
 }
 
-function setSessionCollapsed(sessionElement, isCollapsed) {
-  const toggle = sessionElement.querySelector(".collection-session-toggle");
-  if (!toggle) {
-    return;
-  }
-
-  sessionElement.classList.toggle("is-collapsed", isCollapsed);
-  toggle.setAttribute("aria-expanded", String(!isCollapsed));
+function setDayCollapsed(daySection, toggleButton, isCollapsed) {
+  daySection.classList.toggle("is-collapsed", isCollapsed);
+  toggleButton.setAttribute("aria-expanded", String(!isCollapsed));
 }
 
-function animateSessionExpansion(
-  sessionElement,
-  { sessionRevealDurationMs, sessionRevealStaggerMs },
-) {
-  const sessionBody = sessionElement.querySelector(".collection-session-body");
-  if (!sessionBody) {
-    return;
-  }
-
+function animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs }) {
   const shouldReduceMotion = window.matchMedia?.(
     "(prefers-reduced-motion: reduce)",
   ).matches;
@@ -103,7 +90,7 @@ function animateSessionExpansion(
     return;
   }
 
-  const cards = [...sessionBody.querySelectorAll(".palette-card")];
+  const cards = [...daySection.querySelectorAll(".palette-card")];
   if (cards.length === 0) {
     return;
   }
@@ -113,7 +100,7 @@ function animateSessionExpansion(
     card.classList.remove("is-revealing");
   });
 
-  void sessionBody.offsetHeight;
+  void daySection.offsetHeight;
 
   cards.forEach((card) => {
     card.classList.add("is-revealing");
@@ -123,94 +110,29 @@ function animateSessionExpansion(
     cards.forEach((card) => {
       card.classList.remove("is-revealing");
     });
-  }, sessionRevealDurationMs + sessionRevealStaggerMs * cards.length);
+  }, revealDurationMs + revealStaggerMs * cards.length);
 }
 
-function createSessionGroup({
-  session,
-  createPaletteCard,
-  isSessionCollapsed,
-  onSessionCollapsedChange,
-  sessionRevealDurationMs,
-  sessionRevealStaggerMs,
-}) {
-  const section = document.createElement("section");
-  section.className = "collection-session";
-  section.dataset.sessionId = session.id;
+function createDayCards(dayGroup, createPaletteCard, viewMode) {
+  const container = document.createElement("div");
+  container.className =
+    viewMode === "list" ? "collection-day-cards" : "collection-day-grid";
 
-  const sessionBodyId = `${session.id}-body`;
-
-  const headerButton = document.createElement("button");
-  headerButton.type = "button";
-  headerButton.className = "collection-session-toggle";
-  headerButton.setAttribute("aria-controls", sessionBodyId);
-
-  const title = document.createElement("span");
-  title.className = "collection-session-title";
-  title.textContent = session.title;
-
-  const meta = document.createElement("span");
-  meta.className = "collection-session-meta";
-
-  const count = document.createElement("span");
-  count.className = "collection-session-count";
-  count.textContent = String(session.palettes.length);
-
-  meta.append(count, createSessionCaret());
-  headerButton.append(title, meta);
-
-  const body = document.createElement("div");
-  body.className = "collection-session-body";
-  body.id = sessionBodyId;
-  const cover = createSessionCover(session);
-
-  session.palettes.forEach((palette) => {
-    body.appendChild(createPaletteCard(palette));
+  dayGroup.palettes.forEach((palette) => {
+    container.appendChild(createPaletteCard(palette));
   });
 
-  headerButton.addEventListener("click", () => {
-    const currentlyCollapsed = section.classList.contains("is-collapsed");
-    const nextCollapsedState = !currentlyCollapsed;
-    setSessionCollapsed(section, nextCollapsedState);
-    onSessionCollapsedChange?.(session.id, nextCollapsedState);
-
-    if (nextCollapsedState) {
-      return;
-    }
-
-    animateSessionExpansion(section, {
-      sessionRevealDurationMs,
-      sessionRevealStaggerMs,
-    });
-  });
-
-  section.append(cover, headerButton, body);
-  setSessionCollapsed(section, isSessionCollapsed(session.id));
-
-  return section;
-}
-
-function createDayGrid(dayGroup, createPaletteCard) {
-  const grid = document.createElement("div");
-  grid.className = "collection-day-grid";
-
-  dayGroup.sessions.forEach((session) => {
-    session.palettes.forEach((palette) => {
-      grid.appendChild(createPaletteCard(palette));
-    });
-  });
-
-  return grid;
+  return container;
 }
 
 /**
  * @param {object} config
  * @param {DayGroup} config.dayGroup
  * @param {(palette: Palette) => HTMLElement} config.createPaletteCard
- * @param {(sessionId: string) => boolean} config.isSessionCollapsed
- * @param {(sessionId: string, collapsed: boolean) => void} config.onSessionCollapsedChange
- * @param {number} config.sessionRevealDurationMs
- * @param {number} config.sessionRevealStaggerMs
+ * @param {(dayId: string) => boolean} config.isDayCollapsed
+ * @param {(dayId: string, collapsed: boolean) => void} config.onDayCollapsedChange
+ * @param {number} config.revealDurationMs
+ * @param {number} config.revealStaggerMs
  * @param {"list" | "grid" | "swatch"} [config.viewMode]
  * @returns {{
  *   element: HTMLElement,
@@ -222,65 +144,77 @@ function createDayGrid(dayGroup, createPaletteCard) {
 export function createDayGroup({
   dayGroup,
   createPaletteCard,
-  isSessionCollapsed,
-  onSessionCollapsedChange,
-  sessionRevealDurationMs,
-  sessionRevealStaggerMs,
+  isDayCollapsed,
+  onDayCollapsedChange,
+  revealDurationMs,
+  revealStaggerMs,
   viewMode = "list",
 }) {
+  const isCollapsible = viewMode !== "swatch";
+
   const daySection = document.createElement("section");
   daySection.className = "collection-day";
   daySection.dataset.dayId = dayGroup.id;
   daySection.dataset.viewMode = viewMode;
   daySection.dataset.paletteCount = String(dayGroup.paletteCount);
 
-  const dayHeader = document.createElement("div");
-  dayHeader.className = "collection-day-header dock";
+  const contentId = `${dayGroup.id}-content`;
 
-  const dayTitle = document.createElement("p");
+  const dayToggle = document.createElement("button");
+  dayToggle.type = "button";
+  dayToggle.className = "collection-day-toggle";
+  dayToggle.setAttribute("aria-controls", contentId);
+
+  const dayTitle = document.createElement("span");
   dayTitle.className = "collection-day-title";
   dayTitle.textContent = dayGroup.dateLabel
     ? `${dayGroup.title} — ${dayGroup.dateLabel}`
     : dayGroup.title;
 
+  const dayMeta = document.createElement("span");
+  dayMeta.className = "collection-day-meta";
+
   const dayCount = document.createElement("span");
   dayCount.className = "collection-day-count";
   dayCount.textContent = String(dayGroup.paletteCount);
 
-  dayHeader.append(dayTitle, dayCount);
+  dayMeta.append(dayCount, createDayCaret());
+  dayToggle.append(dayTitle, dayMeta);
+
+  const cover = createDayCover(dayGroup);
 
   const contentContainer = document.createElement("div");
   contentContainer.className = "collection-day-content";
+  contentContainer.id = contentId;
 
-  daySection.append(dayHeader, contentContainer);
+  daySection.append(dayToggle, cover, contentContainer);
+
+  if (isCollapsible) {
+    dayToggle.addEventListener("click", () => {
+      const nextCollapsedState = !daySection.classList.contains("is-collapsed");
+      setDayCollapsed(daySection, dayToggle, nextCollapsedState);
+      onDayCollapsedChange?.(dayGroup.id, nextCollapsedState);
+
+      if (nextCollapsedState) {
+        return;
+      }
+
+      animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs });
+    });
+
+    setDayCollapsed(daySection, dayToggle, isDayCollapsed(dayGroup.id));
+  } else {
+    dayToggle.setAttribute("aria-expanded", "true");
+    dayToggle.disabled = true;
+  }
 
   let lastMeasuredHeight = 0;
 
   const mountContent = () => {
     contentContainer.style.minHeight = "";
-
-    if (viewMode === "grid" || viewMode === "swatch") {
-      contentContainer.appendChild(createDayGrid(dayGroup, createPaletteCard));
-      return;
-    }
-
-    const sessionsContainer = document.createElement("div");
-    sessionsContainer.className = "collection-day-sessions";
-
-    dayGroup.sessions.forEach((session) => {
-      sessionsContainer.appendChild(
-        createSessionGroup({
-          session,
-          createPaletteCard,
-          isSessionCollapsed,
-          onSessionCollapsedChange,
-          sessionRevealDurationMs,
-          sessionRevealStaggerMs,
-        }),
-      );
-    });
-
-    contentContainer.appendChild(sessionsContainer);
+    contentContainer.appendChild(
+      createDayCards(dayGroup, createPaletteCard, viewMode),
+    );
   };
 
   const unmountContent = (preMeasuredHeight) => {

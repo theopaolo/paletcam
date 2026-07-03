@@ -5,7 +5,6 @@ const ESTIMATED_GRID_CARD_HEIGHT_PX = 132;
 const ESTIMATED_GRID_COLUMNS = 3;
 const ESTIMATED_SWATCH_CARD_HEIGHT_PX = 96;
 const ESTIMATED_SWATCH_COLUMNS = 4;
-const ESTIMATED_SESSION_HEADER_PX = 48;
 
 function estimateDayContentHeight(dayGroup, viewMode) {
   const total = Math.max(1, dayGroup?.paletteCount ?? 0);
@@ -20,8 +19,7 @@ function estimateDayContentHeight(dayGroup, viewMode) {
     return rows * ESTIMATED_GRID_CARD_HEIGHT_PX;
   }
 
-  const sessionCount = dayGroup?.sessions?.length ?? 1;
-  return sessionCount * ESTIMATED_SESSION_HEADER_PX + total * ESTIMATED_LIST_CARD_HEIGHT_PX;
+  return total * ESTIMATED_LIST_CARD_HEIGHT_PX;
 }
 
 /**

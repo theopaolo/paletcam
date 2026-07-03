@@ -26,58 +26,42 @@ describe("createCollectionCardLifecycle", () => {
     restoreDom();
   });
 
-  test("removes empty list sessions and updates the remaining day count", () => {
+  test("updates the day count when a card is removed from a day with remaining cards", () => {
     const collectionGrid = new FakeElement("div");
 
     const day = new FakeElement("section");
     day.className = "collection-day";
+    day.dataset.dayId = "day-1";
 
     const dayCount = createCount("collection-day-count");
-    const sessionOne = new FakeElement("section");
-    sessionOne.className = "collection-session";
-    sessionOne.dataset.sessionId = "session-1";
-
-    const sessionOneCount = createCount("collection-session-count");
-    const sessionOneBody = new FakeElement("div");
-    sessionOneBody.className = "collection-session-body";
-    const sessionOneCard = createCard();
-    sessionOneBody.appendChild(sessionOneCard);
-    sessionOne.append(sessionOneCount, sessionOneBody);
-
-    const sessionTwo = new FakeElement("section");
-    sessionTwo.className = "collection-session";
-    sessionTwo.dataset.sessionId = "session-2";
-
-    const sessionTwoCount = createCount("collection-session-count");
-    const sessionTwoBody = new FakeElement("div");
-    sessionTwoBody.className = "collection-session-body";
-    sessionTwoBody.appendChild(createCard());
-    sessionTwo.append(sessionTwoCount, sessionTwoBody);
-
-    day.append(dayCount, sessionOne, sessionTwo);
+    const dayCards = new FakeElement("div");
+    dayCards.className = "collection-day-cards";
+    const removedCard = createCard();
+    dayCards.append(removedCard, createCard());
+    day.append(dayCount, dayCards);
     collectionGrid.appendChild(day);
 
-    const collapsedSessionIds = new Set(["session-1"]);
+    const collapsedDayIds = new Set();
     const lifecycle = createCollectionCardLifecycle({
       collectionGrid,
       emptyMessageText: "Aucune capture",
-      collapsedSessionIds,
+      collapsedDayIds,
       reloadCollectionUi: async () => {},
     });
 
-    sessionOneCard.remove();
-    lifecycle.syncSessionStateFromCardContainer(sessionOneBody);
+    removedCard.remove();
+    lifecycle.syncDayStateFromCardContainer(dayCards);
 
-    expect(collectionGrid.querySelectorAll(".collection-session")).toHaveLength(1);
+    expect(collectionGrid.querySelectorAll(".collection-day")).toHaveLength(1);
     expect(dayCount.textContent).toBe("1");
-    expect(collapsedSessionIds.has("session-1")).toBe(false);
   });
 
-  test("removes empty day grids and restores the empty message in grid mode", () => {
+  test("removes empty days, clears their collapse state, and restores the empty message", () => {
     const collectionGrid = new FakeElement("div");
 
     const day = new FakeElement("section");
     day.className = "collection-day";
+    day.dataset.dayId = "day-1";
 
     const dayCount = createCount("collection-day-count");
     const dayGrid = new FakeElement("div");
@@ -87,17 +71,19 @@ describe("createCollectionCardLifecycle", () => {
     day.append(dayCount, dayGrid);
     collectionGrid.appendChild(day);
 
+    const collapsedDayIds = new Set(["day-1"]);
     const lifecycle = createCollectionCardLifecycle({
       collectionGrid,
       emptyMessageText: "Aucune capture",
-      collapsedSessionIds: new Set(),
+      collapsedDayIds,
       reloadCollectionUi: async () => {},
     });
 
     card.remove();
-    lifecycle.syncSessionStateFromCardContainer(dayGrid);
+    lifecycle.syncDayStateFromCardContainer(dayGrid);
 
     expect(collectionGrid.querySelector(".collection-day")).toBeNull();
     expect(collectionGrid.querySelector(".empty-message")?.textContent).toBe("Aucune capture");
+    expect(collapsedDayIds.has("day-1")).toBe(false);
   });
 });

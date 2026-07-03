@@ -5,49 +5,49 @@ export function buildCollectionPanelTitle(paletteCount) {
   return t("collection.panelTitleWithCount", { count: safeCount });
 }
 
-export function getCollectionSessionIds(dayGroups) {
-  return dayGroups.flatMap((dayGroup) => dayGroup.sessions.map((session) => session.id));
+export function getCollectionDayIds(dayGroups) {
+  return dayGroups.map((dayGroup) => dayGroup.id);
 }
 
-export function areAllCollectionSessionsCollapsed(dayGroups, collapsedSessionIds) {
-  const sessionIds = getCollectionSessionIds(dayGroups);
-  return sessionIds.length > 0 && sessionIds.every((sessionId) => collapsedSessionIds.has(sessionId));
+export function areAllCollectionDaysCollapsed(dayGroups, collapsedDayIds) {
+  const dayIds = getCollectionDayIds(dayGroups);
+  return dayIds.length > 0 && dayIds.every((dayId) => collapsedDayIds.has(dayId));
 }
 
-export function collapseAllCollectionSessions(dayGroups, collapsedSessionIds) {
+export function collapseAllCollectionDays(dayGroups, collapsedDayIds) {
   let hasChanged = false;
 
-  getCollectionSessionIds(dayGroups).forEach((sessionId) => {
-    if (collapsedSessionIds.has(sessionId)) {
+  getCollectionDayIds(dayGroups).forEach((dayId) => {
+    if (collapsedDayIds.has(dayId)) {
       return;
     }
 
-    collapsedSessionIds.add(sessionId);
+    collapsedDayIds.add(dayId);
     hasChanged = true;
   });
 
   return hasChanged;
 }
 
-export function expandAllCollectionSessions(dayGroups, collapsedSessionIds) {
+export function expandAllCollectionDays(dayGroups, collapsedDayIds) {
   let hasChanged = false;
 
-  getCollectionSessionIds(dayGroups).forEach((sessionId) => {
-    if (!collapsedSessionIds.has(sessionId)) {
+  getCollectionDayIds(dayGroups).forEach((dayId) => {
+    if (!collapsedDayIds.has(dayId)) {
       return;
     }
 
-    collapsedSessionIds.delete(sessionId);
+    collapsedDayIds.delete(dayId);
     hasChanged = true;
   });
 
   return hasChanged;
 }
 
-export function toggleAllCollectionSessions(dayGroups, collapsedSessionIds) {
-  if (areAllCollectionSessionsCollapsed(dayGroups, collapsedSessionIds)) {
-    return expandAllCollectionSessions(dayGroups, collapsedSessionIds);
+export function toggleAllCollectionDays(dayGroups, collapsedDayIds) {
+  if (areAllCollectionDaysCollapsed(dayGroups, collapsedDayIds)) {
+    return expandAllCollectionDays(dayGroups, collapsedDayIds);
   }
 
-  return collapseAllCollectionSessions(dayGroups, collapsedSessionIds);
+  return collapseAllCollectionDays(dayGroups, collapsedDayIds);
 }

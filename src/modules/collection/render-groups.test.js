@@ -19,18 +19,7 @@ function createDayGroupFixture() {
     title: "Aujourd'hui",
     dateLabel: "12 mars 2026",
     paletteCount: 3,
-    sessions: [
-      {
-        id: "session-day-morning",
-        title: "Matin",
-        palettes: [createPalette(1)],
-      },
-      {
-        id: "session-day-evening",
-        title: "Soirée",
-        palettes: [createPalette(2), createPalette(3)],
-      },
-    ],
+    palettes: [createPalette(1), createPalette(2), createPalette(3)],
   };
 }
 
@@ -52,38 +41,38 @@ describe("createDayGroup", () => {
     restoreDom();
   });
 
-  test("renders grouped sessions in list mode and honors collapsed state", () => {
+  test("renders a collapsible day with cards in list mode and honors collapsed state", () => {
     const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
-      isSessionCollapsed: (sessionId) => sessionId === "session-day-evening",
-      onSessionCollapsedChange() {},
-      sessionRevealDurationMs: 280,
-      sessionRevealStaggerMs: 42,
+      isDayCollapsed: (dayId) => dayId === "day-2026-03-12",
+      onDayCollapsedChange() {},
+      revealDurationMs: 280,
+      revealStaggerMs: 42,
       viewMode: "list",
     });
 
     mountContent();
 
-    expect(dayElement.querySelectorAll(".collection-session")).toHaveLength(2);
+    expect(dayElement.classList.contains("is-collapsed")).toBe(true);
     expect(dayElement.querySelector(".collection-day-grid")).toBeNull();
+    expect(dayElement.querySelector(".collection-day-cards")).not.toBeNull();
+    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(3);
     expect(dayElement.querySelector(".collection-day-count")?.textContent).toBe("3");
+    expect(dayElement.querySelector(".collection-day-cover")).not.toBeNull();
 
-    const sessions = dayElement.querySelectorAll(".collection-session");
-
-    expect(sessions[1]?.classList.contains("is-collapsed")).toBe(true);
-    expect(dayElement.querySelectorAll(".is-collapsed")).toHaveLength(1);
-    expect(dayElement.querySelectorAll(".collection-session-toggle")).toHaveLength(2);
+    const toggle = dayElement.querySelector(".collection-day-toggle");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
   });
 
-  test("renders a day-level grid in grid mode without session rows", () => {
+  test("renders a day-level grid in grid mode", () => {
     const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
-      isSessionCollapsed: () => false,
-      onSessionCollapsedChange() {},
-      sessionRevealDurationMs: 280,
-      sessionRevealStaggerMs: 42,
+      isDayCollapsed: () => false,
+      onDayCollapsedChange() {},
+      revealDurationMs: 280,
+      revealStaggerMs: 42,
       viewMode: "grid",
     });
 
@@ -93,35 +82,53 @@ describe("createDayGroup", () => {
 
     expect(dayGrid).not.toBeNull();
     expect(dayGrid?.children).toHaveLength(3);
-    expect(dayElement.querySelectorAll(".collection-session")).toHaveLength(0);
-    expect(dayElement.querySelectorAll(".collection-session-toggle")).toHaveLength(0);
+    expect(dayElement.querySelector(".collection-day-cards")).toBeNull();
+    expect(dayElement.querySelector(".collection-day-toggle")?.disabled).toBeFalsy();
   });
 
-  test("updates collapse state when a session toggle is clicked", () => {
+  test("disables collapse in swatch mode", () => {
+    const { element: dayElement, mountContent } = createDayGroup({
+      dayGroup: createDayGroupFixture(),
+      createPaletteCard,
+      isDayCollapsed: () => true,
+      onDayCollapsedChange() {},
+      revealDurationMs: 280,
+      revealStaggerMs: 42,
+      viewMode: "swatch",
+    });
+
+    mountContent();
+
+    const toggle = dayElement.querySelector(".collection-day-toggle");
+
+    expect(dayElement.classList.contains("is-collapsed")).toBe(false);
+    expect(toggle?.disabled).toBe(true);
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("updates collapse state when the day toggle is clicked", () => {
     const collapseEvents = [];
     const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
-      isSessionCollapsed: () => false,
-      onSessionCollapsedChange: (sessionId, isCollapsed) => {
-        collapseEvents.push({ sessionId, isCollapsed });
+      isDayCollapsed: () => false,
+      onDayCollapsedChange: (dayId, isCollapsed) => {
+        collapseEvents.push({ dayId, isCollapsed });
       },
-      sessionRevealDurationMs: 280,
-      sessionRevealStaggerMs: 42,
+      revealDurationMs: 280,
+      revealStaggerMs: 42,
       viewMode: "list",
     });
 
     mountContent();
 
-    const firstToggle = dayElement.querySelector(".collection-session-toggle");
-    firstToggle?.click();
-
-    const firstSession = dayElement.querySelector(".collection-session");
+    const toggle = dayElement.querySelector(".collection-day-toggle");
+    toggle?.click();
 
     expect(collapseEvents).toEqual([
-      { sessionId: "session-day-morning", isCollapsed: true },
+      { dayId: "day-2026-03-12", isCollapsed: true },
     ]);
-    expect(firstSession?.classList.contains("is-collapsed")).toBe(true);
-    expect(firstToggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(dayElement.classList.contains("is-collapsed")).toBe(true);
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
   });
 });

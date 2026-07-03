@@ -62,12 +62,12 @@
   pointer-events: none;
 }
 
-.collection-session:not(.is-collapsed) .palette-card.is-revealing {
-  animation: session-palette-reveal 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+.collection-day:not(.is-collapsed) .palette-card.is-revealing {
+  animation: day-palette-reveal 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: calc(var(--reveal-index, 0) * 42ms);
 }
 
-@keyframes session-palette-reveal {
+@keyframes day-palette-reveal {
   from {
     opacity: 0;
     transform: translateY(-10px);

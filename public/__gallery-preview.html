@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gallery preview harness</title>
+    <link rel="stylesheet" href="styles/index.css" />
+    <style>
+      body {
+        padding: 24px 12px;
+        gap: 24px;
+        max-width: 480px;
+      }
+
+      .harness-label {
+        color: #888;
+        font-family: monospace;
+        font-size: 11px;
+      }
+
+      .harness-card {
+        display: grid;
+        place-items: center;
+        height: 96px;
+        background: linear-gradient(180deg, #d8d3c8 72%, #f2efe8 72%);
+        color: #555;
+        font-family: monospace;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="harness-label">day groups — list view (expanded + collapsed)</p>
+
+    <div class="collection-grid" data-view-mode="list">
+      <section class="collection-day" data-view-mode="list">
+        <button class="collection-day-toggle" type="button" aria-expanded="true">
+          <span class="collection-day-title">Today — Jul 3, 2026</span>
+          <span class="collection-day-meta">
+            <span class="collection-day-count">2</span>
+            <span class="collection-day-caret">
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M3.2 5.5L8 10.3l4.8-4.8"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+          </span>
+        </button>
+        <div
+          class="collection-day-cover"
+          aria-hidden="true"
+          style="
+            background-image: linear-gradient(
+              108deg,
+              rgb(120 62 40) 0%,
+              rgb(158 100 78) 52%,
+              rgb(184 126 104) 100%
+            );
+          "
+        ></div>
+        <div class="collection-day-content">
+          <div class="collection-day-cards">
+            <div class="palette-card harness-card">capture</div>
+            <div class="palette-card harness-card">capture</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="collection-day is-collapsed" data-view-mode="list">
+        <button class="collection-day-toggle" type="button" aria-expanded="false">
+          <span class="collection-day-title">Monday — Jun 15, 2026</span>
+          <span class="collection-day-meta">
+            <span class="collection-day-count">7</span>
+            <span class="collection-day-caret">
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M3.2 5.5L8 10.3l4.8-4.8"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+          </span>
+        </button>
+        <div
+          class="collection-day-cover"
+          aria-hidden="true"
+          style="
+            background-image: linear-gradient(
+              108deg,
+              rgb(96 102 118) 0%,
+              rgb(134 140 158) 52%,
+              rgb(160 166 184) 100%
+            );
+          "
+        ></div>
+        <div class="collection-day-content">
+          <div class="collection-day-cards">
+            <div class="palette-card harness-card">hidden</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <p class="harness-label">footer toolbar + selection bar</p>
+
+    <div class="collection-panel-footer">
+      <div class="collection-panel-toolbar toolbar">
+        <button
+          class="panel-icon-button panel-icon-button--toolbar collection-collapse-button"
+          type="button"
+          aria-label="Collapse all"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true" fill="none">
+            <path
+              d="M3.5 7.2 8 2.9l4.5 4.3M3.5 13.1 8 8.8l4.5 4.3"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <button
+          class="collection-toolbar-button collection-filter-button panel-action-button"
+          type="button"
+          data-count="34"
+        >
+          Published
+        </button>
+
+        <div class="collection-view-switch" role="group" aria-label="Capture layout">
+          <button class="collection-view-option" type="button" aria-pressed="true">
+            <img src="/icons/capture-list.svg" alt="" />
+          </button>
+          <button class="collection-view-option" type="button" aria-pressed="false">
+            <img src="/icons/capture-grid.svg" alt="" />
+          </button>
+          <button class="collection-view-option" type="button" aria-pressed="false">
+            <img src="/icons/swatches.svg" alt="" />
+          </button>
+        </div>
+      </div>
+
+      <div class="collection-selection-bar">
+        <span class="collection-selection-count">2</span>
+        <div class="collection-selection-actions">
+          <button class="collection-selection-action" type="button" disabled>Unpublish</button>
+          <button class="collection-selection-action" type="button">Publish</button>
+          <button class="collection-selection-action" type="button">Export</button>
+          <button
+            class="collection-selection-action collection-selection-action--delete"
+            type="button"
+          >
+            Delete
+          </button>
+        </div>
+        <button class="collection-selection-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </body>
+</html>

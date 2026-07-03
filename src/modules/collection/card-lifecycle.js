@@ -2,14 +2,14 @@
  * @param {object} config
  * @param {HTMLElement | null} config.collectionGrid
  * @param {string | (() => string)} config.emptyMessageText
- * @param {Set<string>} config.collapsedSessionIds
+ * @param {Set<string>} config.collapsedDayIds
  * @param {() => Promise<void>} config.reloadCollectionUi
  * @returns {CollectionCardLifecycle}
  */
 export function createCollectionCardLifecycle({
   collectionGrid,
   emptyMessageText,
-  collapsedSessionIds,
+  collapsedDayIds,
   reloadCollectionUi,
 }) {
   const readEmptyMessageText =
@@ -41,25 +41,6 @@ export function createCollectionCardLifecycle({
     collectionGrid.appendChild(message);
   }
 
-  function updateSessionCardCount(sessionElement) {
-    if (!sessionElement) {
-      return 0;
-    }
-
-    const sessionBody = sessionElement.querySelector(".collection-session-body");
-    const countElement = sessionElement.querySelector(
-      ".collection-session-count",
-    );
-
-    if (!sessionBody || !countElement) {
-      return 0;
-    }
-
-    const cardCount = sessionBody.querySelectorAll(".palette-card").length;
-    countElement.textContent = String(cardCount);
-    return cardCount;
-  }
-
   function getDayCardCount(dayElement) {
     if (!dayElement) {
       return 0;
@@ -83,28 +64,19 @@ export function createCollectionCardLifecycle({
     return cardCount;
   }
 
-  function syncSessionStateFromCardContainer(cardContainer) {
-    const sessionElement = cardContainer?.closest(".collection-session");
+  function syncDayStateFromCardContainer(cardContainer) {
     const dayElement = cardContainer?.closest(".collection-day");
-
-    if (sessionElement) {
-      const cardCount = updateSessionCardCount(sessionElement);
-
-      if (cardCount === 0) {
-        const sessionId = sessionElement.dataset.sessionId;
-        if (sessionId) {
-          collapsedSessionIds.delete(sessionId);
-        }
-
-        sessionElement.remove();
-      }
-    }
 
     if (dayElement) {
       const dayCount = updateDayCardCount(dayElement);
       if (dayCount > 0) {
         removeEmptyMessage();
         return;
+      }
+
+      const dayId = dayElement.dataset.dayId;
+      if (dayId) {
+        collapsedDayIds.delete(dayId);
       }
 
       dayElement.remove();
@@ -141,12 +113,12 @@ export function createCollectionCardLifecycle({
       parent.appendChild(card);
     }
 
-    syncSessionStateFromCardContainer(parent);
+    syncDayStateFromCardContainer(parent);
   }
 
   return {
     ensureEmptyMessage,
-    syncSessionStateFromCardContainer,
+    syncDayStateFromCardContainer,
     takeCardPositionSnapshot,
     restoreCardFromSnapshot,
   };

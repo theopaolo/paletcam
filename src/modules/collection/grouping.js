@@ -7,36 +7,6 @@ function getPaletteTimestampDate(timestamp) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getDayPeriodInfo(date) {
-  if (!date) {
-    return { key: "night", label: t("collection.period.night") };
-  }
-
-  const hour = date.getHours();
-
-  if (hour < 5) {
-    return { key: "night", label: t("collection.period.night") };
-  }
-
-  if (hour < 8) {
-    return { key: "early-morning", label: t("collection.period.earlyMorning") };
-  }
-
-  if (hour < 12) {
-    return { key: "morning", label: t("collection.period.morning") };
-  }
-
-  if (hour < 17) {
-    return { key: "afternoon", label: t("collection.period.afternoon") };
-  }
-
-  if (hour < 22) {
-    return { key: "evening", label: t("collection.period.evening") };
-  }
-
-  return { key: "night", label: t("collection.period.night") };
-}
-
 function getDayLabel(date) {
   if (!date) {
     return t("collection.day.unknown");
@@ -96,7 +66,6 @@ function getDayKey(date) {
 export function groupPalettesByDay(palettes) {
   const dayGroups = [];
   let currentDay;
-  let sessionsByPeriodKey;
 
   palettes.forEach((palette) => {
     const paletteDate = getPaletteTimestampDate(palette.timestamp);
@@ -110,26 +79,12 @@ export function groupPalettesByDay(palettes) {
         title: getDayLabel(paletteDate),
         dateLabel: getDayDateLabel(paletteDate),
         paletteCount: 0,
-        sessions: [],
-      };
-      dayGroups.push(currentDay);
-      sessionsByPeriodKey = new Map();
-    }
-
-    const period = getDayPeriodInfo(paletteDate);
-    let currentSession = sessionsByPeriodKey.get(period.key);
-
-    if (!currentSession) {
-      currentSession = {
-        id: `session-${currentDay.key}-${period.key}`,
-        title: period.label,
         palettes: [],
       };
-      currentDay.sessions.push(currentSession);
-      sessionsByPeriodKey.set(period.key, currentSession);
+      dayGroups.push(currentDay);
     }
 
-    currentSession.palettes.push(palette);
+    currentDay.palettes.push(palette);
     currentDay.paletteCount += 1;
   });
 
