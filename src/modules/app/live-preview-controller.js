@@ -637,9 +637,33 @@ export function createLivePreviewController({
     return getSwatchCount() + (getOneMoreColor() ? 1 : 0);
   }
 
+  // Smoothed display colors lose the quantizer's `population`; recover each
+  // color's density from its nearest raw extracted color so saved palettes
+  // keep the data behind the verso's density stripes.
+  function findNearestExtractedPopulation(color) {
+    if (!Array.isArray(lastExtractedColors) || lastExtractedColors.length === 0) {
+      return 0;
+    }
+
+    let nearest = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    for (const extractedColor of lastExtractedColors) {
+      const distance = rgbDistanceSquared(color, extractedColor);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = extractedColor;
+      }
+    }
+
+    return Number.isFinite(nearest?.population) ? nearest.population : 0;
+  }
+
   function getCapturePaletteColors() {
     if (lastVisiblePaletteColors.length === getSwatchCount()) {
-      return lastVisiblePaletteColors.map((color) => ({ ...color }));
+      return lastVisiblePaletteColors.map((color) => ({
+        ...color,
+        population: findNearestExtractedPopulation(color),
+      }));
     }
 
     return [];

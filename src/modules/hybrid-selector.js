@@ -88,9 +88,14 @@ function pickNeutralBands(neutralCandidates, slots, minBandMass, previousLabs) {
     .filter((band) => band.items.reduce((sum, c) => sum + c.mass, 0) >= minBandMass)
     .sort((a, b) => totalMass(b) - totalMass(a))
     .slice(0, slots)
-    .map((band) =>
-      band.items.reduce((cleanest, c) => (exemplarScore(c) < exemplarScore(cleanest) ? c : cleanest)),
-    );
+    .map((band) => ({
+      ...band.items.reduce((cleanest, c) =>
+        exemplarScore(c) < exemplarScore(cleanest) ? c : cleanest,
+      ),
+      // The exemplar represents the whole lightness band, so its density is
+      // the band's mass, not the single candidate's.
+      bandMass: totalMass(band),
+    }));
 }
 
 function totalMass(band) {
@@ -201,7 +206,7 @@ function padToCount(colors, candidates, swatchCount, tone) {
     const rgb = lerpRgb(cand.meanRgb, cand.vividRgb, tone);
     const key = `${rgb.r},${rgb.g},${rgb.b}`;
     if (!usedKeys.has(key)) {
-      filler.push(rgb);
+      filler.push({ ...rgb, population: Math.round(cand.mass ?? 0) });
       usedKeys.add(key);
     }
   }
@@ -279,14 +284,16 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
   const neutralColors = neutralPicks.map((c) => ({
     rgb: c.meanRgb,
     L: c.L,
+    population: Math.round(c.bandMass ?? c.mass ?? 0),
   }));
   const chromaticColors = chromaticPicks.map((c) => ({
     rgb: lerpRgb(c.meanRgb, c.vividRgb, tone),
     L: c.L,
+    population: Math.round(c.mass ?? 0),
   }));
 
   const sorted = [...neutralColors, ...chromaticColors].sort((x, y) => x.L - y.L);
-  let colors = sorted.map((entry) => entry.rgb);
+  let colors = sorted.map((entry) => ({ ...entry.rgb, population: entry.population }));
   colors = padToCount(colors, [...chromaticCandidates], swatchCount, tone);
 
   return {
