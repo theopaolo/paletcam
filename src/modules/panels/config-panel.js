@@ -36,20 +36,35 @@ class ConfigPanel extends LitElement {
       >
         <div class="config-drawer-selector panel-form-field">
           <details class="panel-form-field-header">
-            <summary class="panel-form-label" for="configPaletteSelectorSelect">
+            <summary class="panel-form-label">
               ${t("config.selector.title")}
             </summary>
             <p class="panel-form-hint">
               ${t("config.selector.hint")}
             </p>
           </details>
-          <select
-            id="configPaletteSelectorSelect"
-            class="panel-form-select"
+          <div
+            class="config-mode-switch"
+            role="group"
+            aria-label=${t("config.selector.title")}
           >
-            <option value="current">${t("config.selector.current")}</option>
-            <option value="perceptual">${t("config.selector.perceptual")}</option>
-          </select>
+            <button
+              class="config-mode-option"
+              type="button"
+              data-config-selector="current"
+              aria-pressed="false"
+            >
+              ${t("config.selector.current")}
+            </button>
+            <button
+              class="config-mode-option"
+              type="button"
+              data-config-selector="perceptual"
+              aria-pressed="false"
+            >
+              ${t("config.selector.perceptual")}
+            </button>
+          </div>
         </div>
 
         <div class="config-drawer-tabs" role="tablist" aria-label=${t("config.tabsAria")}>

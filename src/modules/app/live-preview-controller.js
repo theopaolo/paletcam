@@ -861,6 +861,7 @@ export function createLivePreviewController({
         const dominantColor = getDominantColor(displayColors);
 
         renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
+        visualEffects.setPaletteRibbon?.(displayColors);
         lastPaintedColors = displayColors;
         paintedPaletteWidth = paletteCanvas.width;
         paintedPaletteHeight = paletteCanvas.height;

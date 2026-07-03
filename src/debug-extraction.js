@@ -60,7 +60,9 @@ const els = {
 
 const scatter = createOklabScatter(els.scatter);
 const analysisCanvas = document.createElement("canvas");
-const analysisContext = analysisCanvas.getContext("2d", { willReadFrequently: true });
+const analysisContext = analysisCanvas.getContext("2d", {
+  willReadFrequently: true,
+});
 
 let lastTrace = null;
 let lastImageData = null;
@@ -92,7 +94,8 @@ function getDebugOptions() {
 
 // New/Hybrid modes show Variety / Tone / Auto; Current shows the scorer weights.
 function syncSelectorMode() {
-  const isNew = els.selector.value === "grid" || els.selector.value === "perceptual";
+  const isNew =
+    els.selector.value === "grid" || els.selector.value === "perceptual";
   els.currentControls.hidden = isNew;
   els.newControls.hidden = !isNew;
 }
@@ -100,7 +103,12 @@ function syncSelectorMode() {
 // David's "preset from the image": when Auto is on, derive Variety + Distinctness
 // from the current image so good output needs no manual tuning.
 function maybeApplyAutoParams() {
-  if (!lastImageData || (els.selector.value !== "grid" && els.selector.value !== "perceptual") || !els.autoBias.checked) return;
+  if (
+    !lastImageData ||
+    (els.selector.value !== "grid" && els.selector.value !== "perceptual") ||
+    !els.autoBias.checked
+  )
+    return;
   const { variety, distinctness } = suggestSelectorParams(
     lastImageData.data,
     lastImageData.width,
@@ -122,13 +130,20 @@ function resizeScatter() {
 }
 
 function getImageData(image) {
-  const scale = Math.min(1, ANALYSIS_MAX_DIM / Math.max(image.width, image.height));
+  const scale = Math.min(
+    1,
+    ANALYSIS_MAX_DIM / Math.max(image.width, image.height),
+  );
   const width = Math.max(1, Math.round(image.width * scale));
   const height = Math.max(1, Math.round(image.height * scale));
   analysisCanvas.width = width;
   analysisCanvas.height = height;
   analysisContext.drawImage(image, 0, 0, width, height);
-  return { data: analysisContext.getImageData(0, 0, width, height).data, width, height };
+  return {
+    data: analysisContext.getImageData(0, 0, width, height).data,
+    width,
+    height,
+  };
 }
 
 function buildScene() {
@@ -139,10 +154,19 @@ function buildScene() {
     points: lastTrace.points,
     markers: [
       ...(els.layerCandidates.checked
-        ? lastTrace.candidates.map((c) => ({ oklab: c.oklab, rgb: c.rgb, radius: 4 }))
+        ? lastTrace.candidates.map((c) => ({
+            oklab: c.oklab,
+            rgb: c.rgb,
+            radius: 4,
+          }))
         : []),
       ...(els.layerSelected.checked
-        ? lastTrace.selected.map((s) => ({ oklab: s.oklab, rgb: s.rgb, label: s.index, radius: 9 }))
+        ? lastTrace.selected.map((s) => ({
+            oklab: s.oklab,
+            rgb: s.rgb,
+            label: s.index,
+            radius: 9,
+          }))
         : []),
     ],
     spheres: els.layerRepulsion.checked
@@ -230,7 +254,10 @@ function computeSwatchCentroids(imageData, width, height, swatches) {
       const dr = r - sw.r;
       const dg = g - sw.g;
       const db = b - sw.b;
-      if (dr * dr + dg * dg + db * db < RGB_MATCH_THRESHOLD * RGB_MATCH_THRESHOLD) {
+      if (
+        dr * dr + dg * dg + db * db <
+        RGB_MATCH_THRESHOLD * RGB_MATCH_THRESHOLD
+      ) {
         sums[s].x += x;
         sums[s].y += y;
         sums[s].count += 1;
@@ -241,8 +268,8 @@ function computeSwatchCentroids(imageData, width, height, swatches) {
   return sums.map((s) => {
     if (s.count === 0) return null;
     return {
-      x: (s.x / s.count) / width,
-      y: (s.y / s.count) / height,
+      x: s.x / s.count / width,
+      y: s.y / s.count / height,
     };
   });
 }
@@ -344,7 +371,10 @@ function rerunTrace() {
   if (els.smoothToggle.checked && trace.selected.length > 0) {
     const rawColors = trace.selected.map((s) => ({ ...s.rgb }));
     const smoothed = colorSmoother.smooth(rawColors, SMOOTHING_FACTOR);
-    trace.selected = trace.selected.map((s, i) => ({ ...s, rgb: smoothed[i] ?? s.rgb }));
+    trace.selected = trace.selected.map((s, i) => ({
+      ...s,
+      rgb: smoothed[i] ?? s.rgb,
+    }));
   } else {
     colorSmoother.reset();
   }
@@ -385,7 +415,10 @@ async function startCamera() {
     });
   } catch {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
     } catch (error) {
       els.stats.textContent = `Camera unavailable: ${error?.message ?? error}`;
       return;
@@ -432,7 +465,10 @@ function tickCamera(now) {
   const video = els.cameraPreview;
   if (!video.videoWidth || !video.videoHeight) return;
 
-  const scale = Math.min(1, ANALYSIS_MAX_DIM / Math.max(video.videoWidth, video.videoHeight));
+  const scale = Math.min(
+    1,
+    ANALYSIS_MAX_DIM / Math.max(video.videoWidth, video.videoHeight),
+  );
   const width = Math.max(1, Math.round(video.videoWidth * scale));
   const height = Math.max(1, Math.round(video.videoHeight * scale));
   analysisCanvas.width = width;
@@ -486,7 +522,8 @@ async function buildGallery() {
   try {
     entries = await (await fetch("/debug/images.json")).json();
   } catch {
-    els.stats.textContent = "Could not load image manifest (/debug/images.json).";
+    els.stats.textContent =
+      "Could not load image manifest (/debug/images.json).";
     return;
   }
 
@@ -507,11 +544,6 @@ async function buildGallery() {
   const fragment = document.createDocumentFragment();
   let firstThumb = null;
   let firstSrc = null;
-
-  const heading = document.createElement("div");
-  heading.className = "gallery-group-label";
-  heading.textContent = "curated";
-  fragment.append(heading);
 
   const grid = document.createElement("div");
   grid.className = "gallery-grid";
@@ -627,7 +659,13 @@ for (const [slider, valueEl] of [
   });
 }
 
-for (const toggle of [els.layerPixels, els.layerCandidates, els.layerSelected, els.layerRepulsion, els.layerPixelLocations]) {
+for (const toggle of [
+  els.layerPixels,
+  els.layerCandidates,
+  els.layerSelected,
+  els.layerRepulsion,
+  els.layerPixelLocations,
+]) {
   toggle.addEventListener("change", () => {
     if (toggle === els.layerPixelLocations) {
       renderSourceFrame();

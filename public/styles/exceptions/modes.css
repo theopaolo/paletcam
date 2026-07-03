@@ -28,6 +28,14 @@ body.is-ral-mode .ral-live-swatch-info {
   padding: var(--space-16);
 }
 
+/* Config drawer open: the drawer covers the lower preview, so hide the
+   overlay controls that would ghost through its translucent surface. */
+.capture:has(config-panel.is-open) .capture-mode-section,
+.capture:has(config-panel.is-open) .camera-exposure-layer,
+.capture:has(config-panel.is-open) .camera-zoom-layer {
+  display: none;
+}
+
 /* Config drawer open: palette fills capture, camera moves to mini PiP (small screens only) */
 @media (height <= 799px) {
   .capture:has(config-panel.is-open) .capture-camera-stage,

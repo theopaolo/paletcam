@@ -142,6 +142,22 @@
     0 0 1px rgb(86 86 86);
 }
 
+/* Main swatch-count slider: the live palette rides inside the recessed
+   track as a segmented ribbon (one segment per extracted color).
+   --palette-ribbon is set by visual-effects.js on each palette repaint. */
+.sliders-container .swatch-slider input[type="range"] {
+  background:
+    var(--palette-ribbon, linear-gradient(transparent, transparent)),
+    var(--gradient-slider-track);
+  background-size:
+    calc(100% - var(--space-16)) 6px,
+    100% 100%;
+  background-position:
+    center,
+    0 0;
+  background-repeat: no-repeat;
+}
+
 .swatch-slider input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: var(--swatch-thumb-width);

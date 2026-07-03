@@ -94,18 +94,6 @@
         border-right: 1px solid var(--color-border-subtle);
       }
 
-      .gallery-group-label {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        padding: var(--space-4) 0;
-        background: var(--color-surface-ink);
-        color: var(--color-text-muted);
-        font-size: var(--font-size-2xs);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
       .gallery-grid {
         display: grid;
         grid-template-columns: repeat(1, 1fr);
@@ -265,7 +253,9 @@
         border: 2px solid var(--color-accent);
         margin-top: 0;
         box-shadow: 0 0 0 0 var(--color-accent-dim);
-        transition: transform 0.12s ease, box-shadow 0.18s ease;
+        transition:
+          transform 0.12s ease,
+          box-shadow 0.18s ease;
       }
 
       input[type="range"]::-moz-range-thumb {
@@ -275,7 +265,9 @@
         background: var(--color-accent-soft);
         border: 2px solid var(--color-accent);
         box-shadow: 0 0 0 0 var(--color-accent-dim);
-        transition: transform 0.12s ease, box-shadow 0.18s ease;
+        transition:
+          transform 0.12s ease,
+          box-shadow 0.18s ease;
       }
 
       input[type="range"]:hover::-webkit-slider-thumb {
@@ -627,7 +619,10 @@
           const max = Number(input.max) || 100;
           const val = Number(input.value);
           const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
-          input.style.setProperty("--fill", `${isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 50}%`);
+          input.style.setProperty(
+            "--fill",
+            `${isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 50}%`,
+          );
         };
 
         const wire = (input) => {
@@ -638,8 +633,13 @@
           const desc = Object.getOwnPropertyDescriptor(proto, "value");
           if (desc && desc.set) {
             Object.defineProperty(input, "value", {
-              get() { return desc.get.call(this); },
-              set(v) { desc.set.call(this, v); syncFill(this); },
+              get() {
+                return desc.get.call(this);
+              },
+              set(v) {
+                desc.set.call(this, v);
+                syncFill(this);
+              },
               configurable: true,
             });
           }

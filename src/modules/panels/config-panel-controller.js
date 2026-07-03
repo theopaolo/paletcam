@@ -37,8 +37,8 @@ function getConfigDom(root) {
     originBadgesToggle: /** @type {HTMLInputElement | null} */ (
       queryById(root, "configOriginBadgesToggle")
     ),
-    paletteSelectorSelect: /** @type {HTMLSelectElement | null} */ (
-      queryById(root, "configPaletteSelectorSelect")
+    selectorButtons: /** @type {HTMLButtonElement[]} */ (
+      Array.from(root.querySelectorAll("[data-config-selector]"))
     ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
@@ -185,10 +185,13 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
 
   function syncPaletteSelector(settings) {
     const isHybrid = settings.paletteSelector === "perceptual";
+    const activeMode = isHybrid ? "perceptual" : "current";
 
-    if (dom.paletteSelectorSelect) {
-      dom.paletteSelectorSelect.value = isHybrid ? "perceptual" : "current";
-    }
+    dom.selectorButtons.forEach((button) => {
+      const isActive = button.getAttribute("data-config-selector") === activeMode;
+      button.setAttribute("aria-pressed", String(isActive));
+      button.classList.toggle("is-active", isActive);
+    });
 
     root.classList.toggle("config-selector-perceptual", isHybrid);
 
@@ -564,21 +567,23 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       originBadgesEnabled: dom.originBadgesToggle.checked,
     });
   });
-  on(dom.paletteSelectorSelect, "change", () => {
-    if (!dom.paletteSelectorSelect) {
-      return;
-    }
+  dom.selectorButtons.forEach((button) => {
+    on(button, "click", () => {
+      const value = button.getAttribute("data-config-selector");
+      if (value !== "current" && value !== "perceptual") {
+        return;
+      }
 
-    const value = dom.paletteSelectorSelect.value;
-    if (value !== "current" && value !== "perceptual") {
-      return;
-    }
+      if (getAppSettings().paletteSelector === value) {
+        return;
+      }
 
-    beginAlgorithmInteraction();
-    applyAlgorithmSettings((snapshot) => {
-      snapshot.paletteSelector = value;
+      beginAlgorithmInteraction();
+      applyAlgorithmSettings((snapshot) => {
+        snapshot.paletteSelector = value;
+      });
+      commitAlgorithmInteraction();
     });
-    commitAlgorithmInteraction();
   });
   rangeControls.forEach(bindSliderControl);
 

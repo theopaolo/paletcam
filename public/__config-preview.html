@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>config preview harness</title>
+    <link rel="stylesheet" href="styles/index.css" />
+    <style>
+      body {
+        padding: 24px 12px;
+        gap: 24px;
+      }
+
+      .harness-label {
+        color: #888;
+        font-family: monospace;
+        font-size: 11px;
+      }
+
+      .config-drawer.harness-open {
+        position: static;
+        display: grid;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="harness-label">config drawer (forced open)</p>
+
+    <section class="config-drawer harness-open">
+      <div class="config-drawer-selector panel-form-field">
+        <details class="panel-form-field-header">
+          <summary class="panel-form-label">Extraction mode</summary>
+          <p class="panel-form-hint">Hint text</p>
+        </details>
+        <div class="config-mode-switch" role="group" aria-label="Extraction mode">
+          <button class="config-mode-option" type="button" aria-pressed="false">Classic</button>
+          <button class="config-mode-option is-active" type="button" aria-pressed="true">
+            Perceptual
+          </button>
+        </div>
+      </div>
+
+      <div class="config-drawer-tabs" role="tablist">
+        <button class="config-drawer-tab" type="button" aria-selected="false">Analysis</button>
+        <button class="config-drawer-tab is-active" type="button" aria-selected="true">
+          Balance
+        </button>
+        <button class="config-drawer-tab" type="button" aria-selected="false">Color</button>
+      </div>
+
+      <div class="config-drawer-panels">
+        <section class="config-drawer-panel">
+          <div class="panel-form-field">
+            <details class="panel-form-field-header">
+              <summary class="panel-form-label">Hue spread</summary>
+              <p class="panel-form-hint">How far hues repel each other.</p>
+            </details>
+            <div
+              class="swatch-slider panel-form-quality-slider config-drawer-slider"
+              style="--tick-count: 101; --tick-index: 68; --tick-intervals: 100"
+            >
+              <input type="range" min="0" max="100" value="68" step="1" />
+              <div class="swatch-meta">
+                <span class="swatch-scale-label swatch-scale-label-min">0</span>
+                <span class="swatch-count-indicator">68</span>
+                <span class="swatch-scale-label swatch-scale-label-max">100</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-form-field">
+            <details class="panel-form-field-header" open>
+              <summary class="panel-form-label">Repulsion radius (hint open)</summary>
+              <p class="panel-form-hint">Minimum perceptual distance between picks.</p>
+            </details>
+            <div
+              class="swatch-slider panel-form-quality-slider config-drawer-slider is-active"
+              style="--tick-count: 21; --tick-index: 12; --tick-intervals: 20"
+            >
+              <input type="range" min="0" max="20" value="12" step="1" />
+              <div class="swatch-meta">
+                <span class="swatch-scale-label swatch-scale-label-min">0</span>
+                <span class="swatch-count-indicator">12</span>
+                <span class="swatch-scale-label swatch-scale-label-max">20</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-form-field">
+            <details class="panel-form-field-header">
+              <summary class="panel-form-label">Pixel density</summary>
+              <p class="panel-form-hint">Pixels analyzed per frame.</p>
+            </details>
+            <div
+              class="swatch-slider panel-form-quality-slider config-drawer-slider"
+              style="--tick-count: 60; --tick-index: 44; --tick-intervals: 59"
+            >
+              <input type="range" min="1000" max="60000" value="45000" step="1000" />
+              <div class="swatch-meta">
+                <span class="swatch-scale-label swatch-scale-label-min">1k</span>
+                <span class="swatch-count-indicator">45k</span>
+                <span class="swatch-scale-label swatch-scale-label-max">60k</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <p class="harness-label">main swatch slider with palette ribbon</p>
+
+    <div class="sliders-container">
+      <div
+        class="swatch-slider"
+        style="
+          --tick-count: 5;
+          --tick-index: 1;
+          --tick-intervals: 4;
+          --palette-ribbon: linear-gradient(
+            to right,
+            rgb(214 40 57) 0% 25%,
+            rgb(24 24 28) 25% 50%,
+            rgb(196 196 200) 50% 75%,
+            rgb(88 90 94) 75% 100%
+          );
+        "
+      >
+        <input type="range" min="3" max="7" value="4" step="1" aria-label="4 colors" />
+        <div class="swatch-meta">
+          <span class="swatch-scale-label swatch-scale-label-min">3</span>
+          <span class="swatch-count-indicator">4 colors</span>
+          <span class="swatch-scale-label swatch-scale-label-max">7</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

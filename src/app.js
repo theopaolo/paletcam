@@ -131,6 +131,7 @@ const captureMicroInteractions = createCaptureMicroInteractions({
 });
 const visualEffects = createVisualEffects({
   captureButton,
+  swatchSliderShell: swatchSlider?.closest(".swatch-slider") ?? null,
 });
 const ralPreview = createRalPreviewController({
   ralLiveSwatch,
