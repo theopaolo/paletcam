@@ -8,7 +8,11 @@ import { toRgbCss } from "../color-format.js";
  */
 
 const STRIPE_LAYOUT_MIN_COLORS = 5;
-const MIN_STRIPE_SHARE = 0.03;
+/* Stripe widths follow density but are eased toward balance: a power curve
+   grows rare hues and reins in dominant ones (Wada's plates never let one
+   color crush the rest), then a floor keeps slivers readable. */
+const STRIPE_BALANCE_EXPONENT = 0.75;
+const MIN_STRIPE_SHARE = 0.04;
 
 const VERSO_PAPER = "#faf7f1";
 const VERSO_INK = "#2b2620";
@@ -53,11 +57,15 @@ function getColorShares(colors) {
     return colors.map(() => 1 / colors.length);
   }
 
-  const floored = populations.map((population) =>
-    Math.max(population / total, MIN_STRIPE_SHARE),
+  return populations.map((population) => population / total);
+}
+
+function getStripeWeights(shares) {
+  const eased = shares.map((share) =>
+    Math.max(share ** STRIPE_BALANCE_EXPONENT, MIN_STRIPE_SHARE),
   );
-  const flooredTotal = floored.reduce((sum, value) => sum + value, 0);
-  return floored.map((share) => share / flooredTotal);
+  const easedTotal = eased.reduce((sum, value) => sum + value, 0);
+  return eased.map((weight) => weight / easedTotal);
 }
 
 /**
@@ -71,7 +79,7 @@ function getColorShares(colors) {
  *     hex: string,
  *     rgbLabel: string,
  *     share: number,
- *     shareLabel: string,
+ *     stripeWeight: number,
  *   }>,
  * } | null}
  */
@@ -91,13 +99,17 @@ export function getPaletteVersoData(palette, names = []) {
       hex,
       rgbLabel: `${color.r},${color.g},${color.b}`,
       share: shares[index],
-      shareLabel: `${Math.round(shares[index] * 100)}%`,
+      stripeWeight: shares[index],
     };
   });
 
   const layout = entries.length >= STRIPE_LAYOUT_MIN_COLORS ? "stripes" : "plate";
   if (layout === "stripes") {
     entries.sort((a, b) => b.share - a.share);
+    const weights = getStripeWeights(entries.map((entry) => entry.share));
+    entries.forEach((entry, index) => {
+      entry.stripeWeight = weights[index];
+    });
   }
 
   return {
@@ -106,7 +118,7 @@ export function getPaletteVersoData(palette, names = []) {
   };
 }
 
-function createVersoName(entry, { includeShare }) {
+function createVersoName(entry) {
   const name = document.createElement("span");
   name.className = "palette-verso-name";
 
@@ -115,9 +127,7 @@ function createVersoName(entry, { includeShare }) {
 
   const values = document.createElement("span");
   values.className = "palette-verso-values";
-  values.textContent = includeShare
-    ? `${entry.hex} · ${entry.rgbLabel} · ${entry.shareLabel}`
-    : `${entry.hex} · ${entry.rgbLabel}`;
+  values.textContent = `${entry.hex} · ${entry.rgbLabel}`;
 
   name.append(title, values);
   return name;
@@ -152,17 +162,17 @@ function createPlateFace(versoData) {
     }
 
     if (row.length === 1) {
-      caption.appendChild(createVersoName(versoData.entries[row[0]], { includeShare: false }));
+      caption.appendChild(createVersoName(versoData.entries[row[0]]));
       return;
     }
 
     const pair = document.createElement("div");
     pair.className = "palette-verso-pair";
-    pair.appendChild(createVersoName(versoData.entries[row[0]], { includeShare: false }));
+    pair.appendChild(createVersoName(versoData.entries[row[0]]));
     const divider = document.createElement("span");
     divider.className = "palette-verso-divider";
     pair.appendChild(divider);
-    pair.appendChild(createVersoName(versoData.entries[row[1]], { includeShare: false }));
+    pair.appendChild(createVersoName(versoData.entries[row[1]]));
     caption.appendChild(pair);
   });
 
@@ -177,7 +187,7 @@ function createStripesFace(versoData) {
   band.className = "palette-verso-band";
   versoData.entries.forEach((entry) => {
     const stripe = document.createElement("div");
-    stripe.style.flexGrow = String(Math.round(entry.share * 1000));
+    stripe.style.flexGrow = String(Math.round(entry.stripeWeight * 1000));
     stripe.style.background = toRgbCss(entry.color);
     band.appendChild(stripe);
   });
@@ -193,7 +203,7 @@ function createStripesFace(versoData) {
 
     const values = document.createElement("span");
     values.className = "palette-verso-values";
-    values.textContent = `${entry.hex} · ${entry.rgbLabel} · ${entry.shareLabel}`;
+    values.textContent = `${entry.hex} · ${entry.rgbLabel}`;
 
     line.append(title, values);
     caption.appendChild(line);
@@ -304,7 +314,7 @@ function drawStripesExport(context, versoData) {
 
   let stripeX = 0;
   versoData.entries.forEach((entry) => {
-    const stripeWidth = entry.share * bandWidth;
+    const stripeWidth = entry.stripeWeight * bandWidth;
     context.fillStyle = toRgbCss(entry.color);
     context.fillRect(stripeX, 0, stripeWidth, bandHeight);
     stripeX += stripeWidth + gap;
@@ -321,7 +331,7 @@ function drawStripesExport(context, versoData) {
     context.font = `${valueSize}px monospace`;
     context.textAlign = "right";
     context.fillText(
-      `${entry.hex} · ${entry.rgbLabel} · ${entry.shareLabel}`,
+      `${entry.hex} · ${entry.rgbLabel}`,
       EXPORT_WIDTH - paddingX,
       cursorY + nameSize,
     );

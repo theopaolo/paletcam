@@ -38,9 +38,18 @@ describe("getPaletteVersoData", () => {
 
     expect(versoData.layout).toBe("stripes");
     expect(versoData.entries.map((entry) => entry.color.r)).toEqual([20, 40, 30, 50, 10]);
-    expect(versoData.entries[0].shareLabel).toBe("30%");
+    expect(versoData.entries[0].share).toBeCloseTo(0.3, 5);
     const total = versoData.entries.reduce((sum, entry) => sum + entry.share, 0);
     expect(total).toBeCloseTo(1, 5);
+
+    // Stripe weights are eased for balance but keep the density order.
+    const weightTotal = versoData.entries.reduce((sum, entry) => sum + entry.stripeWeight, 0);
+    expect(weightTotal).toBeCloseTo(1, 5);
+    for (let i = 1; i < versoData.entries.length; i += 1) {
+      expect(versoData.entries[i].stripeWeight).toBeLessThanOrEqual(
+        versoData.entries[i - 1].stripeWeight,
+      );
+    }
   });
 
   test("falls back to equal shares when populations are missing", () => {
@@ -50,10 +59,11 @@ describe("getPaletteVersoData", () => {
 
     versoData.entries.forEach((entry) => {
       expect(entry.share).toBeCloseTo(0.2, 5);
+      expect(entry.stripeWeight).toBeCloseTo(0.2, 5);
     });
   });
 
-  test("keeps rare hues visible with a minimum stripe share", () => {
+  test("keeps rare hues visible with a minimum stripe weight", () => {
     const versoData = getPaletteVersoData(
       createPalette([
         { r: 1, g: 1, b: 1, population: 10000 },
@@ -65,7 +75,8 @@ describe("getPaletteVersoData", () => {
     );
 
     const smallest = versoData.entries[versoData.entries.length - 1];
-    expect(smallest.share).toBeGreaterThan(0.02);
+    expect(smallest.share).toBeLessThan(0.01);
+    expect(smallest.stripeWeight).toBeGreaterThan(0.03);
   });
 
   test("keeps palette order for plate layouts and falls back to hex names", () => {
