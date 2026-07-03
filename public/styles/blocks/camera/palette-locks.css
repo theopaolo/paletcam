@@ -1,0 +1,38 @@
+/* Padlock hints over the live palette bars: one flex column per swatch, so
+   the icons track the equal-width bars without touching the canvas. */
+
+.palette-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+.palette-lock-overlay:empty {
+  display: none;
+}
+
+.palette-lock-hint {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: var(--space-8);
+}
+
+.palette-lock-hint img {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+  opacity: 0.4;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.palette-lock-hint.is-locked img {
+  opacity: 0.85;
+}
+
+.palette-lock-hint.is-light-ink img {
+  filter: invert(1);
+}

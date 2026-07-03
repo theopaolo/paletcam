@@ -92,7 +92,8 @@ export function getPaletteVersoData(palette, names = []) {
   const shares = getColorShares(colors);
   const entries = colors.map((color, index) => {
     const hex = toColorNameHex(color);
-    const providedName = typeof names[index] === "string" ? names[index].trim() : "";
+    const providedName =
+      typeof names[index] === "string" ? names[index].trim() : "";
     return {
       color: { r: color.r, g: color.g, b: color.b },
       name: providedName || hex,
@@ -103,7 +104,8 @@ export function getPaletteVersoData(palette, names = []) {
     };
   });
 
-  const layout = entries.length >= STRIPE_LAYOUT_MIN_COLORS ? "stripes" : "plate";
+  const layout =
+    entries.length >= STRIPE_LAYOUT_MIN_COLORS ? "stripes" : "plate";
   if (layout === "stripes") {
     entries.sort((a, b) => b.share - a.share);
     const weights = getStripeWeights(entries.map((entry) => entry.share));
@@ -126,7 +128,7 @@ function createVersoName(entry) {
   title.textContent = entry.name;
 
   const values = document.createElement("span");
-  values.className = "palette-verso-values";
+  values.className = "palette-verso-values ";
   values.textContent = `${entry.hex} - ${entry.rgbLabel}`;
 
   name.append(title, values);
@@ -227,7 +229,9 @@ export function createPaletteVersoElement(palette, names = []) {
   const verso = document.createElement("div");
   verso.className = `palette-verso palette-verso--${versoData.layout}`;
   verso.appendChild(
-    versoData.layout === "plate" ? createPlateFace(versoData) : createStripesFace(versoData),
+    versoData.layout === "plate"
+      ? createPlateFace(versoData)
+      : createStripesFace(versoData),
   );
   return verso;
 }
@@ -272,13 +276,22 @@ function drawPlateExport(context, versoData) {
     context.fillText(entry.name, x, cursorY + nameSize);
     context.fillStyle = VERSO_MUTED;
     context.font = `${valueSize}px monospace`;
-    context.fillText(`${entry.hex} - ${entry.rgbLabel}`, x, cursorY + nameSize + valueSize + 4 * s);
+    context.fillText(
+      `${entry.hex} - ${entry.rgbLabel}`,
+      x,
+      cursorY + nameSize + valueSize + 4 * s,
+    );
   };
 
   captionRows.forEach((row, rowIndex) => {
     if (rowIndex > 0) {
       context.fillStyle = VERSO_PLATE_RULE;
-      context.fillRect(0.3 * EXPORT_WIDTH, cursorY - rowGap / 2, 0.4 * EXPORT_WIDTH, 1 * s);
+      context.fillRect(
+        0.3 * EXPORT_WIDTH,
+        cursorY - rowGap / 2,
+        0.4 * EXPORT_WIDTH,
+        1 * s,
+      );
     }
 
     if (row.length === 1) {
@@ -337,7 +350,12 @@ function drawStripesExport(context, versoData) {
     );
 
     context.fillStyle = VERSO_HAIRLINE;
-    context.fillRect(paddingX, cursorY + rowHeight - 2 * s, EXPORT_WIDTH - paddingX * 2, 1 * s);
+    context.fillRect(
+      paddingX,
+      cursorY + rowHeight - 2 * s,
+      EXPORT_WIDTH - paddingX * 2,
+      1 * s,
+    );
     cursorY += rowHeight + rowGap;
   });
 }

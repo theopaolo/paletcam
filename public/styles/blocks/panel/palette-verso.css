@@ -47,11 +47,7 @@
 /* Sized like the recto polaroid: contain-fit at the polaroid card ratio
    (1 / 1.22, see POLAROID_CARD_ASPECT_RATIO) inside the slide. */
 .palette-verso {
-  --verso-paper: #faf7f1;
-  --verso-ink: #2b2620;
-  --verso-muted: #7a7266;
-  --verso-hairline: #e6dfd1;
-  --verso-plate-rule: #d9d1c2;
+  --verso-hairline: rgb(0 0 0 / 20%);
 
   position: relative;
   /* stylelint-disable-next-line declaration-block-no-duplicate-properties -- plain width is the fallback for browsers without container query units */
@@ -59,8 +55,9 @@
   width: min(100cqw, calc(100cqh / 1.22));
   aspect-ratio: 1 / 1.22;
   overflow: hidden;
-  background: var(--verso-paper);
-  color: var(--verso-ink);
+  border-radius: 2px;
+  background: var(--color-polaroid-shell-light);
+  color: var(--color-surface-ink);
   font-family: var(--font-family-body);
   text-align: initial;
 }
@@ -89,14 +86,14 @@
 .palette-verso-name strong {
   display: block;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 1rem;
   line-height: 1.2;
 }
 
 .palette-verso-values {
   font-family: var(--font-family-mono);
-  font-size: 0.6rem;
-  color: var(--verso-muted);
+  font-size: 0.75rem;
+  color: var(--color-surface-base);
   white-space: nowrap;
 }
 
@@ -104,7 +101,7 @@
   height: 1px;
   margin: 0 20%;
   border: none;
-  background: var(--verso-plate-rule);
+  background: var(--verso-hairline);
 }
 
 .palette-verso-pair {
@@ -118,7 +115,7 @@
   width: 1px;
   height: 100%;
   min-height: 1.9rem;
-  background: var(--verso-plate-rule);
+  background: var(--verso-hairline);
 }
 
 /* ── density stripes (5+ colors): band flexes, caption is content-sized ── */
@@ -132,7 +129,7 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 5px;
+  padding: 1.5rem;
 }
 
 .palette-verso-band > div {
@@ -141,8 +138,8 @@
 
 .palette-verso-lines {
   display: grid;
-  gap: 0.4rem;
-  padding: 4.5% 6% 9%;
+  gap: 0.5rem;
+  padding: 1.5rem;
 }
 
 .palette-verso-line {
@@ -154,8 +151,12 @@
   border-bottom: 1px solid var(--verso-hairline);
 }
 
-.palette-verso-line strong {
+.palette-verso-line:last-child {
+  border-bottom: none;
+}
+
+/*.palette-verso-line strong {
   font-weight: 600;
   font-size: 0.78rem;
   white-space: nowrap;
-}
+}*/

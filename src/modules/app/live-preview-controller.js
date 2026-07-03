@@ -1,5 +1,4 @@
 import { drawFrameToCanvas } from "../camera-ui.js";
-import { toRgbCss } from "../color-format.js";
 import { rgbDistanceSquared } from "../color-math.js";
 import { relativeLuminance } from "../color-space-oklch.js";
 import { createColorSmoother } from "../color-smoothing.js";
@@ -72,6 +71,7 @@ export function createLivePreviewController({
   cameraFeed,
   frameCanvas,
   paletteCanvas,
+  paletteLockOverlay = null,
   analysisCanvas = document.createElement("canvas"),
   analysisContext = analysisCanvas.getContext("2d", { willReadFrequently: true }) ??
     analysisCanvas.getContext("2d"),
@@ -308,6 +308,7 @@ export function createLivePreviewController({
     }
     // Force repaint so unfrozen slots pick the live colors back up.
     lastPaintedColors = null;
+    syncSwatchLockHints(lastVisiblePaletteColors);
   }
 
   function clearFrozenSlots({ animate = false } = {}) {
@@ -454,67 +455,48 @@ export function createLivePreviewController({
     );
   }
 
-  // Padlock hint at the top center of a swatch bar: closed when the slot is
-  // frozen, open otherwise, so users discover that swatches are tappable.
-  function drawSwatchLockGlyph(context, centerX, topY, size, { isLocked, ink, holeColor }) {
-    const shackleRadius = size * 0.3;
-    const strokeWidth = Math.max(size * 0.14, 1);
-    const bodyWidth = size;
-    const bodyHeight = size * 0.76;
-    const bodyTop = topY + shackleRadius + strokeWidth / 2;
-    const cornerRadius = size * 0.16;
-
-    context.save();
-    context.globalAlpha = isLocked ? 0.85 : 0.42;
-    context.fillStyle = ink;
-    context.strokeStyle = ink;
-    context.lineWidth = strokeWidth;
-    context.lineCap = "round";
-
-    context.beginPath();
-    if (isLocked) {
-      context.arc(centerX, bodyTop, shackleRadius, Math.PI, Math.PI * 2, false);
-    } else {
-      // Shackle swung to the side with its right end lifted off the body.
-      context.arc(centerX + shackleRadius * 0.7, bodyTop, shackleRadius, Math.PI, Math.PI * 2 - 0.55, false);
-    }
-    context.stroke();
-
-    context.beginPath();
-    if (typeof context.roundRect === "function") {
-      context.roundRect(centerX - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight, cornerRadius);
-    } else {
-      context.rect(centerX - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
-    }
-    context.fill();
-
-    // Keyhole punched in the swatch's own color.
-    context.globalAlpha = 1;
-    context.fillStyle = holeColor;
-    context.beginPath();
-    context.arc(centerX, bodyTop + bodyHeight * 0.45, size * 0.11, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
+  // Padlock hint at the top center of each swatch bar: closed when the slot
+  // is frozen, open otherwise, so users discover that swatches are tappable.
+  function createSwatchLockHint() {
+    const hint = document.createElement("div");
+    hint.className = "palette-lock-hint";
+    const icon = document.createElement("img");
+    icon.alt = "";
+    hint.appendChild(icon);
+    return hint;
   }
 
-  function drawSwatchLockHints(context, colors, canvasWidth, canvasHeight) {
-    if (!canToggleFreeze() || !context || colors.length === 0) {
+  function syncSwatchLockHints(colors) {
+    if (!paletteLockOverlay) {
       return;
     }
 
-    const barWidth = canvasWidth / colors.length;
-    const size = Math.min(canvasHeight * 0.26, barWidth * 0.24);
-    if (size <= 0) {
+    if (!canToggleFreeze() || colors.length === 0) {
+      paletteLockOverlay.replaceChildren();
       return;
+    }
+
+    while (paletteLockOverlay.children.length < colors.length) {
+      paletteLockOverlay.appendChild(createSwatchLockHint());
+    }
+    while (paletteLockOverlay.children.length > colors.length) {
+      paletteLockOverlay.lastElementChild.remove();
     }
 
     colors.forEach((color, slot) => {
-      const isLightSwatch = relativeLuminance(color.r, color.g, color.b) > 0.179;
-      drawSwatchLockGlyph(context, barWidth * slot + barWidth / 2, canvasHeight * 0.07, size, {
-        isLocked: frozenSlots.has(slot),
-        ink: isLightSwatch ? "rgb(20 18 14)" : "rgb(250 248 244)",
-        holeColor: toRgbCss(color),
-      });
+      const hint = paletteLockOverlay.children[slot];
+      const icon = hint.querySelector("img");
+      const isLocked = frozenSlots.has(slot);
+      const iconSrc = isLocked ? "/icons/lock-close.svg" : "/icons/lock-open.svg";
+
+      if (icon.getAttribute("src") !== iconSrc) {
+        icon.setAttribute("src", iconSrc);
+      }
+      hint.classList.toggle("is-locked", isLocked);
+      hint.classList.toggle(
+        "is-light-ink",
+        relativeLuminance(color.r, color.g, color.b) <= 0.179,
+      );
     });
   }
 
@@ -540,6 +522,7 @@ export function createLivePreviewController({
     frozenSceneReference = (lastExtractedColors ?? []).map((color) => ({ ...color }));
     frozenSceneBreachCount = 0;
     lastPaintedColors = null;
+    syncSwatchLockHints(lastVisiblePaletteColors);
     triggerHaptic(HAPTIC_FREEZE_MS);
     return true;
   }
@@ -690,6 +673,7 @@ export function createLivePreviewController({
     lastPaintedColors = null;
     paintedPaletteWidth = 0;
     paintedPaletteHeight = 0;
+    paletteLockOverlay?.replaceChildren();
     latestPaletteWorkerDurationMs = null;
     cachedCameraTrackSettings = null;
     cameraTrackSettingsRefreshedAt = 0;
@@ -951,7 +935,7 @@ export function createLivePreviewController({
         const dominantColor = getDominantColor(displayColors);
 
         renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
-        drawSwatchLockHints(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
+        syncSwatchLockHints(displayColors);
         visualEffects.setPaletteRibbon?.(displayColors);
         lastPaintedColors = displayColors;
         paintedPaletteWidth = paletteCanvas.width;

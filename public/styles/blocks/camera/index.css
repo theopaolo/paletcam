@@ -2,6 +2,7 @@
 @import url("camera-exposure.css");
 @import url("camera-quality.css");
 @import url("camera-grid.css");
+@import url("palette-locks.css");
 
 .capture-flash {
   position: absolute;

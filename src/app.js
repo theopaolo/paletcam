@@ -59,6 +59,7 @@ const frameCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElement
 const paletteCanvas = /** @type {HTMLCanvasElement | null} */ (
   document.getElementById("canvas-palette")
 );
+const paletteLockOverlay = document.getElementById("paletteLockOverlay");
 const rotateButton = /** @type {HTMLButtonElement | null} */ (
   document.querySelector(".btn-rotate")
 );
@@ -378,6 +379,7 @@ livePreviewController = createLivePreviewController({
   cameraFeed,
   frameCanvas,
   paletteCanvas,
+  paletteLockOverlay,
   captureContainer,
   capturePaletteStage,
   originsOverlayCanvas: paletteOriginsOverlay,
