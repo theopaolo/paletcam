@@ -75,9 +75,9 @@
 
 .palette-verso-caption {
   position: absolute;
-  left: 10%;
-  right: 10%;
-  bottom: 8%;
+  left: clamp(5%, 5vw, 10%);
+  right: clamp(5%, 5vw, 10%);
+  bottom: clamp(4%, 5vw, 8%);
   display: grid;
   gap: 0.45rem;
   text-align: center;
@@ -86,13 +86,13 @@
 .palette-verso-name strong {
   display: block;
   font-weight: 600;
-  font-size: 1rem;
-  line-height: 1.2;
+  font-size: clamp(0.875rem, 1vw, 1rem);
+  line-height: 1;
 }
 
 .palette-verso-values {
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
+  font-size: clamp(0.5rem, 1vw, 0.75rem);
   color: var(--color-surface-base);
   white-space: nowrap;
 }
@@ -129,7 +129,7 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  padding: 1.5rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
 }
 
 .palette-verso-band > div {
@@ -139,7 +139,7 @@
 .palette-verso-lines {
   display: grid;
   gap: 0.5rem;
-  padding: 1.5rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
 }
 
 .palette-verso-line {
@@ -155,8 +155,9 @@
   border-bottom: none;
 }
 
-/*.palette-verso-line strong {
+.palette-verso-line strong {
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: clamp(0.75rem, 1vw, 0.85rem);
+  line-height: 1;
   white-space: nowrap;
-}*/
+}
