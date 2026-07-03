@@ -104,7 +104,7 @@ function getPaletteIdFromCacheKey(cacheKey) {
   }
 }
 
-async function downloadBlob(blob, filename) {
+export async function downloadBlob(blob, filename) {
   if (!blob) {
     return false;
   }

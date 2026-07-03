@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>catch verso harness</title>
+    <link rel="stylesheet" href="styles/settings/tokens.css" />
+    <link rel="stylesheet" href="styles/generic/fonts.css" />
+    <link rel="stylesheet" href="styles/blocks/panel/palette-verso.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 24px 12px 64px;
+        display: grid;
+        gap: 20px;
+        justify-items: center;
+        background: #191919;
+        font-family: "SNPro", sans-serif;
+      }
+
+      .harness-label {
+        justify-self: start;
+        margin: 0;
+        color: #888;
+        font-family: monospace;
+        font-size: 11px;
+      }
+
+      .verso-slot {
+        width: min(92vw, 340px);
+        height: calc(min(92vw, 340px) * 50 / 41);
+        box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+      }
+
+      .export-slot {
+        width: min(92vw, 340px);
+        box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+      }
+
+      .export-slot img {
+        display: block;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module" src="__verso-preview.js"></script>
+  </body>
+</html>

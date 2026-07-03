@@ -100,6 +100,7 @@ const fr = {
   "viewer.backToCamera": "Retour à l'appareil photo",
   "viewer.trackLabel": "Captures enregistrées",
   "viewer.previewAlt": "Aperçu de capture",
+  "viewer.flipAria": "Retourner la capture pour voir le détail de la palette",
   "viewer.previewUnavailable": "Aperçu indisponible",
   "viewer.loading": "Chargement...",
   "viewer.viewRalMatch": "Voir la correspondance RAL",

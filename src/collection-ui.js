@@ -16,17 +16,20 @@ import { createCommunityAutoLoginOpener } from "./community-homepage-link.js";
 import { t } from "./i18n.js";
 import { openLoginPanel } from "./login-ui.js";
 import { clientLog } from "./modules/client-log.js";
+import { getColorNames } from "./modules/color-name-api.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { createDayContentVirtualizer } from "./modules/collection/day-virtualizer.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
 import { createPaletteCard, createSwatchCard } from "./modules/collection/palette-card.js";
 import {
   disposePalettePreviewAsset,
+  downloadBlob,
   exportPalettePolaroidImage,
   getPaletteViewerPreviewAsset,
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
 } from "./modules/collection/palette-preview-assets.js";
+import { renderPaletteVersoBlob } from "./modules/collection/palette-verso.js";
 import {
   closePaletteViewerOverlay,
   openPaletteViewerOverlay,
@@ -265,6 +268,23 @@ async function handleExportPalette(palette) {
   });
 }
 
+async function handleExportPaletteVerso(palette) {
+  let exported = false;
+  try {
+    const names = await getColorNames(palette.colors);
+    const blob = await renderPaletteVersoBlob(palette, names);
+    exported = await downloadBlob(blob, `palette-${palette.id}-verso.png`);
+  } catch (error) {
+    reportAppError(error, {
+      logMessage: "Failed to export palette verso.",
+    });
+  }
+
+  showToast(exported ? t("collection.exportSuccess") : t("collection.exportFailed"), {
+    variant: exported ? "default" : "error",
+    duration: exported ? 1400 : 1800,
+  });
+}
 
 async function handleSharePalette(palette) {
   const result = await sharePalettePolaroidImage(palette);
@@ -506,6 +526,7 @@ function openCollectionPaletteViewer(paletteId) {
     canDelete: () => true,
     onShare: handleSharePalette,
     onExport: handleExportPalette,
+    onExportVerso: handleExportPaletteVerso,
     onPublish: (palette) => handlePublishPalette(palette, getPalettePublicationAction(palette)),
     onDelete: handleDeletePalette,
   });
@@ -969,6 +990,7 @@ export async function openDirectPaletteViewer(paletteId) {
     canDelete: () => true,
     onShare: handleSharePalette,
     onExport: handleExportPalette,
+    onExportVerso: handleExportPaletteVerso,
     onPublish: (p) => handlePublishPalette(p, getPalettePublicationAction(p)),
     onDelete: handleDeletePalette,
   });

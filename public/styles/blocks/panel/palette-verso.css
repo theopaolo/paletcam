@@ -1,0 +1,168 @@
+/* Catch verso: Sanzo Wada inspired palette plate shown when a catch is
+   flipped in the viewer. Paper/ink colors are artifact colors (they must
+   match the canvas export in palette-verso.js), not UI theme tokens. */
+
+.palette-viewer-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.55s var(--easing-standard);
+}
+
+.palette-viewer-flip:disabled {
+  cursor: default;
+}
+
+.palette-viewer-flip.is-flipped {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette-viewer-flip {
+    transition: none;
+  }
+}
+
+.palette-viewer-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+}
+
+.palette-viewer-face--verso {
+  transform: rotateY(180deg);
+}
+
+.palette-verso {
+  --verso-paper: #faf7f1;
+  --verso-ink: #2b2620;
+  --verso-muted: #7a7266;
+  --verso-faded: #a49a8b;
+  --verso-hairline: #e6dfd1;
+  --verso-plate-rule: #d9d1c2;
+
+  position: relative;
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  aspect-ratio: 41 / 50;
+  overflow: hidden;
+  background: var(--verso-paper);
+  color: var(--verso-ink);
+  font-family: var(--font-family-body);
+  text-align: initial;
+}
+
+/* ── cross plate (2-4 colors) ── */
+
+.palette-verso-plate {
+  position: absolute;
+  inset: 10% 9% 46%;
+}
+
+.palette-verso-block {
+  position: absolute;
+}
+
+.palette-verso-caption {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 8%;
+  display: grid;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.palette-verso-name strong {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+.palette-verso-values {
+  font-family: var(--font-family-mono);
+  font-size: 0.6rem;
+  color: var(--verso-muted);
+  white-space: nowrap;
+}
+
+.palette-verso-rule {
+  height: 1px;
+  margin: 0 20%;
+  border: none;
+  background: var(--verso-plate-rule);
+}
+
+.palette-verso-pair {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.palette-verso-divider {
+  width: 1px;
+  height: 100%;
+  min-height: 1.9rem;
+  background: var(--verso-plate-rule);
+}
+
+.palette-verso-date {
+  position: absolute;
+  right: 6%;
+  bottom: 3.2%;
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--verso-faded);
+}
+
+/* ── density stripes (5+ colors): band flexes, caption is content-sized ── */
+
+.palette-verso--stripes {
+  display: flex;
+  flex-direction: column;
+}
+
+.palette-verso-band {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 5px;
+}
+
+.palette-verso-band > div {
+  min-width: 0;
+}
+
+.palette-verso-lines {
+  display: grid;
+  gap: 0.4rem;
+  padding: 4.5% 6% 9%;
+}
+
+.palette-verso-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--verso-hairline);
+}
+
+.palette-verso-line strong {
+  font-weight: 600;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}

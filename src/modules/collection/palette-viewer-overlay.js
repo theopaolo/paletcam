@@ -2,7 +2,7 @@ import { subscribeAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { rgbToHsl } from "../color-math.js";
-import { toColorNameHex } from "../color-name-api.js";
+import { getColorNames, toColorNameHex } from "../color-name-api.js";
 import { relativeLuminance } from "../color-space-oklch.js";
 import { reportAppError } from "../error-reporting.js";
 import { loadImageElementBlobSource } from "../image-element-loader.js";
@@ -13,6 +13,7 @@ import {
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
 import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
+import { createPaletteVersoElement } from "./palette-verso.js";
 import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
@@ -359,6 +360,40 @@ function setBusy(nextBusy) {
   syncActionButtons();
 }
 
+function canPaletteFlip(palette) {
+  return !isRalCapture(palette) && Array.isArray(palette?.colors) && palette.colors.length >= 2;
+}
+
+async function buildSlideVerso(slideState, palette) {
+  if (slideState.versoBuildState !== "idle") {
+    return;
+  }
+
+  slideState.versoBuildState = "building";
+  let names = [];
+  try {
+    names = await getColorNames(palette.colors);
+  } catch (_error) {
+    names = [];
+  }
+
+  if (slideState.versoBuildState !== "building") {
+    return;
+  }
+
+  const verso = createPaletteVersoElement(palette, names);
+  if (verso) {
+    slideState.versoFace.replaceChildren(verso);
+  }
+  slideState.versoBuildState = "built";
+}
+
+function setSlideFlipped(slideState, isFlipped) {
+  slideState.isFlipped = isFlipped;
+  slideState.flip.classList.toggle("is-flipped", isFlipped);
+  slideState.flip.setAttribute("aria-pressed", String(isFlipped));
+}
+
 function createSlideState(palette, index) {
   const slide = document.createElement("article");
   slide.className = "palette-viewer-slide";
@@ -374,16 +409,46 @@ function createSlideState(palette, index) {
   status.className = "palette-viewer-status";
   status.textContent = canPalettePreview(palette) ? "" : t("viewer.previewUnavailable");
 
-  slide.append(image, status);
+  const flip = document.createElement("button");
+  flip.type = "button";
+  flip.className = "palette-viewer-flip";
+  flip.setAttribute("aria-pressed", "false");
+  flip.setAttribute("aria-label", t("viewer.flipAria"));
 
-  return {
+  const rectoFace = document.createElement("div");
+  rectoFace.className = "palette-viewer-face palette-viewer-face--recto";
+  rectoFace.append(image, status);
+
+  const versoFace = document.createElement("div");
+  versoFace.className = "palette-viewer-face palette-viewer-face--verso";
+
+  flip.append(rectoFace, versoFace);
+  slide.appendChild(flip);
+
+  const slideState = {
     paletteId: palette.id,
     slide,
+    flip,
+    versoFace,
     image,
     status,
+    isFlipped: false,
+    versoBuildState: canPaletteFlip(palette) ? "idle" : "unavailable",
     loadState: canPalettePreview(palette) ? "idle" : "unavailable",
     requestId: 0,
   };
+
+  if (canPaletteFlip(palette)) {
+    flip.addEventListener("click", () => {
+      hideRalPopover();
+      void buildSlideVerso(slideState, palette);
+      setSlideFlipped(slideState, !slideState.isFlipped);
+    });
+  } else {
+    flip.disabled = true;
+  }
+
+  return slideState;
 }
 
 function renderViewerTrack() {
@@ -472,6 +537,14 @@ async function loadSlideAsset(index) {
 function syncSlideCopy() {
   activeSession?.slideStates?.forEach((slideState) => {
     slideState.image.alt = t("viewer.previewAlt");
+    slideState.flip.setAttribute("aria-label", t("viewer.flipAria"));
+
+    // Verso content is locale-dependent (date label); rebuild on next flip.
+    if (slideState.versoBuildState === "built") {
+      slideState.versoBuildState = "idle";
+      slideState.versoFace.replaceChildren();
+      setSlideFlipped(slideState, false);
+    }
 
     if (slideState.loadState === "loading") {
       slideState.status.textContent = t("viewer.loading");
@@ -740,6 +813,12 @@ function bindViewerPanelEvents() {
     void runAction("onShare");
   });
   exportButton?.addEventListener("click", () => {
+    const slideState = activeSession?.slideStates?.[activeSession.activeIndex];
+    if (slideState?.isFlipped && typeof activeSession?.onExportVerso === "function") {
+      void runAction("onExportVerso");
+      return;
+    }
+
     void runAction("onExport");
   });
   publishButton?.addEventListener("click", () => {
@@ -768,6 +847,7 @@ export function openPaletteViewerOverlay({
   getPreviewAsset,
   onShare,
   onExport,
+  onExportVerso,
   onPublish,
   onDelete,
   getPublishAction,
@@ -794,6 +874,7 @@ export function openPaletteViewerOverlay({
     getPreviewAsset,
     onShare,
     onExport,
+    onExportVerso,
     onPublish,
     onDelete,
     getPublishAction,

@@ -6,6 +6,7 @@
 @import url("collection-panel.css");
 @import url("palette-card.css");
 @import url("palette-viewer.css");
+@import url("palette-verso.css");
 
 /* Shared panels */
 .collection-panel,

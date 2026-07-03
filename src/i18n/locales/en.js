@@ -99,6 +99,7 @@ const en = {
   "viewer.backToCamera": "Back to camera",
   "viewer.trackLabel": "Saved captures",
   "viewer.previewAlt": "Capture preview",
+  "viewer.flipAria": "Flip the capture to see the palette details",
   "viewer.previewUnavailable": "Preview unavailable",
   "viewer.loading": "Loading...",
   "viewer.viewRalMatch": "View RAL match",
