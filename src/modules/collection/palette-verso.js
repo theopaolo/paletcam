@@ -97,7 +97,7 @@ export function getPaletteVersoData(palette, names = []) {
       color: { r: color.r, g: color.g, b: color.b },
       name: providedName || hex,
       hex,
-      rgbLabel: `${color.r},${color.g},${color.b}`,
+      rgbLabel: `RGB(${color.r},${color.g},${color.b})`,
       share: shares[index],
       stripeWeight: shares[index],
     };
@@ -127,7 +127,7 @@ function createVersoName(entry) {
 
   const values = document.createElement("span");
   values.className = "palette-verso-values";
-  values.textContent = `${entry.hex} · ${entry.rgbLabel}`;
+  values.textContent = `${entry.hex} - ${entry.rgbLabel}`;
 
   name.append(title, values);
   return name;
@@ -203,7 +203,7 @@ function createStripesFace(versoData) {
 
     const values = document.createElement("span");
     values.className = "palette-verso-values";
-    values.textContent = `${entry.hex} · ${entry.rgbLabel}`;
+    values.textContent = `${entry.hex} - ${entry.rgbLabel}`;
 
     line.append(title, values);
     caption.appendChild(line);
@@ -272,7 +272,7 @@ function drawPlateExport(context, versoData) {
     context.fillText(entry.name, x, cursorY + nameSize);
     context.fillStyle = VERSO_MUTED;
     context.font = `${valueSize}px monospace`;
-    context.fillText(`${entry.hex} · ${entry.rgbLabel}`, x, cursorY + nameSize + valueSize + 4 * s);
+    context.fillText(`${entry.hex} - ${entry.rgbLabel}`, x, cursorY + nameSize + valueSize + 4 * s);
   };
 
   captionRows.forEach((row, rowIndex) => {
@@ -331,7 +331,7 @@ function drawStripesExport(context, versoData) {
     context.font = `${valueSize}px monospace`;
     context.textAlign = "right";
     context.fillText(
-      `${entry.hex} · ${entry.rgbLabel}`,
+      `${entry.hex} - ${entry.rgbLabel}`,
       EXPORT_WIDTH - paddingX,
       cursorY + nameSize,
     );

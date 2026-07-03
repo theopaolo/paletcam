@@ -97,6 +97,6 @@ describe("getPaletteVersoData", () => {
     ]);
     expect(versoData.entries[0].name).toBe("Fire Engine");
     expect(versoData.entries[1].name).toBe("#00FF00");
-    expect(versoData.entries[2].rgbLabel).toBe("0,0,255");
+    expect(versoData.entries[2].rgbLabel).toBe("RGB(0,0,255)");
   });
 });
