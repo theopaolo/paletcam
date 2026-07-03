@@ -1,5 +1,7 @@
 import { drawFrameToCanvas } from "../camera-ui.js";
+import { toRgbCss } from "../color-format.js";
 import { rgbDistanceSquared } from "../color-math.js";
+import { relativeLuminance } from "../color-space-oklch.js";
 import { createColorSmoother } from "../color-smoothing.js";
 import {
   extractPaletteColors,
@@ -452,6 +454,70 @@ export function createLivePreviewController({
     );
   }
 
+  // Padlock hint at the top center of a swatch bar: closed when the slot is
+  // frozen, open otherwise, so users discover that swatches are tappable.
+  function drawSwatchLockGlyph(context, centerX, topY, size, { isLocked, ink, holeColor }) {
+    const shackleRadius = size * 0.3;
+    const strokeWidth = Math.max(size * 0.14, 1);
+    const bodyWidth = size;
+    const bodyHeight = size * 0.76;
+    const bodyTop = topY + shackleRadius + strokeWidth / 2;
+    const cornerRadius = size * 0.16;
+
+    context.save();
+    context.globalAlpha = isLocked ? 0.85 : 0.42;
+    context.fillStyle = ink;
+    context.strokeStyle = ink;
+    context.lineWidth = strokeWidth;
+    context.lineCap = "round";
+
+    context.beginPath();
+    if (isLocked) {
+      context.arc(centerX, bodyTop, shackleRadius, Math.PI, Math.PI * 2, false);
+    } else {
+      // Shackle swung to the side with its right end lifted off the body.
+      context.arc(centerX + shackleRadius * 0.7, bodyTop, shackleRadius, Math.PI, Math.PI * 2 - 0.55, false);
+    }
+    context.stroke();
+
+    context.beginPath();
+    if (typeof context.roundRect === "function") {
+      context.roundRect(centerX - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight, cornerRadius);
+    } else {
+      context.rect(centerX - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
+    }
+    context.fill();
+
+    // Keyhole punched in the swatch's own color.
+    context.globalAlpha = 1;
+    context.fillStyle = holeColor;
+    context.beginPath();
+    context.arc(centerX, bodyTop + bodyHeight * 0.45, size * 0.11, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }
+
+  function drawSwatchLockHints(context, colors, canvasWidth, canvasHeight) {
+    if (!canToggleFreeze() || !context || colors.length === 0) {
+      return;
+    }
+
+    const barWidth = canvasWidth / colors.length;
+    const size = Math.min(canvasHeight * 0.26, barWidth * 0.24);
+    if (size <= 0) {
+      return;
+    }
+
+    colors.forEach((color, slot) => {
+      const isLightSwatch = relativeLuminance(color.r, color.g, color.b) > 0.179;
+      drawSwatchLockGlyph(context, barWidth * slot + barWidth / 2, canvasHeight * 0.07, size, {
+        isLocked: frozenSlots.has(slot),
+        ink: isLightSwatch ? "rgb(20 18 14)" : "rgb(250 248 244)",
+        holeColor: toRgbCss(color),
+      });
+    });
+  }
+
   function toggleSlotFreeze(slot) {
     if (frozenSlots.has(slot)) {
       releaseFrozenSlot(slot);
@@ -885,6 +951,7 @@ export function createLivePreviewController({
         const dominantColor = getDominantColor(displayColors);
 
         renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
+        drawSwatchLockHints(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
         visualEffects.setPaletteRibbon?.(displayColors);
         lastPaintedColors = displayColors;
         paintedPaletteWidth = paletteCanvas.width;
