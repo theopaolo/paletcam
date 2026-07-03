@@ -128,7 +128,7 @@ function createVersoName(entry) {
   title.textContent = entry.name;
 
   const values = document.createElement("span");
-  values.className = "palette-verso-values ";
+  values.className = "palette-verso-values";
   values.textContent = `${entry.hex} - ${entry.rgbLabel}`;
 
   name.append(title, values);
