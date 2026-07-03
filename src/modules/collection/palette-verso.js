@@ -1,4 +1,3 @@
-import { getIntlLocale } from "../../i18n.js";
 import { toColorNameHex } from "../color-name-api.js";
 import { toRgbCss } from "../color-format.js";
 
@@ -14,7 +13,6 @@ const MIN_STRIPE_SHARE = 0.03;
 const VERSO_PAPER = "#faf7f1";
 const VERSO_INK = "#2b2620";
 const VERSO_MUTED = "#7a7266";
-const VERSO_FADED = "#a49a8b";
 const VERSO_HAIRLINE = "#e6dfd1";
 const VERSO_PLATE_RULE = "#d9d1c2";
 
@@ -44,19 +42,6 @@ const PLATE_CAPTION_ROWS = {
   4: [[0], [1, 2], [3]],
 };
 
-function formatVersoDate(timestamp) {
-  const parsed = new Date(timestamp);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat(getIntlLocale(), {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(parsed);
-}
-
 function getColorShares(colors) {
   const populations = colors.map((color) => {
     const population = Number(color?.population);
@@ -80,7 +65,6 @@ function getColorShares(colors) {
  * @param {string[]} [names]  resolved color names, aligned with palette.colors
  * @returns {{
  *   layout: "plate" | "stripes",
- *   dateLabel: string,
  *   entries: Array<{
  *     color: { r: number, g: number, b: number },
  *     name: string,
@@ -118,7 +102,6 @@ export function getPaletteVersoData(palette, names = []) {
 
   return {
     layout,
-    dateLabel: formatVersoDate(palette.timestamp),
     entries,
   };
 }
@@ -183,11 +166,7 @@ function createPlateFace(versoData) {
     caption.appendChild(pair);
   });
 
-  const date = document.createElement("span");
-  date.className = "palette-verso-date";
-  date.textContent = versoData.dateLabel;
-
-  fragment.append(plate, caption, date);
+  fragment.append(plate, caption);
   return fragment;
 }
 
@@ -303,11 +282,6 @@ function drawPlateExport(context, versoData) {
 
     cursorY += rowHeight + rowGap;
   });
-
-  context.fillStyle = VERSO_FADED;
-  context.font = `500 ${10 * s}px SNPro, sans-serif`;
-  context.textAlign = "right";
-  context.fillText(versoData.dateLabel, EXPORT_WIDTH * 0.94, EXPORT_HEIGHT * 0.968);
 }
 
 function drawStripesExport(context, versoData) {

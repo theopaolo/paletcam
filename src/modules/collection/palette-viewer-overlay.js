@@ -539,13 +539,6 @@ function syncSlideCopy() {
     slideState.image.alt = t("viewer.previewAlt");
     slideState.flip.setAttribute("aria-label", t("viewer.flipAria"));
 
-    // Verso content is locale-dependent (date label); rebuild on next flip.
-    if (slideState.versoBuildState === "built") {
-      slideState.versoBuildState = "idle";
-      slideState.versoFace.replaceChildren();
-      setSlideFlipped(slideState, false);
-    }
-
     if (slideState.loadState === "loading") {
       slideState.status.textContent = t("viewer.loading");
       return;
