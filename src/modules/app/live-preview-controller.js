@@ -460,9 +460,11 @@ export function createLivePreviewController({
   function createSwatchLockHint() {
     const hint = document.createElement("div");
     hint.className = "palette-lock-hint";
+    const number = document.createElement("span");
+    number.className = "palette-lock-hint-number";
     const icon = document.createElement("img");
     icon.alt = "";
-    hint.appendChild(icon);
+    hint.append(number, icon);
     return hint;
   }
 
@@ -488,6 +490,18 @@ export function createLivePreviewController({
       const icon = hint.querySelector("img");
       const isLocked = frozenSlots.has(slot);
       const iconSrc = isLocked ? "/icons/lock-close.svg" : "/icons/lock-open.svg";
+
+      // Same numbering and disc style as the origin badges on the live
+      // frame (colored disc, dark ring, luma-picked ink), so the
+      // swatch-to-badge mapping is readable at a glance.
+      const number = hint.querySelector(".palette-lock-hint-number");
+      const label = String(slot + 1);
+      if (number.textContent !== label) {
+        number.textContent = label;
+      }
+      const luma = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+      number.style.backgroundColor = `rgb(${color.r} ${color.g} ${color.b})`;
+      number.style.color = luma > 150 ? "#000" : "#fff";
 
       if (icon.getAttribute("src") !== iconSrc) {
         icon.setAttribute("src", iconSrc);

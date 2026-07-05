@@ -16,16 +16,42 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--space-4);
   padding-top: var(--space-8);
+}
+
+/* Replica of the numbered origin badges drawn on the live frame
+   (palette-origins.js drawOriginMarkers): 22px colored disc, 2px dark
+   ring, bold 11px mono, black/white ink by luma — background and ink are
+   set inline from the swatch color, not theme tokens. Locked slots get
+   the same white outer ring as frozen markers. */
+.palette-lock-hint-number {
+  display: grid;
+  place-items: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border: 2px solid rgb(0 0 0 / 80%);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-family-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.palette-lock-hint.is-locked .palette-lock-hint-number {
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 95%);
 }
 
 .palette-lock-hint img {
   display: block;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.5rem;
+  height: 1.5rem;
   opacity: 0.4;
+  margin: auto;
   transition: opacity var(--duration-fast) var(--easing-standard);
 }
 
