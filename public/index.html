@@ -362,7 +362,7 @@
       data-panel-name="catch-details"
       panel-title="Capture"
       close-label="Retour à la galerie"
-      close-icon-src="icons/capture-panel-back.svg"
+      close-icon-src="icons/gallery.svg"
       data-i18n-panel-title="viewer.panelTitle"
       data-i18n-close-label="viewer.panelClose"
       hidden
@@ -377,7 +377,7 @@
       >
         <img
           class="catch-details-header-icon"
-          src="logo/colorcatchers.png"
+          src="icons/camera.svg"
           alt=""
           aria-hidden="true"
         />
@@ -393,24 +393,15 @@
           ></div>
         </div>
 
-        <div class="ral-popover" id="ralPopover" hidden>
-          <div class="ral-popover-color" id="ralPopoverColor"></div>
-          <div class="ral-popover-info">
-            <p class="ral-popover-code" id="ralPopoverCode"></p>
-            <p class="ral-popover-name" id="ralPopoverName"></p>
-            <p class="ral-popover-quality" id="ralPopoverQuality"></p>
-          </div>
-          <div class="ral-popover-codes">
-            <p class="ral-popover-hex" id="ralPopoverHex"></p>
-            <p class="ral-popover-rgb" id="ralPopoverRgb"></p>
-            <p class="ral-popover-hsl" id="ralPopoverHsl"></p>
-          </div>
+        <div class="palette-viewer-meta" id="catchDetailsMeta" hidden>
+          <p class="palette-viewer-meta-date" id="catchDetailsMetaDate"></p>
+          <p
+            class="palette-viewer-meta-position"
+            id="catchDetailsMetaPosition"
+            hidden
+          ></p>
         </div>
 
-        <!--<div
-            class="palette-viewer-swatch-strip"
-            id="catchDetailsSwatchStrip"
-          ></div>-->
         <div class="palette-viewer-actions">
           <button
             class="panel-icon-button panel-icon-button--viewer-action palette-action-delete"

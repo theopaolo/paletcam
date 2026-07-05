@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>color instrument — plate II</title>
+    <link rel="stylesheet" href="styles/settings/tokens.css" />
+    <link rel="stylesheet" href="styles/generic/fonts.css" />
+    <style>
+      /* exploration mock — nothing here is app CSS */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      body {
+        padding: 24px 12px 64px;
+        display: grid;
+        gap: 12px;
+        justify-items: center;
+        background: #161616;
+        font-family: var(--font-family-body);
+      }
+
+      .harness-label {
+        justify-self: start;
+        margin-top: 20px;
+        color: #888;
+        font-family: monospace;
+        font-size: 11px;
+      }
+
+      .harness-label strong {
+        color: #ccc;
+      }
+
+      .harness-note {
+        justify-self: start;
+        max-width: 460px;
+        color: #666;
+        font-family: monospace;
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .phone {
+        width: 340px;
+        display: grid;
+        overflow: hidden;
+        border-radius: 4px;
+      }
+
+      .bar {
+        width: min(92vw, 420px);
+      }
+
+      /* ============ PLATE II — paper, ink, one adaptive accent ============ */
+
+      .plate {
+        --accent: #3b62b0; /* live: a color from the user's palette */
+
+        background: #f5f3ee;
+        color: #161616;
+      }
+
+      .plate.accent-pink {
+        --accent: #e33a68;
+      }
+
+      /* top chrome: settings left, community is a first-class destination */
+      .plate-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px 4px;
+      }
+
+      .plate-top-glyph {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+      }
+
+      .plate-top-glyph img {
+        width: 20px;
+        height: 20px;
+        filter: invert(1) brightness(0.2);
+      }
+
+      .plate-community {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 38px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 999px;
+        background: #161616;
+        color: #f5f3ee;
+        font-family: var(--font-family-body);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .plate-community img {
+        width: 16px;
+        height: 16px;
+        filter: invert(1);
+      }
+
+      .plate-status {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 14px 10px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: rgb(22 22 22 / 45%);
+      }
+
+      .plate-status .is-on {
+        color: #161616;
+        box-shadow: 0 2px 0 var(--accent);
+      }
+
+      .plate-camera {
+        height: 190px;
+        margin: 0 14px;
+        background: #262626;
+      }
+
+      .plate-swatches {
+        display: flex;
+        height: 130px;
+        margin: 14px 14px 0;
+      }
+
+      .plate-swatches div {
+        flex: 1;
+      }
+
+      /* M3-expressive slider: the filled side is a living wavy line */
+      .plate-slider {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 14px 14px;
+        font-size: 10px;
+        font-weight: 600;
+        color: rgb(22 22 22 / 45%);
+      }
+
+      .plate-slider-track {
+        position: relative;
+        display: flex;
+        align-items: center;
+        height: 14px;
+      }
+
+      .plate-slider-track svg {
+        flex: none;
+        display: block;
+        color: var(--accent);
+      }
+
+      .plate-slider-rest {
+        flex: 1;
+        height: 1px;
+        background: rgb(22 22 22 / 25%);
+      }
+
+      .plate-slider-dot {
+        flex: none;
+        width: 12px;
+        height: 12px;
+        margin: 0 2px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .plate-slider-count {
+        position: absolute;
+        left: 33%;
+        bottom: 100%;
+        transform: translateX(-50%);
+        padding-bottom: 4px;
+        color: #161616;
+      }
+
+      .plate-bar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        padding: 14px;
+        border-top: 1px solid rgb(22 22 22 / 14%);
+      }
+
+      .plate-thumb {
+        width: 46px;
+        height: 36px;
+        border: 1px solid rgb(22 22 22 / 30%);
+        background: #d9d5cc;
+      }
+
+      .plate-shutter {
+        display: grid;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        padding: 0;
+        border: 2px solid #161616;
+        border-radius: 50%;
+        background: transparent;
+      }
+
+      .plate-shutter-disc {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #3b62b0; /* live: the color under the reticle */
+      }
+
+      .plate-glyph {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #161616;
+        justify-self: end;
+      }
+
+      .plate-glyph svg {
+        width: 22px;
+        height: 22px;
+        fill: currentcolor;
+      }
+
+      .plate-glyph img {
+        width: 22px;
+        height: 22px;
+        filter: invert(1) brightness(0.2);
+      }
+
+      .plate-glyph.is-danger {
+        color: #c03232;
+        justify-self: start;
+      }
+
+      /* M3-expressive loading: catching = accent blob slowly morphing */
+      .plate-loading {
+        display: grid;
+        place-items: center;
+        height: 170px;
+      }
+
+      .plate-blob {
+        width: 92px;
+        height: 92px;
+        background: var(--accent);
+        border-radius: 46% 54% 60% 40% / 55% 44% 56% 45%;
+        animation: blob-morph 4s ease-in-out infinite alternate;
+      }
+
+      @keyframes blob-morph {
+        0% {
+          border-radius: 46% 54% 60% 40% / 55% 44% 56% 45%;
+          transform: rotate(0deg) scale(1);
+        }
+
+        50% {
+          border-radius: 58% 42% 44% 56% / 42% 58% 42% 58%;
+          transform: rotate(12deg) scale(1.04);
+        }
+
+        100% {
+          border-radius: 40% 60% 52% 48% / 58% 40% 60% 42%;
+          transform: rotate(-8deg) scale(0.98);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .plate-blob {
+          animation: none;
+        }
+      }
+
+      .plate-loading-caption {
+        margin-top: 14px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgb(22 22 22 / 45%);
+      }
+
+      .plate-publish {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 22px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #f5f3ee;
+        font-family: var(--font-family-body);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .plate-publish svg {
+        width: 16px;
+        height: 16px;
+        fill: currentcolor;
+      }
+
+      .plate-publish.is-done {
+        background: transparent;
+        border: 1px solid rgb(22 22 22 / 35%);
+        color: rgb(22 22 22 / 60%);
+      }
+
+      /* library: MINE / COMMUNITY are peers — the archive is the point */
+      .plate-tabs {
+        display: flex;
+        gap: 26px;
+        padding: 14px 14px 0;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .plate-tab {
+        padding: 0 0 10px;
+        border: 0;
+        background: transparent;
+        color: rgb(22 22 22 / 40%);
+        font: inherit;
+        letter-spacing: inherit;
+        text-transform: inherit;
+      }
+
+      .plate-tab[aria-selected="true"] {
+        color: #161616;
+        box-shadow: 0 2px 0 var(--accent);
+      }
+
+      .plate-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 14px;
+        border-top: 1px solid rgb(22 22 22 / 14%);
+      }
+
+      .plate-chip {
+        padding: 8px 0;
+        border: 0;
+        background: transparent;
+        color: #161616;
+        font-family: var(--font-family-body);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .plate-chip span {
+        color: rgb(22 22 22 / 45%);
+      }
+
+      .plate-views {
+        display: flex;
+        gap: 6px;
+      }
+
+      .plate-view {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+      }
+
+      .plate-view img {
+        width: 20px;
+        height: 20px;
+        filter: invert(1) brightness(0.2);
+        opacity: 0.4;
+      }
+
+      .plate-view[aria-pressed="true"] img {
+        opacity: 1;
+      }
+
+      .plate-view[aria-pressed="true"]::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 14px;
+        height: 2px;
+        transform: translateX(-50%);
+        background: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <p class="harness-label"><strong>plate II</strong> — paper + ink chrome, one adaptive accent</p>
+    <p class="harness-note">
+      chrome is achromatic (ink on paper) · the ONE chromatic element of the
+      chrome is the accent, and the accent is not a brand color — it is a color
+      from the user's own palette (m3 dynamic color, but sourced from catches)
+      · m3-expressive motion where the app is alive: catching = morphing blob,
+      the count slider's filled side is a wavy line · community is a
+      first-class destination, worded, top right — settings stay behind the
+      gear, top left
+    </p>
+
+    <!-- 1. camera -->
+    <p class="harness-label">1. camera — accent from the user's palette (blue)</p>
+    <div class="phone plate">
+      <div class="plate-top">
+        <button class="plate-top-glyph" type="button" aria-label="Settings">
+          <img src="icons/settings.svg" alt="" />
+        </button>
+        <button class="plate-community" type="button">
+          <img src="icons/community.svg" alt="" />
+          Community
+        </button>
+      </div>
+      <div class="plate-status">
+        <span class="is-on">GRID</span>
+        <span>RAL</span>
+        <span>FHD</span>
+      </div>
+      <div class="plate-camera"></div>
+      <div class="plate-swatches">
+        <div style="background: #3b62b0"></div>
+        <div style="background: #f04d74"></div>
+        <div style="background: #78b447"></div>
+        <div style="background: #d8d6d0"></div>
+      </div>
+      <div class="plate-slider">
+        <span>3</span>
+        <div class="plate-slider-track">
+          <span class="plate-slider-count">4</span>
+          <svg width="86" height="14" viewBox="0 0 86 14" aria-hidden="true">
+            <path
+              d="M2 7 q 5.4 -7 10.75 0 t 10.75 0 t 10.75 0 t 10.75 0 t 10.75 0 t 10.75 0 t 10.75 0"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="plate-slider-dot"></span>
+          <span class="plate-slider-rest"></span>
+        </div>
+        <span>7</span>
+      </div>
+      <div class="plate-bar">
+        <div class="plate-thumb"></div>
+        <button class="plate-shutter" type="button" aria-label="Catch">
+          <span class="plate-shutter-disc"></span>
+        </button>
+        <button class="plate-glyph" type="button" aria-label="Gallery">
+          <img src="icons/gallery.svg" alt="" />
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. loading -->
+    <p class="harness-label">2. catching — m3-expressive loading, blob in the live color</p>
+    <div class="phone plate">
+      <div class="plate-loading">
+        <div style="display: grid; justify-items: center">
+          <div class="plate-blob"></div>
+          <p class="plate-loading-caption">Catching…</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. viewer actions, adaptive accent -->
+    <p class="harness-label">3a. viewer actions — same palette (blue accent)</p>
+    <div class="plate plate-bar bar">
+      <button class="plate-glyph is-danger" type="button" aria-label="Delete">
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"></path>
+        </svg>
+      </button>
+      <button class="plate-publish" type="button">
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path>
+        </svg>
+        Publish
+      </button>
+      <div style="display: flex; gap: 4px; justify-self: end">
+        <button class="plate-glyph" type="button" aria-label="Download">
+          <svg viewBox="0 0 256 256" aria-hidden="true">
+            <path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"></path>
+          </svg>
+        </button>
+        <button class="plate-glyph" type="button" aria-label="Share">
+          <svg viewBox="0 0 256 256" aria-hidden="true"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <p class="harness-label">3b. viewer actions — another capture (pink accent) — the ui re-tunes</p>
+    <div class="plate accent-pink plate-bar bar">
+      <button class="plate-glyph is-danger" type="button" aria-label="Delete">
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"></path>
+        </svg>
+      </button>
+      <button class="plate-publish" type="button">
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path>
+        </svg>
+        Publish
+      </button>
+      <div style="display: flex; gap: 4px; justify-self: end">
+        <button class="plate-glyph" type="button" aria-label="Download">
+          <svg viewBox="0 0 256 256" aria-hidden="true">
+            <path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"></path>
+          </svg>
+        </button>
+        <button class="plate-glyph" type="button" aria-label="Share">
+          <svg viewBox="0 0 256 256" aria-hidden="true"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4. library -->
+    <p class="harness-label">4. library — MINE / COMMUNITY are peers of the same archive</p>
+    <div class="phone plate">
+      <div class="plate-tabs" role="tablist">
+        <button class="plate-tab" type="button" role="tab" aria-selected="true">Mine · 128</button>
+        <button class="plate-tab" type="button" role="tab" aria-selected="false">
+          Community · 4.2k
+        </button>
+      </div>
+      <div style="height: 120px"></div>
+      <div class="plate-toolbar">
+        <button class="plate-chip" type="button">Published <span>· 34</span></button>
+        <div class="plate-views">
+          <button class="plate-view" type="button" aria-pressed="true" aria-label="List">
+            <img src="icons/capture-list.svg" alt="" />
+          </button>
+          <button class="plate-view" type="button" aria-pressed="false" aria-label="Grid">
+            <img src="icons/capture-grid.svg" alt="" />
+          </button>
+          <button class="plate-view" type="button" aria-pressed="false" aria-label="Swatches">
+            <img src="icons/swatches.svg" alt="" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <p class="harness-note">
+      settings (login, export, language) keep their home behind the gear — one
+      quiet glyph. community gets the loud spot: worded ink pill on the camera,
+      and in the library it is a peer tab of your own archive, so publishing
+      feeds a place you visit daily. the accent (underlines, slider wave, dot,
+      blob, publish pill) re-tunes to the palette in view — compare 3a vs 3b.
+    </p>
+  </body>
+</html>

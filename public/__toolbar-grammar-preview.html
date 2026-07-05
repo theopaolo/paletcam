@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>toolbar grammar mock</title>
+    <link rel="stylesheet" href="styles/index.css" />
+    <style>
+      /* mock-only scaffolding — everything prefixed .mock- is not app CSS */
+      body {
+        margin: 0;
+        padding: 24px 12px 64px;
+        display: grid;
+        gap: 10px;
+        justify-items: center;
+        background: #101010;
+      }
+
+      .harness-label {
+        justify-self: start;
+        margin: 18px 0 0;
+        color: #888;
+        font-family: monospace;
+        font-size: 11px;
+      }
+
+      .harness-label strong {
+        color: #ccc;
+      }
+
+      .harness-note {
+        justify-self: start;
+        margin: 0;
+        max-width: 440px;
+        color: #666;
+        font-family: monospace;
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .mock-bar {
+        width: min(92vw, 420px);
+      }
+
+      /* the app only shows the dock in palette mode; force it for the mock */
+      .mock-bar .camera-preview-dock {
+        display: block;
+      }
+
+      /* labels under proposed library-surface buttons need an anchor */
+      .mock-labeled {
+        position: relative;
+      }
+
+      .mock-thumb-fill {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(160deg, #2a2a2a, #101010 70%);
+      }
+
+      /* grouped viewer actions: delete left, publish hero center, save/share right */
+      .mock-actions-grouped {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        justify-items: start;
+        align-items: center;
+        padding-bottom: 0.75rem;
+      }
+
+      .mock-actions-grouped .mock-actions-cluster {
+        justify-self: end;
+      }
+
+      .mock-actions-cluster {
+        display: flex;
+        gap: var(--space-16);
+        align-items: center;
+      }
+
+      /* publish as the one labeled, wide action — the invitation */
+      .mock-publish-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-8);
+        appearance: none;
+        height: 3rem;
+        padding: 0 var(--space-16);
+        border-radius: var(--radius-pill);
+        border: 4px solid var(--color-surface-ink);
+        box-shadow: var(--shadow-chrome-tight);
+        background: linear-gradient(#1e1e1e, #1e1e1e);
+        color: var(--color-text-primary);
+        font-family: var(--font-family-body);
+        font-size: var(--font-size-sm);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .mock-publish-pill svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        fill: currentcolor;
+        flex-shrink: 0;
+      }
+
+      .mock-publish-pill--invite {
+        border-color: var(--color-accent-strong);
+        background: var(--color-accent-dim);
+        color: var(--color-text-accent);
+      }
+
+      .mock-publish-pill--done {
+        color: var(--color-text-secondary);
+      }
+
+      /* delete de-emphasis: outline only, no fill */
+      .mock-delete-outline {
+        background: transparent !important;
+        border-color: rgb(90 24 24 / 90%) !important;
+      }
+
+      /* collection toolbar mocks share the app bar treatment */
+      .mock-collection-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-8);
+        padding: var(--space-8) var(--space-16);
+        background:
+          var(--gradient-surface-sheen),
+          url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="1" seed="12"/><feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1.35 -0.45"/></filter><rect width="120" height="120" filter="url(%23n)" opacity="0.28"/></svg>');
+      }
+
+      .mock-collection-bar--current {
+        justify-content: flex-end;
+        gap: 0.375rem;
+      }
+
+      .mock-collection-bar--proposed {
+        justify-content: space-between;
+      }
+
+      .mock-filter-count {
+        display: inline-grid;
+        place-items: center;
+        min-width: 1.25rem;
+        height: 1.25rem;
+        padding: 0 var(--space-4);
+        margin-left: var(--space-4);
+        border-radius: var(--radius-pill);
+        background: rgb(255 255 255 / 14%);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .mock-view-cluster {
+        margin-left: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="harness-label"><strong>toolbar grammar</strong> — two grammars, per surface</p>
+    <p class="harness-note">
+      camera surface = wordless hardware: conventions carry it (Jakob), no
+      labels, no text, rainbow shutter is THE brand moment · library surfaces
+      (viewer, collection): known icons stay wordless too — words are reserved
+      for the one action we promote (publish) and for state (gold = active,
+      red = destructive only)
+    </p>
+
+    <!-- ============ 1. CAMERA BAR ============ -->
+    <p class="harness-label">1. camera bar — keep as is</p>
+    <div class="btn-containers mock-bar">
+      <div class="camera-preview-dock">
+        <div class="mock-thumb-fill"></div>
+      </div>
+      <div class="camera-actions toolbar">
+        <button class="btn-capture ml-auto" type="button" aria-label="Catch a palette">
+          <img src="logo/colorcatchers.svg" alt="" class="btn-shoot" aria-hidden="true" />
+        </button>
+        <button class="btn-view-collection ml-auto" type="button" aria-label="Open catches">
+          <img class="camera-action-icon" src="icons/gallery.svg" alt="" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+    <p class="harness-note">
+      already the iOS grammar: capture preview left · shutter center · gallery
+      right — no labels (camera convention is wordless), no badge, no flip
+      (paletcam points at the world, not at faces), rainbow logo stays: the
+      shutter is the one place the brand lives
+    </p>
+
+    <!-- ============ 2. VIEWER ACTIONS ============ -->
+    <p class="harness-label">2a. viewer actions — current</p>
+    <div class="palette-viewer-actions mock-bar">
+      <button
+        class="panel-icon-button panel-icon-button--viewer-action palette-action-delete"
+        type="button"
+        aria-label="Delete palette"
+      >
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"></path>
+        </svg>
+        <span class="palette-quick-action-label">delete</span>
+      </button>
+      <button
+        class="panel-icon-button panel-icon-button--viewer-action"
+        type="button"
+        aria-label="Publish palette"
+      >
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path>
+        </svg>
+        <span class="palette-quick-action-label">publish</span>
+      </button>
+      <button
+        class="panel-icon-button panel-icon-button--viewer-action"
+        type="button"
+        aria-label="Export palette"
+      >
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"></path>
+        </svg>
+        <span class="palette-quick-action-label">download</span>
+      </button>
+      <button
+        class="panel-icon-button panel-icon-button--viewer-action"
+        type="button"
+        aria-label="Share palette"
+      >
+        <svg viewBox="0 0 256 256" aria-hidden="true"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
+        <span class="palette-quick-action-label">share</span>
+      </button>
+    </div>
+
+    <p class="harness-label">2b. viewer actions — proposed (catch not published yet)</p>
+    <div class="palette-viewer-actions mock-bar mock-actions-grouped">
+      <button
+        class="panel-icon-button panel-icon-button--viewer-action palette-action-delete mock-delete-outline"
+        type="button"
+        aria-label="Delete palette"
+      >
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"></path>
+        </svg>
+      </button>
+      <button class="mock-publish-pill mock-publish-pill--invite" type="button">
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"></path>
+        </svg>
+        Publish
+      </button>
+      <div class="mock-actions-cluster">
+        <button
+          class="panel-icon-button panel-icon-button--viewer-action"
+          type="button"
+          aria-label="Export palette"
+        >
+          <svg viewBox="0 0 256 256" aria-hidden="true">
+            <path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"></path>
+          </svg>
+        </button>
+        <button
+          class="panel-icon-button panel-icon-button--viewer-action"
+          type="button"
+          aria-label="Share palette"
+        >
+          <svg viewBox="0 0 256 256" aria-hidden="true"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <p class="harness-label">2c. viewer actions — proposed (catch already published)</p>
+    <div class="palette-viewer-actions mock-bar mock-actions-grouped">
+      <button
+        class="panel-icon-button panel-icon-button--viewer-action palette-action-delete mock-delete-outline"
+        type="button"
+        aria-label="Delete palette"
+      >
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"></path>
+        </svg>
+      </button>
+      <button class="mock-publish-pill mock-publish-pill--done" type="button">
+        <svg viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M216,40H40A16,16,0,0,0,24,56V208a8,8,0,0,0,11.58,7.15L64,200.94l28.42,14.21a8,8,0,0,0,7.16,0L128,200.94l28.42,14.21a8,8,0,0,0,7.16,0L192,200.94l28.42,14.21A8,8,0,0,0,232,208V56A16,16,0,0,0,216,40Zm-58.34,98.34a8,8,0,0,1-11.32,11.32L128,131.31l-18.34,18.35a8,8,0,0,1-11.32-11.32L116.69,120,98.34,101.66a8,8,0,0,1,11.32-11.32L128,108.69l18.34-18.35a8,8,0,0,1,11.32,11.32L139.31,120Z"></path>
+        </svg>
+        Published
+      </button>
+      <div class="mock-actions-cluster">
+        <button
+          class="panel-icon-button panel-icon-button--viewer-action"
+          type="button"
+          aria-label="Export palette"
+        >
+          <svg viewBox="0 0 256 256" aria-hidden="true">
+            <path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"></path>
+          </svg>
+        </button>
+        <button
+          class="panel-icon-button panel-icon-button--viewer-action"
+          type="button"
+          aria-label="Share palette"
+        >
+          <svg viewBox="0 0 256 256" aria-hidden="true"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
+        </button>
+      </div>
+    </div>
+    <p class="harness-note">
+      publish is the hero: wide centered pill, the only action with a word —
+      gold invite when unpublished, quiet "published" state once done (tap to
+      unpublish) · bin and share drop their labels (known icons) · delete stays
+      outline-only, pinned left
+    </p>
+
+    <!-- ============ 3. COLLECTION TOOLBAR ============ -->
+    <p class="harness-label">3a. collection toolbar — current</p>
+    <div class="mock-collection-bar mock-collection-bar--current mock-bar">
+      <button
+        class="panel-icon-button panel-icon-button--toolbar collection-collapse-button"
+        type="button"
+        aria-label="Collapse all"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true" fill="none">
+          <path
+            d="M3.5 7.2 8 2.9l4.5 4.3M3.5 13.1 8 8.8l4.5 4.3"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+      <button class="panel-action-button" type="button">
+        Published <span class="mock-filter-count">34</span>
+      </button>
+      <div class="collection-view-switch" role="group" aria-label="View mode">
+        <button class="collection-view-option" type="button" aria-pressed="true" aria-label="List">
+          <img src="icons/capture-list.svg" alt="" />
+        </button>
+        <button class="collection-view-option" type="button" aria-pressed="false" aria-label="Grid">
+          <img src="icons/capture-grid.svg" alt="" />
+        </button>
+        <button
+          class="collection-view-option"
+          type="button"
+          aria-pressed="false"
+          aria-label="Swatches"
+        >
+          <img src="icons/swatches.svg" alt="" />
+        </button>
+      </div>
+    </div>
+
+    <p class="harness-label">3b. collection toolbar — proposed</p>
+    <div class="mock-collection-bar mock-collection-bar--proposed mock-bar">
+      <button class="btn-overlay-control" type="button" aria-pressed="true">
+        Published · 34
+      </button>
+      <div class="collection-view-switch mock-view-cluster" role="group" aria-label="View mode">
+        <button class="collection-view-option" type="button" aria-pressed="true" aria-label="List">
+          <img src="icons/capture-list.svg" alt="" />
+        </button>
+        <button class="collection-view-option" type="button" aria-pressed="false" aria-label="Grid">
+          <img src="icons/capture-grid.svg" alt="" />
+        </button>
+        <button
+          class="collection-view-option"
+          type="button"
+          aria-pressed="false"
+          aria-label="Swatches"
+        >
+          <img src="icons/swatches.svg" alt="" />
+        </button>
+      </div>
+    </div>
+    <p class="harness-note">
+      filter chip moves left and borrows the camera's GRID/FHD chip language
+      (gold = active, count inline) · view switch stays grouped and wordless,
+      as today · collapse-all chevron leaves the bar — it floats over the grid
+      only when scrolled, like a scroll-to-top
+    </p>
+  </body>
+</html>

@@ -16,19 +16,6 @@
   flex-shrink: 0;
 }
 
-.palette-quick-action-label {
-  position: absolute;
-  display: none;
-  bottom: -1.25rem;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-2xs);
-  font-weight: 600;
-  line-height: 1;
-  color: var(--color-text-secondary);
-  text-transform: capitalize;
-  pointer-events: none;
-}
-
 .palette-viewer-actions .panel-icon-button:active {
   background-color: var(--color-surface-shell);
 }
@@ -49,6 +36,100 @@
 .palette-action-delete:active {
   color: var(--color-danger-soft);
   background: rgb(58 12 12 / 96%);
+}
+
+/* Publish is the centerpiece: a wide pill with icon + label. The other
+   buttons keep their thick inset ring; the pill wears a thin 2px one. */
+.palette-viewer-actions .panel-icon-button.palette-action-publish {
+  --panel-icon-button-size: 2.5rem;
+
+  gap: var(--space-8);
+  width: auto;
+  min-width: 5rem;
+  padding-inline: var(--space-16);
+  border-width: 2px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.palette-action-label {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Keep the pill's content readable no matter which palette glows below. */
+.palette-viewer-actions .palette-action-publish .palette-action-label {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 55%);
+}
+
+.palette-viewer-actions .palette-action-publish svg {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 55%));
+}
+
+/* Publishable state gets the accent treatment; once published
+   ("unpublish" action) the pill goes quiet and keeps the default shell.
+   The 2px ring is painted by the palette gradient itself (border-box
+   layer under a padding-box fill), so it drifts along with the glow. */
+.palette-viewer-actions
+  .palette-action-publish:not([data-publish-state="unpublish"]) {
+  color: var(--color-text-primary);
+  border-color: transparent;
+  background:
+    linear-gradient(var(--color-surface-control), var(--color-surface-control))
+      padding-box,
+    var(--publish-glow-gradient, var(--gradient-accent-metal)) border-box;
+  background-size:
+    auto,
+    300% 100%;
+  animation: publish-glow-drift 14s var(--easing-standard) infinite alternate;
+}
+
+.palette-viewer-actions
+  .palette-action-publish:not([data-publish-state="unpublish"]):active {
+  background:
+    linear-gradient(var(--color-surface-shell), var(--color-surface-shell))
+      padding-box,
+    var(--publish-glow-gradient, var(--gradient-accent-metal)) border-box;
+  background-size:
+    auto,
+    300% 100%;
+}
+
+/* Soft animated glow built from the previewed palette's own colors. */
+.palette-viewer-actions
+  .palette-action-publish:not([data-publish-state="unpublish"])::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--publish-glow-gradient, none);
+  background-size: 300% 100%;
+  opacity: 0.6;
+  filter: blur(4px);
+  animation: publish-glow-drift 14s var(--easing-standard) infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes publish-glow-drift {
+  from {
+    background-position: 25% 50%;
+  }
+
+  to {
+    background-position: 75% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette-viewer-actions .palette-action-publish,
+  .palette-viewer-actions .palette-action-publish::before {
+    animation: none;
+  }
 }
 
 .catch-details-content {
@@ -101,7 +182,10 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: var(--color-surface-raised);
+
+  /* no background and drop-shadow (not box-shadow) so the halo hugs the
+     contain-fit photo instead of the letterboxed element box */
+  filter: drop-shadow(var(--shadow-card-lift));
 }
 
 .palette-viewer-status {
@@ -122,120 +206,54 @@
   display: none;
 }
 
-.ral-popover {
-  position: fixed;
-  width: 170px;
-  color: var(--color-text-primary);
-  background: var(--color-surface-base);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  z-index: 1200;
-  text-align: center;
-  pointer-events: none;
-  transition: opacity 0.15s var(--easing-standard);
+.palette-viewer-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-8)
+    calc(var(--space-16) + env(safe-area-inset-right, 0px)) var(--space-8)
+    calc(var(--space-16) + env(safe-area-inset-left, 0px));
+  background: var(--color-surface-raised);
 }
 
-.ral-popover[hidden] {
+.palette-viewer-meta[hidden] {
   display: none;
 }
 
-.ral-popover-color {
-  width: 100%;
-  height: 2.5rem;
-  border: 1px solid var(--color-border-subtle);
-}
-
-.ral-popover-info {
-  padding: var(--space-8) var(--space-8);
-  text-align: left;
-}
-
-.ral-popover-code {
-  margin: var(--space-8) 0 0;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-}
-
-.ral-popover-name {
+.palette-viewer-meta-date,
+.palette-viewer-meta-position {
   margin: 0;
-  font-size: var(--font-size-sm);
-  opacity: 0.8;
-}
-
-.ral-popover-quality {
-  margin: var(--space-4) 0 0;
   font-size: var(--font-size-xs);
-  color: var(--color-accent);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--color-text-muted);
   text-transform: uppercase;
 }
 
-.ral-popover-codes {
-  padding: var(--space-8);
-  border-top: 1px solid var(--color-border-subtle);
+.palette-viewer-meta-position {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
 }
 
-.ral-popover-hex,
-.ral-popover-rgb,
-.ral-popover-hsl {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  font-family: monospace;
-  color: var(--color-text-muted);
-  line-height: 1.6;
-}
-
-.palette-viewer-swatch-strip {
-  --palette-viewer-swatch-height: clamp(5rem, 20vh, 10rem);
-
-  display: flex;
-  gap: 0;
-  width: 100%;
-  padding: 0 var(--space-8) var(--space-8);
-}
-
-.palette-viewer-swatch-strip:empty {
-  visibility: hidden;
-}
-
-@media (height < 875px) {
-  .palette-viewer-swatch-strip {
-    display: none;
-  }
-}
-
-.palette-viewer-swatch {
-  position: relative;
-  display: block;
-  flex: 1;
-  min-width: 0;
-  height: var(--palette-viewer-swatch-height);
-  cursor: pointer;
-  padding: 0;
-  user-select: none;
-  overflow: hidden;
-  border: 0;
-  box-shadow:
-    inset 1px 0 0 rgb(255 255 255 / 9%),
-    inset 0 1px 0 rgb(255 255 255 / 6%),
-    inset 0 -1px 0 rgb(0 0 0 / 16%);
-}
-
-.palette-viewer-swatch.is-placeholder {
-  visibility: hidden;
-  pointer-events: none;
+.palette-viewer-meta-position[hidden] {
+  display: none;
 }
 
 .palette-viewer-actions {
   display: flex;
   gap: var(--space-control-gap);
   justify-content: space-between;
-  align-items: end;
+  align-items: center;
   width: 100%;
   background:
     var(--gradient-surface-sheen),
     url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="1" seed="12"/><feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1.35 -0.45"/></filter><rect width="120" height="120" filter="url(%23n)" opacity="0.28"/></svg>');
-  padding: var(--space-control-gap) calc(var(--space-8) + env(safe-area-inset-right, 0px))
-    calc(0.75rem + env(safe-area-inset-bottom, 0px))
+  padding: var(--space-control-gap)
+    calc(var(--space-8) + env(safe-area-inset-right, 0px))
+    calc(var(--space-24) + env(safe-area-inset-bottom, 0px))
     calc(var(--space-16) + env(safe-area-inset-left, 0px));
 }
 

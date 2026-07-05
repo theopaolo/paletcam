@@ -1,8 +1,13 @@
 # Catch viewer (preview) refinement — continuation plan
 
-Status: planned 2026-07-03, paused while the verso feature was built (tap-to-flip
-Sanzo Wada plate + export, shipped to pwa/preprod). This picks the viewer chrome
-work back up. The viewer is the `catch-details` shared panel:
+Status: implemented 2026-07-03 (same day as planned). Tasks 1-4 done, with
+these choices: Task 3 went the destination-icon route (new `icons/camera.svg`
+top-left, existing `icons/gallery.svg` as the close icon, no labels); the
+optional flipped-export label variant (Task 1) and the delete outline restyle
+(Task 4) were deliberately skipped. The RAL popover/swatch-strip dead code was
+deleted (incl. `ral-popover-position.js` + test). New token: `--shadow-card-lift`.
+Harness: `public/__viewer-chrome-preview.html`. The viewer is the
+`catch-details` shared panel:
 `src/modules/collection/palette-viewer-overlay.js` +
 `public/styles/blocks/panel/palette-viewer.css` + markup in `public/index.html`
 (search `catch-details`).

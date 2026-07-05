@@ -1,9 +1,5 @@
-import { subscribeAppSettings } from "../../app-settings.js";
-import { subscribeLocaleChange, t } from "../../i18n.js";
-import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
-import { rgbToHsl } from "../color-math.js";
-import { getColorNames, toColorNameHex } from "../color-name-api.js";
-import { relativeLuminance } from "../color-space-oklch.js";
+import { getIntlLocale, subscribeLocaleChange, t } from "../../i18n.js";
+import { getColorNames } from "../color-name-api.js";
 import { reportAppError } from "../error-reporting.js";
 import { loadImageElementBlobSource } from "../image-element-loader.js";
 import {
@@ -14,7 +10,6 @@ import {
 } from "../panels/panel-manager.js";
 import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
 import { createPaletteVersoElement } from "./palette-verso.js";
-import { computeRalPopoverPosition } from "./ral-popover-position.js";
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
 const shareButton = /** @type {HTMLButtonElement | null} */ (
@@ -32,22 +27,9 @@ const cameraButton = /** @type {HTMLButtonElement | null} */ (
 const deleteButton = /** @type {HTMLButtonElement | null} */ (
   document.getElementById("catchDetailsDeleteButton")
 );
-const ralPopover = document.getElementById("ralPopover");
-const ralPopoverColor = document.getElementById("ralPopoverColor");
-const ralPopoverCode = document.getElementById("ralPopoverCode");
-const ralPopoverName = document.getElementById("ralPopoverName");
-const ralPopoverQuality = document.getElementById("ralPopoverQuality");
-const ralPopoverHex = document.getElementById("ralPopoverHex");
-const ralPopoverRgb = document.getElementById("ralPopoverRgb");
-const ralPopoverHsl = document.getElementById("ralPopoverHsl");
-const swatchStripContainer = document.getElementById("catchDetailsSwatchStrip");
-
-// Move popover to body so position:fixed is relative to the true viewport,
-// not the shared-panel ancestor which uses transform: translateX() for its
-// slide-in animation (a transform creates a new containing block for fixed).
-if (ralPopover) {
-  document.body.appendChild(ralPopover);
-}
+const metaContainer = document.getElementById("catchDetailsMeta");
+const metaDate = document.getElementById("catchDetailsMetaDate");
+const metaPosition = document.getElementById("catchDetailsMetaPosition");
 
 let activeRequestId = 0;
 let activeSession;
@@ -116,10 +98,10 @@ function hydrateViewerActionButton(button, { label, iconName, visibleLabel }) {
   }
 
   button.setAttribute("aria-label", label);
-  button.innerHTML = `
-    ${getActionIconMarkup(iconName)}
-    <span class="palette-quick-action-label">${visibleLabel}</span>
-  `;
+  const labelMarkup = visibleLabel
+    ? `<span class="palette-action-label">${visibleLabel}</span>`
+    : "";
+  button.innerHTML = `${getActionIconMarkup(iconName)}${labelMarkup}`;
 }
 
 function clampIndex(index, length) {
@@ -185,146 +167,30 @@ function clearPendingTrackScroll() {
   pendingTrackScrollRaf = 0;
 }
 
-function hideRalPopover() {
-  if (ralPopover) {
-    ralPopover.hidden = true;
-    ralPopover.style.visibility = "";
-  }
-}
-
-function clearViewerSwatches() {
-  if (swatchStripContainer) {
-    swatchStripContainer.innerHTML = "";
-    swatchStripContainer.hidden = true;
-  }
-}
-
-function createViewerSwatch(color = null) {
-  const swatch = document.createElement("button");
-  swatch.type = "button";
-  swatch.className = "palette-viewer-swatch";
-  if (color) {
-    const hexLabel = toColorNameHex(color);
-    swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    swatch.setAttribute("aria-label", hexLabel);
-    if (relativeLuminance(color.r, color.g, color.b) > 0.179) {
-      swatch.classList.add("is-light-bg");
-    }
-  }
-  return swatch;
-}
-
-function showRalPopover(color, anchorElement) {
-  const matches = findClosestRAL(color.r, color.g, color.b, 1);
-  if (matches.length === 0 || !ralPopover) {
+function syncPublishButtonGlow() {
+  if (!publishButton) {
     return;
   }
 
-  const best = matches[0];
-  const deltaE = color.deltaE ?? best.deltaE;
-
-  if (ralPopoverColor) {
-    ralPopoverColor.style.backgroundColor = `rgb(${best.ral.r}, ${best.ral.g}, ${best.ral.b})`;
-  }
-  if (ralPopoverCode) {
-    ralPopoverCode.textContent = best.ral.code;
-  }
-  if (ralPopoverName) {
-    ralPopoverName.textContent = best.ral.name;
-  }
-  if (ralPopoverQuality) {
-    ralPopoverQuality.textContent = `${getRalQualityLabel(deltaE)}`;
-  }
-
-  if (ralPopoverHex) {
-    ralPopoverHex.textContent = `HEX ${toColorNameHex(color)}`;
-  }
-  if (ralPopoverRgb) {
-    ralPopoverRgb.textContent = `RGB ${color.r}, ${color.g}, ${color.b}`;
-  }
-  if (ralPopoverHsl) {
-    const { h, s, l } = rgbToHsl(color.r, color.g, color.b);
-    ralPopoverHsl.textContent = `HSL ${Math.round(h)}° ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
-  }
-
-  ralPopover.hidden = false;
-  ralPopover.style.visibility = "hidden";
-
-  const anchorRect = anchorElement.getBoundingClientRect();
-  const popoverRect = ralPopover.getBoundingClientRect();
-  const viewportW = visualViewport?.width ?? window.innerWidth;
-  const { left, top } = computeRalPopoverPosition(anchorRect, popoverRect, viewportW);
-
-  ralPopover.style.left = `${left}px`;
-  ralPopover.style.top = `${top}px`;
-  ralPopover.style.visibility = "";
-}
-
-function renderViewerSwatches(colors) {
-  if (!swatchStripContainer) {
+  const colors = getActivePalette()?.colors;
+  if (!Array.isArray(colors) || colors.length === 0) {
+    publishButton.style.removeProperty("--publish-glow-gradient");
     return;
   }
 
-  swatchStripContainer.innerHTML = "";
-  swatchStripContainer.hidden = false;
-
-  colors.forEach((color) => {
-    const swatch = createViewerSwatch(color);
-    swatch.addEventListener("click", (event) => {
-      event.stopPropagation();
-      showRalPopover(color, swatch);
-    });
-    swatchStripContainer.appendChild(swatch);
-  });
-}
-
-function renderViewerPlaceholderSwatch() {
-  if (!swatchStripContainer) {
-    return;
-  }
-
-  swatchStripContainer.innerHTML = "";
-  swatchStripContainer.hidden = false;
-
-  const swatch = createViewerSwatch();
-  swatch.classList.add("is-placeholder");
-  swatch.disabled = true;
-  swatch.tabIndex = -1;
-  swatch.setAttribute("aria-hidden", "true");
-  swatchStripContainer.appendChild(swatch);
-}
-
-function shouldShowViewerSwatches(palette) {
-  if (!Array.isArray(palette?.colors) || palette.colors.length === 0) {
-    return false;
-  }
-
-  return true;
-}
-
-function renderActivePaletteSupplementaryUi() {
-  const palette = getActivePalette();
-  hideRalPopover();
-  clearViewerSwatches();
-
-  if (!palette) {
-    return;
-  }
-
-  if (isRalCapture(palette)) {
-    return;
-  }
-
-  if (shouldShowViewerSwatches(palette)) {
-    renderViewerSwatches(palette.colors);
-    return;
-  }
-
-  renderViewerPlaceholderSwatch();
+  const stops = colors.map((color) => `rgb(${color.r} ${color.g} ${color.b})`);
+  stops.push(stops[0]);
+  publishButton.style.setProperty(
+    "--publish-glow-gradient",
+    `linear-gradient(90deg, ${stops.join(", ")})`,
+  );
 }
 
 function syncPublishButtonCopy() {
-  hydrateViewerActionButton(publishButton, getPublishButtonCopy()[getPublishAction()]);
+  const action = getPublishAction();
+  hydrateViewerActionButton(publishButton, getPublishButtonCopy()[action]);
+  publishButton?.setAttribute("data-publish-state", action);
+  syncPublishButtonGlow();
 }
 
 function syncActionButtons() {
@@ -349,10 +215,51 @@ function syncActionButtons() {
   }
 }
 
+function formatPaletteTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat(getIntlLocale(), {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function syncViewerMeta() {
+  if (!metaContainer) {
+    return;
+  }
+
+  const palette = getActivePalette();
+  if (!activeSession || !palette) {
+    metaContainer.hidden = true;
+    return;
+  }
+
+  metaContainer.hidden = false;
+
+  if (metaDate) {
+    const dateLabel = formatPaletteTimestamp(palette.timestamp);
+    const publishedLabel =
+      getPublishAction(palette) === "unpublish" ? t("viewer.meta.published") : "";
+    metaDate.textContent = [dateLabel, publishedLabel].filter(Boolean).join(" · ");
+  }
+
+  if (metaPosition) {
+    const total = activeSession.palettes.length;
+    const current = activeSession.activeIndex + 1;
+    metaPosition.hidden = total <= 1;
+    metaPosition.textContent = total > 1 ? `${current} / ${total}` : "";
+    metaPosition.setAttribute("aria-label", t("viewer.meta.positionAria", { current, total }));
+  }
+}
+
 function syncViewerChrome() {
   syncPublishButtonCopy();
   syncActionButtons();
-  renderActivePaletteSupplementaryUi();
+  syncViewerMeta();
 }
 
 function setBusy(nextBusy) {
@@ -440,7 +347,6 @@ function createSlideState(palette, index) {
 
   if (canPaletteFlip(palette)) {
     flip.addEventListener("click", () => {
-      hideRalPopover();
       void buildSlideVerso(slideState, palette);
       setSlideFlipped(slideState, !slideState.isFlipped);
     });
@@ -684,8 +590,7 @@ function resetViewerFrame() {
     viewerTrack.scrollLeft = 0;
   }
 
-  hideRalPopover();
-  clearViewerSwatches();
+  syncViewerMeta();
 }
 
 async function runAction(actionName) {
@@ -732,8 +637,6 @@ async function runAction(actionName) {
 }
 
 function handleTrackScroll() {
-  hideRalPopover();
-
   if (pendingTrackScrollRaf) {
     return;
   }
@@ -752,21 +655,11 @@ function handleWindowResize() {
   scheduleTrackAlignment();
 }
 
-function handleAppSettingsChange() {
-  if (!activeSession) {
-    return;
-  }
-
-  renderActivePaletteSupplementaryUi();
-}
-
 function handleViewerPanelClosing() {
   activeRequestId += 1;
   pendingAdjacentPreloadId += 1;
   activeSession = undefined;
   setBusy(false);
-  document.removeEventListener("click", hideRalPopover);
-  hideRalPopover();
 }
 
 function handleViewerPanelClosed() {
@@ -777,21 +670,18 @@ function handleLocaleChange() {
   hydrateViewerActionButton(shareButton, {
     label: t("viewer.action.shareAria"),
     iconName: "share",
-    visibleLabel: t("viewer.action.shareLabel"),
   });
   hydrateViewerActionButton(exportButton, {
     label: t("viewer.action.exportAria"),
     iconName: "export",
-    visibleLabel: t("viewer.action.exportLabel"),
   });
   hydrateViewerActionButton(deleteButton, {
     label: t("viewer.action.deleteAria"),
     iconName: "delete",
-    visibleLabel: t("viewer.action.deleteLabel"),
   });
   syncPublishButtonCopy();
   syncSlideCopy();
-  renderActivePaletteSupplementaryUi();
+  syncViewerMeta();
 }
 
 function bindViewerPanelEvents() {
@@ -826,7 +716,6 @@ function bindViewerPanelEvents() {
   });
   viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true });
   window.addEventListener("resize", handleWindowResize);
-  subscribeAppSettings(handleAppSettingsChange);
   subscribeLocaleChange(handleLocaleChange);
   subscribeSharedPanelClosing("catch-details", handleViewerPanelClosing);
   subscribeSharedPanelClosed("catch-details", handleViewerPanelClosed);
@@ -881,7 +770,6 @@ export function openPaletteViewerOverlay({
   renderViewerTrack();
   syncViewerChrome();
   setBusy(false);
-  document.addEventListener("click", hideRalPopover);
   openSharedPanel("catch-details", { closeOtherPanels: false });
   scheduleTrackAlignment();
 }

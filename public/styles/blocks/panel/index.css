@@ -35,5 +35,4 @@
   --shared-panel-body-display: grid;
   --shared-panel-body-overflow: hidden;
   --shared-panel-header-padding: var(--space-control-gap);
-  --shared-panel-close-icon-filter: invert(1);
 }

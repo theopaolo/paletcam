@@ -111,6 +111,7 @@
   --shadow-slider-thumb-active:
     inset 0 1px 1px rgb(255 255 255 / 10%), inset 0 -1px 2px rgb(0 0 0 / 78%),
     0 1px 1px rgb(0 0 0 / 68%), 0 0 7px rgb(255 224 109 / 45%);
+  --shadow-card-lift: 0 10px 30px rgb(0 0 0 / 45%);
 
   /* === Layout === */
   --app-height: 100vh;
