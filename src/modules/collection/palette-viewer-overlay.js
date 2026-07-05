@@ -332,6 +332,21 @@ function createSlideState(palette, index) {
   flip.append(rectoFace, versoFace);
   slide.appendChild(flip);
 
+  if (canPaletteFlip(palette)) {
+    const flipHint = document.createElement("span");
+    flipHint.className = "palette-viewer-flip-hint";
+    flipHint.setAttribute("aria-hidden", "true");
+    flipHint.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m17 2 4 4-4 4"></path>
+        <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+        <path d="m7 22-4-4 4-4"></path>
+        <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+      </svg>
+    `;
+    slide.appendChild(flipHint);
+  }
+
   const slideState = {
     paletteId: palette.id,
     slide,
@@ -347,6 +362,7 @@ function createSlideState(palette, index) {
 
   if (canPaletteFlip(palette)) {
     flip.addEventListener("click", () => {
+      flip.classList.remove("is-peeking");
       void buildSlideVerso(slideState, palette);
       setSlideFlipped(slideState, !slideState.isFlipped);
     });
@@ -497,6 +513,24 @@ function preloadNearbySlides() {
 
     void loadSlideAsset(previousIndex);
   });
+}
+
+function playFlipPeekHint() {
+  const slideState = activeSession?.slideStates?.[activeSession.activeIndex];
+  if (!slideState || slideState.flip.disabled || slideState.isFlipped) {
+    return;
+  }
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  slideState.flip.classList.add("is-peeking");
+  slideState.flip.addEventListener(
+    "animationend",
+    () => slideState.flip.classList.remove("is-peeking"),
+    { once: true },
+  );
 }
 
 function scrollToActiveSlide(behavior = "auto") {
@@ -772,6 +806,7 @@ export function openPaletteViewerOverlay({
   setBusy(false);
   openSharedPanel("catch-details", { closeOtherPanels: false });
   scheduleTrackAlignment();
+  playFlipPeekHint();
 }
 
 export function refreshPaletteViewerOverlay(options = {}) {
