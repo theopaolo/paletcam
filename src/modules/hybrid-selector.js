@@ -14,15 +14,6 @@ function lerpRgb(soft, vivid, t) {
   };
 }
 
-function oklabDistance(first, second) {
-  return Math.hypot(first.L - second.L, first.a - second.a, first.b - second.b);
-}
-
-function clusterHue(cluster) {
-  const hue = Math.atan2(cluster.b, cluster.a) * (180 / Math.PI);
-  return hue < 0 ? hue + 360 : hue;
-}
-
 function hueGap(hueA, hueB) {
   const delta = Math.abs(hueA - hueB);
   return Math.min(delta, 360 - delta) / 180;
