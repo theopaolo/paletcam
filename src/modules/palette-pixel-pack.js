@@ -30,7 +30,7 @@ export function packImageDataToArgb8888(
   imageData,
   frameWidth,
   frameHeight,
-  { maxPixels = DEFAULT_MAX_SAMPLED_PIXELS } = {}
+  { maxPixels = DEFAULT_MAX_SAMPLED_PIXELS } = {},
 ) {
   if (!imageData || frameWidth <= 0 || frameHeight <= 0) {
     return new Int32Array(0);
@@ -56,7 +56,7 @@ export function packImageDataToArgb8888(
       packedPixels[writeIndex] = packArgb8888(
         imageData[pixelIndex],
         imageData[pixelIndex + 1],
-        imageData[pixelIndex + 2]
+        imageData[pixelIndex + 2],
       );
       writeIndex += 1;
     }

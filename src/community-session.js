@@ -14,13 +14,14 @@ function normalizeSession(candidate) {
     return null;
   }
 
-  const user = candidate?.user && typeof candidate.user === "object"
-    ? {
-        id: String(candidate.user.id ?? ""),
-        name: typeof candidate.user.name === "string" ? candidate.user.name.trim() : "",
-        email: normalizeEmail(candidate.user.email),
-      }
-    : null;
+  const user =
+    candidate?.user && typeof candidate.user === "object"
+      ? {
+          id: String(candidate.user.id ?? ""),
+          name: typeof candidate.user.name === "string" ? candidate.user.name.trim() : "",
+          email: normalizeEmail(candidate.user.email),
+        }
+      : null;
 
   const email = normalizeEmail(candidate?.email || user?.email);
 

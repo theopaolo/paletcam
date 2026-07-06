@@ -11,11 +11,7 @@ import {
   subscribeCommunitySession,
 } from "../community-session.js";
 import { getSavedPalettes, updatePaletteRemoteState } from "../palette-storage.js";
-import {
-  createCommunityServiceError,
-  getAuthTokenOrThrow,
-  mapApiError,
-} from "./errors.js";
+import { createCommunityServiceError, getAuthTokenOrThrow, mapApiError } from "./errors.js";
 import { getPaletteRemoteCatchId } from "./palette-state.js";
 
 function normalizeEmail(email) {
@@ -29,10 +25,7 @@ function normalizeEmail(email) {
 export async function sendCommunityLoginOtp(email) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) {
-    throw createCommunityServiceError(
-      "Email is required.",
-      { code: "MISSING_EMAIL" },
-    );
+    throw createCommunityServiceError("Email is required.", { code: "MISSING_EMAIL" });
   }
 
   try {
@@ -48,17 +41,11 @@ export async function verifyCommunityLoginOtp({ email, code }) {
   const normalizedCode = String(code || "").trim();
 
   if (!normalizedEmail) {
-    throw createCommunityServiceError(
-      "Email is required.",
-      { code: "MISSING_EMAIL" },
-    );
+    throw createCommunityServiceError("Email is required.", { code: "MISSING_EMAIL" });
   }
 
   if (!normalizedCode) {
-    throw createCommunityServiceError(
-      "Code is required.",
-      { code: "MISSING_CODE" },
-    );
+    throw createCommunityServiceError("Code is required.", { code: "MISSING_CODE" });
   }
 
   try {
@@ -68,10 +55,9 @@ export async function verifyCommunityLoginOtp({ email, code }) {
     });
     const token = String(payload?.token || "").trim();
     if (!token) {
-      throw createCommunityServiceError(
-        "Missing token in verification response.",
-        { code: "MISSING_TOKEN" },
-      );
+      throw createCommunityServiceError("Missing token in verification response.", {
+        code: "MISSING_TOKEN",
+      });
     }
 
     return setCommunitySession({
@@ -107,10 +93,7 @@ export async function confirmAccountDeletion({ code }) {
   const normalizedCode = String(code || "").trim();
 
   if (!normalizedCode) {
-    throw createCommunityServiceError(
-      "Code is required.",
-      { code: "MISSING_CODE" },
-    );
+    throw createCommunityServiceError("Code is required.", { code: "MISSING_CODE" });
   }
 
   try {

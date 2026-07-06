@@ -90,11 +90,7 @@ describe("getPaletteVersoData", () => {
     );
 
     expect(versoData.layout).toBe("plate");
-    expect(versoData.entries.map((entry) => entry.hex)).toEqual([
-      "#FF0000",
-      "#00FF00",
-      "#0000FF",
-    ]);
+    expect(versoData.entries.map((entry) => entry.hex)).toEqual(["#FF0000", "#00FF00", "#0000FF"]);
     expect(versoData.entries[0].name).toBe("Fire Engine");
     expect(versoData.entries[1].name).toBe("#00FF00");
     expect(versoData.entries[2].rgbLabel).toBe("RGB(0,0,255)");

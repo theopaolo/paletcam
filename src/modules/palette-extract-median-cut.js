@@ -1,11 +1,11 @@
-import { ColorCutQuantizer } from './color-cut-quantizer.js';
-import { packImageDataToArgb8888 } from './palette-pixel-pack.js';
+import { ColorCutQuantizer } from "./color-cut-quantizer.js";
+import { packImageDataToArgb8888 } from "./palette-pixel-pack.js";
 import {
   buildHueRarityMap,
   createPaletteScoringProfile,
   scoreCandidate,
-} from './palette-scoring.js';
-import { selectPaletteHybrid } from './hybrid-selector.js';
+} from "./palette-scoring.js";
+import { selectPaletteHybrid } from "./hybrid-selector.js";
 
 const MIN_SWATCH_COUNT = 1;
 export const DEFAULT_QUANTIZED_POOL_SIZE = 24;
@@ -49,11 +49,17 @@ function getPopulationScore(population, maxPopulation) {
   return Math.log1p(population) / Math.log1p(maxPopulation);
 }
 
-function scoreMedianCutCandidate(candidate, chosenColors, rarityMap, maxPopulation, scoringProfile) {
+function scoreMedianCutCandidate(
+  candidate,
+  chosenColors,
+  rarityMap,
+  maxPopulation,
+  scoringProfile,
+) {
   const baseScore = scoreCandidate(candidate, chosenColors, rarityMap, scoringProfile);
   const populationScore = getPopulationScore(candidate.population ?? 0, maxPopulation);
 
-  return (BASE_SCORE_WEIGHT * baseScore) + (POPULATION_WEIGHT * populationScore);
+  return BASE_SCORE_WEIGHT * baseScore + POPULATION_WEIGHT * populationScore;
 }
 
 function rankQuantizedCandidates(candidatePool, swatchCount, scoringProfile) {
@@ -61,7 +67,8 @@ function rankQuantizedCandidates(candidatePool, swatchCount, scoringProfile) {
   const used = new Set();
   const rarityMap = buildHueRarityMap(candidatePool);
   const maxPopulation = candidatePool.reduce(
-    (currentMax, candidate) => Math.max(currentMax, candidate.population ?? 0), 0
+    (currentMax, candidate) => Math.max(currentMax, candidate.population ?? 0),
+    0,
   );
   const maxPickCount = Math.min(swatchCount, candidatePool.length);
 
@@ -80,7 +87,7 @@ function rankQuantizedCandidates(candidatePool, swatchCount, scoringProfile) {
         chosenColors,
         rarityMap,
         maxPopulation,
-        scoringProfile
+        scoringProfile,
       );
       if (score > bestScore) {
         bestScore = score;
@@ -121,7 +128,8 @@ export function extractMedianCutPaletteColors(
     scoring,
     hybrid,
     selector,
-  } = {} ) {
+  } = {},
+) {
   const normalizedSwatchCount = clampSwatchCount(swatchCount);
 
   if (!imageData || frameWidth <= 0 || frameHeight <= 0) {
@@ -156,7 +164,7 @@ export function extractMedianCutPaletteColors(
 
   const targetQuantizedSwatchCount = Math.max(
     normalizedSwatchCount,
-    getQuantizedPoolSize(quantizedPoolSize)
+    getQuantizedPoolSize(quantizedPoolSize),
   );
 
   const quantizer = new ColorCutQuantizer(packedPixels, targetQuantizedSwatchCount);
@@ -171,7 +179,7 @@ export function extractMedianCutPaletteColors(
   const candidatePool = [];
 
   for (const swatch of quantizedSwatches) {
-    if (!swatch || typeof swatch.rgb !== 'number') {
+    if (!swatch || typeof swatch.rgb !== "number") {
       continue;
     }
 

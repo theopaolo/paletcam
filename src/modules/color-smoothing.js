@@ -57,17 +57,21 @@ function averageAccumulatedColors(accumulator) {
   const averaged = [];
 
   for (let i = 0; i < swatchCount; i++) {
-    let totalR = 0, totalG = 0, totalB = 0;
+    let totalR = 0,
+      totalG = 0,
+      totalB = 0;
     for (let f = 0; f < frameCount; f++) {
       totalR += accumulator[f][i].r;
       totalG += accumulator[f][i].g;
       totalB += accumulator[f][i].b;
     }
-    averaged.push(buildRgbColor(
-      Math.round(totalR / frameCount),
-      Math.round(totalG / frameCount),
-      Math.round(totalB / frameCount)
-    ));
+    averaged.push(
+      buildRgbColor(
+        Math.round(totalR / frameCount),
+        Math.round(totalG / frameCount),
+        Math.round(totalB / frameCount),
+      ),
+    );
   }
 
   return averaged;

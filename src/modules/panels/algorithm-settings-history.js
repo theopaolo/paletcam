@@ -1,7 +1,4 @@
-import {
-  areAlgorithmSettingsEqual,
-  cloneAlgorithmSettings,
-} from "../algorithm-settings.js";
+import { areAlgorithmSettingsEqual, cloneAlgorithmSettings } from "../algorithm-settings.js";
 
 export function createAlgorithmSettingsHistory({ initialSnapshot }) {
   let currentSnapshot = cloneAlgorithmSettings(initialSnapshot);

@@ -24,16 +24,12 @@ export function cloneAlgorithmSettings(settings) {
 export function areAlgorithmSettingsEqual(firstSettings, secondSettings) {
   return (
     firstSettings.paletteSelector === secondSettings.paletteSelector &&
-    firstSettings.medianCut.quantizedPoolSize ===
-      secondSettings.medianCut.quantizedPoolSize &&
-    firstSettings.medianCut.maxQuantizerPixels ===
-      secondSettings.medianCut.maxQuantizerPixels &&
-    firstSettings.paletteScoring.chromaWeight ===
-      secondSettings.paletteScoring.chromaWeight &&
+    firstSettings.medianCut.quantizedPoolSize === secondSettings.medianCut.quantizedPoolSize &&
+    firstSettings.medianCut.maxQuantizerPixels === secondSettings.medianCut.maxQuantizerPixels &&
+    firstSettings.paletteScoring.chromaWeight === secondSettings.paletteScoring.chromaWeight &&
     firstSettings.paletteScoring.lumaSpreadWeight ===
       secondSettings.paletteScoring.lumaSpreadWeight &&
-    firstSettings.paletteScoring.rarityWeight ===
-      secondSettings.paletteScoring.rarityWeight &&
+    firstSettings.paletteScoring.rarityWeight === secondSettings.paletteScoring.rarityWeight &&
     firstSettings.paletteScoring.diversityWeight ===
       secondSettings.paletteScoring.diversityWeight &&
     firstSettings.hybrid.repulsionRadius === secondSettings.hybrid.repulsionRadius &&

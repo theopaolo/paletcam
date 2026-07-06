@@ -19,9 +19,7 @@ function normalizeColor(color) {
 }
 
 export function normalizeColorsForApi(colors) {
-  return Array.isArray(colors)
-    ? colors.map((color) => normalizeColor(color)).filter(Boolean)
-    : [];
+  return Array.isArray(colors) ? colors.map((color) => normalizeColor(color)).filter(Boolean) : [];
 }
 
 export function getPaletteTimestamp(palette) {
@@ -52,7 +50,11 @@ function normalizeRalProximity(ralMatch) {
 }
 
 function getRalPublishMetadata(palette) {
-  if (palette?.captureMode !== "ral" || !palette?.ralMatch || typeof palette.ralMatch !== "object") {
+  if (
+    palette?.captureMode !== "ral" ||
+    !palette?.ralMatch ||
+    typeof palette.ralMatch !== "object"
+  ) {
     return {};
   }
 

@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.2/schema.json",
   "files": {
-    "includes": ["**", "!dist", "!vendor", "!src/vendor"]
+    "includes": [
+      "**",
+      "!dist",
+      "!vendor",
+      "!src/vendor",
+      "!.sisyphus",
+      "!public/__*",
+      "!public/debug-*.html"
+    ]
   },
   "assist": {
     "actions": {
@@ -43,9 +51,7 @@
   },
   "css": {
     "formatter": {
-      "enabled": true,
-      "indentStyle": "space",
-      "indentWidth": 2
+      "enabled": false
     },
     "linter": {
       "enabled": true

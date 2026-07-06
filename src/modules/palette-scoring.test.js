@@ -1,13 +1,13 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from "bun:test";
 
 import {
   buildHueRarityMap,
   createPaletteScoringProfile,
   scoreCandidate,
-} from './palette-scoring.js';
+} from "./palette-scoring.js";
 
-describe('createPaletteScoringProfile', () => {
-  test('normalizes weights so the profile sums to 1', () => {
+describe("createPaletteScoringProfile", () => {
+  test("normalizes weights so the profile sums to 1", () => {
     const profile = createPaletteScoringProfile({
       chromaWeight: 2,
       lumaSpreadWeight: 3,
@@ -28,7 +28,7 @@ describe('createPaletteScoringProfile', () => {
     expect(totalWeight).toBeCloseTo(1, 8);
   });
 
-  test('falls back to the default distribution when all weights are zero', () => {
+  test("falls back to the default distribution when all weights are zero", () => {
     const profile = createPaletteScoringProfile({
       chromaWeight: 0,
       lumaSpreadWeight: 0,
@@ -43,8 +43,8 @@ describe('createPaletteScoringProfile', () => {
   });
 });
 
-describe('buildHueRarityMap', () => {
-  test('ignores near-grey colors when building hue buckets', () => {
+describe("buildHueRarityMap", () => {
+  test("ignores near-grey colors when building hue buckets", () => {
     const pool = [
       { r: 128, g: 128, b: 128 },
       { r: 120, g: 122, b: 121 },
@@ -62,8 +62,8 @@ describe('buildHueRarityMap', () => {
   });
 });
 
-describe('scoreCandidate', () => {
-  test('gives a higher score to the candidate farther from already chosen colors', () => {
+describe("scoreCandidate", () => {
+  test("gives a higher score to the candidate farther from already chosen colors", () => {
     const scoringProfile = createPaletteScoringProfile({
       chromaWeight: 0,
       lumaSpreadWeight: 0,

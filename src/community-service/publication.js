@@ -5,21 +5,11 @@ import {
   unpublishCatchFromCommunity,
 } from "../community-api.js";
 import { getCommunityAccessToken } from "../community-session.js";
-import {
-  ensurePaletteMasterPhotoBlob,
-  updatePaletteRemoteState,
-} from "../palette-storage.js";
+import { ensurePaletteMasterPhotoBlob, updatePaletteRemoteState } from "../palette-storage.js";
 import { buildCommunityCatchPublishPayload } from "../modules/community-publish-payload.js";
 import { reportAppError } from "../modules/error-reporting.js";
-import {
-  createCommunityServiceError,
-  getAuthTokenOrThrow,
-  mapApiError,
-} from "./errors.js";
-import {
-  applyPaletteRemoteState,
-  getPaletteRemoteCatchId,
-} from "./palette-state.js";
+import { createCommunityServiceError, getAuthTokenOrThrow, mapApiError } from "./errors.js";
+import { applyPaletteRemoteState, getPaletteRemoteCatchId } from "./palette-state.js";
 
 async function blobToBase64(blob) {
   const buffer = await blob.arrayBuffer();
@@ -34,10 +24,7 @@ async function blobToBase64(blob) {
 function buildRemoteDeletionCleanupAuthRequiredResult(remoteCatchId) {
   return {
     attempted: false,
-    error: createCommunityServiceError(
-      "Authentication required.",
-      { code: "NOT_AUTHENTICATED" },
-    ),
+    error: createCommunityServiceError("Authentication required.", { code: "NOT_AUTHENTICATED" }),
     remoteCatchId,
     status: "authentication_required",
     success: false,
@@ -103,9 +90,7 @@ export async function cleanupRemoteCatchForDeletionByRemoteCatchId(remoteCatchId
       };
     }
 
-    const mappedError = error?.name === "CommunityServiceError"
-      ? error
-      : mapApiError(error);
+    const mappedError = error?.name === "CommunityServiceError" ? error : mapApiError(error);
 
     if (mappedError?.code === "AUTH_EXPIRED" || mappedError?.code === "NOT_AUTHENTICATED") {
       return {
@@ -140,10 +125,7 @@ export async function cleanupRemoteCatchForDeletionByRemoteCatchId(remoteCatchId
  */
 export async function cleanupPaletteRemoteCatchForDeletion(palette) {
   if (!palette || typeof palette !== "object") {
-    throw createCommunityServiceError(
-      "Palette is required.",
-      { code: "MISSING_PALETTE" },
-    );
+    throw createCommunityServiceError("Palette is required.", { code: "MISSING_PALETTE" });
   }
 
   const remoteCatchId = getPaletteRemoteCatchId(palette);
@@ -170,49 +152,35 @@ export async function cleanupPaletteRemoteCatchForDeletion(palette) {
  */
 export async function publishPaletteToCommunityFeed(palette) {
   if (!palette || typeof palette !== "object") {
-    throw createCommunityServiceError(
-      "Palette is required.",
-      { code: "MISSING_PALETTE" },
-    );
+    throw createCommunityServiceError("Palette is required.", { code: "MISSING_PALETTE" });
   }
 
   const remoteCatchId = getPaletteRemoteCatchId(palette);
   const currentModerationStatus = normalizeCatchStatus(palette?.moderationStatus);
-  const canRepublish = currentModerationStatus === CATCH_MODERATION_STATUSES.REJECTED
-    || currentModerationStatus === CATCH_MODERATION_STATUSES.PRIVATE;
+  const canRepublish =
+    currentModerationStatus === CATCH_MODERATION_STATUSES.REJECTED ||
+    currentModerationStatus === CATCH_MODERATION_STATUSES.PRIVATE;
 
   if (remoteCatchId && !canRepublish) {
-    throw createCommunityServiceError(
-      "Palette already published.",
-      { code: "ALREADY_PUBLISHED" },
-    );
+    throw createCommunityServiceError("Palette already published.", { code: "ALREADY_PUBLISHED" });
   }
 
   const photoBlob = await ensurePaletteMasterPhotoBlob(palette);
 
   if (!(photoBlob instanceof Blob)) {
-    throw createCommunityServiceError(
-      "Photo data is missing.",
-      { code: "MISSING_PHOTO" },
-    );
+    throw createCommunityServiceError("Photo data is missing.", { code: "MISSING_PHOTO" });
   }
 
   const token = getAuthTokenOrThrow();
   const photoBase64 = await blobToBase64(photoBlob);
 
   if (!photoBase64) {
-    throw createCommunityServiceError(
-      "Unable to encode photo.",
-      { code: "INVALID_PHOTO" },
-    );
+    throw createCommunityServiceError("Unable to encode photo.", { code: "INVALID_PHOTO" });
   }
 
   const publishPayload = buildCommunityCatchPublishPayload(palette, photoBase64);
   if (publishPayload.colors.length === 0) {
-    throw createCommunityServiceError(
-      "Palette colors are missing.",
-      { code: "MISSING_COLORS" },
-    );
+    throw createCommunityServiceError("Palette colors are missing.", { code: "MISSING_COLORS" });
   }
 
   try {
@@ -223,16 +191,13 @@ export async function publishPaletteToCommunityFeed(palette) {
 
     const nextRemoteCatchId = String(payload?.catch?.id || "").trim();
     if (!nextRemoteCatchId) {
-      throw createCommunityServiceError(
-        "Missing remote catch id in response.",
-        { code: "MISSING_REMOTE_ID" },
-      );
+      throw createCommunityServiceError("Missing remote catch id in response.", {
+        code: "MISSING_REMOTE_ID",
+      });
     }
 
-    const nextModerationStatus = (
-      normalizeCatchStatus(payload?.catch?.status)
-      || CATCH_MODERATION_STATUSES.TO_MODERATE
-    );
+    const nextModerationStatus =
+      normalizeCatchStatus(payload?.catch?.status) || CATCH_MODERATION_STATUSES.TO_MODERATE;
     const nowIso = new Date().toISOString();
     const nextRemoteState = {
       remoteCatchId: nextRemoteCatchId,
@@ -264,26 +229,19 @@ export async function publishPaletteToCommunityFeed(palette) {
  */
 export async function unpublishPaletteFromCommunityFeed(palette) {
   if (!palette || typeof palette !== "object") {
-    throw createCommunityServiceError(
-      "Palette is required.",
-      { code: "MISSING_PALETTE" },
-    );
+    throw createCommunityServiceError("Palette is required.", { code: "MISSING_PALETTE" });
   }
 
   const remoteCatchId = getPaletteRemoteCatchId(palette);
   if (!remoteCatchId) {
-    throw createCommunityServiceError(
-      "Palette has not been published yet.",
-      { code: "NOT_PUBLISHED" },
-    );
+    throw createCommunityServiceError("Palette has not been published yet.", {
+      code: "NOT_PUBLISHED",
+    });
   }
 
   const currentModerationStatus = normalizeCatchStatus(palette?.moderationStatus);
   if (currentModerationStatus !== CATCH_MODERATION_STATUSES.PUBLIC) {
-    throw createCommunityServiceError(
-      "Palette is not public.",
-      { code: "NOT_PUBLIC" },
-    );
+    throw createCommunityServiceError("Palette is not public.", { code: "NOT_PUBLIC" });
   }
 
   const token = getAuthTokenOrThrow();

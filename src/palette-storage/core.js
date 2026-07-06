@@ -1,13 +1,13 @@
-import { getAppSettings } from '../app-settings.js';
-import { clientLog } from '../modules/client-log.js';
-import { reportAppError } from '../modules/error-reporting.js';
-import { dataUrlToBlob } from './blob.js';
+import { getAppSettings } from "../app-settings.js";
+import { clientLog } from "../modules/client-log.js";
+import { reportAppError } from "../modules/error-reporting.js";
+import { dataUrlToBlob } from "./blob.js";
 import {
   ensurePaletteMasterPhotoBlob,
   readPaletteMetadataRecord,
   readPalettePhotoBlobById,
-} from './assets.js';
-import { db } from './db.js';
+} from "./assets.js";
+import { db } from "./db.js";
 import {
   createPaletteAssetRecord,
   createPaletteMetadataRecord,
@@ -17,7 +17,7 @@ import {
   normalizePolaroidRenderSettings,
   normalizeRemoteCatchId,
   normalizeStoredPaletteRecord,
-} from './records.js';
+} from "./records.js";
 
 function getCurrentPolaroidRenderSettings() {
   const settings = getAppSettings();
@@ -39,9 +39,8 @@ async function freezeMissingPolaroidRenderSettings(paletteRecords) {
   const writeStartTime = performance.now();
   const polaroidRenderSettings = getCurrentPolaroidRenderSettings();
   const nextRecords = paletteRecords.map((palette) =>
-    missingRecords.includes(palette)
-      ? { ...palette, polaroidRenderSettings }
-      : palette);
+    missingRecords.includes(palette) ? { ...palette, polaroidRenderSettings } : palette,
+  );
 
   await Promise.all(
     missingRecords
@@ -69,7 +68,7 @@ export async function getSavedPalettes({ includeViewerPreviewBlob = false } = {}
   const startTime = performance.now();
   try {
     const dexieReadStartTime = performance.now();
-    const rawRecords = await db.palettes.orderBy('timestamp').reverse().toArray();
+    const rawRecords = await db.palettes.orderBy("timestamp").reverse().toArray();
     const dexieReadMs = performance.now() - dexieReadStartTime;
 
     const freezeStartTime = performance.now();
@@ -80,7 +79,8 @@ export async function getSavedPalettes({ includeViewerPreviewBlob = false } = {}
       normalizeStoredPaletteRecord(palette, {
         includePhotoBlob: false,
         includeViewerPreviewBlob,
-      }));
+      }),
+    );
 
     clientLog("getSavedPalettes:success", {
       totalMs: Math.round(performance.now() - startTime),
@@ -98,7 +98,7 @@ export async function getSavedPalettes({ includeViewerPreviewBlob = false } = {}
       errorMessage: error?.message ?? "",
     });
     reportAppError(error, {
-      consoleMessage: 'Failed to read saved palettes:',
+      consoleMessage: "Failed to read saved palettes:",
       includeClientLog: false,
     });
     throw error;
@@ -170,7 +170,7 @@ export async function savePalette(
     previewGalleryFooterLabel = null,
     previewViewerBlob = previewBlob,
     previewViewerFooterLabel = previewFooterLabel,
-    captureAspectRatio = '4:3',
+    captureAspectRatio = "4:3",
     captureCropRect = null,
     captureMode,
     ralMatch = null,
@@ -179,14 +179,15 @@ export async function savePalette(
   } = {},
 ) {
   const timestamp = new Date().toISOString();
-  const photoBlob = providedPhotoBlob instanceof Blob
-    ? providedPhotoBlob
-    : typeof photoDataUrl === 'string' && photoDataUrl.length > 0
-      ? dataUrlToBlob(photoDataUrl)
-      : null;
+  const photoBlob =
+    providedPhotoBlob instanceof Blob
+      ? providedPhotoBlob
+      : typeof photoDataUrl === "string" && photoDataUrl.length > 0
+        ? dataUrlToBlob(photoDataUrl)
+        : null;
 
   if (!(photoBlob instanceof Blob)) {
-    throw new Error('Missing photo data.');
+    throw new Error("Missing photo data.");
   }
 
   const nextPaletteMetadata = createPaletteMetadataRecord({
@@ -208,24 +209,27 @@ export async function savePalette(
   try {
     let savedPaletteId = 0;
 
-    await db.transaction('rw', db.palettes, db.paletteAssets, async () => {
+    await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
       savedPaletteId = await db.palettes.add(nextPaletteMetadata);
       await db.paletteAssets.put(createPaletteAssetRecord(savedPaletteId, photoBlob));
     });
 
-    return normalizeStoredPaletteRecord({
-      ...nextPaletteMetadata,
-      id: savedPaletteId,
-    }, {
-      includePhotoBlob: true,
-      photoBlob,
-    });
+    return normalizeStoredPaletteRecord(
+      {
+        ...nextPaletteMetadata,
+        id: savedPaletteId,
+      },
+      {
+        includePhotoBlob: true,
+        photoBlob,
+      },
+    );
   } catch (error) {
     reportAppError(error, {
-      consoleMessage: 'Failed to save palette:',
+      consoleMessage: "Failed to save palette:",
       includeClientLog: false,
     });
-    throw new Error('Unable to save palette.', { cause: error });
+    throw new Error("Unable to save palette.", { cause: error });
   }
 }
 
@@ -238,23 +242,23 @@ export async function updatePaletteRemoteState(id, patch = {}) {
   const paletteId = getPaletteIdOrThrow(id);
   const nextPatch = {};
 
-  if (Object.hasOwn(patch, 'remoteCatchId')) {
+  if (Object.hasOwn(patch, "remoteCatchId")) {
     nextPatch.remoteCatchId = normalizeRemoteCatchId(patch.remoteCatchId);
   }
 
-  if (Object.hasOwn(patch, 'moderationStatus')) {
+  if (Object.hasOwn(patch, "moderationStatus")) {
     nextPatch.moderationStatus = normalizeModerationStatus(patch.moderationStatus);
   }
 
-  if (Object.hasOwn(patch, 'postedAt')) {
+  if (Object.hasOwn(patch, "postedAt")) {
     nextPatch.postedAt = normalizeIsoString(patch.postedAt);
   }
 
-  if (Object.hasOwn(patch, 'moderationUpdatedAt')) {
+  if (Object.hasOwn(patch, "moderationUpdatedAt")) {
     nextPatch.moderationUpdatedAt = normalizeIsoString(patch.moderationUpdatedAt);
   }
 
-  if (Object.hasOwn(patch, 'lastModerationCheckAt')) {
+  if (Object.hasOwn(patch, "lastModerationCheckAt")) {
     nextPatch.lastModerationCheckAt = normalizeIsoString(patch.lastModerationCheckAt);
   }
 
@@ -270,7 +274,7 @@ export async function updatePaletteRemoteState(id, patch = {}) {
       consoleMessage: `Failed to update remote state for palette ${paletteId}:`,
       includeClientLog: false,
     });
-    throw new Error('Unable to update palette remote state.', { cause: error });
+    throw new Error("Unable to update palette remote state.", { cause: error });
   }
 }
 
@@ -278,7 +282,7 @@ export async function deletePalette(id) {
   const paletteId = getPaletteIdOrThrow(id);
 
   try {
-    await db.transaction('rw', db.palettes, db.paletteAssets, async () => {
+    await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
       await db.paletteAssets.delete(paletteId);
       await db.palettes.delete(paletteId);
     });
@@ -287,22 +291,22 @@ export async function deletePalette(id) {
       consoleMessage: `Failed to delete palette ${paletteId}:`,
       includeClientLog: false,
     });
-    throw new Error('Unable to delete palette.', { cause: error });
+    throw new Error("Unable to delete palette.", { cause: error });
   }
 }
 
 export async function clearSavedPalettes() {
   try {
-    await db.transaction('rw', db.palettes, db.paletteAssets, async () => {
+    await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
       await db.paletteAssets.clear();
       await db.palettes.clear();
     });
   } catch (error) {
     reportAppError(error, {
-      consoleMessage: 'Failed to clear saved palettes:',
+      consoleMessage: "Failed to clear saved palettes:",
       includeClientLog: false,
     });
-    throw new Error('Unable to clear saved palettes.', { cause: error });
+    throw new Error("Unable to clear saved palettes.", { cause: error });
   }
 }
 

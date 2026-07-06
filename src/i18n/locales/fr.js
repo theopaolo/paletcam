@@ -242,12 +242,12 @@ const fr = {
   "config.history.redo": "Rétablir",
   "config.history.reset": "Réinitialiser",
   "config.selector.title": "Mode d'extraction",
-  "config.selector.hint": "Perceptual utilise la sélection perceptuelle OKLab avec des échantillons vifs. Current utilise le scoreur classique median-cut.",
+  "config.selector.hint":
+    "Perceptual utilise la sélection perceptuelle OKLab avec des échantillons vifs. Current utilise le scoreur classique median-cut.",
   "config.selector.current": "Current",
   "config.selector.perceptual": "Perceptual",
   "config.hybrid.tone.title": "Mélange vif",
-  "config.hybrid.tone.hint":
-    "Mélange entre moyenne et échantillon vif. 0 = moyenne, 100 = vif.",
+  "config.hybrid.tone.hint": "Mélange entre moyenne et échantillon vif. 0 = moyenne, 100 = vif.",
   "config.hybrid.tone.aria": "Mélange vif : {value}",
   "config.hybrid.rarity.title": "Bonus teintes rares",
   "config.hybrid.rarity.hint":

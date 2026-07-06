@@ -24,16 +24,16 @@ export function createCaptureMicroInteractions({
       return;
     }
 
-    captureButton.classList.remove('is-pop');
+    captureButton.classList.remove("is-pop");
     void captureButton.offsetWidth;
-    captureButton.classList.add('is-pop');
+    captureButton.classList.add("is-pop");
 
     if (capturePopTimeout) {
       window.clearTimeout(capturePopTimeout);
     }
 
     capturePopTimeout = window.setTimeout(() => {
-      captureButton.classList.remove('is-pop');
+      captureButton.classList.remove("is-pop");
       capturePopTimeout = 0;
     }, capturePopMs);
   }
@@ -47,8 +47,8 @@ export function createCaptureMicroInteractions({
       return captureFlashElement;
     }
 
-    const nextFlashElement = document.createElement('div');
-    nextFlashElement.className = 'capture-flash';
+    const nextFlashElement = document.createElement("div");
+    nextFlashElement.className = "capture-flash";
     captureContainer.appendChild(nextFlashElement);
     captureFlashElement = nextFlashElement;
 
@@ -61,16 +61,16 @@ export function createCaptureMicroInteractions({
       return;
     }
 
-    flashElement.classList.remove('is-active');
+    flashElement.classList.remove("is-active");
     void flashElement.offsetWidth;
-    flashElement.classList.add('is-active');
+    flashElement.classList.add("is-active");
 
     if (captureFlashTimeout) {
       window.clearTimeout(captureFlashTimeout);
     }
 
     captureFlashTimeout = window.setTimeout(() => {
-      flashElement.classList.remove('is-active');
+      flashElement.classList.remove("is-active");
       captureFlashTimeout = 0;
     }, captureFlashMs);
   }
@@ -86,8 +86,8 @@ export function createCaptureMicroInteractions({
       captureFlashTimeout = 0;
     }
 
-    captureButton?.classList.remove('is-pop');
-    captureFlashElement?.classList.remove('is-active');
+    captureButton?.classList.remove("is-pop");
+    captureFlashElement?.classList.remove("is-active");
   }
 
   return {

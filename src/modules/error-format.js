@@ -22,10 +22,7 @@ function extractCommunityErrorDetails(error) {
 
   const status = cause.status ?? "";
   const path = cause.path || "";
-  const reason = cause.payload?.originalError
-    || cause.payload?.message
-    || cause.message
-    || "";
+  const reason = cause.payload?.originalError || cause.payload?.message || cause.message || "";
 
   const parts = ["ERR", code];
 

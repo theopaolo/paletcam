@@ -92,14 +92,21 @@ for (const path of images) {
   const decoded = decodeImage(path);
   if (!decoded) continue;
 
-  const rel = path.replace(IMG_DIR + "/", "");
+  const rel = path.replace(`${IMG_DIR}/`, "");
   const perSelector = {};
   for (const selector of selectors) {
     try {
-      const r = traceExtraction(decoded.data, decoded.width, decoded.height, SWATCH_COUNT, {}, {
-        selector,
-        maxScatterPoints: 100,
-      });
+      const r = traceExtraction(
+        decoded.data,
+        decoded.width,
+        decoded.height,
+        SWATCH_COUNT,
+        {},
+        {
+          selector,
+          maxScatterPoints: 100,
+        },
+      );
       perSelector[selector] = {
         colors: r.selected.map((s) => s.rgb),
         neutrals: r.stats.neutralCount ?? null,
@@ -131,7 +138,16 @@ for (const path of images) {
 
 rows.sort((a, b) => b.hybVsNew - a.hybVsNew);
 
-console.log("image".padEnd(40), "hybVsNew", "hybVsCur", "newVsCur", "hybChroma", "newChroma", "hybDup", "newDup");
+console.log(
+  "image".padEnd(40),
+  "hybVsNew",
+  "hybVsCur",
+  "newVsCur",
+  "hybChroma",
+  "newChroma",
+  "hybDup",
+  "newDup",
+);
 console.log("-".repeat(110));
 for (const r of rows) {
   console.log(
@@ -151,19 +167,25 @@ console.log("\n=== aggregates ===");
 console.log(`images:            ${rows.length}`);
 console.log(`avg hybVsNew:      ${avg("hybVsNew").toFixed(3)}  (lower = Hybrid closer to New)`);
 console.log(`avg hybVsCur:      ${avg("hybVsCur").toFixed(3)}  (lower = Hybrid closer to Current)`);
-console.log(`avg newVsCur:      ${avg("newVsCur").toFixed(3)}  (baseline: New vs Current divergence)`);
+console.log(
+  `avg newVsCur:      ${avg("newVsCur").toFixed(3)}  (baseline: New vs Current divergence)`,
+);
 console.log(`avg hybChroma:     ${avg("hybChroma").toFixed(3)}  (higher = more vivid)`);
 console.log(`avg newChroma:     ${avg("newChroma").toFixed(3)}  (baseline: New's vividness)`);
 console.log(`avg curChroma:     ${avg("curChroma").toFixed(3)}  (baseline: Current's vividness)`);
 console.log(`images w/ hyb dups: ${rows.filter((r) => r.hybDups > 0).length}`);
 console.log(`images w/ new dups: ${rows.filter((r) => r.newDups > 0).length}`);
 
-const tolerance = 0.10;
+const tolerance = 0.1;
 const outOfTolerance = rows.filter((r) => r.hybVsNew > tolerance);
-console.log(`\nOracle tolerance gate (hybVsNew < ${tolerance}): ${outOfTolerance.length}/${rows.length} images OUT`);
+console.log(
+  `\nOracle tolerance gate (hybVsNew < ${tolerance}): ${outOfTolerance.length}/${rows.length} images OUT`,
+);
 if (outOfTolerance.length > 0) {
   console.log("worst offenders:");
   for (const r of outOfTolerance.slice(0, 8)) {
-    console.log(`  ${r.image}  hybVsNew=${r.hybVsNew.toFixed(3)}  hybChroma=${r.hybChroma.toFixed(3)} newChroma=${r.newChroma.toFixed(3)} hybDup=${r.hybDups}`);
+    console.log(
+      `  ${r.image}  hybVsNew=${r.hybVsNew.toFixed(3)}  hybChroma=${r.hybChroma.toFixed(3)} newChroma=${r.newChroma.toFixed(3)} hybDup=${r.hybDups}`,
+    );
   }
 }

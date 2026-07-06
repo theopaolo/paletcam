@@ -14,14 +14,8 @@ function getDayLabel(date) {
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dateStart = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
-  const dayDiff = Math.round(
-    (todayStart.getTime() - dateStart.getTime()) / DAY_DURATION_MS,
-  );
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.round((todayStart.getTime() - dateStart.getTime()) / DAY_DURATION_MS);
 
   if (dayDiff === 0) {
     return t("collection.day.today");

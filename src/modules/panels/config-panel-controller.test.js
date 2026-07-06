@@ -72,9 +72,7 @@ class FakeClassList {
 }
 
 function toDatasetKey(attributeName) {
-  return attributeName
-    .slice(5)
-    .replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+  return attributeName.slice(5).replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
 }
 
 function matchesSelector(element, selector) {
@@ -206,7 +204,9 @@ class FakeElement extends FakeEventTarget {
       return true;
     }
 
-    return this.children.some((child) => typeof child.contains === "function" && child.contains(node));
+    return this.children.some(
+      (child) => typeof child.contains === "function" && child.contains(node),
+    );
   }
 
   getAttribute(name) {

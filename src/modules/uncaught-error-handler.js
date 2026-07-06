@@ -19,9 +19,7 @@ function describeRejectionReason(reason) {
     return {
       name: typeof reason.name === "string" ? reason.name : "",
       message:
-        typeof reason.message === "string" && reason.message
-          ? reason.message
-          : String(reason),
+        typeof reason.message === "string" && reason.message ? reason.message : String(reason),
       stack: truncateStack(reason.stack),
     };
   }

@@ -7,11 +7,7 @@
  * @param {boolean} [options.suppressNextClick]
  * @returns {{ isSelected: boolean, suppressNextClick: boolean, toggled: boolean }}
  */
-export function applySelectionModeCardClick({
-  paletteId,
-  selectedIds,
-  suppressNextClick = false,
-}) {
+export function applySelectionModeCardClick({ paletteId, selectedIds, suppressNextClick = false }) {
   if (suppressNextClick) {
     return {
       isSelected: selectedIds.has(paletteId),

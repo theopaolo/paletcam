@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from "bun:test";
 
-import { extractMedianCutPaletteColors } from './palette-extract-median-cut.js';
+import { extractMedianCutPaletteColors } from "./palette-extract-median-cut.js";
 
 function createRgbaData(pixels) {
   const channels = [];
@@ -12,22 +12,20 @@ function createRgbaData(pixels) {
   return new Uint8ClampedArray(channels);
 }
 
-describe('extractMedianCutPaletteColors', () => {
-  test('returns empty results for invalid input', () => {
-    expect(
-      extractMedianCutPaletteColors(null, 4, 4, 4)
-    ).toEqual({ colors: [] });
+describe("extractMedianCutPaletteColors", () => {
+  test("returns empty results for invalid input", () => {
+    expect(extractMedianCutPaletteColors(null, 4, 4, 4)).toEqual({ colors: [] });
 
-    expect(
-      extractMedianCutPaletteColors(new Uint8ClampedArray([255, 0, 0, 255]), 0, 1, 4)
-    ).toEqual({ colors: [] });
+    expect(extractMedianCutPaletteColors(new Uint8ClampedArray([255, 0, 0, 255]), 0, 1, 4)).toEqual(
+      { colors: [] },
+    );
 
-    expect(
-      extractMedianCutPaletteColors(new Uint8ClampedArray([255, 0, 0, 255]), 1, 0, 4)
-    ).toEqual({ colors: [] });
+    expect(extractMedianCutPaletteColors(new Uint8ClampedArray([255, 0, 0, 255]), 1, 0, 4)).toEqual(
+      { colors: [] },
+    );
   });
 
-  test('returns empty results when all pixels are fully transparent', () => {
+  test("returns empty results when all pixels are fully transparent", () => {
     const imageData = createRgbaData([
       [255, 0, 0, 0],
       [0, 255, 0, 0],
@@ -35,12 +33,10 @@ describe('extractMedianCutPaletteColors', () => {
       [255, 255, 0, 0],
     ]);
 
-    expect(
-      extractMedianCutPaletteColors(imageData, 2, 2, 4)
-    ).toEqual({ colors: [] });
+    expect(extractMedianCutPaletteColors(imageData, 2, 2, 4)).toEqual({ colors: [] });
   });
 
-  test('returns deterministic quantized colors for a small fixed fixture', () => {
+  test("returns deterministic quantized colors for a small fixed fixture", () => {
     const imageData = createRgbaData([
       [255, 0, 0, 255],
       [255, 0, 0, 255],
@@ -55,11 +51,9 @@ describe('extractMedianCutPaletteColors', () => {
 
     expect(result.colors.length).toBe(2);
 
-    const rgbKeys = result.colors
-      .map((color) => `${color.r},${color.g},${color.b}`)
-      .sort();
+    const rgbKeys = result.colors.map((color) => `${color.r},${color.g},${color.b}`).sort();
 
-    expect(rgbKeys).toEqual(['0,0,248', '248,0,0']);
+    expect(rgbKeys).toEqual(["0,0,248", "248,0,0"]);
 
     for (const { r, g, b } of result.colors) {
       expect(r % 8).toBe(0);
@@ -68,7 +62,7 @@ describe('extractMedianCutPaletteColors', () => {
     }
   });
 
-  test('clamps non-positive swatchCount values to at least one swatch when pixels exist', () => {
+  test("clamps non-positive swatchCount values to at least one swatch when pixels exist", () => {
     const imageData = createRgbaData([
       [255, 0, 0, 255],
       [0, 0, 255, 255],
@@ -82,7 +76,7 @@ describe('extractMedianCutPaletteColors', () => {
     expect(result.colors.length).toBe(1);
   });
 
-  test('clamps invalid or fractional maxQuantizerPixels', () => {
+  test("clamps invalid or fractional maxQuantizerPixels", () => {
     const imageData = createRgbaData([
       [255, 0, 0, 255],
       [0, 255, 0, 255],

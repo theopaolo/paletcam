@@ -53,9 +53,7 @@ class FakeClassList {
 }
 
 function toDatasetKey(attributeName) {
-  return attributeName
-    .slice(5)
-    .replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+  return attributeName.slice(5).replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
 }
 
 function matchesSelector(element, selector) {
@@ -280,9 +278,7 @@ export class FakeElement {
   setPointerCapture() {}
 }
 
-export function installFakeDom({
-  prefersReducedMotion = true,
-} = {}) {
+export function installFakeDom({ prefersReducedMotion = true } = {}) {
   const originalDocument = globalThis.document;
   const originalWindow = globalThis.window;
 

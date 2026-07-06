@@ -297,8 +297,10 @@ export function parseDeclarations(source, filePath = "", { lineOffset = 0 } = {}
       declarations.push({
         filePath,
         line:
-          getLineNumber(block.contentStart + segmentOffset + Math.max(0, trimmedOffset), lineBreaks) +
-          lineOffset,
+          getLineNumber(
+            block.contentStart + segmentOffset + Math.max(0, trimmedOffset),
+            lineBreaks,
+          ) + lineOffset,
         property,
         value,
       });

@@ -234,16 +234,15 @@ const en = {
   "config.history.redo": "Redo",
   "config.history.reset": "Reset",
   "config.selector.title": "Extraction mode",
-  "config.selector.hint": "Perceptual uses OKLab perceptual selection with vivid exemplars. Current uses the classic median-cut scorer.",
+  "config.selector.hint":
+    "Perceptual uses OKLab perceptual selection with vivid exemplars. Current uses the classic median-cut scorer.",
   "config.selector.current": "Current",
   "config.selector.perceptual": "Perceptual",
   "config.hybrid.tone.title": "Vivid blend",
-  "config.hybrid.tone.hint":
-    "Blend between mean and vivid exemplar. 0 = mean, 100 = vivid.",
+  "config.hybrid.tone.hint": "Blend between mean and vivid exemplar. 0 = mean, 100 = vivid.",
   "config.hybrid.tone.aria": "Vivid blend: {value}",
   "config.hybrid.rarity.title": "Rare hue bonus",
-  "config.hybrid.rarity.hint":
-    "Higher values favor rare colors over common ones during selection.",
+  "config.hybrid.rarity.hint": "Higher values favor rare colors over common ones during selection.",
   "config.hybrid.rarity.aria": "Rare hue bonus: {value}",
   "config.hybrid.spread.title": "Hue spread",
   "config.hybrid.spread.hint":

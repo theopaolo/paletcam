@@ -1,14 +1,14 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement } from "lit";
 import { t } from "../../i18n.js";
 
 const PANEL_HIDE_DELAY_MS = 260;
 
 class SharedPanelElement extends LitElement {
   static properties = {
-    closeLabel: { attribute: 'close-label' },
-    closeIconSrc: { attribute: 'close-icon-src' },
+    closeLabel: { attribute: "close-label" },
+    closeIconSrc: { attribute: "close-icon-src" },
     open: { type: Boolean, reflect: true },
-    panelTitle: { attribute: 'panel-title' },
+    panelTitle: { attribute: "panel-title" },
   };
 
   static styles = css`
@@ -144,9 +144,9 @@ class SharedPanelElement extends LitElement {
   constructor() {
     super();
     this.closeLabel = t("common.closePanel");
-    this.closeIconSrc = '';
+    this.closeIconSrc = "";
     this.open = false;
-    this.panelTitle = '';
+    this.panelTitle = "";
     this.hasPendingCloseEvent = false;
     this.hideTimeoutId = 0;
     this.openFrameRequestId = 0;
@@ -156,18 +156,18 @@ class SharedPanelElement extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    if (this.classList.contains('visible')) {
+    if (this.classList.contains("visible")) {
       this.open = true;
       this.hidden = false;
       this.inert = false;
-      this.setAttribute('aria-hidden', 'false');
+      this.setAttribute("aria-hidden", "false");
       return;
     }
 
     this.open = false;
     this.hidden = true;
     this.inert = true;
-    this.setAttribute('aria-hidden', 'true');
+    this.setAttribute("aria-hidden", "true");
   }
 
   disconnectedCallback() {
@@ -195,15 +195,15 @@ class SharedPanelElement extends LitElement {
   }
 
   getPanelName() {
-    return this.dataset.panelName || '';
+    return this.dataset.panelName || "";
   }
 
   getPanelShell() {
-    return this.renderRoot?.querySelector('.panel-shell') || null;
+    return this.renderRoot?.querySelector(".panel-shell") || null;
   }
 
   getCloseButton() {
-    return this.renderRoot?.querySelector('.close-button') || null;
+    return this.renderRoot?.querySelector(".close-button") || null;
   }
 
   getDeepActiveElement() {
@@ -223,8 +223,8 @@ class SharedPanelElement extends LitElement {
 
     if (
       element.hidden ||
-      element.hasAttribute('disabled') ||
-      element.getAttribute('aria-hidden') === 'true' ||
+      element.hasAttribute("disabled") ||
+      element.getAttribute("aria-hidden") === "true" ||
       element.closest('[hidden], [inert], [aria-hidden="true"]')
     ) {
       return false;
@@ -235,18 +235,19 @@ class SharedPanelElement extends LitElement {
 
   getInitialFocusTarget() {
     const selector = [
-      '[data-panel-initial-focus]',
-      '[autofocus]',
+      "[data-panel-initial-focus]",
+      "[autofocus]",
       'input:not([type="hidden"])',
-      'select',
-      'textarea',
-      'button',
-      'a[href]',
+      "select",
+      "textarea",
+      "button",
+      "a[href]",
       '[tabindex]:not([tabindex="-1"])',
-    ].join(', ');
+    ].join(", ");
 
-    const lightDomTarget = Array.from(this.querySelectorAll(selector))
-      .find((element) => this.isFocusableTarget(element));
+    const lightDomTarget = Array.from(this.querySelectorAll(selector)).find((element) =>
+      this.isFocusableTarget(element),
+    );
 
     if (lightDomTarget instanceof HTMLElement) {
       return lightDomTarget;
@@ -271,23 +272,26 @@ class SharedPanelElement extends LitElement {
 
   focusFallbackTarget() {
     const { body } = document;
-    const hadTabIndex = body.hasAttribute('tabindex');
+    const hadTabIndex = body.hasAttribute("tabindex");
 
     if (!hadTabIndex) {
-      body.setAttribute('tabindex', '-1');
+      body.setAttribute("tabindex", "-1");
     }
 
     this.focusElement(body);
 
     if (!hadTabIndex) {
-      body.removeAttribute('tabindex');
+      body.removeAttribute("tabindex");
     }
   }
 
   restoreFocus() {
     const activeElement = this.getDeepActiveElement();
     const activeElementIsInsidePanel = Boolean(
-      activeElement && (activeElement === this || this.contains(activeElement) || this.renderRoot?.contains(activeElement))
+      activeElement &&
+        (activeElement === this ||
+          this.contains(activeElement) ||
+          this.renderRoot?.contains(activeElement)),
     );
 
     if (!activeElementIsInsidePanel) {
@@ -308,14 +312,13 @@ class SharedPanelElement extends LitElement {
     this.clearHideTimeout();
     this.clearOpenFrameRequest();
     this.hasPendingCloseEvent = false;
-    this.returnFocusTarget = returnFocusTarget instanceof HTMLElement
-      ? returnFocusTarget
-      : this.getDeepActiveElement();
+    this.returnFocusTarget =
+      returnFocusTarget instanceof HTMLElement ? returnFocusTarget : this.getDeepActiveElement();
     this.hidden = false;
     this.inert = false;
     this.open = false;
-    this.classList.add('visible');
-    this.setAttribute('aria-hidden', 'false');
+    this.classList.add("visible");
+    this.setAttribute("aria-hidden", "false");
 
     this.openFrameRequestId = window.requestAnimationFrame(() => {
       this.openFrameRequestId = 0;
@@ -336,29 +339,31 @@ class SharedPanelElement extends LitElement {
   }
 
   closePanel({ restoreFocus = true } = {}) {
-    if (!this.classList.contains('visible') && !this.open) {
+    if (!this.classList.contains("visible") && !this.open) {
       return;
     }
 
     this.clearHideTimeout();
     this.clearOpenFrameRequest();
-    this.hasPendingCloseEvent = this.classList.contains('visible');
-    this.dispatchEvent(new CustomEvent('shared-panel-closing', {
-      bubbles: true,
-      composed: true,
-      detail: { panelName: this.getPanelName() },
-    }));
+    this.hasPendingCloseEvent = this.classList.contains("visible");
+    this.dispatchEvent(
+      new CustomEvent("shared-panel-closing", {
+        bubbles: true,
+        composed: true,
+        detail: { panelName: this.getPanelName() },
+      }),
+    );
     if (restoreFocus) {
       this.restoreFocus();
     }
     this.open = false;
-    this.classList.remove('visible');
+    this.classList.remove("visible");
     const panelShell = this.getPanelShell();
     if (panelShell) {
       panelShell.scrollTop = 0;
     }
     this.inert = true;
-    this.setAttribute('aria-hidden', 'true');
+    this.setAttribute("aria-hidden", "true");
     this.hideTimeoutId = window.setTimeout(() => {
       this.hideTimeoutId = 0;
       this.finalizeHidden();
@@ -377,11 +382,13 @@ class SharedPanelElement extends LitElement {
     }
 
     this.hasPendingCloseEvent = false;
-    this.dispatchEvent(new CustomEvent('shared-panel-closed', {
-      bubbles: true,
-      composed: true,
-      detail: { panelName: this.getPanelName() },
-    }));
+    this.dispatchEvent(
+      new CustomEvent("shared-panel-closed", {
+        bubbles: true,
+        composed: true,
+        detail: { panelName: this.getPanelName() },
+      }),
+    );
   }
 
   handleCloseButtonClick() {
@@ -389,7 +396,7 @@ class SharedPanelElement extends LitElement {
   }
 
   handleShellTransitionEnd(event) {
-    if (event.target !== event.currentTarget || event.propertyName !== 'transform') {
+    if (event.target !== event.currentTarget || event.propertyName !== "transform") {
       return;
     }
 
@@ -408,23 +415,28 @@ class SharedPanelElement extends LitElement {
         @transitionend=${this.handleShellTransitionEnd}
       >
         <header
-          class=${hasHeaderActions ? 'panel-header panel-header--with-actions' : 'panel-header'}
+          class=${hasHeaderActions ? "panel-header panel-header--with-actions" : "panel-header"}
           part="header"
         >
           <h2 class="panel-title">${this.panelTitle}</h2>
-          ${hasHeaderActions ? html`
+          ${
+            hasHeaderActions
+              ? html`
             <div class="panel-header-actions toolbar">
               <slot name="header-actions"></slot>
             </div>
-          ` : null}
+          `
+              : null
+          }
           <button
             class="close-button"
             type="button"
             aria-label=${this.closeLabel}
             @click=${this.handleCloseButtonClick}
           >
-            ${this.closeIconSrc
-              ? html`
+            ${
+              this.closeIconSrc
+                ? html`
                   <img
                     class="close-button-icon"
                     src=${this.closeIconSrc}
@@ -432,7 +444,8 @@ class SharedPanelElement extends LitElement {
                     aria-hidden="true"
                   />
                 `
-              : html`<span class="close-button-glyph" aria-hidden="true">×</span>`}
+                : html`<span class="close-button-glyph" aria-hidden="true">×</span>`
+            }
           </button>
         </header>
         <div class="panel-body">
@@ -443,6 +456,6 @@ class SharedPanelElement extends LitElement {
   }
 }
 
-if (!customElements.get('shared-panel')) {
-  customElements.define('shared-panel', SharedPanelElement);
+if (!customElements.get("shared-panel")) {
+  customElements.define("shared-panel", SharedPanelElement);
 }

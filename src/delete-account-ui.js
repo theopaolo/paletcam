@@ -2,32 +2,29 @@ import {
   confirmAccountDeletion,
   sendAccountDeletionCode,
   subscribeCommunitySession,
-} from './community-service.js';
-import { clientLog } from './modules/client-log.js';
-import { formatErrorDetails } from './modules/error-format.js';
-import {
-  closeSharedPanel,
-  openSharedPanel,
-} from './modules/panels/panel-manager.js';
-import { showToast } from './modules/toast-ui.js';
-import { t } from './i18n.js';
+} from "./community-service.js";
+import { clientLog } from "./modules/client-log.js";
+import { formatErrorDetails } from "./modules/error-format.js";
+import { closeSharedPanel, openSharedPanel } from "./modules/panels/panel-manager.js";
+import { showToast } from "./modules/toast-ui.js";
+import { t } from "./i18n.js";
 
 let isDeleteAccountBusy = false;
 
 function getDeleteAccountErrorKey(error) {
   switch (error?.code) {
-    case 'AUTH_EXPIRED':
-      return 'delete.error.authExpired';
-    case 'MISSING_CODE':
-      return 'delete.error.missingCode';
+    case "AUTH_EXPIRED":
+      return "delete.error.authExpired";
+    case "MISSING_CODE":
+      return "delete.error.missingCode";
     default:
-      return '';
+      return "";
   }
 }
 
 function resolveDeleteAccountErrorMessage(error, fallbackMessage) {
   const apiPayloadMessage = error?.cause?.payload?.message;
-  if (typeof apiPayloadMessage === 'string' && apiPayloadMessage.trim()) {
+  if (typeof apiPayloadMessage === "string" && apiPayloadMessage.trim()) {
     return apiPayloadMessage.trim();
   }
 
@@ -36,7 +33,7 @@ function resolveDeleteAccountErrorMessage(error, fallbackMessage) {
     return t(errorKey);
   }
 
-  if (typeof error?.message === 'string' && error.message.trim()) {
+  if (typeof error?.message === "string" && error.message.trim()) {
     return error.message.trim();
   }
 
@@ -50,14 +47,14 @@ function setDeleteAccountHintMessage(deleteAccountHint, message, { isError = fal
 
   if (!message) {
     deleteAccountHint.hidden = true;
-    deleteAccountHint.textContent = '';
-    deleteAccountHint.classList.remove('is-error');
+    deleteAccountHint.textContent = "";
+    deleteAccountHint.classList.remove("is-error");
     return;
   }
 
   deleteAccountHint.hidden = false;
   deleteAccountHint.textContent = message;
-  deleteAccountHint.classList.toggle('is-error', isError);
+  deleteAccountHint.classList.toggle("is-error", isError);
 }
 
 function setDeleteAccountVerifyStepVisible(refs, shouldShow) {
@@ -84,10 +81,10 @@ function setDeleteAccountBusy(refs, nextBusy) {
 
 function resetDeleteAccountPanel(refs) {
   setDeleteAccountVerifyStepVisible(refs, false);
-  setDeleteAccountHintMessage(refs.deleteAccountHint, '');
+  setDeleteAccountHintMessage(refs.deleteAccountHint, "");
 
   if (refs.deleteAccountCodeInput) {
-    refs.deleteAccountCodeInput.value = '';
+    refs.deleteAccountCodeInput.value = "";
   }
 }
 
@@ -101,21 +98,21 @@ async function requestDeletionCode(refs) {
   try {
     await sendAccountDeletionCode();
     setDeleteAccountVerifyStepVisible(refs, true);
-    setDeleteAccountHintMessage(refs.deleteAccountHint, t('delete.hint.codeSent'));
+    setDeleteAccountHintMessage(refs.deleteAccountHint, t("delete.hint.codeSent"));
     refs.deleteAccountCodeInput?.focus();
-    showToast(t('delete.toast.codeSent'), { duration: 1400 });
+    showToast(t("delete.toast.codeSent"), { duration: 1400 });
   } catch (error) {
-    clientLog('Failed to send account deletion code.', {
+    clientLog("Failed to send account deletion code.", {
       message: error?.message,
       status: error?.status,
     });
     setDeleteAccountHintMessage(
       refs.deleteAccountHint,
-      resolveDeleteAccountErrorMessage(error, t('delete.toast.codeSendFailed')),
+      resolveDeleteAccountErrorMessage(error, t("delete.toast.codeSendFailed")),
       { isError: true },
     );
-    showToast(t('delete.toast.codeSendFailed'), {
-      variant: 'error',
+    showToast(t("delete.toast.codeSendFailed"), {
+      variant: "error",
       duration: 3000,
       details: formatErrorDetails(error),
     });
@@ -129,10 +126,12 @@ async function confirmDeletion(refs) {
     return;
   }
 
-  const code = refs.deleteAccountCodeInput?.value?.trim() || '';
+  const code = refs.deleteAccountCodeInput?.value?.trim() || "";
 
   if (!code) {
-    setDeleteAccountHintMessage(refs.deleteAccountHint, t('delete.hint.enterCode'), { isError: true });
+    setDeleteAccountHintMessage(refs.deleteAccountHint, t("delete.hint.enterCode"), {
+      isError: true,
+    });
     return;
   }
 
@@ -141,20 +140,20 @@ async function confirmDeletion(refs) {
   try {
     await confirmAccountDeletion({ code });
     resetDeleteAccountPanel(refs);
-    closeSharedPanel('delete-account');
-    showToast(t('delete.toast.success'), { duration: 2000 });
+    closeSharedPanel("delete-account");
+    showToast(t("delete.toast.success"), { duration: 2000 });
   } catch (error) {
-    clientLog('Failed to confirm account deletion.', {
+    clientLog("Failed to confirm account deletion.", {
       message: error?.message,
       status: error?.status,
     });
     setDeleteAccountHintMessage(
       refs.deleteAccountHint,
-      resolveDeleteAccountErrorMessage(error, t('delete.toast.failure')),
+      resolveDeleteAccountErrorMessage(error, t("delete.toast.failure")),
       { isError: true },
     );
-    showToast(t('delete.toast.failure'), {
-      variant: 'error',
+    showToast(t("delete.toast.failure"), {
+      variant: "error",
       duration: 3000,
       details: formatErrorDetails(error),
     });
@@ -172,13 +171,21 @@ function syncDeleteAccountButtonVisibility(refs, session) {
 }
 
 export function initDeleteAccountUi() {
-  const communityDeleteAccountButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('communityDeleteAccountButton'));
-  const deleteAccountRequestStep = document.getElementById('deleteAccountRequestStep');
-  const deleteAccountVerifyStep = document.getElementById('deleteAccountVerifyStep');
-  const deleteAccountRequestCodeButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('deleteAccountRequestCodeButton'));
-  const deleteAccountCodeInput = /** @type {HTMLInputElement | null} */ (document.getElementById('deleteAccountCodeInput'));
-  const deleteAccountConfirmButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('deleteAccountConfirmButton'));
-  const deleteAccountHint = document.getElementById('deleteAccountHint');
+  const communityDeleteAccountButton = /** @type {HTMLButtonElement | null} */ (
+    document.getElementById("communityDeleteAccountButton")
+  );
+  const deleteAccountRequestStep = document.getElementById("deleteAccountRequestStep");
+  const deleteAccountVerifyStep = document.getElementById("deleteAccountVerifyStep");
+  const deleteAccountRequestCodeButton = /** @type {HTMLButtonElement | null} */ (
+    document.getElementById("deleteAccountRequestCodeButton")
+  );
+  const deleteAccountCodeInput = /** @type {HTMLInputElement | null} */ (
+    document.getElementById("deleteAccountCodeInput")
+  );
+  const deleteAccountConfirmButton = /** @type {HTMLButtonElement | null} */ (
+    document.getElementById("deleteAccountConfirmButton")
+  );
+  const deleteAccountHint = document.getElementById("deleteAccountHint");
 
   const refs = {
     communityDeleteAccountButton,
@@ -190,21 +197,21 @@ export function initDeleteAccountUi() {
     deleteAccountHint,
   };
 
-  communityDeleteAccountButton?.addEventListener('click', () => {
+  communityDeleteAccountButton?.addEventListener("click", () => {
     resetDeleteAccountPanel(refs);
-    openSharedPanel('delete-account');
+    openSharedPanel("delete-account");
   });
 
-  deleteAccountRequestCodeButton?.addEventListener('click', () => {
+  deleteAccountRequestCodeButton?.addEventListener("click", () => {
     void requestDeletionCode(refs);
   });
 
-  deleteAccountConfirmButton?.addEventListener('click', () => {
+  deleteAccountConfirmButton?.addEventListener("click", () => {
     void confirmDeletion(refs);
   });
 
-  deleteAccountCodeInput?.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') {
+  deleteAccountCodeInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
       return;
     }
 

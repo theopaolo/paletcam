@@ -84,7 +84,14 @@ function computeStats(points) {
  *   stats: object,
  * }}
  */
-export function traceExtraction(imageData, width, height, swatchCount, options = {}, debugOptions = {}) {
+export function traceExtraction(
+  imageData,
+  width,
+  height,
+  swatchCount,
+  options = {},
+  debugOptions = {},
+) {
   const { maxScatterPoints = 4000 } = debugOptions;
   const maxQuantizerPixels = options.maxQuantizerPixels ?? debugOptions.maxQuantizerPixels;
   const quantizedPoolSize = options.quantizedPoolSize ?? debugOptions.quantizedPoolSize;
@@ -142,9 +149,7 @@ export function traceExtraction(imageData, width, height, swatchCount, options =
       maxQuantizerPixels,
       quantizedPoolSize: quantizedPoolSize,
     });
-    candidates = result.candidates.map((c) =>
-      withOklab(c.meanRgb, { population: c.mass }),
-    );
+    candidates = result.candidates.map((c) => withOklab(c.meanRgb, { population: c.mass }));
     selected = result.colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
     extraStats = { neutralCount: result.neutralCount, neutralThreshold: result.neutralThreshold };
   } else {
@@ -156,7 +161,13 @@ export function traceExtraction(imageData, width, height, swatchCount, options =
       .filter((swatch) => swatch && typeof swatch.rgb === "number")
       .map((swatch) => withOklab(argbToRgb(swatch.rgb), { population: swatch.population ?? 0 }));
 
-    const { colors } = extractMedianCutPaletteColors(imageData, width, height, swatchCount, options);
+    const { colors } = extractMedianCutPaletteColors(
+      imageData,
+      width,
+      height,
+      swatchCount,
+      options,
+    );
     selected = colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
   }
 

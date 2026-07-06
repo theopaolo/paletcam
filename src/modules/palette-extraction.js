@@ -5,7 +5,7 @@ import { extractMedianCutPaletteColors } from "./palette-extract-median-cut.js";
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
 
 function getColorLuma(color) {
-  return (0.2126 * color.r) + (0.7152 * color.g) + (0.0722 * color.b);
+  return 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
 }
 
 /**
@@ -16,7 +16,13 @@ function getColorLuma(color) {
  * @param {PaletteExtractionOptions | null} [options]
  * @returns {PaletteExtractionResult}
  */
-export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchCount, options = null) {
+export function extractPaletteColors(
+  imageData,
+  frameWidth,
+  frameHeight,
+  swatchCount,
+  options = null,
+) {
   const hasOptions = typeof options === "object" && options !== null;
 
   return extractMedianCutPaletteColors(
@@ -31,7 +37,7 @@ export function extractPaletteColors(imageData, frameWidth, frameHeight, swatchC
           hybrid: options.hybrid,
           selector: options.paletteSelector,
         }
-      : undefined
+      : undefined,
   );
 }
 

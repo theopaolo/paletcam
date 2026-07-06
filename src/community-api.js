@@ -47,22 +47,15 @@ export function normalizeCatchStatus(status) {
 }
 
 function createTimeoutSignal(ms) {
-  if (typeof AbortSignal.timeout === 'function') {
+  if (typeof AbortSignal.timeout === "function") {
     return AbortSignal.timeout(ms);
   }
   const controller = new AbortController();
-  setTimeout(() => controller.abort(new DOMException('TimeoutError', 'TimeoutError')), ms);
+  setTimeout(() => controller.abort(new DOMException("TimeoutError", "TimeoutError")), ms);
   return controller.signal;
 }
 
-async function requestCommunityApi(
-  path,
-  {
-    method = "GET",
-    token = "",
-    body = undefined,
-  } = {},
-) {
+async function requestCommunityApi(path, { method = "GET", token = "", body = undefined } = {}) {
   const requestUrl = buildApiUrl(path);
 
   const headers = new Headers({
@@ -89,9 +82,10 @@ async function requestCommunityApi(
   try {
     response = await fetch(requestUrl, requestInit);
   } catch (error) {
-    const originalError = error?.name === "TimeoutError"
-      ? `Request timed out after ${REQUEST_TIMEOUT_MS}ms.`
-      : (error?.message || String(error));
+    const originalError =
+      error?.name === "TimeoutError"
+        ? `Request timed out after ${REQUEST_TIMEOUT_MS}ms.`
+        : error?.message || String(error);
 
     clientLog("Network error while calling community API.", {
       requestUrl,
@@ -129,14 +123,11 @@ async function requestCommunityApi(
       payloadMessage,
     });
 
-    throw createApiError(
-      payloadMessage || `API request failed (${response.status}).`,
-      {
-        status: response.status,
-        payload,
-        path,
-      },
-    );
+    throw createApiError(payloadMessage || `API request failed (${response.status}).`, {
+      status: response.status,
+      payload,
+      path,
+    });
   }
 
   return payload;
@@ -210,10 +201,7 @@ export function postCatchToCommunity({
   });
 }
 
-export function unpublishCatchFromCommunity({
-  token,
-  remoteCatchId,
-}) {
+export function unpublishCatchFromCommunity({ token, remoteCatchId }) {
   const safeRemoteCatchId = encodeURIComponent(String(remoteCatchId || "").trim());
   return requestCommunityApi(`/catch/${safeRemoteCatchId}/unpublish`, {
     method: "POST",
@@ -227,21 +215,16 @@ export function unpublishCatchFromCommunity({
  * @param {string[]} options.remoteCatchIds
  * @returns {Promise<{ statuses: ModerationEntry[], deletedIds: string[] }>}
  */
-export async function fetchCatchModerationStatuses({
-  token,
-  remoteCatchIds,
-}) {
+export async function fetchCatchModerationStatuses({ token, remoteCatchIds }) {
   const empty = { statuses: [], deletedIds: [] };
 
   if (!Array.isArray(remoteCatchIds) || remoteCatchIds.length === 0) {
     return empty;
   }
 
-  const uniqueIds = [...new Set(
-    remoteCatchIds
-      .map((value) => String(value || "").trim())
-      .filter(Boolean),
-  )];
+  const uniqueIds = [
+    ...new Set(remoteCatchIds.map((value) => String(value || "").trim()).filter(Boolean)),
+  ];
 
   if (uniqueIds.length === 0) {
     return empty;

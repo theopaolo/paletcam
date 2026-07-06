@@ -125,9 +125,7 @@ describe("createDayGroup", () => {
     const toggle = dayElement.querySelector(".collection-day-toggle");
     toggle?.click();
 
-    expect(collapseEvents).toEqual([
-      { dayId: "day-2026-03-12", isCollapsed: true },
-    ]);
+    expect(collapseEvents).toEqual([{ dayId: "day-2026-03-12", isCollapsed: true }]);
     expect(dayElement.classList.contains("is-collapsed")).toBe(true);
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
   });

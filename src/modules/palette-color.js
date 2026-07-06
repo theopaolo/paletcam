@@ -9,12 +9,8 @@
  * are available for any new code that wants richer color info.
  */
 
-import { rgbToHsl } from './color-math.js';
-import {
-  rgbToOklch,
-  relativeLuminance,
-  contrastRatio,
-} from './color-space-oklch.js';
+import { rgbToHsl } from "./color-math.js";
+import { rgbToOklch, relativeLuminance, contrastRatio } from "./color-space-oklch.js";
 
 /**
  * @param {number} r  0-255
@@ -38,7 +34,7 @@ export function createPaletteColor(r, g, b, population = 0) {
     hex: {
       get() {
         if (!_hex) {
-          const toHex = (n) => n.toString(16).padStart(2, '0');
+          const toHex = (n) => n.toString(16).padStart(2, "0");
           _hex = `#${toHex(this.r)}${toHex(this.g)}${toHex(this.b)}`;
         }
         return _hex;
@@ -90,7 +86,7 @@ export function createPaletteColor(r, g, b, population = 0) {
 
     textColor: {
       get() {
-        return this.isDark ? '#ffffff' : '#000000';
+        return this.isDark ? "#ffffff" : "#000000";
       },
       enumerable: false,
     },
@@ -111,17 +107,17 @@ export function createPaletteColor(r, g, b, population = 0) {
     // ---- CSS output ----
 
     css: {
-      value(format = 'rgb') {
+      value(format = "rgb") {
         switch (format) {
-          case 'hsl': {
+          case "hsl": {
             const { h, s, l } = this.hsl;
             return `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
           }
-          case 'oklch': {
+          case "oklch": {
             const { l, c, h } = this.oklch;
             return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`;
           }
-          case 'hex':
+          case "hex":
             return this.hex;
           default:
             return `rgb(${this.r}, ${this.g}, ${this.b})`;
@@ -151,8 +147,8 @@ export function createPaletteColor(r, g, b, population = 0) {
 export function enrichPaletteColors(colors) {
   return colors.map((c) =>
     // Skip if already enriched (has non-enumerable hex getter)
-    Object.getOwnPropertyDescriptor(c, 'hex')
+    Object.getOwnPropertyDescriptor(c, "hex")
       ? c
-      : createPaletteColor(c.r, c.g, c.b, c.population ?? 0)
+      : createPaletteColor(c.r, c.g, c.b, c.population ?? 0),
   );
 }

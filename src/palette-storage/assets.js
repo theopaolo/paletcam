@@ -1,5 +1,5 @@
-import { reportAppError } from '../modules/error-reporting.js';
-import { db } from './db.js';
+import { reportAppError } from "../modules/error-reporting.js";
+import { db } from "./db.js";
 import {
   createPaletteAssetRecord,
   getPreviewVariantFieldKeys,
@@ -7,7 +7,7 @@ import {
   normalizePolaroidColorNames,
   normalizePreviewFooterLabel,
   normalizeStoredPaletteRecord,
-} from './records.js';
+} from "./records.js";
 
 export async function readPaletteMetadataRecord(paletteId) {
   return db.palettes.get(paletteId);
@@ -18,20 +18,21 @@ async function repairLegacyPaletteAssetRecord(paletteId, legacyPaletteRecord) {
     return legacyPaletteRecord?.photoBlob ?? null;
   }
 
-  await db.transaction('rw', db.palettes, db.paletteAssets, async () => {
+  await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
     const currentPaletteRecord = await db.palettes.get(paletteId);
     if (!(currentPaletteRecord?.photoBlob instanceof Blob)) {
       return;
     }
 
-    await db.paletteAssets.put(
-      createPaletteAssetRecord(paletteId, currentPaletteRecord.photoBlob),
-    );
+    await db.paletteAssets.put(createPaletteAssetRecord(paletteId, currentPaletteRecord.photoBlob));
     await db.palettes.put(
-      normalizeStoredPaletteRecord({
-        ...currentPaletteRecord,
-        hasPhotoAsset: true,
-      }, { includePhotoBlob: false }),
+      normalizeStoredPaletteRecord(
+        {
+          ...currentPaletteRecord,
+          hasPhotoAsset: true,
+        },
+        { includePhotoBlob: false },
+      ),
     );
   });
 
@@ -83,7 +84,7 @@ export async function readPalettePreviewBlobById(id, variant = "viewer") {
  * @returns {Promise<Blob | null>}
  */
 export async function ensurePaletteMasterPhotoBlob(palette) {
-  if (!palette || typeof palette !== 'object') {
+  if (!palette || typeof palette !== "object") {
     return null;
   }
 
@@ -127,7 +128,7 @@ export async function updatePalettePreviewBlob(
   id,
   previewBlob,
   previewFooterLabel = null,
-  { variant = 'viewer' } = {},
+  { variant = "viewer" } = {},
 ) {
   const paletteId = getPaletteIdOrThrow(id);
   const { blobKey, footerKey } = getPreviewVariantFieldKeys(variant);
@@ -145,10 +146,13 @@ export async function updatePalettePreviewBlob(
         return undefined;
       }
 
-      const nextPaletteRecord = normalizeStoredPaletteRecord({
-        ...paletteRecord,
-        [footerKey]: normalizePreviewFooterLabel(previewFooterLabel),
-      }, { includePhotoBlob: false });
+      const nextPaletteRecord = normalizeStoredPaletteRecord(
+        {
+          ...paletteRecord,
+          [footerKey]: normalizePreviewFooterLabel(previewFooterLabel),
+        },
+        { includePhotoBlob: false },
+      );
       delete nextPaletteRecord[blobKey];
       await db.palettes.put(nextPaletteRecord);
     }
@@ -162,7 +166,7 @@ export async function updatePalettePreviewBlob(
       consoleMessage: `Failed to update preview blob for palette ${paletteId}:`,
       includeClientLog: false,
     });
-    throw new Error('Unable to update palette preview blob.', { cause: error });
+    throw new Error("Unable to update palette preview blob.", { cause: error });
   }
 }
 
@@ -181,6 +185,6 @@ export async function updatePalettePolaroidColorNames(id, colorNames) {
       consoleMessage: `Failed to update color names for palette ${paletteId}:`,
       includeClientLog: false,
     });
-    throw new Error('Unable to update palette color names.', { cause: error });
+    throw new Error("Unable to update palette color names.", { cause: error });
   }
 }

@@ -12,10 +12,7 @@ export function createCommunityServiceError(message, { code = "UNKNOWN", cause =
 export function getAuthTokenOrThrow() {
   const token = getCommunityAccessToken();
   if (!token) {
-    throw createCommunityServiceError(
-      "Authentication required.",
-      { code: "NOT_AUTHENTICATED" },
-    );
+    throw createCommunityServiceError("Authentication required.", { code: "NOT_AUTHENTICATED" });
   }
 
   return token;
@@ -24,14 +21,14 @@ export function getAuthTokenOrThrow() {
 export function mapApiError(error) {
   if (Number(error?.status) === 401) {
     clearCommunitySession();
-    return createCommunityServiceError(
-      "Authentication expired.",
-      { code: "AUTH_EXPIRED", cause: error },
-    );
+    return createCommunityServiceError("Authentication expired.", {
+      code: "AUTH_EXPIRED",
+      cause: error,
+    });
   }
 
-  return createCommunityServiceError(
-    error?.message || "Community API request failed.",
-    { code: "API_ERROR", cause: error },
-  );
+  return createCommunityServiceError(error?.message || "Community API request failed.", {
+    code: "API_ERROR",
+    cause: error,
+  });
 }

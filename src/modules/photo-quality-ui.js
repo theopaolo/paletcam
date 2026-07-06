@@ -44,7 +44,10 @@ export function createPhotoQualityUiController({ overlayHost, onModeChange } = {
     currentMode = PHOTO_QUALITY_MODES.includes(mode) ? mode : "hd";
     chip.textContent = QUALITY_LABELS[currentMode];
     chip.dataset.mode = currentMode;
-    chip.setAttribute("aria-label", t("camera.quality.aria", { mode: QUALITY_LABELS[currentMode] }));
+    chip.setAttribute(
+      "aria-label",
+      t("camera.quality.aria", { mode: QUALITY_LABELS[currentMode] }),
+    );
   }
 
   function handleClick() {

@@ -1,9 +1,9 @@
 export function dataUrlToBlob(dataUrl) {
-  const [header, content] = dataUrl.split(',');
+  const [header, content] = dataUrl.split(",");
   const mimeMatch = header.match(/:(.*?);/);
 
   if (!mimeMatch) {
-    throw new Error('Invalid data URL format.');
+    throw new Error("Invalid data URL format.");
   }
 
   const mimeType = mimeMatch[1];

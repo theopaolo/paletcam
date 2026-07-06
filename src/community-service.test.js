@@ -11,9 +11,7 @@ function normalizeCatchStatus(status) {
   }
 
   const normalized = status.trim().toUpperCase();
-  return ["TO_MODERATE", "PUBLIC", "REJECTED", "PRIVATE"].includes(normalized)
-    ? normalized
-    : null;
+  return ["TO_MODERATE", "PUBLIC", "REJECTED", "PRIVATE"].includes(normalized) ? normalized : null;
 }
 
 async function loadCommunityService({
@@ -54,7 +52,9 @@ async function loadCommunityService({
   mock.module(communitySessionModuleUrl, () => ({
     clearCommunitySession: mock(() => {}),
     getCommunityAccessToken: mock(() => token),
-    getCommunitySession: mock(() => (token ? { token, email: "user@example.com", user: null } : null)),
+    getCommunitySession: mock(() =>
+      token ? { token, email: "user@example.com", user: null } : null,
+    ),
     setCommunitySession: mock((session) => session),
     subscribeCommunitySession: mock(() => () => {}),
   }));
@@ -81,7 +81,8 @@ afterEach(() => {
 
 describe("cleanupPaletteRemoteCatchForDeletion", () => {
   test("skips remote cleanup when the palette was never published", async () => {
-    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } = await loadCommunityService();
+    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } =
+      await loadCommunityService();
     const palette = {
       id: 1,
       remoteCatchId: null,
@@ -101,9 +102,10 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
   });
 
   test("unpublishes the remote catch and marks the palette private locally", async () => {
-    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } = await loadCommunityService({
-      token: "session-token",
-    });
+    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } =
+      await loadCommunityService({
+        token: "session-token",
+      });
     const palette = {
       id: 7,
       remoteCatchId: "remote-7",
@@ -127,7 +129,8 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
   });
 
   test("returns an authentication warning when the user is no longer connected", async () => {
-    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } = await loadCommunityService();
+    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } =
+      await loadCommunityService();
     const palette = {
       id: 9,
       remoteCatchId: "remote-9",
@@ -171,13 +174,14 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
 describe("publishPaletteToCommunityFeed", () => {
   test("hydrates the master photo blob before encoding when publishing from a list-loaded palette", async () => {
     const hydratedBlob = new Blob(["photo"], { type: "image/webp" });
-    const { ensurePaletteMasterPhotoBlob, service, updatePaletteRemoteState } = await loadCommunityService({
-      token: "session-token",
-      ensurePaletteMasterPhotoBlobImplementation: async (palette) => {
-        palette.photoBlob = hydratedBlob;
-        return hydratedBlob;
-      },
-    });
+    const { ensurePaletteMasterPhotoBlob, service, updatePaletteRemoteState } =
+      await loadCommunityService({
+        token: "session-token",
+        ensurePaletteMasterPhotoBlobImplementation: async (palette) => {
+          palette.photoBlob = hydratedBlob;
+          return hydratedBlob;
+        },
+      });
     const palette = {
       id: 17,
       colors: [{ r: 12, g: 34, b: 56 }],

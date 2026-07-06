@@ -172,11 +172,7 @@ await mkdir(outDir, { recursive: true });
 await mkdir(workersOutDir, { recursive: true });
 
 await buildBrowserEntrypoints(
-  [
-    join(sourceRoot, "app.js"),
-    join(sourceRoot, "offline.js"),
-    join(sourceRoot, "pwa-install.js"),
-  ],
+  [join(sourceRoot, "app.js"), join(sourceRoot, "offline.js"), join(sourceRoot, "pwa-install.js")],
   outDir,
 );
 await buildBrowserEntrypoints(
@@ -187,9 +183,8 @@ await buildBrowserEntrypoints(
   workersOutDir,
 );
 
-const debugEntrypoints = deployBranchName === "pwa/preprod"
-  ? [join(sourceRoot, "debug-extraction.js")]
-  : [];
+const debugEntrypoints =
+  deployBranchName === "pwa/preprod" ? [join(sourceRoot, "debug-extraction.js")] : [];
 if (debugEntrypoints.length > 0) {
   await buildBrowserEntrypoints(debugEntrypoints, outDir);
 }

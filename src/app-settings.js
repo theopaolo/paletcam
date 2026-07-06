@@ -135,8 +135,7 @@ function normalizeMedianCutSettings(candidate) {
 }
 
 function clampFloatInRange(rawValue, fallbackValue, range) {
-  const numericValue =
-    typeof rawValue === "number" ? rawValue : Number.parseFloat(rawValue);
+  const numericValue = typeof rawValue === "number" ? rawValue : Number.parseFloat(rawValue);
   if (!Number.isFinite(numericValue)) {
     return fallbackValue;
   }

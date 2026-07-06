@@ -1,10 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from "bun:test";
 
 import {
   findClosestRalFromContext,
   getSamplingWindow,
   sampleColorFromContextAtPoint,
-} from './ral-live-sampling.js';
+} from "./ral-live-sampling.js";
 
 function createContextStub(pixelDataByRect, calls) {
   return {
@@ -21,13 +21,11 @@ function createContextStub(pixelDataByRect, calls) {
   };
 }
 
-describe('ral-live-sampling', () => {
-  test('limits the sampled read to the live point neighborhood', () => {
+describe("ral-live-sampling", () => {
+  test("limits the sampled read to the live point neighborhood", () => {
     const calls = [];
     const context = createContextStub(
-      new Map([
-        ['16,6,9,9', new Uint8ClampedArray(9 * 9 * 4).fill(255)],
-      ]),
+      new Map([["16,6,9,9", new Uint8ClampedArray(9 * 9 * 4).fill(255)]]),
       calls,
     );
 
@@ -36,7 +34,7 @@ describe('ral-live-sampling', () => {
     expect(calls).toEqual([{ height: 9, width: 9, x: 16, y: 6 }]);
   });
 
-  test('clamps the sampling window at image edges', () => {
+  test("clamps the sampling window at image edges", () => {
     expect(getSamplingWindow(6, 6, 0, 0)).toEqual({
       height: 5,
       localX: 0,
@@ -47,15 +45,13 @@ describe('ral-live-sampling', () => {
     });
   });
 
-  test('returns the closest RAL match from a sampled patch', () => {
+  test("returns the closest RAL match from a sampled patch", () => {
     const calls = [];
     const context = createContextStub(
       new Map([
         [
-          '0,0,9,9',
-          new Uint8ClampedArray(
-            Array.from({ length: 9 * 9 }, () => [243, 118, 33, 255]).flat(),
-          ),
+          "0,0,9,9",
+          new Uint8ClampedArray(Array.from({ length: 9 * 9 }, () => [243, 118, 33, 255]).flat()),
         ],
       ]),
       calls,
@@ -65,6 +61,6 @@ describe('ral-live-sampling', () => {
 
     expect(calls).toEqual([{ height: 9, width: 9, x: 0, y: 0 }]);
     expect(result.sampledColor).toEqual({ r: 243, g: 118, b: 33 });
-    expect(result.matches[0]?.ral.code).toBe('RAL 2003');
+    expect(result.matches[0]?.ral.code).toBe("RAL 2003");
   });
 });

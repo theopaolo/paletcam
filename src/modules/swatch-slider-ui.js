@@ -1,4 +1,4 @@
-import { updateSliderTooltip } from './camera-ui.js';
+import { updateSliderTooltip } from "./camera-ui.js";
 
 const DEFAULT_SWATCH_ACTIVE_PULSE_MS = 170;
 
@@ -19,11 +19,11 @@ export function createSwatchSliderUiController({
   let isBound = false;
 
   function getSliderPanel() {
-    return swatchSlider?.closest('.swatch-slider') ?? null;
+    return swatchSlider?.closest(".swatch-slider") ?? null;
   }
 
   function setDragState(isDragging) {
-    getSliderPanel()?.classList.toggle('is-dragging', isDragging);
+    getSliderPanel()?.classList.toggle("is-dragging", isDragging);
   }
 
   function pulseActiveIndicator() {
@@ -32,14 +32,14 @@ export function createSwatchSliderUiController({
       return;
     }
 
-    sliderPanel.classList.add('is-active');
+    sliderPanel.classList.add("is-active");
 
     if (activePulseTimeout) {
       window.clearTimeout(activePulseTimeout);
     }
 
     activePulseTimeout = window.setTimeout(() => {
-      sliderPanel.classList.remove('is-active');
+      sliderPanel.classList.remove("is-active");
       activePulseTimeout = 0;
     }, activePulseMs);
   }
@@ -49,7 +49,7 @@ export function createSwatchSliderUiController({
       return;
     }
 
-    window.removeEventListener('pointerup', pendingPointerUpHandler);
+    window.removeEventListener("pointerup", pendingPointerUpHandler);
     pendingPointerUpHandler = null;
   }
 
@@ -63,7 +63,7 @@ export function createSwatchSliderUiController({
     pulseActiveIndicator();
     clearPendingPointerUpHandler();
     pendingPointerUpHandler = handlePointerUp;
-    window.addEventListener('pointerup', pendingPointerUpHandler, { once: true });
+    window.addEventListener("pointerup", pendingPointerUpHandler, { once: true });
   }
 
   function handlePointerCancel() {
@@ -93,10 +93,10 @@ export function createSwatchSliderUiController({
       return;
     }
 
-    swatchSlider.addEventListener('pointerdown', handlePointerDown);
-    swatchSlider.addEventListener('pointercancel', handlePointerCancel);
-    swatchSlider.addEventListener('blur', handleBlur);
-    swatchSlider.addEventListener('input', handleInput);
+    swatchSlider.addEventListener("pointerdown", handlePointerDown);
+    swatchSlider.addEventListener("pointercancel", handlePointerCancel);
+    swatchSlider.addEventListener("blur", handleBlur);
+    swatchSlider.addEventListener("input", handleInput);
     isBound = true;
   }
 
@@ -111,16 +111,16 @@ export function createSwatchSliderUiController({
     }
 
     const sliderPanel = getSliderPanel();
-    sliderPanel?.classList.remove('is-active');
-    sliderPanel?.classList.remove('is-dragging');
+    sliderPanel?.classList.remove("is-active");
+    sliderPanel?.classList.remove("is-dragging");
   }
 
   function destroy() {
     if (swatchSlider && isBound) {
-      swatchSlider.removeEventListener('pointerdown', handlePointerDown);
-      swatchSlider.removeEventListener('pointercancel', handlePointerCancel);
-      swatchSlider.removeEventListener('blur', handleBlur);
-      swatchSlider.removeEventListener('input', handleInput);
+      swatchSlider.removeEventListener("pointerdown", handlePointerDown);
+      swatchSlider.removeEventListener("pointercancel", handlePointerCancel);
+      swatchSlider.removeEventListener("blur", handleBlur);
+      swatchSlider.removeEventListener("input", handleInput);
       isBound = false;
     }
 

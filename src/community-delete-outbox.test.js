@@ -4,7 +4,8 @@ const OUTBOX_STORAGE_KEY = "paletcam:community:delete-cleanup-outbox:v1";
 const communityApiModuleUrl = new URL("./community-api.js", import.meta.url).href;
 const communityServiceModuleUrl = new URL("./community-service.js", import.meta.url).href;
 const communitySessionModuleUrl = new URL("./community-session.js", import.meta.url).href;
-const communityDeleteOutboxModuleUrl = new URL("./community-delete-outbox.js", import.meta.url).href;
+const communityDeleteOutboxModuleUrl = new URL("./community-delete-outbox.js", import.meta.url)
+  .href;
 
 let currentOutboxModule = null;
 
@@ -122,10 +123,7 @@ describe("community deletion cleanup outbox", () => {
             success: false,
           };
         },
-        initialEntries: [
-          { remoteCatchId: "remote-success" },
-          { remoteCatchId: "remote-retry" },
-        ],
+        initialEntries: [{ remoteCatchId: "remote-success" }, { remoteCatchId: "remote-retry" }],
       });
 
     const result = await module.flushCommunityDeletionCleanupOutbox();
@@ -147,30 +145,34 @@ describe("community deletion cleanup outbox", () => {
   test("retries queued deletions when the community session comes back", async () => {
     let isAuthenticated = false;
 
-    const { cleanupRemoteCatchForDeletionByRemoteCatchId, localStorageMock, module, triggerSession } =
-      await loadCommunityDeleteOutbox({
-        cleanupImplementation: async (remoteCatchId) => {
-          if (!isAuthenticated) {
-            return {
-              attempted: false,
-              error: Object.assign(new Error("Authentication required."), {
-                code: "NOT_AUTHENTICATED",
-              }),
-              remoteCatchId,
-              status: "authentication_required",
-              success: false,
-            };
-          }
-
+    const {
+      cleanupRemoteCatchForDeletionByRemoteCatchId,
+      localStorageMock,
+      module,
+      triggerSession,
+    } = await loadCommunityDeleteOutbox({
+      cleanupImplementation: async (remoteCatchId) => {
+        if (!isAuthenticated) {
           return {
-            attempted: true,
+            attempted: false,
+            error: Object.assign(new Error("Authentication required."), {
+              code: "NOT_AUTHENTICATED",
+            }),
             remoteCatchId,
-            status: "unpublished",
-            success: true,
+            status: "authentication_required",
+            success: false,
           };
-        },
-        initialEntries: [{ remoteCatchId: "remote-login" }],
-      });
+        }
+
+        return {
+          attempted: true,
+          remoteCatchId,
+          status: "unpublished",
+          success: true,
+        };
+      },
+      initialEntries: [{ remoteCatchId: "remote-login" }],
+    });
 
     module.initializeCommunityDeletionCleanupOutbox();
     await new Promise((resolve) => setTimeout(resolve, 0));

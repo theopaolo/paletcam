@@ -1,11 +1,10 @@
 import { getAppSettings, subscribeAppSettings } from "./app-settings.js";
 import { setLocale, t } from "./i18n.js";
 
-const isLocalDevelopment = (
+const isLocalDevelopment =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1" ||
-  window.location.hostname === "0.0.0.0"
-);
+  window.location.hostname === "0.0.0.0";
 const SERVICE_WORKER_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 
 setLocale(getAppSettings().locale, { force: true });
@@ -19,7 +18,8 @@ function bindServiceWorkerUpdateChecks(registration) {
     }
 
     isUpdating = true;
-    registration.update()
+    registration
+      .update()
       .catch((error) => {
         console.warn("Service Worker update check failed:", error);
       })
@@ -28,10 +28,7 @@ function bindServiceWorkerUpdateChecks(registration) {
       });
   };
 
-  const intervalId = globalThis.setInterval(
-    triggerUpdate,
-    SERVICE_WORKER_UPDATE_INTERVAL_MS,
-  );
+  const intervalId = globalThis.setInterval(triggerUpdate, SERVICE_WORKER_UPDATE_INTERVAL_MS);
 
   window.addEventListener("focus", triggerUpdate);
   window.addEventListener("pageshow", triggerUpdate);
@@ -41,19 +38,24 @@ function bindServiceWorkerUpdateChecks(registration) {
     }
   });
 
-  window.addEventListener("beforeunload", () => {
-    globalThis.clearInterval(intervalId);
-  }, { once: true });
+  window.addEventListener(
+    "beforeunload",
+    () => {
+      globalThis.clearInterval(intervalId);
+    },
+    { once: true },
+  );
 
   triggerUpdate();
 }
 
 function bindLocalDevelopmentServiceWorkerCleanup() {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.getRegistrations()
-      .then((registrations) => Promise.all(
-        registrations.map((registration) => registration.unregister()),
-      ))
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister())),
+      )
       .catch((error) => {
         console.warn("Service Worker cleanup failed in local dev:", error);
       });
@@ -76,10 +78,11 @@ function bindProductionServiceWorkerRegistration() {
     const serviceWorkerUrl = new URL("service-worker.js", window.location.href);
     const serviceWorkerScope = new URL(".", window.location.href).pathname;
 
-    navigator.serviceWorker.register(serviceWorkerUrl.pathname, {
-      scope: serviceWorkerScope,
-      updateViaCache: "none",
-    })
+    navigator.serviceWorker
+      .register(serviceWorkerUrl.pathname, {
+        scope: serviceWorkerScope,
+        updateViaCache: "none",
+      })
       .then((registration) => {
         bindServiceWorkerUpdateChecks(registration);
       })

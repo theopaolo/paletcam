@@ -5,10 +5,7 @@ import {
   updateAppSettings,
 } from "../../app-settings.js";
 import { t } from "../../i18n.js";
-import {
-  areAlgorithmSettingsEqual,
-  cloneAlgorithmSettings,
-} from "../algorithm-settings.js";
+import { areAlgorithmSettingsEqual, cloneAlgorithmSettings } from "../algorithm-settings.js";
 import { createAlgorithmSettingsHistory } from "./algorithm-settings-history.js";
 import {
   clampInteger,
@@ -68,7 +65,9 @@ function isEventInsideElement(event, element) {
     return true;
   }
 
-  return Boolean(event.target && typeof element.contains === "function" && element.contains(event.target));
+  return Boolean(
+    event.target && typeof element.contains === "function" && element.contains(event.target),
+  );
 }
 
 export function mountConfigPanel({ root, toggleButton, toggleSection }) {
@@ -411,8 +410,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
         Math.round((settings.hybrid?.tone ?? defaultAlgorithmSettings.hybrid.tone) * 100),
       onValueInput: (value) => {
         applyAlgorithmSettings((snapshot) => {
-          snapshot.hybrid.tone =
-            Math.round(value) / 100;
+          snapshot.hybrid.tone = Math.round(value) / 100;
         });
       },
       onInteractionStart: beginAlgorithmInteraction,
@@ -426,8 +424,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       displaySelector: "[data-config-hybrid-rarity-display]",
       getValueFromSettings: (settings) =>
         Math.round(
-          (settings.hybrid?.rarityStrength ?? defaultAlgorithmSettings.hybrid.rarityStrength) *
-            100,
+          (settings.hybrid?.rarityStrength ?? defaultAlgorithmSettings.hybrid.rarityStrength) * 100,
         ),
       onValueInput: (value) => {
         applyAlgorithmSettings((snapshot) => {
@@ -445,8 +442,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       displaySelector: "[data-config-hybrid-spread-display]",
       getValueFromSettings: (settings) =>
         Math.round(
-          (settings.hybrid?.spreadStrength ?? defaultAlgorithmSettings.hybrid.spreadStrength) *
-            100,
+          (settings.hybrid?.spreadStrength ?? defaultAlgorithmSettings.hybrid.spreadStrength) * 100,
         ),
       onValueInput: (value) => {
         applyAlgorithmSettings((snapshot) => {

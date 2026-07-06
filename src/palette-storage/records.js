@@ -1,17 +1,12 @@
-const KNOWN_MODERATION_STATUSES = new Set([
-  'TO_MODERATE',
-  'PUBLIC',
-  'REJECTED',
-  'PRIVATE',
-]);
+const KNOWN_MODERATION_STATUSES = new Set(["TO_MODERATE", "PUBLIC", "REJECTED", "PRIVATE"]);
 const PREVIEW_VARIANT_FIELD_KEYS = Object.freeze({
   gallery: Object.freeze({
-    blobKey: 'previewGalleryBlob',
-    footerKey: 'previewGalleryFooterLabel',
+    blobKey: "previewGalleryBlob",
+    footerKey: "previewGalleryFooterLabel",
   }),
   viewer: Object.freeze({
-    blobKey: 'previewViewerBlob',
-    footerKey: 'previewViewerFooterLabel',
+    blobKey: "previewViewerBlob",
+    footerKey: "previewViewerFooterLabel",
   }),
 });
 
@@ -25,7 +20,7 @@ export function normalizeRemoteCatchId(value) {
 }
 
 export function normalizeModerationStatus(value) {
-  if (typeof value !== 'string') {
+  if (typeof value !== "string") {
     return null;
   }
 
@@ -47,19 +42,19 @@ export function normalizeIsoString(value) {
 }
 
 export function normalizePreviewFooterLabel(value) {
-  return typeof value === 'string' ? value : null;
+  return typeof value === "string" ? value : null;
 }
 
 export function normalizePreviewVariant(variant) {
-  return variant === 'gallery' ? 'gallery' : 'viewer';
+  return variant === "gallery" ? "gallery" : "viewer";
 }
 
 export function normalizePolaroidRenderSettings(value) {
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== "object") {
     return null;
   }
 
-  const footerLabel = typeof value.footerLabel === 'string' ? value.footerLabel.trim() : '';
+  const footerLabel = typeof value.footerLabel === "string" ? value.footerLabel.trim() : "";
   return {
     footerLabel,
     showColorNames: Boolean(value.showColorNames),
@@ -71,7 +66,7 @@ export function normalizePolaroidColorNames(value) {
     return null;
   }
 
-  return value.map((name) => String(name ?? '').trim());
+  return value.map((name) => String(name ?? "").trim());
 }
 
 export function getPreviewVariantFieldKeys(variant) {
@@ -91,11 +86,7 @@ export function normalizeCaptureCropRect(captureCropRect) {
 
 export function normalizeStoredPaletteRecord(
   palette,
-  {
-    includePhotoBlob = false,
-    photoBlob = undefined,
-    includeViewerPreviewBlob = true,
-  } = {},
+  { includePhotoBlob = false, photoBlob = undefined, includeViewerPreviewBlob = true } = {},
 ) {
   const legacyPreviewBlob = palette?.previewBlob instanceof Blob ? palette.previewBlob : null;
   const legacyPreviewFooterLabel = normalizePreviewFooterLabel(palette?.previewFooterLabel);
@@ -108,9 +99,7 @@ export function normalizeStoredPaletteRecord(
     normalizePreviewFooterLabel(palette?.previewViewerFooterLabel) ?? legacyPreviewFooterLabel;
   const previewGalleryBlob =
     palette?.previewGalleryBlob instanceof Blob ? palette.previewGalleryBlob : null;
-  const previewGalleryFooterLabel = normalizePreviewFooterLabel(
-    palette?.previewGalleryFooterLabel,
-  );
+  const previewGalleryFooterLabel = normalizePreviewFooterLabel(palette?.previewGalleryFooterLabel);
   const normalized = {
     ...palette,
     captureCropRect: normalizeCaptureCropRect(palette?.captureCropRect),
@@ -123,9 +112,7 @@ export function normalizeStoredPaletteRecord(
     lastModerationCheckAt: normalizeIsoString(palette?.lastModerationCheckAt),
     previewFooterLabel: normalizePreviewFooterLabel(palette?.previewFooterLabel),
     hasPhotoAsset: Boolean(
-      palette?.hasPhotoAsset
-      || photoBlob instanceof Blob
-      || palette?.photoBlob instanceof Blob,
+      palette?.hasPhotoAsset || photoBlob instanceof Blob || palette?.photoBlob instanceof Blob,
     ),
   };
 
@@ -176,7 +163,7 @@ export function createPaletteMetadataRecord({
   id,
   timestamp,
   colors,
-  captureAspectRatio = '4:3',
+  captureAspectRatio = "4:3",
   captureCropRect = null,
   captureMode,
   ralMatch = null,
@@ -199,7 +186,7 @@ export function createPaletteMetadataRecord({
     colors: [...(Array.isArray(colors) ? colors : [])],
     captureAspectRatio,
     captureCropRect: normalizeCaptureCropRect(captureCropRect),
-    ...(captureMode === 'ral' ? { captureMode: 'ral', ralMatch } : {}),
+    ...(captureMode === "ral" ? { captureMode: "ral", ralMatch } : {}),
     polaroidRenderSettings: normalizePolaroidRenderSettings(polaroidRenderSettings),
     polaroidColorNames: normalizePolaroidColorNames(polaroidColorNames),
     remoteCatchId: normalizeRemoteCatchId(remoteCatchId),
@@ -239,7 +226,7 @@ export function createPaletteAssetRecord(paletteId, photoBlob) {
 export function getPaletteIdOrThrow(id) {
   const paletteId = Number(id);
   if (!Number.isFinite(paletteId)) {
-    throw new Error('Invalid palette id.');
+    throw new Error("Invalid palette id.");
   }
 
   return paletteId;

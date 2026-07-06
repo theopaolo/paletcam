@@ -84,7 +84,9 @@ const SWATCH_COUNT = 6;
 const SELECTORS = ["current", "new", "hybrid"];
 const SMOOTHING_FACTOR = 0.16;
 
-console.log(`Jitter test: ${FRAME_COUNT} frames, noise=±${NOISE}/channel, swatchCount=${SWATCH_COUNT}`);
+console.log(
+  `Jitter test: ${FRAME_COUNT} frames, noise=±${NOISE}/channel, swatchCount=${SWATCH_COUNT}`,
+);
 console.log(`With production smoother (factor=${SMOOTHING_FACTOR}) — matches what the user sees\n`);
 
 const allResults = [];
@@ -111,10 +113,17 @@ for (const imgPath of TEST_IMAGES) {
     const smoother = createColorSmoother();
     const palettes = [];
     for (const frame of frames) {
-      const r = traceExtraction(frame.data, frame.width, frame.height, SWATCH_COUNT, {}, {
-        selector,
-        maxScatterPoints: 100,
-      });
+      const r = traceExtraction(
+        frame.data,
+        frame.width,
+        frame.height,
+        SWATCH_COUNT,
+        {},
+        {
+          selector,
+          maxScatterPoints: 100,
+        },
+      );
       const rawColors = r.selected.map((s) => ({ ...s.rgb }));
       const smoothed = smoother.smooth(rawColors, SMOOTHING_FACTOR);
       palettes.push(smoothed);
@@ -162,7 +171,19 @@ console.log(`  current: ${avg("current", "posDrift").toFixed(4)}`);
 console.log(`  new:     ${avg("new", "posDrift").toFixed(4)}`);
 console.log(`  hybrid:  ${avg("hybrid", "posDrift").toFixed(4)}`);
 
-const nn = { cur: avg("current", "nnDrift"), neu: avg("new", "nnDrift"), hyb: avg("hybrid", "nnDrift") };
-const pos = { cur: avg("current", "posDrift"), neu: avg("new", "posDrift"), hyb: avg("hybrid", "posDrift") };
-console.log(`\nhybrid vs current: nn ${((nn.hyb / nn.cur - 1) * 100).toFixed(1)}%, pos ${((pos.hyb / pos.cur - 1) * 100).toFixed(1)}%`);
-console.log(`hybrid vs new:     nn ${((nn.hyb / nn.neu - 1) * 100).toFixed(1)}%, pos ${((pos.hyb / pos.neu - 1) * 100).toFixed(1)}%`);
+const nn = {
+  cur: avg("current", "nnDrift"),
+  neu: avg("new", "nnDrift"),
+  hyb: avg("hybrid", "nnDrift"),
+};
+const pos = {
+  cur: avg("current", "posDrift"),
+  neu: avg("new", "posDrift"),
+  hyb: avg("hybrid", "posDrift"),
+};
+console.log(
+  `\nhybrid vs current: nn ${((nn.hyb / nn.cur - 1) * 100).toFixed(1)}%, pos ${((pos.hyb / pos.cur - 1) * 100).toFixed(1)}%`,
+);
+console.log(
+  `hybrid vs new:     nn ${((nn.hyb / nn.neu - 1) * 100).toFixed(1)}%, pos ${((pos.hyb / pos.neu - 1) * 100).toFixed(1)}%`,
+);

@@ -91,7 +91,8 @@ export function applyTranslations(root = globalThis.document) {
       element.textContent = t(textKey);
     }
 
-    element.getAttributeNames()
+    element
+      .getAttributeNames()
       .filter((attributeName) => attributeName.startsWith("data-i18n-"))
       .forEach((attributeName) => {
         const targetAttribute = attributeName.slice("data-i18n-".length);

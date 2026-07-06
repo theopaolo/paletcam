@@ -39,10 +39,7 @@ export function getPalettePublicationAction(palette) {
   const remoteCatchId = getPaletteRemoteCatchId(palette);
   const moderationStatus = normalizeCatchStatus(palette?.moderationStatus);
 
-  if (
-    remoteCatchId
-    && moderationStatus === CATCH_MODERATION_STATUSES.PUBLIC
-  ) {
+  if (remoteCatchId && moderationStatus === CATCH_MODERATION_STATUSES.PUBLIC) {
     return "unpublish";
   }
 

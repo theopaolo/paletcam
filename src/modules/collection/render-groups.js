@@ -70,9 +70,9 @@ function createDayCover(dayGroup) {
   const darkColor = offsetColor(averageColor, -38);
   const lightColor = offsetColor(averageColor, 26);
 
-  cover.style.backgroundImage = `linear-gradient(108deg, ${
-    toRgbCss(darkColor)
-  } 0%, ${toRgbCss(averageColor)} 52%, ${toRgbCss(lightColor)} 100%)`;
+  cover.style.backgroundImage = `linear-gradient(108deg, ${toRgbCss(
+    darkColor,
+  )} 0%, ${toRgbCss(averageColor)} 52%, ${toRgbCss(lightColor)} 100%)`;
 
   return cover;
 }
@@ -83,9 +83,7 @@ function setDayCollapsed(daySection, toggleButton, isCollapsed) {
 }
 
 function animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs }) {
-  const shouldReduceMotion = window.matchMedia?.(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
+  const shouldReduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   if (shouldReduceMotion) {
     return;
   }
@@ -106,17 +104,19 @@ function animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs }) 
     card.classList.add("is-revealing");
   });
 
-  window.setTimeout(() => {
-    cards.forEach((card) => {
-      card.classList.remove("is-revealing");
-    });
-  }, revealDurationMs + revealStaggerMs * cards.length);
+  window.setTimeout(
+    () => {
+      cards.forEach((card) => {
+        card.classList.remove("is-revealing");
+      });
+    },
+    revealDurationMs + revealStaggerMs * cards.length,
+  );
 }
 
 function createDayCards(dayGroup, createPaletteCard, viewMode) {
   const container = document.createElement("div");
-  container.className =
-    viewMode === "list" ? "collection-day-cards" : "collection-day-grid";
+  container.className = viewMode === "list" ? "collection-day-cards" : "collection-day-grid";
 
   dayGroup.palettes.forEach((palette) => {
     container.appendChild(createPaletteCard(palette));
@@ -212,9 +212,7 @@ export function createDayGroup({
 
   const mountContent = () => {
     contentContainer.style.minHeight = "";
-    contentContainer.appendChild(
-      createDayCards(dayGroup, createPaletteCard, viewMode),
-    );
+    contentContainer.appendChild(createDayCards(dayGroup, createPaletteCard, viewMode));
   };
 
   const unmountContent = (preMeasuredHeight) => {

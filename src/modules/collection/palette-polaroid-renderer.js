@@ -132,11 +132,7 @@ function resolvePolaroidColorTokens() {
 
 function getPolaroidCardWidth(
   sourceImageWidth,
-  {
-    maxWidth = POLAROID_RENDER_MAX_WIDTH,
-    minWidth = 320,
-    scale = POLAROID_RENDER_SCALE,
-  } = {},
+  { maxWidth = POLAROID_RENDER_MAX_WIDTH, minWidth = 320, scale = POLAROID_RENDER_SCALE } = {},
 ) {
   return Math.max(
     minWidth,
@@ -384,7 +380,7 @@ function drawPaletteStripColorNames({
     const paddingX = paddingBottom;
     const anchorX = tileX + paddingX;
     const anchorY = y + height - paddingBottom;
-    const maxLabelWidth = Math.max(24, height - (paddingBottom * 2));
+    const maxLabelWidth = Math.max(24, height - paddingBottom * 2);
     const maxFontSize = Math.max(
       POLAROID_COLOR_NAME_MIN_FONT_SIZE,
       Math.min(

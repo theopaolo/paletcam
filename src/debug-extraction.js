@@ -94,8 +94,7 @@ function getDebugOptions() {
 
 // New/Hybrid modes show Variety / Tone / Auto; Current shows the scorer weights.
 function syncSelectorMode() {
-  const isNew =
-    els.selector.value === "grid" || els.selector.value === "perceptual";
+  const isNew = els.selector.value === "grid" || els.selector.value === "perceptual";
   els.currentControls.hidden = isNew;
   els.newControls.hidden = !isNew;
 }
@@ -130,10 +129,7 @@ function resizeScatter() {
 }
 
 function getImageData(image) {
-  const scale = Math.min(
-    1,
-    ANALYSIS_MAX_DIM / Math.max(image.width, image.height),
-  );
+  const scale = Math.min(1, ANALYSIS_MAX_DIM / Math.max(image.width, image.height));
   const width = Math.max(1, Math.round(image.width * scale));
   const height = Math.max(1, Math.round(image.height * scale));
   analysisCanvas.width = width;
@@ -202,9 +198,7 @@ function renderStats() {
 
   const existing = els.palette.querySelectorAll(".swatch");
   if (existing.length !== displayColors.length) {
-    els.palette.replaceChildren(
-      ...displayColors.map((entry) => buildSwatch(entry.index)),
-    );
+    els.palette.replaceChildren(...displayColors.map((entry) => buildSwatch(entry.index)));
   }
   paintSwatches(displayColors);
 }
@@ -254,10 +248,7 @@ function computeSwatchCentroids(imageData, width, height, swatches) {
       const dr = r - sw.r;
       const dg = g - sw.g;
       const db = b - sw.b;
-      if (
-        dr * dr + dg * dg + db * db <
-        RGB_MATCH_THRESHOLD * RGB_MATCH_THRESHOLD
-      ) {
+      if (dr * dr + dg * dg + db * db < RGB_MATCH_THRESHOLD * RGB_MATCH_THRESHOLD) {
         sums[s].x += x;
         sums[s].y += y;
         sums[s].count += 1;
@@ -465,10 +456,7 @@ function tickCamera(now) {
   const video = els.cameraPreview;
   if (!video.videoWidth || !video.videoHeight) return;
 
-  const scale = Math.min(
-    1,
-    ANALYSIS_MAX_DIM / Math.max(video.videoWidth, video.videoHeight),
-  );
+  const scale = Math.min(1, ANALYSIS_MAX_DIM / Math.max(video.videoWidth, video.videoHeight));
   const width = Math.max(1, Math.round(video.videoWidth * scale));
   const height = Math.max(1, Math.round(video.videoHeight * scale));
   analysisCanvas.width = width;
@@ -522,15 +510,12 @@ async function buildGallery() {
   try {
     entries = await (await fetch("/debug/images.json")).json();
   } catch {
-    els.stats.textContent =
-      "Could not load image manifest (/debug/images.json).";
+    els.stats.textContent = "Could not load image manifest (/debug/images.json).";
     return;
   }
 
   // Filter to the curated 10. Loose top-level images only (no sets/).
-  entries = entries.filter(
-    (entry) => !entry.set && CURATED_DEBUG_IMAGES.has(entry.name),
-  );
+  entries = entries.filter((entry) => !entry.set && CURATED_DEBUG_IMAGES.has(entry.name));
 
   if (entries.length === 0) {
     els.stats.textContent = "No images found in public/assets/img.";

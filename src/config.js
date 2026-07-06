@@ -7,9 +7,7 @@ const LOG_API_BASE_URL_OVERRIDE =
   typeof __PALETCAM_LOG_API_BASE_URL__ === "string" ? __PALETCAM_LOG_API_BASE_URL__ : "";
 const PREPROD_BRANCH_NAME = "preprod";
 const DEPLOY_BRANCH_NAME =
-  typeof __PALETCAM_DEPLOY_BRANCH__ === "string"
-    ? __PALETCAM_DEPLOY_BRANCH__
-    : "";
+  typeof __PALETCAM_DEPLOY_BRANCH__ === "string" ? __PALETCAM_DEPLOY_BRANCH__ : "";
 
 function normalizeBranchName(branchName) {
   return String(branchName || "")

@@ -8,12 +8,9 @@ function toRgbToken(color) {
  * @param {HTMLElement | null} [options.swatchSliderShell]
  * @returns {VisualEffects}
  */
-export function createVisualEffects({
-  captureButton,
-  swatchSliderShell,
-} = {}) {
-  let lastCaptureGlowRgb = '';
-  let lastRibbonKey = '';
+export function createVisualEffects({ captureButton, swatchSliderShell } = {}) {
+  let lastCaptureGlowRgb = "";
+  let lastRibbonKey = "";
 
   function setCaptureButtonGlowColor(color) {
     if (!captureButton || !color) {
@@ -25,12 +22,12 @@ export function createVisualEffects({
       return;
     }
 
-    captureButton.style.setProperty('--capture-glow-rgb', rgbToken);
+    captureButton.style.setProperty("--capture-glow-rgb", rgbToken);
     lastCaptureGlowRgb = rgbToken;
   }
 
   function setCaptureGlowActive(isActive) {
-    captureButton?.classList.toggle('is-catching', isActive);
+    captureButton?.classList.toggle("is-catching", isActive);
   }
 
   function setPaletteRibbon(colors) {
@@ -39,14 +36,14 @@ export function createVisualEffects({
     }
 
     if (!Array.isArray(colors) || colors.length === 0) {
-      if (lastRibbonKey !== '') {
-        swatchSliderShell.style.removeProperty('--palette-ribbon');
-        lastRibbonKey = '';
+      if (lastRibbonKey !== "") {
+        swatchSliderShell.style.removeProperty("--palette-ribbon");
+        lastRibbonKey = "";
       }
       return;
     }
 
-    const ribbonKey = colors.map(toRgbToken).join(';');
+    const ribbonKey = colors.map(toRgbToken).join(";");
     if (ribbonKey === lastRibbonKey) {
       return;
     }
@@ -58,9 +55,9 @@ export function createVisualEffects({
         const to = ((index + 1) * segmentWidth).toFixed(2);
         return `rgb(${toRgbToken(color)}) ${from}% ${to}%`;
       })
-      .join(', ');
+      .join(", ");
 
-    swatchSliderShell.style.setProperty('--palette-ribbon', `linear-gradient(to right, ${stops})`);
+    swatchSliderShell.style.setProperty("--palette-ribbon", `linear-gradient(to right, ${stops})`);
     lastRibbonKey = ribbonKey;
   }
 

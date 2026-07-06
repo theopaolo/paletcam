@@ -86,11 +86,14 @@ function setupNetworkListener() {
   const cap = getCapacitor();
 
   if (cap?.Plugins?.Network) {
-    cap.Plugins.Network.addListener("networkStatusChange", (/** @type {{ connected: boolean }} */ status) => {
-      if (status.connected) {
-        flushCaptureStats();
-      }
-    });
+    cap.Plugins.Network.addListener(
+      "networkStatusChange",
+      (/** @type {{ connected: boolean }} */ status) => {
+        if (status.connected) {
+          flushCaptureStats();
+        }
+      },
+    );
     return;
   }
 

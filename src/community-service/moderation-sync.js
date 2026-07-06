@@ -61,11 +61,13 @@ export async function syncPublishedPalettesModerationStatus() {
     if (deletedIdSet.has(remoteCatchId)) {
       if (currentStatus !== CATCH_MODERATION_STATUSES.PRIVATE) {
         updatedCount += 1;
-        updateOperations.push(updatePaletteRemoteState(palette.id, {
-          moderationStatus: CATCH_MODERATION_STATUSES.PRIVATE,
-          moderationUpdatedAt: nowIso,
-          lastModerationCheckAt: nowIso,
-        }));
+        updateOperations.push(
+          updatePaletteRemoteState(palette.id, {
+            moderationStatus: CATCH_MODERATION_STATUSES.PRIVATE,
+            moderationUpdatedAt: nowIso,
+            lastModerationCheckAt: nowIso,
+          }),
+        );
       }
       return;
     }
@@ -82,11 +84,13 @@ export async function syncPublishedPalettesModerationStatus() {
     }
 
     updatedCount += 1;
-    updateOperations.push(updatePaletteRemoteState(palette.id, {
-      moderationStatus: nextStatus,
-      moderationUpdatedAt: nowIso,
-      lastModerationCheckAt: nowIso,
-    }));
+    updateOperations.push(
+      updatePaletteRemoteState(palette.id, {
+        moderationStatus: nextStatus,
+        moderationUpdatedAt: nowIso,
+        lastModerationCheckAt: nowIso,
+      }),
+    );
   });
 
   await Promise.all(updateOperations);

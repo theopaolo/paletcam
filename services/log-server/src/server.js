@@ -111,9 +111,10 @@ app.get("/logs", dashboardAuth, async (c) => {
   }
 
   const requestedLimit = Number(c.req.query("limit"));
-  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
-    ? Math.min(requestedLimit, LOGS_QUERY_MAX_LIMIT)
-    : LOGS_QUERY_DEFAULT_LIMIT;
+  const limit =
+    Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, LOGS_QUERY_MAX_LIMIT)
+      : LOGS_QUERY_DEFAULT_LIMIT;
 
   const filePath = join(LOG_DIR, `${requestedDate}.jsonl`);
 

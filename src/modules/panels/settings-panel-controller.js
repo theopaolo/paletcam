@@ -129,7 +129,9 @@ function isEventInsideElement(event, element) {
     return true;
   }
 
-  return Boolean(event.target && typeof element.contains === "function" && element.contains(event.target));
+  return Boolean(
+    event.target && typeof element.contains === "function" && element.contains(event.target),
+  );
 }
 
 export function mountSettingsPanel({ root, toggleButton }) {

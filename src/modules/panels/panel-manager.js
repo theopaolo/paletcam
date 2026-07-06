@@ -1,7 +1,7 @@
-import './shared-panel.js';
+import "./shared-panel.js";
 
 function getAllSharedPanels() {
-  return Array.from(document.querySelectorAll('shared-panel[data-panel-name]'));
+  return Array.from(document.querySelectorAll("shared-panel[data-panel-name]"));
 }
 
 function getSharedPanel(panelName) {
@@ -11,23 +11,25 @@ function getSharedPanel(panelName) {
 }
 
 function getOpenSharedPanels() {
-  return getAllSharedPanels().filter((panel) => panel.classList.contains('visible'));
+  return getAllSharedPanels().filter((panel) => panel.classList.contains("visible"));
 }
 
 function getPanelStackLevel(panel) {
-  const zIndexValue = Number.parseInt(window.getComputedStyle(panel).zIndex || '0', 10);
+  const zIndexValue = Number.parseInt(window.getComputedStyle(panel).zIndex || "0", 10);
   return Number.isFinite(zIndexValue) ? zIndexValue : 0;
 }
 
 function getTopOpenSharedPanel() {
-  return getOpenSharedPanels()
-    .sort((leftPanel, rightPanel) => getPanelStackLevel(rightPanel) - getPanelStackLevel(leftPanel))[0]
-    || null;
+  return (
+    getOpenSharedPanels().sort(
+      (leftPanel, rightPanel) => getPanelStackLevel(rightPanel) - getPanelStackLevel(leftPanel),
+    )[0] || null
+  );
 }
 
 function subscribeToSharedPanelEvent(panelName, eventName, listener) {
   const panel = getSharedPanel(panelName);
-  if (!panel || typeof listener !== 'function') {
+  if (!panel || typeof listener !== "function") {
     return () => {};
   }
 
@@ -59,7 +61,7 @@ function closePanelElement(panel, options) {
   panel?.closePanel?.(options);
 }
 
-export function closeAllSharedPanels({ exceptPanelName = '', restoreFocus = true } = {}) {
+export function closeAllSharedPanels({ exceptPanelName = "", restoreFocus = true } = {}) {
   getOpenSharedPanels().forEach((panel) => {
     if (panel.dataset.panelName === exceptPanelName) {
       return;
@@ -96,22 +98,22 @@ export function closeSharedPanel(panelName) {
 }
 
 export function isSharedPanelOpen(panelName) {
-  return Boolean(getSharedPanel(panelName)?.classList.contains('visible'));
+  return Boolean(getSharedPanel(panelName)?.classList.contains("visible"));
 }
 
 export function subscribeSharedPanelClosing(panelName, listener) {
-  return subscribeToSharedPanelEvent(panelName, 'shared-panel-closing', listener);
+  return subscribeToSharedPanelEvent(panelName, "shared-panel-closing", listener);
 }
 
 export function subscribeSharedPanelClosed(panelName, listener) {
-  return subscribeToSharedPanelEvent(panelName, 'shared-panel-closed', listener);
+  return subscribeToSharedPanelEvent(panelName, "shared-panel-closed", listener);
 }
 
 if (!window.__sharedPanelEscapeHandlerBound) {
   window.__sharedPanelEscapeHandlerBound = true;
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
       return;
     }
 

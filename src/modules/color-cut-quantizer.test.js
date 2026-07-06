@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from "bun:test";
 
-import { ColorCutQuantizer } from './color-cut-quantizer.js';
+import { ColorCutQuantizer } from "./color-cut-quantizer.js";
 
 function packArgb8888(red, green, blue) {
   return (0xff << 24) | ((red & 0xff) << 16) | ((green & 0xff) << 8) | (blue & 0xff);
@@ -32,8 +32,8 @@ function expectSwatchesWithinRgbRange(swatches) {
   }
 }
 
-describe('ColorCutQuantizer', () => {
-  test('returns all distinct colors under the maxColors limit and preserves population', () => {
+describe("ColorCutQuantizer", () => {
+  test("returns all distinct colors under the maxColors limit and preserves population", () => {
     const pixels = new Int32Array([
       packArgb8888(255, 0, 0),
       packArgb8888(255, 0, 0),
@@ -50,7 +50,7 @@ describe('ColorCutQuantizer', () => {
     expectSwatchesWithinRgbRange(swatches);
   });
 
-  test('returns at most maxColors swatches over the limit and preserves population', () => {
+  test("returns at most maxColors swatches over the limit and preserves population", () => {
     const pixels = new Int32Array([
       packArgb8888(255, 0, 0),
       packArgb8888(0, 255, 0),

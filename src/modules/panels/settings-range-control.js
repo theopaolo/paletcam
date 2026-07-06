@@ -50,10 +50,8 @@ export function updateSliderShellTicks(shell, rangeInput) {
   const maxValue = Number(rangeInput.max) || minValue;
   const stepValue = Number(rangeInput.step) || 1;
   const currentValue = Number(rangeInput.value) || minValue;
-  const tickCount =
-    Math.max(1, Math.floor((maxValue - minValue) / stepValue + Number.EPSILON) + 1);
-  const tickIndex =
-    Math.max(0, Math.floor((currentValue - minValue) / stepValue + Number.EPSILON));
+  const tickCount = Math.max(1, Math.floor((maxValue - minValue) / stepValue + Number.EPSILON) + 1);
+  const tickIndex = Math.max(0, Math.floor((currentValue - minValue) / stepValue + Number.EPSILON));
 
   shell.style.setProperty("--tick-count", String(tickCount));
   shell.style.setProperty("--tick-index", String(tickIndex));

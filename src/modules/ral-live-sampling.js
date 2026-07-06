@@ -1,8 +1,4 @@
-import {
-  DEFAULT_SAMPLE_RADIUS,
-  findClosestRAL,
-  sampleColorAtPoint,
-} from './color-matching-ral.js';
+import { DEFAULT_SAMPLE_RADIUS, findClosestRAL, sampleColorAtPoint } from "./color-matching-ral.js";
 
 export function getSamplingWindow(width, height, x, y, radius = DEFAULT_SAMPLE_RADIUS) {
   if (width <= 0 || height <= 0) {

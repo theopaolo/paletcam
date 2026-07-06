@@ -146,9 +146,7 @@ function greedySelectChromatic(clusters, slots, radius, spreadStrength, raritySt
         ? Math.min(...picked.map((p) => hueGap(p.hue, candidate.hue)))
         : 0;
       const score =
-        candidate.chromaNorm +
-        spreadStrength * hueSpread +
-        rarityStrength * candidate.rarityNorm;
+        candidate.chromaNorm + spreadStrength * hueSpread + rarityStrength * candidate.rarityNorm;
 
       if (score > bestScore) {
         bestScore = score;
@@ -200,7 +198,9 @@ export function selectPaletteExperimental(imageData, width, height, swatchCount,
   const empty = { colors: [], clusters: [], neutralCount: 0, neutralThreshold: 0 };
   if (!imageData || width <= 0 || height <= 0) return empty;
 
-  const packed = packImageDataToArgb8888(imageData, width, height, { maxPixels: maxQuantizerPixels });
+  const packed = packImageDataToArgb8888(imageData, width, height, {
+    maxPixels: maxQuantizerPixels,
+  });
   if (packed.length === 0) return empty;
 
   const pixels = [];
@@ -248,8 +248,7 @@ export function selectPaletteExperimental(imageData, width, height, swatchCount,
   const rescueMass = Math.max(3, pixels.length * 0.001);
   const chromaKeep = Math.max(0.05, chromaP90 * 0.5);
   const significant = clusters.filter(
-    (cluster) =>
-      cluster.mass >= minMass || (cluster.c >= chromaKeep && cluster.mass >= rescueMass),
+    (cluster) => cluster.mass >= minMass || (cluster.c >= chromaKeep && cluster.mass >= rescueMass),
   );
   const chromaticColors = greedySelectChromatic(
     significant.length > 0 ? significant : clusters,
@@ -288,7 +287,9 @@ export function suggestSelectorParams(imageData, width, height, maxQuantizerPixe
   const fallback = { variety: 0.8, distinctness: 0.06 };
   if (!imageData || width <= 0 || height <= 0) return fallback;
 
-  const packed = packImageDataToArgb8888(imageData, width, height, { maxPixels: maxQuantizerPixels });
+  const packed = packImageDataToArgb8888(imageData, width, height, {
+    maxPixels: maxQuantizerPixels,
+  });
   if (packed.length === 0) return fallback;
 
   let sumHueX = 0;

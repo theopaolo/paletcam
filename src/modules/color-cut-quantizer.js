@@ -24,9 +24,15 @@ const COMPONENT_GREEN = -2;
 const COMPONENT_BLUE = -1;
 
 /** ----- RGB helpers (Android-like ints) ----- */
-function red888(rgb)   { return (rgb >> 16) & 0xff; }
-function green888(rgb) { return (rgb >> 8) & 0xff; }
-function blue888(rgb)  { return rgb & 0xff; }
+function red888(rgb) {
+  return (rgb >> 16) & 0xff;
+}
+function green888(rgb) {
+  return (rgb >> 8) & 0xff;
+}
+function blue888(rgb) {
+  return rgb & 0xff;
+}
 
 function rgb888(r, g, b) {
   // return 0xFFRRGGBB
@@ -51,11 +57,7 @@ function quantizeFromRgb888(color888) {
 
 /** ----- Approximate 5-bit/channel -> 8-bit/channel (expand) ----- */
 function approximateToRgb888FromQuant(colorQ) {
-  return approximateToRgb888(
-    quantizedRed(colorQ),
-    quantizedGreen(colorQ),
-    quantizedBlue(colorQ)
-  );
+  return approximateToRgb888(quantizedRed(colorQ), quantizedGreen(colorQ), quantizedBlue(colorQ));
 }
 
 function approximateToRgb888(r5, g5, b5) {
@@ -157,7 +159,7 @@ export class ColorCutQuantizer {
     // Quantize each pixel into histogram bins
     for (let i = 0; i < pixelsRgb888.length; i++) {
       const q = quantizeFromRgb888(pixelsRgb888[i]);
-      pixelsRgb888[i] = q;       // overwrite with quantized value
+      pixelsRgb888[i] = q; // overwrite with quantized value
       hist[q] += 1;
     }
 
@@ -234,19 +236,19 @@ class Vbox {
   }
 
   getVolume() {
-    return (
-      (this.maxR - this.minR + 1) *
-      (this.maxG - this.minG + 1) *
-      (this.maxB - this.minB + 1)
-    );
+    return (this.maxR - this.minR + 1) * (this.maxG - this.minG + 1) * (this.maxB - this.minB + 1);
   }
 
   fitBox() {
     const colors = this.q.colors;
     const hist = this.q.histogram;
 
-    let minR = Infinity, minG = Infinity, minB = Infinity;
-    let maxR = -Infinity, maxG = -Infinity, maxB = -Infinity;
+    let minR = Infinity,
+      minG = Infinity,
+      minB = Infinity;
+    let maxR = -Infinity,
+      maxG = -Infinity,
+      maxB = -Infinity;
     let pop = 0;
 
     for (let i = this.lower; i <= this.upper; i++) {
@@ -265,9 +267,12 @@ class Vbox {
       if (b > maxB) maxB = b;
     }
 
-    this.minR = minR; this.maxR = maxR;
-    this.minG = minG; this.maxG = maxG;
-    this.minB = minB; this.maxB = maxB;
+    this.minR = minR;
+    this.maxR = maxR;
+    this.minG = minG;
+    this.maxG = maxG;
+    this.minB = minB;
+    this.maxB = maxB;
     this.population = pop;
   }
 
@@ -322,7 +327,9 @@ class Vbox {
     const colors = this.q.colors;
     const hist = this.q.histogram;
 
-    let rSum = 0, gSum = 0, bSum = 0;
+    let rSum = 0,
+      gSum = 0,
+      bSum = 0;
     let total = 0;
     let bestQ = -1;
     let bestChroma = -1;
@@ -358,8 +365,12 @@ class MaxHeap {
     this.scoreFn = scoreFn; // larger score => higher priority
     this.data = [];
   }
-  size() { return this.data.length; }
-  toArray() { return this.data.slice(); }
+  size() {
+    return this.data.length;
+  }
+  toArray() {
+    return this.data.slice();
+  }
 
   push(item) {
     this.data.push(item);

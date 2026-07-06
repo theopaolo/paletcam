@@ -37,19 +37,19 @@ function normalizeScoringModel(value) {
 export function createPaletteScoringProfile(options = null) {
   const chromaWeight = clampNonNegativeNumber(
     options?.chromaWeight,
-    DEFAULT_PALETTE_SCORING_SETTINGS.chromaWeight
+    DEFAULT_PALETTE_SCORING_SETTINGS.chromaWeight,
   );
   const lumaSpreadWeight = clampNonNegativeNumber(
     options?.lumaSpreadWeight,
-    DEFAULT_PALETTE_SCORING_SETTINGS.lumaSpreadWeight
+    DEFAULT_PALETTE_SCORING_SETTINGS.lumaSpreadWeight,
   );
   const rarityWeight = clampNonNegativeNumber(
     options?.rarityWeight,
-    DEFAULT_PALETTE_SCORING_SETTINGS.rarityWeight
+    DEFAULT_PALETTE_SCORING_SETTINGS.rarityWeight,
   );
   const diversityWeight = clampNonNegativeNumber(
     options?.diversityWeight,
-    DEFAULT_PALETTE_SCORING_SETTINGS.diversityWeight
+    DEFAULT_PALETTE_SCORING_SETTINGS.diversityWeight,
   );
   const totalWeight = chromaWeight + lumaSpreadWeight + rarityWeight + diversityWeight;
   if (totalWeight <= 0) {
@@ -87,14 +87,14 @@ function getPerceptualColorDistance(firstColor, secondColor) {
   const second = getPerceptualColorFeatures(secondColor);
   const hueDelta = Math.abs(first.h - second.h);
   const shortestHueDelta = Math.min(hueDelta, 360 - hueDelta) * (Math.PI / 180);
-  const hueComponent = PERCEPTUAL_HUE_DISTANCE_WEIGHT *
+  const hueComponent =
+    PERCEPTUAL_HUE_DISTANCE_WEIGHT *
     2 *
     Math.sqrt(first.c * second.c) *
     Math.sin(shortestHueDelta / 2);
 
   return Math.hypot(first.l - second.l, first.c - second.c, hueComponent);
 }
-
 
 /**
  * @param {RgbColor[]} pool
@@ -103,9 +103,8 @@ function getPerceptualColorDistance(firstColor, secondColor) {
  */
 export function buildHueRarityMap(pool, scoringOptions = null) {
   const scoringProfile = getPaletteScoringProfile(scoringOptions);
-  const BUCKET_COUNT = scoringProfile.model === "perceptual"
-    ? PERCEPTUAL_HUE_BUCKET_COUNT
-    : CLASSIC_HUE_BUCKET_COUNT;
+  const BUCKET_COUNT =
+    scoringProfile.model === "perceptual" ? PERCEPTUAL_HUE_BUCKET_COUNT : CLASSIC_HUE_BUCKET_COUNT;
   const buckets = new Array(BUCKET_COUNT).fill(0);
 
   for (const color of pool) {
@@ -130,13 +129,13 @@ export function buildHueRarityMap(pool, scoringOptions = null) {
 function getPerceptualHueRarity(colorFeatures, rarityMap) {
   if (colorFeatures.c < MIN_OKLCH_CHROMA_FOR_HUE) return 0;
   const bucket = getPerceptualHueBucket(colorFeatures, rarityMap.BUCKET_COUNT);
-  return 1 - (rarityMap.buckets[bucket] / rarityMap.maxCount);
+  return 1 - rarityMap.buckets[bucket] / rarityMap.maxCount;
 }
 
 function getClassicHueRarity(hsl, rarityMap) {
   if (hsl.s < MIN_HSL_SATURATION_FOR_HUE) return 0;
   const bucket = Math.floor(hsl.h / (360 / rarityMap.BUCKET_COUNT)) % rarityMap.BUCKET_COUNT;
-  return 1 - (rarityMap.buckets[bucket] / rarityMap.maxCount);
+  return 1 - rarityMap.buckets[bucket] / rarityMap.maxCount;
 }
 
 /**
@@ -185,8 +184,10 @@ export function scoreCandidate(candidate, chosenColors, rarityMap, scoringOption
     }
   }
 
-  return (scoringProfile.chromaWeight * chromaScore)
-       + (scoringProfile.lumaSpreadWeight * lumaSpreadScore)
-       + (scoringProfile.rarityWeight * rarityScore)
-       + (scoringProfile.diversityWeight * diversityScore);
+  return (
+    scoringProfile.chromaWeight * chromaScore +
+    scoringProfile.lumaSpreadWeight * lumaSpreadScore +
+    scoringProfile.rarityWeight * rarityScore +
+    scoringProfile.diversityWeight * diversityScore
+  );
 }

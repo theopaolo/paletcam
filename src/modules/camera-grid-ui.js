@@ -2,7 +2,6 @@ import { subscribeLocaleChange, t } from "../i18n.js";
 
 const GRID_STORAGE_KEY = "paletcam:grid:v1";
 
-
 export function createCameraGridUiController({ overlayHost } = {}) {
   if (!overlayHost) {
     return { bindEvents() {}, destroy() {}, hide() {}, initialize() {}, show() {} };

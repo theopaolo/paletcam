@@ -244,8 +244,9 @@ class SettingsPanel extends LitElement {
               </button>
             </div>
 
-            ${shouldShowPanelFormVersion()
-              ? html`
+            ${
+              shouldShowPanelFormVersion()
+                ? html`
                   <button
                     class="panel-form-version"
                     type="button"
@@ -254,7 +255,8 @@ class SettingsPanel extends LitElement {
                     v__APP_VERSION__ · __COMMIT_HASH__
                   </button>
                 `
-              : ""}
+                : ""
+            }
 
             <button
               class="settings-delete-link"

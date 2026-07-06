@@ -81,8 +81,7 @@ export function getStoredPalettePreviewBlob(palette, variant = "viewer") {
   const currentPreviewFooterLabel = getPalettePreviewFingerprint(palette, variant);
   const { blobKey, footerKey } = getPreviewVariantFieldKeys(variant);
 
-  return palette?.[blobKey] instanceof Blob &&
-    palette?.[footerKey] === currentPreviewFooterLabel
+  return palette?.[blobKey] instanceof Blob && palette?.[footerKey] === currentPreviewFooterLabel
     ? palette[blobKey]
     : null;
 }
@@ -163,10 +162,7 @@ export async function renderPalettePreviewBlobFromMasterPhoto(
 
   await ensurePalettePolaroidColorNames(palette);
 
-  return renderPalettePolaroidBlob(
-    { ...palette, photoBlob },
-    getPreviewRenderOptions(variant),
-  );
+  return renderPalettePolaroidBlob({ ...palette, photoBlob }, getPreviewRenderOptions(variant));
 }
 
 export async function renderSavedPalettePreviewBlob(palette, variant = "viewer") {
