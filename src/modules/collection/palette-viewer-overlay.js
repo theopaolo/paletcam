@@ -31,7 +31,6 @@ const metaContainer = document.getElementById("catchDetailsMeta");
 const metaDate = document.getElementById("catchDetailsMetaDate");
 const metaPosition = document.getElementById("catchDetailsMetaPosition");
 
-let activeRequestId = 0;
 let activeSession;
 let hasBoundViewerPanelEvents = false;
 let isBusy = false;
@@ -65,7 +64,9 @@ function getActionIconMarkup(iconName) {
 
   if (iconName === "share") {
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#000000" viewBox="0 0 256 256"><path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path></svg>
+      <svg viewBox="0 0 256 256" aria-hidden="true">
+        <path d="M212,200a36,36,0,1,1-69.85-12.25l-53-34.05a36,36,0,1,1,0-51.4l53-34a36.09,36.09,0,1,1,8.67,13.45l-53,34.05a36,36,0,0,1,0,24.5l53,34.05A36,36,0,0,1,212,200Z"></path>
+      </svg>
     `;
   }
 
@@ -128,12 +129,10 @@ function getPublishAction(palette = getActivePalette()) {
   return activeSession?.getPublishAction?.(palette) === "unpublish" ? "unpublish" : "publish";
 }
 
-function canPalettePreview(palette) {
-  if (!palette || typeof activeSession?.getPreviewAsset !== "function") {
-    return false;
-  }
-
-  return true;
+// Previews only need a palette and a session that can supply the asset; the
+// per-slide load state tracks whether fetching it actually succeeds.
+function canLoadPreview(palette) {
+  return Boolean(palette) && typeof activeSession?.getPreviewAsset === "function";
 }
 
 function isRalCapture(palette = getActivePalette()) {
@@ -314,7 +313,7 @@ function createSlideState(palette, index) {
 
   const status = document.createElement("p");
   status.className = "palette-viewer-status";
-  status.textContent = canPalettePreview(palette) ? "" : t("viewer.previewUnavailable");
+  status.textContent = canLoadPreview(palette) ? "" : t("viewer.previewUnavailable");
 
   const flip = document.createElement("button");
   flip.type = "button";
@@ -356,7 +355,7 @@ function createSlideState(palette, index) {
     status,
     isFlipped: false,
     versoBuildState: canPaletteFlip(palette) ? "idle" : "unavailable",
-    loadState: canPalettePreview(palette) ? "idle" : "unavailable",
+    loadState: canLoadPreview(palette) ? "idle" : "unavailable",
     requestId: 0,
   };
 
@@ -690,7 +689,6 @@ function handleWindowResize() {
 }
 
 function handleViewerPanelClosing() {
-  activeRequestId += 1;
   pendingAdjacentPreloadId += 1;
   activeSession = undefined;
   setBusy(false);
@@ -778,11 +776,7 @@ export function openPaletteViewerOverlay({
     return;
   }
 
-  activeRequestId += 1;
-  const requestId = activeRequestId;
-
   activeSession = {
-    requestId,
     palettes: [...palettes],
     activeIndex: clampIndex(initialIndex, palettes.length),
     slideStates: [],
