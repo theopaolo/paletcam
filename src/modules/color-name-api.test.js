@@ -25,7 +25,7 @@ describe("getColorNames", () => {
   test("returns nearest offline names for colors without an exact hex match", async () => {
     const colorNames = await getColorNames([{ r: 151, g: 157, b: 26 }]);
 
-    expect(colorNames).toEqual(["Pea Soup"]);
+    expect(colorNames).toEqual(["Papyrus"]);
   });
 
   test("reuses cached names for repeat colors", async () => {

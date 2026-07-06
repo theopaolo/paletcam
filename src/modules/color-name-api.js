@@ -1,4 +1,4 @@
-import { colornames as offlineColorNames } from "color-name-list";
+import { colornames as offlineColorNames } from "color-name-list/bestof";
 
 import { deltaE2000, rgbToLab } from "./color-distance.js";
 
