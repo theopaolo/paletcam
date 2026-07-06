@@ -58,7 +58,7 @@ export function rgbDistanceSquared(first, second) {
   const deltaG = first.g - second.g;
   const deltaB = first.b - second.b;
 
-  return (deltaR * deltaR) + (deltaG * deltaG) + (deltaB * deltaB);
+  return deltaR * deltaR + deltaG * deltaG + deltaB * deltaB;
 }
 
 /**
@@ -69,4 +69,41 @@ export function rgbDistanceSquared(first, second) {
  */
 export function rgbDistance(first, second) {
   return Math.sqrt(rgbDistanceSquared(first, second));
+}
+
+/**
+ * Nearest candidate to a color by RGB distance.
+ * @param {{ r: number, g: number, b: number }} color
+ * @param {Array<{ r: number, g: number, b: number }>} candidates
+ * @returns {{ color: object, index: number, distanceSquared: number } | null}
+ *   null when candidates is empty
+ */
+export function findNearestColor(color, candidates) {
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return null;
+  }
+
+  let bestIndex = 0;
+  let bestDistanceSquared = rgbDistanceSquared(color, candidates[0]);
+  for (let i = 1; i < candidates.length; i += 1) {
+    const distanceSquared = rgbDistanceSquared(color, candidates[i]);
+    if (distanceSquared < bestDistanceSquared) {
+      bestDistanceSquared = distanceSquared;
+      bestIndex = i;
+    }
+  }
+
+  return { color: candidates[bestIndex], index: bestIndex, distanceSquared: bestDistanceSquared };
+}
+
+/**
+ * Black or white ink for a label sitting on a swatch of the given color
+ * (BT.709 luma on gamma-encoded channels; shared by the origin badges and
+ * the swatch lock hints so their numbering reads identically).
+ * @param {{ r: number, g: number, b: number }} color
+ * @returns {"#000" | "#fff"}
+ */
+export function getContrastInkColor(color) {
+  const luma = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+  return luma > 150 ? "#000" : "#fff";
 }

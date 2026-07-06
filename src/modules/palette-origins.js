@@ -8,6 +8,8 @@
  * on one shelf and a red painting across the frame).
  */
 
+import { getContrastInkColor } from "./color-math.js";
+
 const RGB_MATCH_THRESHOLD = 32;
 const MAX_SAMPLED_PIXELS = 8000;
 // Neutral swatches (grays/whites/blacks) need stricter matching: with the
@@ -64,7 +66,10 @@ function sumCellNeighborhood(values, cell) {
 }
 
 function cellForNormalizedPosition(position) {
-  const row = Math.min(CLUSTER_GRID_ROWS - 1, Math.max(0, Math.floor(position.y * CLUSTER_GRID_ROWS)));
+  const row = Math.min(
+    CLUSTER_GRID_ROWS - 1,
+    Math.max(0, Math.floor(position.y * CLUSTER_GRID_ROWS)),
+  );
   const column = Math.min(
     CLUSTER_GRID_COLUMNS - 1,
     Math.max(0, Math.floor(position.x * CLUSTER_GRID_COLUMNS)),
@@ -170,10 +175,7 @@ export function computeSwatchOrigins(imageData, width, height, colors, previousO
         const stickinessRatio = swatchTraits[s].isNeutral
           ? NEUTRAL_STICKINESS_RATIO
           : CLUSTER_STICKINESS_RATIO;
-        if (
-          previousRegionCount > 0 &&
-          previousRegionCount >= bestRegionCount * stickinessRatio
-        ) {
+        if (previousRegionCount > 0 && previousRegionCount >= bestRegionCount * stickinessRatio) {
           chosenCell = previousCell;
         }
       }
@@ -351,11 +353,6 @@ export function createSwatchOriginTracker() {
 
 const MARKER_RADIUS = 11;
 
-function getMarkerTextColor(color) {
-  const luma = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-  return luma > 150 ? "#000" : "#fff";
-}
-
 /**
  * Draws numbered origin badges (harness style: colored disc, dark ring,
  * numbered label) onto an overlay context sized in CSS pixels. Frozen
@@ -403,7 +400,7 @@ export function drawOriginMarkers(context, markers, width, height) {
       context.stroke();
     }
 
-    context.fillStyle = getMarkerTextColor(color);
+    context.fillStyle = getContrastInkColor(color);
     context.font = "bold 11px monospace";
     context.textAlign = "center";
     context.textBaseline = "middle";
