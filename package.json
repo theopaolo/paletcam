@@ -16,17 +16,16 @@
   },
   "dependencies": {
     "color-name-list": "^14.36.0",
-    "dexie": "^4.2.1",
-    "lit": "^3.3.2",
-    "stylelint": "^17.9.1",
-    "stylelint-config-standard": "^40.0.0",
-    "stylelint-declaration-strict-value": "^1.11.1"
+    "lit": "^3.3.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",
     "jpeg-js": "^0.4.4",
     "pngjs": "^7.0.0",
     "sharp": "^0.35.2",
-    "source-map-explorer": "^2.5.3"
+    "source-map-explorer": "^2.5.3",
+    "stylelint": "^17.9.1",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-declaration-strict-value": "^1.11.1"
   }
 }
