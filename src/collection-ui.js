@@ -1,11 +1,11 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
 import {
-  enqueueCommunityDeletionCleanupRetry,
-  flushCommunityDeletionCleanupOutbox,
-  initializeCommunityDeletionCleanupOutbox,
+  enqueueDeleteRetry,
+  flushDeleteOutbox,
+  initializeDeleteOutbox,
 } from "./community-delete-outbox.js";
 import {
-  cleanupPaletteRemoteCatchForDeletion,
+  cleanupPaletteRemoteCatch,
   getCurrentCommunitySession,
   getPalettePublicationAction,
   publishPaletteToCommunityFeed,
@@ -389,7 +389,7 @@ async function handleDeletePalette(palette) {
 }
 
 async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = false } = {}) {
-  const remoteCleanupPromise = cleanupPaletteRemoteCatchForDeletion(palette);
+  const remoteCleanupPromise = cleanupPaletteRemoteCatch(palette);
 
   try {
     const [deleteResult, remoteCleanupResult] = await Promise.allSettled([
@@ -463,7 +463,7 @@ function enqueueDeleteRemoteCleanupRetry(result, palette) {
     return false;
   }
 
-  return enqueueCommunityDeletionCleanupRetry({ remoteCatchId });
+  return enqueueDeleteRetry({ remoteCatchId });
 }
 
 function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
@@ -953,7 +953,7 @@ export async function openCollectionPanel() {
 
   openSharedPanel("collection");
   await loadCollectionUi();
-  void flushCommunityDeletionCleanupOutbox();
+  void flushDeleteOutbox();
   void syncModerationStatuses();
   return true;
 }
@@ -1469,5 +1469,5 @@ function bindCollectionUiEvents() {
   syncCollectionPanelChrome();
 }
 
-initializeCommunityDeletionCleanupOutbox();
+initializeDeleteOutbox();
 bindCollectionUiEvents();

@@ -1,5 +1,5 @@
 import { subscribeCommunitySession } from "./community-session.js";
-import { cleanupRemoteCatchForDeletionByRemoteCatchId } from "./community-service.js";
+import { cleanupRemoteCatch } from "./community-service.js";
 
 const COMMUNITY_DELETE_OUTBOX_STORAGE_KEY = "paletcam:community:delete-cleanup-outbox:v1";
 
@@ -56,7 +56,7 @@ function normalizeOutboxEntry(candidate) {
   };
 }
 
-function readCommunityDeletionCleanupOutbox() {
+function readOutbox() {
   const storage = getStorage();
   if (!storage) {
     return [];
@@ -91,7 +91,7 @@ function readCommunityDeletionCleanupOutbox() {
   }
 }
 
-function writeCommunityDeletionCleanupOutbox(entries) {
+function writeOutbox(entries) {
   const storage = getStorage();
   if (!storage) {
     return;
@@ -113,16 +113,16 @@ function isOnline() {
   return navigator.onLine !== false;
 }
 
-function handleCommunityDeletionCleanupOnline() {
-  void flushCommunityDeletionCleanupOutbox();
+function handleOnline() {
+  void flushDeleteOutbox();
 }
 
-function handleCommunityDeletionCleanupVisibilityChange() {
+function handleVisibilityChange() {
   if (globalThis.document?.visibilityState !== "visible") {
     return;
   }
 
-  void flushCommunityDeletionCleanupOutbox();
+  void flushDeleteOutbox();
 }
 
 function handleCommunitySessionChange(session) {
@@ -130,16 +130,16 @@ function handleCommunitySessionChange(session) {
     return;
   }
 
-  void flushCommunityDeletionCleanupOutbox();
+  void flushDeleteOutbox();
 }
 
-export function enqueueCommunityDeletionCleanupRetry({ remoteCatchId }) {
+export function enqueueDeleteRetry({ remoteCatchId }) {
   const safeRemoteCatchId = normalizeRemoteCatchId(remoteCatchId);
   if (!safeRemoteCatchId) {
     return false;
   }
 
-  const outbox = readCommunityDeletionCleanupOutbox();
+  const outbox = readOutbox();
   if (outbox.some((entry) => entry.remoteCatchId === safeRemoteCatchId)) {
     return false;
   }
@@ -150,12 +150,12 @@ export function enqueueCommunityDeletionCleanupRetry({ remoteCatchId }) {
     lastAttemptAt: null,
     remoteCatchId: safeRemoteCatchId,
   });
-  writeCommunityDeletionCleanupOutbox(outbox);
+  writeOutbox(outbox);
   return true;
 }
 
-async function flushCommunityDeletionCleanupOutboxInternal() {
-  const initialEntries = readCommunityDeletionCleanupOutbox();
+async function runOutboxFlush() {
+  const initialEntries = readOutbox();
 
   if (initialEntries.length === 0 || !isOnline()) {
     return {
@@ -170,7 +170,7 @@ async function flushCommunityDeletionCleanupOutboxInternal() {
   let dequeuedCount = 0;
 
   for (const entry of initialEntries) {
-    const result = await cleanupRemoteCatchForDeletionByRemoteCatchId(entry.remoteCatchId);
+    const result = await cleanupRemoteCatch(entry.remoteCatchId);
 
     if (result.success) {
       dequeuedCount += 1;
@@ -184,11 +184,11 @@ async function flushCommunityDeletionCleanupOutboxInternal() {
     });
   }
 
-  const newlyQueuedEntries = readCommunityDeletionCleanupOutbox().filter((entry) => {
+  const newlyQueuedEntries = readOutbox().filter((entry) => {
     return !runEntryIds.has(entry.remoteCatchId);
   });
   const nextEntries = [...remainingEntries, ...newlyQueuedEntries];
-  writeCommunityDeletionCleanupOutbox(nextEntries);
+  writeOutbox(nextEntries);
 
   return {
     dequeuedCount,
@@ -197,40 +197,34 @@ async function flushCommunityDeletionCleanupOutboxInternal() {
   };
 }
 
-export async function flushCommunityDeletionCleanupOutbox() {
+export async function flushDeleteOutbox() {
   if (flushPromise) {
     return flushPromise;
   }
 
-  flushPromise = flushCommunityDeletionCleanupOutboxInternal().finally(() => {
+  flushPromise = runOutboxFlush().finally(() => {
     flushPromise = null;
   });
 
   return flushPromise;
 }
 
-export function initializeCommunityDeletionCleanupOutbox() {
+export function initializeDeleteOutbox() {
   if (isInitialized) {
     return;
   }
 
   isInitialized = true;
-  globalThis.addEventListener?.("online", handleCommunityDeletionCleanupOnline);
-  globalThis.document?.addEventListener?.(
-    "visibilitychange",
-    handleCommunityDeletionCleanupVisibilityChange,
-  );
+  globalThis.addEventListener?.("online", handleOnline);
+  globalThis.document?.addEventListener?.("visibilitychange", handleVisibilityChange);
   unsubscribeCommunitySession = subscribeCommunitySession(handleCommunitySessionChange);
-  void flushCommunityDeletionCleanupOutbox();
+  void flushDeleteOutbox();
 }
 
-export function resetCommunityDeletionCleanupOutboxForTests() {
+export function resetDeleteOutboxForTests() {
   if (isInitialized) {
-    globalThis.removeEventListener?.("online", handleCommunityDeletionCleanupOnline);
-    globalThis.document?.removeEventListener?.(
-      "visibilitychange",
-      handleCommunityDeletionCleanupVisibilityChange,
-    );
+    globalThis.removeEventListener?.("online", handleOnline);
+    globalThis.document?.removeEventListener?.("visibilitychange", handleVisibilityChange);
     unsubscribeCommunitySession();
   }
 

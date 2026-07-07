@@ -12,8 +12,8 @@ export {
   getPalettePublicationMeta,
 } from "./community-service/palette-state.js";
 export {
-  cleanupPaletteRemoteCatchForDeletion,
-  cleanupRemoteCatchForDeletionByRemoteCatchId,
+  cleanupPaletteRemoteCatch,
+  cleanupRemoteCatch,
   publishPaletteToCommunityFeed,
   unpublishPaletteFromCommunityFeed,
 } from "./community-service/publication.js";

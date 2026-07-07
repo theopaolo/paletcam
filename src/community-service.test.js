@@ -79,7 +79,7 @@ afterEach(() => {
   mock.restore();
 });
 
-describe("cleanupPaletteRemoteCatchForDeletion", () => {
+describe("cleanupPaletteRemoteCatch", () => {
   test("skips remote cleanup when the palette was never published", async () => {
     const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } =
       await loadCommunityService();
@@ -89,7 +89,7 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
       moderationStatus: null,
     };
 
-    const result = await service.cleanupPaletteRemoteCatchForDeletion(palette);
+    const result = await service.cleanupPaletteRemoteCatch(palette);
 
     expect(result).toEqual({
       attempted: false,
@@ -112,7 +112,7 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
       moderationStatus: "PUBLIC",
     };
 
-    const result = await service.cleanupPaletteRemoteCatchForDeletion(palette);
+    const result = await service.cleanupPaletteRemoteCatch(palette);
 
     expect(result.status).toBe("unpublished");
     expect(result.success).toBe(true);
@@ -137,7 +137,7 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
       moderationStatus: "PUBLIC",
     };
 
-    const result = await service.cleanupPaletteRemoteCatchForDeletion(palette);
+    const result = await service.cleanupPaletteRemoteCatch(palette);
 
     expect(result.status).toBe("authentication_required");
     expect(result.success).toBe(false);
@@ -162,7 +162,7 @@ describe("cleanupPaletteRemoteCatchForDeletion", () => {
       moderationStatus: "PUBLIC",
     };
 
-    const result = await service.cleanupPaletteRemoteCatchForDeletion(palette);
+    const result = await service.cleanupPaletteRemoteCatch(palette);
 
     expect(result.status).toBe("already_removed");
     expect(result.success).toBe(true);

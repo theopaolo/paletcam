@@ -59,7 +59,7 @@ async function persistPalettePrivateRemoteState(palette) {
  * @param {string | null | undefined} remoteCatchId
  * @returns {Promise<PaletteDeleteRemoteCleanupResult>}
  */
-export async function cleanupRemoteCatchForDeletionByRemoteCatchId(remoteCatchId) {
+export async function cleanupRemoteCatch(remoteCatchId) {
   const safeRemoteCatchId = String(remoteCatchId || "").trim();
   if (!safeRemoteCatchId) {
     return {
@@ -123,7 +123,7 @@ export async function cleanupRemoteCatchForDeletionByRemoteCatchId(remoteCatchId
  * @param {Palette} palette
  * @returns {Promise<PaletteDeleteRemoteCleanupResult>}
  */
-export async function cleanupPaletteRemoteCatchForDeletion(palette) {
+export async function cleanupPaletteRemoteCatch(palette) {
   if (!palette || typeof palette !== "object") {
     throw createCommunityServiceError("Palette is required.", { code: "MISSING_PALETTE" });
   }
@@ -138,7 +138,7 @@ export async function cleanupPaletteRemoteCatchForDeletion(palette) {
     };
   }
 
-  const result = await cleanupRemoteCatchForDeletionByRemoteCatchId(remoteCatchId);
+  const result = await cleanupRemoteCatch(remoteCatchId);
   if (result.success && result.attempted) {
     await persistPalettePrivateRemoteState(palette);
   }
