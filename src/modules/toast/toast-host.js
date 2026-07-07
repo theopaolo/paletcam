@@ -5,6 +5,10 @@ import { t } from "../../i18n.js";
 const DEFAULT_TOAST_DURATION = 1200;
 const DEFAULT_UNDO_DURATION = 5000;
 const TOAST_DISMISS_DELAY_MS = 460;
+const SWIPE_ACTIVATION_PX = 10;
+const SWIPE_VERTICAL_ABORT_PX = 14;
+const SWIPE_DISMISS_THRESHOLD_PX = 80;
+const SWIPE_FADE_DISTANCE_PX = 200;
 
 function normalizeDuration(value, fallback) {
   const duration = Number(value);
@@ -21,14 +25,12 @@ class ToastHostElement extends LitElement {
     this._activeStandardEntry = null;
     this._assertiveAnnouncement = "";
     this._assertiveAnnouncementFrame = 0;
-    this._dismissTimers = new Map();
-    this._expirationTimers = new Map();
     this._nextToastId = 1;
     this._politeAnnouncement = "";
     this._politeAnnouncementFrame = 0;
     this._standardQueue = [];
+    this._swipe = null;
     this._undoEntries = [];
-    this._visibilityFrames = new Map();
   }
 
   createRenderRoot() {
@@ -38,27 +40,44 @@ class ToastHostElement extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.classList.add("toast-host");
-    this.addEventListener("touchstart", (e) => this._handleSwipeStart(e), false);
-    this.addEventListener("touchmove", (e) => this._handleSwipeMove(e), false);
-    this.addEventListener("touchend", (e) => this._handleSwipeEnd(e), false);
+    this.addEventListener("pointerdown", (e) => this._handleSwipeStart(e));
+    this.addEventListener("pointermove", (e) => this._handleSwipeMove(e));
+    this.addEventListener("pointerup", (e) => this._handleSwipeEnd(e));
+    this.addEventListener("pointercancel", (e) => this._handleSwipeCancel(e));
   }
 
   disconnectedCallback() {
     this._clearAnnouncementFrame("assertive");
     this._clearAnnouncementFrame("polite");
-    this._dismissTimers.forEach((timerId) => {
-      window.clearTimeout(timerId);
-    });
-    this._dismissTimers.clear();
-    this._expirationTimers.forEach((timerId) => {
-      window.clearTimeout(timerId);
-    });
-    this._expirationTimers.clear();
-    this._visibilityFrames.forEach((frameId) => {
-      window.cancelAnimationFrame(frameId);
-    });
-    this._visibilityFrames.clear();
+    for (const entry of this._allEntries()) {
+      this._clearEntryTimers(entry);
+    }
     super.disconnectedCallback();
+  }
+
+  _allEntries() {
+    return [
+      ...this._undoEntries,
+      ...(this._activeStandardEntry ? [this._activeStandardEntry] : []),
+      ...this._standardQueue,
+    ];
+  }
+
+  _clearEntryTimers(entry) {
+    if (entry.expireTimerId) {
+      window.clearTimeout(entry.expireTimerId);
+      entry.expireTimerId = 0;
+    }
+
+    if (entry.dismissTimerId) {
+      window.clearTimeout(entry.dismissTimerId);
+      entry.dismissTimerId = 0;
+    }
+
+    if (entry.visibilityFrameId) {
+      window.cancelAnimationFrame(entry.visibilityFrameId);
+      entry.visibilityFrameId = 0;
+    }
   }
 
   showToast(message, options = {}) {
@@ -138,27 +157,21 @@ class ToastHostElement extends LitElement {
     return {
       ...toast,
       closeReason: "",
+      dismissTimerId: 0,
+      expireTimerId: 0,
       id,
       phase: "open",
+      visibilityFrameId: 0,
       visible: false,
     };
   }
 
-  _toToastPayload(entry) {
-    return {
-      actionLabel: entry.actionLabel,
-      details: entry.details,
-      duration: entry.duration,
-      message: entry.message,
-      onAction: entry.onAction,
-      onExpire: entry.onExpire,
-      type: entry.type,
-      variant: entry.variant,
-    };
-  }
-
   _cloneEntryForQueue(entry) {
-    return this._createEntry(this._toToastPayload(entry), entry.id);
+    const { actionLabel, details, duration, message, onAction, onExpire, type, variant } = entry;
+    return this._createEntry(
+      { actionLabel, details, duration, message, onAction, onExpire, type, variant },
+      entry.id,
+    );
   }
 
   _mountStandardToast(entry) {
@@ -211,7 +224,10 @@ class ToastHostElement extends LitElement {
       return;
     }
 
-    this._clearExpirationTimer(entry.id);
+    if (entry.expireTimerId) {
+      window.clearTimeout(entry.expireTimerId);
+      entry.expireTimerId = 0;
+    }
     entry.closeReason = reason;
     entry.phase = "closing";
     this.requestUpdate();
@@ -235,75 +251,118 @@ class ToastHostElement extends LitElement {
     this._beginDismiss(entry, "user-dismiss");
   }
 
+  _findEntryByToastId(toastId) {
+    return (
+      this._undoEntries.find((entry) => entry.id === toastId) ||
+      (this._activeStandardEntry?.id === toastId ? this._activeStandardEntry : null)
+    );
+  }
+
   _handleSwipeStart(event) {
-    const toastElement = event.target.closest(".toast");
-    if (!toastElement) {
+    if (!event.isPrimary || this._swipe) {
       return;
     }
 
-    const touch = event.touches[0];
-    this._swipeStartX = touch.clientX;
-    this._swipeStartY = touch.clientY;
-    this._swipeToastElement = toastElement;
+    const toastElement = event.target.closest(".toast");
+    // A press on a button is a tap, never the start of a swipe.
+    if (!toastElement || event.target.closest("button")) {
+      return;
+    }
+
+    const entry = this._findEntryByToastId(toastElement.dataset.toastId);
+    if (!entry || entry.phase === "closing") {
+      return;
+    }
+
+    this._swipe = {
+      entry,
+      isActive: false,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      toastElement,
+    };
   }
 
   _handleSwipeMove(event) {
-    if (this._swipeStartX == null || !this._swipeToastElement) {
+    const swipe = this._swipe;
+    if (!swipe || event.pointerId !== swipe.pointerId) {
       return;
     }
 
-    const touch = event.touches[0];
-    const deltaX = touch.clientX - this._swipeStartX;
-    const deltaY = Math.abs(touch.clientY - this._swipeStartY);
+    const deltaX = event.clientX - swipe.startX;
+    const deltaY = event.clientY - swipe.startY;
 
-    // Only allow horizontal swiping (not vertical scrolling)
-    if (deltaY > 10) {
-      this._swipeStartX = null;
-      this._swipeToastElement = null;
-      return;
+    if (!swipe.isActive) {
+      if (Math.abs(deltaY) > SWIPE_VERTICAL_ABORT_PX && Math.abs(deltaY) > Math.abs(deltaX)) {
+        this._swipe = null;
+        return;
+      }
+
+      if (Math.abs(deltaX) < SWIPE_ACTIVATION_PX) {
+        return;
+      }
+
+      swipe.isActive = true;
+      swipe.toastElement.classList.add("is-swiping");
+      try {
+        swipe.toastElement.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer already gone (or synthetic) — tracking continues via the host.
+      }
     }
 
-    this._swipeToastElement.classList.add("is-swiping");
-    this._swipeToastElement.style.transform = `translateX(${deltaX}px)`;
-    this._swipeToastElement.style.opacity = Math.max(0, 1 - Math.abs(deltaX) / 200);
+    swipe.toastElement.style.setProperty("--swipe-x", `${deltaX}px`);
+    swipe.toastElement.style.opacity = String(
+      Math.max(0, 1 - Math.abs(deltaX) / SWIPE_FADE_DISTANCE_PX),
+    );
+  }
+
+  _resetSwipeElement(toastElement) {
+    toastElement.classList.remove("is-swiping");
+    toastElement.style.removeProperty("--swipe-x");
+    toastElement.style.opacity = "";
   }
 
   _handleSwipeEnd(event) {
-    if (this._swipeStartX == null || !this._swipeToastElement) {
+    const swipe = this._swipe;
+    if (!swipe || event.pointerId !== swipe.pointerId) {
       return;
     }
 
-    const touch = event.changedTouches[0];
-    const deltaX = touch.clientX - this._swipeStartX;
-    const swipeThreshold = 80;
-    const toastElement = this._swipeToastElement;
+    this._swipe = null;
 
-    toastElement.classList.remove("is-swiping");
-
-    // Dismiss if swiped more than threshold
-    if (Math.abs(deltaX) > swipeThreshold) {
-      const entry =
-        this._undoEntries.find((e) => e.id === toastElement.dataset.toastId) ||
-        (this._activeStandardEntry?.id === toastElement.dataset.toastId
-          ? this._activeStandardEntry
-          : null);
-
-      if (entry) {
-        const swipeDirection = deltaX < 0 ? -1 : 1;
-        window.requestAnimationFrame(() => {
-          toastElement.style.transform = `translateX(${swipeDirection * 120}%)`;
-          toastElement.style.opacity = "0";
-        });
-        this._beginDismiss(entry, "swipe");
-      }
-    } else {
-      // Snap back
-      toastElement.style.transform = "";
-      toastElement.style.opacity = "";
+    if (!swipe.isActive) {
+      return;
     }
 
-    this._swipeStartX = null;
-    this._swipeToastElement = null;
+    const deltaX = event.clientX - swipe.startX;
+    const { entry, toastElement } = swipe;
+    toastElement.classList.remove("is-swiping");
+
+    if (Math.abs(deltaX) > SWIPE_DISMISS_THRESHOLD_PX && entry.phase !== "closing") {
+      const direction = deltaX < 0 ? -1 : 1;
+      const exitDistance = toastElement.offsetWidth + SWIPE_DISMISS_THRESHOLD_PX;
+      toastElement.style.setProperty("--swipe-x", `${direction * exitDistance}px`);
+      toastElement.style.opacity = "";
+      this._beginDismiss(entry, "swipe");
+      return;
+    }
+
+    this._resetSwipeElement(toastElement);
+  }
+
+  _handleSwipeCancel(event) {
+    const swipe = this._swipe;
+    if (!swipe || event.pointerId !== swipe.pointerId) {
+      return;
+    }
+
+    this._swipe = null;
+
+    if (swipe.isActive) {
+      this._resetSwipeElement(swipe.toastElement);
+    }
   }
 
   _clearAnnouncementFrame(type) {
@@ -336,12 +395,12 @@ class ToastHostElement extends LitElement {
   }
 
   _scheduleVisibility(entry) {
-    if (this._visibilityFrames.has(entry.id)) {
+    if (entry.visibilityFrameId) {
       return;
     }
 
-    const frameId = window.requestAnimationFrame(() => {
-      this._visibilityFrames.delete(entry.id);
+    entry.visibilityFrameId = window.requestAnimationFrame(() => {
+      entry.visibilityFrameId = 0;
       if (entry.phase !== "open") {
         return;
       }
@@ -349,27 +408,15 @@ class ToastHostElement extends LitElement {
       entry.visible = true;
       this.requestUpdate();
     });
-
-    this._visibilityFrames.set(entry.id, frameId);
-  }
-
-  _clearVisibilityFrame(entryId) {
-    const frameId = this._visibilityFrames.get(entryId);
-    if (!frameId) {
-      return;
-    }
-
-    window.cancelAnimationFrame(frameId);
-    this._visibilityFrames.delete(entryId);
   }
 
   _scheduleExpiration(entry) {
-    if (entry.duration <= 0 || this._expirationTimers.has(entry.id)) {
+    if (entry.duration <= 0 || entry.expireTimerId) {
       return;
     }
 
-    const timerId = window.setTimeout(() => {
-      this._expirationTimers.delete(entry.id);
+    entry.expireTimerId = window.setTimeout(() => {
+      entry.expireTimerId = 0;
       if (entry.phase !== "open") {
         return;
       }
@@ -377,45 +424,21 @@ class ToastHostElement extends LitElement {
       this._dispatchToastEvent("toast-expire", entry, "timeout");
       this._beginDismiss(entry, "timeout");
     }, entry.duration);
-
-    this._expirationTimers.set(entry.id, timerId);
-  }
-
-  _clearExpirationTimer(entryId) {
-    const timerId = this._expirationTimers.get(entryId);
-    if (!timerId) {
-      return;
-    }
-
-    window.clearTimeout(timerId);
-    this._expirationTimers.delete(entryId);
   }
 
   _scheduleDismiss(entry) {
-    if (this._dismissTimers.has(entry.id)) {
+    if (entry.dismissTimerId) {
       return;
     }
 
-    const timerId = window.setTimeout(() => {
-      this._dismissTimers.delete(entry.id);
+    entry.dismissTimerId = window.setTimeout(() => {
+      entry.dismissTimerId = 0;
       if (entry.phase !== "closing") {
         return;
       }
 
       this._finalizeDismiss(entry);
     }, TOAST_DISMISS_DELAY_MS);
-
-    this._dismissTimers.set(entry.id, timerId);
-  }
-
-  _clearDismissTimer(entryId) {
-    const timerId = this._dismissTimers.get(entryId);
-    if (!timerId) {
-      return;
-    }
-
-    window.clearTimeout(timerId);
-    this._dismissTimers.delete(entryId);
   }
 
   _removeEntry(entry) {
@@ -442,9 +465,7 @@ class ToastHostElement extends LitElement {
       return;
     }
 
-    this._clearDismissTimer(entry.id);
-    this._clearExpirationTimer(entry.id);
-    this._clearVisibilityFrame(entry.id);
+    this._clearEntryTimers(entry);
     this._dispatchToastEvent("toast-dismiss", entry, entry.closeReason);
 
     if (entry.closeReason === "action") {
