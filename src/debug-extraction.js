@@ -36,14 +36,6 @@ const els = {
   layerPixelLocations: document.getElementById("layer-pixel-locations"),
   overlay: document.getElementById("image-overlay"),
   overlayImg: document.getElementById("image-overlay-img"),
-  weightChroma: document.getElementById("weight-chroma"),
-  weightChromaValue: document.getElementById("weight-chroma-value"),
-  weightLuma: document.getElementById("weight-luma"),
-  weightLumaValue: document.getElementById("weight-luma-value"),
-  weightRarity: document.getElementById("weight-rarity"),
-  weightRarityValue: document.getElementById("weight-rarity-value"),
-  weightDiversity: document.getElementById("weight-diversity"),
-  weightDiversityValue: document.getElementById("weight-diversity-value"),
   poolSize: document.getElementById("pool-size"),
   poolSizeValue: document.getElementById("pool-size-value"),
   maxPixels: document.getElementById("max-pixels"),
@@ -54,8 +46,6 @@ const els = {
   toneValue: document.getElementById("tone-value"),
   autoBias: document.getElementById("auto-bias"),
   smoothToggle: document.getElementById("smooth-toggle"),
-  currentControls: document.getElementById("current-controls"),
-  newControls: document.getElementById("new-controls"),
 };
 
 const scatter = createOklabScatter(els.scatter);
@@ -71,12 +61,6 @@ let activeThumb = null;
 // Mirrors the live pipeline's option shape, fed from the tuning sliders.
 function getExtractionOptions() {
   return {
-    scoring: {
-      chromaWeight: Number(els.weightChroma.value),
-      lumaSpreadWeight: Number(els.weightLuma.value),
-      rarityWeight: Number(els.weightRarity.value),
-      diversityWeight: Number(els.weightDiversity.value),
-    },
     quantizedPoolSize: Number(els.poolSize.value),
     maxQuantizerPixels: Number(els.maxPixels.value),
   };
@@ -92,22 +76,10 @@ function getDebugOptions() {
   };
 }
 
-// New/Hybrid modes show Variety / Tone / Auto; Current shows the scorer weights.
-function syncSelectorMode() {
-  const isNew = els.selector.value === "grid" || els.selector.value === "perceptual";
-  els.currentControls.hidden = isNew;
-  els.newControls.hidden = !isNew;
-}
-
 // David's "preset from the image": when Auto is on, derive Variety + Distinctness
 // from the current image so good output needs no manual tuning.
 function maybeApplyAutoParams() {
-  if (
-    !lastImageData ||
-    (els.selector.value !== "grid" && els.selector.value !== "perceptual") ||
-    !els.autoBias.checked
-  )
-    return;
+  if (!lastImageData || !els.autoBias.checked) return;
   const { variety, distinctness } = suggestSelectorParams(
     lastImageData.data,
     lastImageData.width,
@@ -595,19 +567,13 @@ els.swatchCount.addEventListener("input", () => {
 
 els.repulsion.addEventListener("input", () => {
   els.repulsionValue.textContent = Number(els.repulsion.value).toFixed(3);
-  // In grid/perceptual modes the radius IS the Distinctness control, so re-trace; a manual
-  // move counts as an override, so turn Auto off.
-  if (els.selector.value === "grid" || els.selector.value === "perceptual") {
-    els.autoBias.checked = false;
-    rerunTrace();
-  } else {
-    buildScene();
-    renderStats();
-  }
+  // The radius IS the Distinctness control, so re-trace; a manual move counts
+  // as an override, so turn Auto off.
+  els.autoBias.checked = false;
+  rerunTrace();
 });
 
 els.selector.addEventListener("change", () => {
-  syncSelectorMode();
   colorSmoother.reset();
   maybeApplyAutoParams();
   rerunTrace();
@@ -631,10 +597,6 @@ els.autoBias.addEventListener("change", () => {
 // Tuning sliders mirror the live app's controls; re-trace live so their
 // effect on candidates and selection is visible.
 for (const [slider, valueEl] of [
-  [els.weightChroma, els.weightChromaValue],
-  [els.weightLuma, els.weightLumaValue],
-  [els.weightRarity, els.weightRarityValue],
-  [els.weightDiversity, els.weightDiversityValue],
   [els.poolSize, els.poolSizeValue],
   [els.maxPixels, els.maxPixelsValue],
 ]) {
@@ -663,7 +625,6 @@ for (const toggle of [
 window.addEventListener("resize", resizeScatter);
 
 resizeScatter();
-syncSelectorMode();
 els.swatchCountValue.textContent = els.swatchCount.value;
 els.repulsionValue.textContent = Number(els.repulsion.value).toFixed(3);
 els.varietyValue.textContent = els.variety.value;

@@ -71,10 +71,8 @@ export function createLivePreviewController({
   getIsCaptureSavePending = () => false,
   getOneMoreColor,
   getOriginBadgesEnabled = () => true,
-  getPaletteScoringSettings,
   getMedianCutExtractionSettings,
   getHybridSettings,
-  getPaletteSelector,
   getShouldMirrorUserFacingCamera,
   getSwatchCount,
   shouldUseCanvasPreview,
@@ -219,14 +217,12 @@ export function createLivePreviewController({
   function getPaletteExtractionOptions() {
     return {
       medianCut: { ...getMedianCutExtractionSettings() },
-      scoring: { ...getPaletteScoringSettings() },
       hybrid: {
         ...getHybridSettings(),
         // Previous raw extraction, used by the perceptual selector as a
         // stability bias so picks don't flip between near-equal candidates.
         previousColors: lastExtractedColors ?? [],
       },
-      paletteSelector: getPaletteSelector?.() ?? "current",
     };
   }
 

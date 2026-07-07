@@ -2,7 +2,7 @@
 
 Status as of 2026-06-22. Branch: `pwa/prod`. Nothing here is in the shipped app yet — all new work lives in a **debug harness**. The production pipeline is unchanged in behaviour (only cleaned up).
 
-> **Update (2026-07):** the New selector described below has since shipped as `src/modules/hybrid-selector.js` (the "perceptual" selector). This file remains as the historical record of how the design was chosen; for a full explanation of the pipeline as it exists today — theory, every stage, diagrams — see **[extraction-pipeline.md](extraction-pipeline.md)**.
+> **Update (2026-07):** the New selector described below has since shipped as `src/modules/hybrid-selector.js` (the "perceptual" selector), and the classic path it replaced (`palette-extract-median-cut.js` + `palette-scoring.js`, the "current" mode) has been **deleted** — perceptual is now the only pipeline. This file remains as the historical record of how the design was chosen; for a full explanation of the pipeline as it exists today — theory, every stage, diagrams — see **[extraction-pipeline.md](extraction-pipeline.md)**.
 
 ---
 
@@ -10,7 +10,7 @@ Status as of 2026-06-22. Branch: `pwa/prod`. Nothing here is in the shipped app 
 
 PaletCam is a **live camera** palette tool. The extraction had three structural problems, confirmed visually with the debug harness across ~216 test images:
 
-1. **Muting** — every displayed swatch is an *average* (median-cut box mean → 3-frame temporal mean → lerp). Averages pull toward grey, so vivid colors come out muddy.
+1. **Muting** — every displayed swatch is an _average_ (median-cut box mean → 3-frame temporal mean → lerp). Averages pull toward grey, so vivid colors come out muddy.
 2. **Missed colors** — neutrals (black/white) were never reserved, small-but-salient colors (a pink tray, yellow text) got out-massed, and one dominant hue (red) could claim every slot.
 3. **Needs per-image tuning** — the 5 scorer weights (Vivid/Light-Dark/Rare hue/Spread + population) had to be hand-tuned per image to get a good result. **Impossible on a live feed**, and users found the sliders confusing.
 
@@ -87,12 +87,12 @@ Pipeline, all in OKLab:
 
 **Final control surface** (replaces the 5 interacting scorer weights):
 
-| Knob | Internal | Default | Meaning |
-|------|----------|---------|---------|
-| **Variety** | hue-spread strength `spreadStrength` (0–1) | ~0.8 (auto) | monochrome ↔ rainbow |
-| **Distinctness** | repulsion radius (OKLab) | ~0.06 (auto) | how separated swatches must be |
-| **Tone** | rep blend mean↔peak (0–1) | 0.85 | soft/muted ↔ vivid |
-| **Auto** | runs `suggestSelectorParams` | on | preset Variety + Distinctness from the image |
+| Knob             | Internal                                   | Default      | Meaning                                      |
+| ---------------- | ------------------------------------------ | ------------ | -------------------------------------------- |
+| **Variety**      | hue-spread strength `spreadStrength` (0–1) | ~0.8 (auto)  | monochrome ↔ rainbow                         |
+| **Distinctness** | repulsion radius (OKLab)                   | ~0.06 (auto) | how separated swatches must be               |
+| **Tone**         | rep blend mean↔peak (0–1)                  | 0.85         | soft/muted ↔ vivid                           |
+| **Auto**         | runs `suggestSelectorParams`               | on           | preset Variety + Distinctness from the image |
 
 Everything else is **automatic**: neutral reservation, neutral threshold, phantom guard, representative-pixel pass, rarity (fixed internal `0.12`). For the app: ship default-good with Auto, expose **Variety** (+ swatch count) prominently, tuck Distinctness/Tone under "Advanced".
 
@@ -103,6 +103,7 @@ Everything else is **automatic**: neutral reservation, neutral threshold, phanto
 ## 6. Key files
 
 New (all debug-only except color-math/color-smoothing/rgbToOklab):
+
 - `public/debug-extraction.html` — harness page (design-token styled, `noindex`).
 - `src/debug-extraction.js` — harness entry: gallery, controls, Auto, scene wiring.
 - `src/modules/debug/experimental-selector.js` — **the New pipeline** + `suggestSelectorParams`.
@@ -123,7 +124,7 @@ Also see memory: `memory/project-palette-extraction.md`.
 1. **Tune `suggestSelectorParams`** by gallery pass — the adaptive formulas are sane first cuts, not tuned. Watch the Auto defaults across images; where they fall short, adjust the variety/distinctness mappings (it's live in the harness).
 2. **Decide the "fewer colors than requested" behaviour** — when an image genuinely has few distinct colors, New returns fewer swatches rather than padding with near-duplicates. The app renders N bars, so decide: pad (with tints / next-best) or show fewer.
 3. **Port New into the app behind a flag** — replace `rankQuantizedCandidates` selection in `palette-extract-median-cut.js` (or add a parallel path). Keep median-cut as the quantizer/candidate source (cheap, temporally stable for video); the selection + representative-pixel logic is the new part. Run it in the existing worker.
-4. **Temporal stability for live video** — the representative pixel can shimmer frame-to-frame on a live feed. Robustify (e.g. high-chroma *percentile* instead of single peak pixel) and reconcile with `createColorSmoother` (smooth the *selection*, keep the displayed color vivid with a chroma floor).
+4. **Temporal stability for live video** — the representative pixel can shimmer frame-to-frame on a live feed. Robustify (e.g. high-chroma _percentile_ instead of single peak pixel) and reconcile with `createColorSmoother` (smooth the _selection_, keep the displayed color vivid with a chroma floor).
 5. **Replace the app's 5 scorer sliders** with Variety (+ Advanced: Distinctness, Tone), wired to the adaptive defaults.
 6. **Keep the harness out of the prod build** (`scripts/build.js`) — it's dev-only; the `/debug/images.json` endpoint is dev-server-only already.
 

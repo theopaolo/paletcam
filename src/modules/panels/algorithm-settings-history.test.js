@@ -9,12 +9,13 @@ function createSnapshot(overrides = {}) {
       quantizedPoolSize: 16,
       ...(overrides.medianCut ?? {}),
     },
-    paletteScoring: {
-      chromaWeight: 25,
-      diversityWeight: 40,
-      lumaSpreadWeight: 15,
-      rarityWeight: 20,
-      ...(overrides.paletteScoring ?? {}),
+    hybrid: {
+      repulsionRadius: 0.08,
+      spreadStrength: 0.6,
+      rarityStrength: 0.2,
+      tone: 0.85,
+      loyaltyStrength: 0.3,
+      ...(overrides.hybrid ?? {}),
     },
   };
 }
@@ -28,8 +29,8 @@ describe("createAlgorithmSettingsHistory", () => {
     history.beginInteraction();
     history.setCurrentSnapshot(
       createSnapshot({
-        paletteScoring: {
-          diversityWeight: 55,
+        hybrid: {
+          spreadStrength: 0.9,
         },
       }),
     );
@@ -37,8 +38,8 @@ describe("createAlgorithmSettingsHistory", () => {
     expect(
       history.commitInteraction(
         createSnapshot({
-          paletteScoring: {
-            diversityWeight: 55,
+          hybrid: {
+            spreadStrength: 0.9,
           },
         }),
       ),
@@ -46,7 +47,7 @@ describe("createAlgorithmSettingsHistory", () => {
 
     expect(history.getState().canUndo).toBe(true);
     expect(history.getState().canRedo).toBe(false);
-    expect(history.undo()?.paletteScoring.diversityWeight).toBe(40);
+    expect(history.undo()?.hybrid.spreadStrength).toBe(0.6);
   });
 
   test("does not create history when the interaction ends without a change", () => {
@@ -68,8 +69,8 @@ describe("createAlgorithmSettingsHistory", () => {
 
     history.applySnapshot(
       createSnapshot({
-        paletteScoring: {
-          chromaWeight: 33,
+        hybrid: {
+          tone: 0.5,
         },
       }),
     );
@@ -79,8 +80,8 @@ describe("createAlgorithmSettingsHistory", () => {
 
     history.applySnapshot(
       createSnapshot({
-        paletteScoring: {
-          rarityWeight: 42,
+        hybrid: {
+          rarityStrength: 0.42,
         },
       }),
     );
@@ -92,8 +93,8 @@ describe("createAlgorithmSettingsHistory", () => {
   test("treats reset like an undoable snapshot change", () => {
     const history = createAlgorithmSettingsHistory({
       initialSnapshot: createSnapshot({
-        paletteScoring: {
-          diversityWeight: 62,
+        hybrid: {
+          spreadStrength: 0.62,
         },
       }),
     });
@@ -101,7 +102,7 @@ describe("createAlgorithmSettingsHistory", () => {
     history.reset(createSnapshot());
 
     expect(history.getState().canUndo).toBe(true);
-    expect(history.getState().currentSnapshot.paletteScoring.diversityWeight).toBe(40);
-    expect(history.undo()?.paletteScoring.diversityWeight).toBe(62);
+    expect(history.getState().currentSnapshot.hybrid.spreadStrength).toBe(0.6);
+    expect(history.undo()?.hybrid.spreadStrength).toBe(0.62);
   });
 });

@@ -183,17 +183,42 @@ describe("app-settings polaroidFooterLabel", () => {
   });
 });
 
-describe("app-settings paletteScoring", () => {
-  test("persists manual scoring updates", async () => {
+describe("app-settings hybrid", () => {
+  test("persists manual hybrid updates", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
 
     module.updateAppSettings({
+      hybrid: { rarityStrength: 0.4 },
+    });
+
+    expect(module.getAppSettings().hybrid.rarityStrength).toBe(0.4);
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).hybrid.rarityStrength).toBe(0.4);
+  });
+});
+
+describe("app-settings legacy overrides", () => {
+  test("ignores stored oneMoreColor and medianCut overrides from older builds", async () => {
+    const { module } = await loadAppSettingsModule({
+      oneMoreColor: false,
+      medianCut: { quantizedPoolSize: 24, maxQuantizerPixels: 40000 },
+    });
+
+    const settings = module.getAppSettings();
+    const defaults = module.getDefaultAppSettings();
+
+    expect(settings.oneMoreColor).toBe(defaults.oneMoreColor);
+    expect(settings.medianCut).toEqual(defaults.medianCut);
+  });
+
+  test("drops removed paletteSelector and paletteScoring fields", async () => {
+    const { module } = await loadAppSettingsModule({
+      paletteSelector: "current",
       paletteScoring: { rarityWeight: 18 },
     });
 
-    expect(module.getAppSettings().paletteScoring.rarityWeight).toBe(18);
-    expect(
-      JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).paletteScoring.rarityWeight,
-    ).toBe(18);
+    const settings = module.getAppSettings();
+
+    expect(settings.paletteSelector).toBeUndefined();
+    expect(settings.paletteScoring).toBeUndefined();
   });
 });

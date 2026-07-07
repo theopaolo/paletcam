@@ -8,13 +8,14 @@ import { t } from "../../i18n.js";
 import { areAlgorithmSettingsEqual, cloneAlgorithmSettings } from "../algorithm-settings.js";
 import { createAlgorithmSettingsHistory } from "./algorithm-settings-history.js";
 import {
-  clampInteger,
-  createRangeControl,
-  formatCompactThousands,
-  formatThousands,
-} from "./settings-range-control.js";
+  HYBRID_PRESETS,
+  HYBRID_STEPPED_CONTROLS,
+  findMatchingPresetId,
+  nearestStepIndex,
+} from "./perceptual-tuning.js";
+import { createRangeControl } from "./settings-range-control.js";
 
-const TAB_IDS = ["analysis", "colors", "balance"];
+const TAB_IDS = ["colors", "balance"];
 const CONFIG_TOGGLE_CLOSE_ICON_CLASS = "is-close";
 
 function queryById(root, id) {
@@ -28,14 +29,11 @@ function queryById(root, id) {
 function getConfigDom(root) {
   return {
     drawer: queryById(root, "configDrawer"),
-    oneMoreColorToggle: /** @type {HTMLInputElement | null} */ (
-      queryById(root, "configOneMoreColorToggle")
-    ),
     originBadgesToggle: /** @type {HTMLInputElement | null} */ (
       queryById(root, "configOriginBadgesToggle")
     ),
-    selectorButtons: /** @type {HTMLButtonElement[]} */ (
-      Array.from(root.querySelectorAll("[data-config-selector]"))
+    presetButtons: /** @type {HTMLButtonElement[]} */ (
+      Array.from(root.querySelectorAll("[data-config-preset]"))
     ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
@@ -87,7 +85,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   const history = createAlgorithmSettingsHistory({
     initialSnapshot: cloneAlgorithmSettings(getAppSettings()),
   });
-  let activeTabId = "analysis";
+  let activeTabId = "colors";
   let isDrawerOpen = false;
 
   const on = (element, eventName, handler, options) => {
@@ -166,38 +164,12 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     }
   }
 
-  function syncOneMoreColorToggle(settings) {
-    if (!dom.oneMoreColorToggle) {
-      return;
-    }
-
-    dom.oneMoreColorToggle.checked = Boolean(settings.oneMoreColor);
-  }
-
   function syncOriginBadgesToggle(settings) {
     if (!dom.originBadgesToggle) {
       return;
     }
 
     dom.originBadgesToggle.checked = Boolean(settings.originBadgesEnabled);
-  }
-
-  function syncPaletteSelector(settings) {
-    const isHybrid = settings.paletteSelector === "perceptual";
-    const activeMode = isHybrid ? "perceptual" : "current";
-
-    dom.selectorButtons.forEach((button) => {
-      const isActive = button.getAttribute("data-config-selector") === activeMode;
-      button.setAttribute("aria-pressed", String(isActive));
-      button.classList.toggle("is-active", isActive);
-    });
-
-    root.classList.toggle("config-selector-perceptual", isHybrid);
-
-    root.querySelectorAll("[data-mode]").forEach((field) => {
-      const mode = field.getAttribute("data-mode");
-      field.hidden = isHybrid ? mode !== "perceptual" : mode !== "current";
-    });
   }
 
   function setActiveTab(nextTabId, { focusButton = false } = {}) {
@@ -290,206 +262,74 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     syncHistoryButtons();
   }
 
+  function syncPresetChips(settings) {
+    const activePresetId = findMatchingPresetId(settings.hybrid);
+
+    dom.presetButtons.forEach((button) => {
+      const isActive = button.getAttribute("data-config-preset") === activePresetId;
+      button.setAttribute("aria-pressed", String(isActive));
+      button.classList.toggle("is-active", isActive);
+    });
+  }
+
+  function createHybridSteppedControl({ controlKey, shellId, inputId }) {
+    const control = HYBRID_STEPPED_CONTROLS[controlKey];
+    const labelsElement = root.querySelector(`[data-config-step-labels="${controlKey}"]`);
+    const getStepLabel = (index) =>
+      t(`config.hybrid.${controlKey}.step.${control.labelKeys[index]}`);
+    const getIndexFromSettings = (settings) =>
+      nearestStepIndex(control, settings.hybrid ?? defaultAlgorithmSettings.hybrid);
+
+    const baseControl = createRangeControl({
+      root,
+      shellId,
+      inputId,
+      getValueFromSettings: getIndexFromSettings,
+      onValueInput: (value) => {
+        const index = Math.min(control.steps.length - 1, Math.max(0, Math.round(value) || 0));
+        applyAlgorithmSettings((snapshot) => {
+          Object.assign(snapshot.hybrid, control.steps[index]);
+        });
+      },
+      onInteractionStart: beginAlgorithmInteraction,
+      onInteractionCommit: commitAlgorithmInteraction,
+      getAriaLabel: (index) =>
+        t(`config.hybrid.${controlKey}.aria`, { value: getStepLabel(index) }),
+    });
+
+    if (!baseControl) {
+      return null;
+    }
+
+    return {
+      bindEvents: baseControl.bindEvents,
+      renderFromSettings(settings) {
+        baseControl.renderFromSettings(settings);
+        labelsElement?.setAttribute("data-active-index", String(getIndexFromSettings(settings)));
+      },
+    };
+  }
+
   const rangeControls = [
-    createRangeControl({
-      root,
-      shellId: "configScoringDiversitySlider",
-      inputId: "configScoringDiversityRange",
-      displaySelector: "[data-config-scoring-diversity-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.diversityWeight,
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.paletteScoring.diversityWeight = clampInteger(
-            value,
-            defaultAlgorithmSettings.paletteScoring.diversityWeight,
-          );
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.balance.diversity.aria", { value }),
-    }),
-    createRangeControl({
-      root,
-      shellId: "configScoringContrastSlider",
-      inputId: "configScoringContrastRange",
-      displaySelector: "[data-config-scoring-contrast-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.lumaSpreadWeight,
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.paletteScoring.lumaSpreadWeight = clampInteger(
-            value,
-            defaultAlgorithmSettings.paletteScoring.lumaSpreadWeight,
-          );
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.balance.contrast.aria", { value }),
-    }),
-    createRangeControl({
-      root,
-      shellId: "configScoringVibrancySlider",
-      inputId: "configScoringVibrancyRange",
-      displaySelector: "[data-config-scoring-vibrancy-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.chromaWeight,
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.paletteScoring.chromaWeight = clampInteger(
-            value,
-            defaultAlgorithmSettings.paletteScoring.chromaWeight,
-          );
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.colors.vibrancy.aria", { value }),
-    }),
-    createRangeControl({
-      root,
-      shellId: "configScoringRaritySlider",
-      inputId: "configScoringRarityRange",
-      displaySelector: "[data-config-scoring-rarity-display]",
-      getValueFromSettings: (settings) => settings.paletteScoring.rarityWeight,
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.paletteScoring.rarityWeight = clampInteger(
-            value,
-            defaultAlgorithmSettings.paletteScoring.rarityWeight,
-          );
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.colors.rarity.aria", { value }),
-    }),
-    createRangeControl({
-      root,
-      shellId: "configMedianCutPoolSlider",
-      inputId: "configMedianCutPoolRange",
-      displaySelector: "[data-config-median-cut-pool-display]",
-      getValueFromSettings: (settings) => settings.medianCut.quantizedPoolSize,
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.medianCut.quantizedPoolSize = clampInteger(
-            value,
-            defaultAlgorithmSettings.medianCut.quantizedPoolSize,
-          );
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.analysis.pool.aria", { value }),
-    }),
-    createRangeControl({
-      root,
-      shellId: "configMedianCutPixelsSlider",
-      inputId: "configMedianCutPixelsRange",
-      displaySelector: "[data-config-median-cut-pixels-display]",
-      getValueFromSettings: (settings) => settings.medianCut.maxQuantizerPixels,
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.medianCut.maxQuantizerPixels = clampInteger(
-            value,
-            defaultAlgorithmSettings.medianCut.maxQuantizerPixels,
-          );
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.analysis.pixels.aria", { value }),
-      formatInlineValue: (value) => formatThousands(value),
-      formatDisplayValue: (value) => formatCompactThousands(value),
-    }),
-    createRangeControl({
-      root,
+    createHybridSteppedControl({
+      controlKey: "tone",
       shellId: "configHybridToneSlider",
       inputId: "configHybridToneRange",
-      displaySelector: "[data-config-hybrid-tone-display]",
-      getValueFromSettings: (settings) =>
-        Math.round((settings.hybrid?.tone ?? defaultAlgorithmSettings.hybrid.tone) * 100),
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.hybrid.tone = Math.round(value) / 100;
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.hybrid.tone.aria", { value }),
     }),
-    createRangeControl({
-      root,
+    createHybridSteppedControl({
+      controlKey: "rarity",
       shellId: "configHybridRaritySlider",
       inputId: "configHybridRarityRange",
-      displaySelector: "[data-config-hybrid-rarity-display]",
-      getValueFromSettings: (settings) =>
-        Math.round(
-          (settings.hybrid?.rarityStrength ?? defaultAlgorithmSettings.hybrid.rarityStrength) * 100,
-        ),
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.hybrid.rarityStrength = Math.round(value) / 100;
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.hybrid.rarity.aria", { value }),
     }),
-    createRangeControl({
-      root,
+    createHybridSteppedControl({
+      controlKey: "spread",
       shellId: "configHybridSpreadSlider",
       inputId: "configHybridSpreadRange",
-      displaySelector: "[data-config-hybrid-spread-display]",
-      getValueFromSettings: (settings) =>
-        Math.round(
-          (settings.hybrid?.spreadStrength ?? defaultAlgorithmSettings.hybrid.spreadStrength) * 100,
-        ),
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.hybrid.spreadStrength = Math.round(value) / 100;
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.hybrid.spread.aria", { value }),
     }),
-    createRangeControl({
-      root,
-      shellId: "configHybridRepulsionSlider",
-      inputId: "configHybridRepulsionRange",
-      displaySelector: "[data-config-hybrid-repulsion-display]",
-      getValueFromSettings: (settings) =>
-        Math.round(
-          (settings.hybrid?.repulsionRadius ?? defaultAlgorithmSettings.hybrid.repulsionRadius) *
-            100,
-        ),
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.hybrid.repulsionRadius = Math.round(value) / 100;
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.hybrid.repulsion.aria", { value }),
-    }),
-    createRangeControl({
-      root,
+    createHybridSteppedControl({
+      controlKey: "loyalty",
       shellId: "configHybridLoyaltySlider",
       inputId: "configHybridLoyaltyRange",
-      displaySelector: "[data-config-hybrid-loyalty-display]",
-      getValueFromSettings: (settings) =>
-        Math.round(
-          (settings.hybrid?.loyaltyStrength ?? defaultAlgorithmSettings.hybrid.loyaltyStrength) *
-            100,
-        ),
-      onValueInput: (value) => {
-        applyAlgorithmSettings((snapshot) => {
-          snapshot.hybrid.loyaltyStrength = Math.round(value) / 100;
-        });
-      },
-      onInteractionStart: beginAlgorithmInteraction,
-      onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (value) => t("config.hybrid.loyalty.aria", { value }),
     }),
   ].filter(Boolean);
 
@@ -507,9 +347,8 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     rangeControls.forEach((control) => {
       control.renderFromSettings(settings);
     });
-    syncOneMoreColorToggle(settings);
     syncOriginBadgesToggle(settings);
-    syncPaletteSelector(settings);
+    syncPresetChips(settings);
     syncDrawerAvailability(settings);
     syncConfigToggleButton();
     syncHistoryButtons();
@@ -545,15 +384,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   });
 
   dom.tabButtons.forEach(bindTabButton);
-  on(dom.oneMoreColorToggle, "change", () => {
-    if (!dom.oneMoreColorToggle) {
-      return;
-    }
-
-    updateAppSettings({
-      oneMoreColor: dom.oneMoreColorToggle.checked,
-    });
-  });
   on(dom.originBadgesToggle, "change", () => {
     if (!dom.originBadgesToggle) {
       return;
@@ -563,20 +393,17 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       originBadgesEnabled: dom.originBadgesToggle.checked,
     });
   });
-  dom.selectorButtons.forEach((button) => {
+  dom.presetButtons.forEach((button) => {
     on(button, "click", () => {
-      const value = button.getAttribute("data-config-selector");
-      if (value !== "current" && value !== "perceptual") {
-        return;
-      }
-
-      if (getAppSettings().paletteSelector === value) {
+      const presetId = button.getAttribute("data-config-preset");
+      const preset = HYBRID_PRESETS.find((candidate) => candidate.id === presetId);
+      if (!preset || findMatchingPresetId(getAppSettings().hybrid) === presetId) {
         return;
       }
 
       beginAlgorithmInteraction();
       applyAlgorithmSettings((snapshot) => {
-        snapshot.paletteSelector = value;
+        Object.assign(snapshot.hybrid, preset.hybrid);
       });
       commitAlgorithmInteraction();
     });

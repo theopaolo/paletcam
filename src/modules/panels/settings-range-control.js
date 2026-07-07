@@ -1,5 +1,3 @@
-import { getIntlLocale } from "../../i18n.js";
-
 const RANGE_INTERACTION_KEYS = new Set([
   "ArrowDown",
   "ArrowLeft",
@@ -17,28 +15,6 @@ function queryById(root, id) {
   }
 
   return root.querySelector(`#${id}`);
-}
-
-export function clampInteger(value, fallbackValue) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return fallbackValue;
-  }
-
-  return Math.round(numericValue);
-}
-
-export function formatThousands(value) {
-  return new Intl.NumberFormat(getIntlLocale()).format(clampInteger(value, 0));
-}
-
-export function formatCompactThousands(value) {
-  const safeValue = clampInteger(value, 0);
-  if (safeValue >= 1000) {
-    return `${Math.round(safeValue / 1000)}k`;
-  }
-
-  return String(safeValue);
 }
 
 export function updateSliderShellTicks(shell, rangeInput) {

@@ -7,9 +7,7 @@
  * implementation. It exists only to make tuning a visual exercise.
  */
 
-import { ColorCutQuantizer } from "../color-cut-quantizer.js";
 import { rgbToOklab } from "../color-space-oklch.js";
-import { extractMedianCutPaletteColors } from "../palette-extract-median-cut.js";
 import { packImageDataToArgb8888 } from "../palette-pixel-pack.js";
 import { selectPaletteExperimental } from "./experimental-selector.js";
 import { selectPaletteHybrid } from "../hybrid-selector.js";
@@ -72,7 +70,7 @@ function computeStats(points) {
  * @param {number} width
  * @param {number} height
  * @param {number} swatchCount
- * @param {object} [options]  forwarded to extractMedianCutPaletteColors
+ * @param {object} [options]  pixel-budget overrides (maxQuantizerPixels, quantizedPoolSize)
  * @param {object} [debugOptions]
  * @param {number} [debugOptions.maxScatterPoints=4000]  cap for render perf
  * @param {number} [debugOptions.quantizedPoolSize]
@@ -120,7 +118,7 @@ export function traceExtraction(
 
   let candidates;
   let selected;
-  let extraStats = {};
+  let extraStats;
 
   if (debugOptions.selector === "grid") {
     // Experimental OKLab pipeline: reserve neutrals + cluster + repulsion +
@@ -137,10 +135,11 @@ export function traceExtraction(
     );
     selected = result.colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
     extraStats = { neutralCount: result.neutralCount, neutralThreshold: result.neutralThreshold };
-  } else if (debugOptions.selector === "perceptual") {
-    // Option C: median-cut candidates (augmented with vivid exemplars) + OKLab
-    // greedy selection. The hybrid keeps median-cut's temporal stability while
-    // recovering the anti-muting vivid representative via the per-box exemplar.
+  } else {
+    // Production path: median-cut candidates (augmented with vivid exemplars)
+    // + OKLab greedy selection. The hybrid keeps median-cut's temporal
+    // stability while recovering the anti-muting vivid representative via the
+    // per-box exemplar.
     const result = selectPaletteHybrid(imageData, width, height, swatchCount, {
       repulsionRadius: debugOptions.repulsionRadius,
       spreadStrength: debugOptions.spreadStrength,
@@ -152,23 +151,6 @@ export function traceExtraction(
     candidates = result.candidates.map((c) => withOklab(c.meanRgb, { population: c.mass }));
     selected = result.colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
     extraStats = { neutralCount: result.neutralCount, neutralThreshold: result.neutralThreshold };
-  } else {
-    // Production path: median-cut pool + scorer. The quantizer mutates its
-    // input, so copy.
-    const poolSize = Math.max(swatchCount, quantizedPoolSize ?? 24);
-    const quantizer = new ColorCutQuantizer(Int32Array.from(packed), poolSize);
-    candidates = (quantizer.getQuantizedColors?.() ?? [])
-      .filter((swatch) => swatch && typeof swatch.rgb === "number")
-      .map((swatch) => withOklab(argbToRgb(swatch.rgb), { population: swatch.population ?? 0 }));
-
-    const { colors } = extractMedianCutPaletteColors(
-      imageData,
-      width,
-      height,
-      swatchCount,
-      options,
-    );
-    selected = colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
   }
 
   return {

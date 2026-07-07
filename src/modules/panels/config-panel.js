@@ -1,6 +1,52 @@
 import { html, LitElement } from "lit";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
+import { HYBRID_PRESETS, HYBRID_STEPPED_CONTROLS } from "./perceptual-tuning.js";
+
+function renderHybridSteppedField({ controlKey, shellId, inputId }) {
+  const control = HYBRID_STEPPED_CONTROLS[controlKey];
+  const defaultLabel = t(
+    `config.hybrid.${controlKey}.step.${control.labelKeys[control.defaultIndex]}`,
+  );
+
+  return html`
+    <div class="panel-form-field">
+      <details class="panel-form-field-header">
+        <summary class="panel-form-label" for=${inputId}>
+          ${t(`config.hybrid.${controlKey}.title`)}
+        </summary>
+        <p class="panel-form-hint">
+          ${t(`config.hybrid.${controlKey}.hint`)}
+        </p>
+      </details>
+
+      <div
+        class="swatch-slider panel-form-quality-slider config-drawer-slider is-stepped"
+        id=${shellId}
+      >
+        <input
+          id=${inputId}
+          type="range"
+          min="0"
+          max=${control.steps.length - 1}
+          value=${control.defaultIndex}
+          step="1"
+          aria-label=${t(`config.hybrid.${controlKey}.aria`, { value: defaultLabel })}
+        />
+        <div
+          class="config-step-labels"
+          data-config-step-labels=${controlKey}
+          data-active-index=${control.defaultIndex}
+          aria-hidden="true"
+        >
+          ${control.labelKeys.map(
+            (labelKey) => html`<span>${t(`config.hybrid.${controlKey}.step.${labelKey}`)}</span>`,
+          )}
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 class ConfigPanel extends LitElement {
   createRenderRoot() {
@@ -34,65 +80,35 @@ class ConfigPanel extends LitElement {
         aria-hidden="true"
         hidden
       >
-        <div class="config-drawer-selector panel-form-field">
-          <details class="panel-form-field-header">
-            <summary class="panel-form-label">
-              ${t("config.selector.title")}
-            </summary>
-            <p class="panel-form-hint">
-              ${t("config.selector.hint")}
-            </p>
-          </details>
-          <div
-            class="config-mode-switch"
-            role="group"
-            aria-label=${t("config.selector.title")}
-          >
-            <button
-              class="config-mode-option"
-              type="button"
-              data-config-selector="current"
-              aria-pressed="false"
-            >
-              ${t("config.selector.current")}
-            </button>
-            <button
-              class="config-mode-option"
-              type="button"
-              data-config-selector="perceptual"
-              aria-pressed="false"
-            >
-              ${t("config.selector.perceptual")}
-            </button>
-          </div>
+        <div
+          class="config-preset-row"
+          role="group"
+          aria-label=${t("config.presets.aria")}
+        >
+          ${HYBRID_PRESETS.map(
+            (preset) => html`
+              <button
+                class="config-preset-chip"
+                type="button"
+                data-config-preset=${preset.id}
+                aria-pressed="false"
+              >
+                ${t(`config.presets.${preset.id}`)}
+              </button>
+            `,
+          )}
         </div>
 
         <div class="config-drawer-tabs" role="tablist" aria-label=${t("config.tabsAria")}>
-          <button
-            class="config-drawer-tab"
-            id="configTabAnalysis"
-            type="button"
-            role="tab"
-            aria-controls="configPanelAnalysis"
-            aria-selected="true"
-            data-config-tab="analysis"
-            tabindex="0"
-          >
-            <span
-              class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-analysis"
-              aria-hidden="true"
-            ></span>
-            <span class="config-drawer-tab-label">${t("config.tab.analysis")}</span>
-          </button>
           <button
             class="config-drawer-tab"
             id="configTabColors"
             type="button"
             role="tab"
             aria-controls="configPanelColors"
-            aria-selected="false"
+            aria-selected="true"
             data-config-tab="colors"
-            tabindex="-1"
+            tabindex="0"
           >
             <span
               class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-colors"
@@ -121,217 +137,21 @@ class ConfigPanel extends LitElement {
         <div class="config-drawer-panels">
           <section
             class="config-drawer-panel"
-            id="configPanelAnalysis"
-            role="tabpanel"
-            aria-labelledby="configTabAnalysis"
-            data-config-tabpanel="analysis"
-          >
-            <div class="panel-form-field">
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configMedianCutPoolRange">
-                  ${t("config.analysis.pool.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.analysis.pool.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configMedianCutPoolSlider"
-              >
-                <input
-                  id="configMedianCutPoolRange"
-                  type="range"
-                  min="4"
-                  max="64"
-                  value="16"
-                  step="1"
-                  aria-label=${t("config.analysis.pool.aria", { value: 16 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">4</span>
-                  <span class="swatch-count-indicator" data-config-median-cut-pool-display>
-                    16
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">64</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field">
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configMedianCutPixelsRange">
-                  ${t("config.analysis.pixels.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.analysis.pixels.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configMedianCutPixelsSlider"
-              >
-                <input
-                  id="configMedianCutPixelsRange"
-                  type="range"
-                  min="1000"
-                  max="60000"
-                  value="12000"
-                  step="1000"
-                  aria-label=${t("config.analysis.pixels.aria", { value: 12000 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">1k</span>
-                  <span class="swatch-count-indicator" data-config-median-cut-pixels-display>
-                    12k
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">60k</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section
-            class="config-drawer-panel"
             id="configPanelColors"
             role="tabpanel"
             aria-labelledby="configTabColors"
             data-config-tabpanel="colors"
-            hidden
           >
-            <div class="panel-form-field" data-mode="current">
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configScoringVibrancyRange">
-                  ${t("config.colors.vibrancy.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.colors.vibrancy.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configScoringVibrancySlider"
-              >
-                <input
-                  id="configScoringVibrancyRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="25"
-                  step="1"
-                  aria-label=${t("config.colors.vibrancy.aria", { value: 25 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-scoring-vibrancy-display>
-                    25
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field" data-mode="current">
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configScoringRarityRange">
-                  ${t("config.colors.rarity.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.colors.rarity.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configScoringRaritySlider"
-              >
-                <input
-                  id="configScoringRarityRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="20"
-                  step="1"
-                  aria-label=${t("config.colors.rarity.aria", { value: 20 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-scoring-rarity-display>
-                    20
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field" data-mode="perceptual" hidden>
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configHybridToneRange">
-                  ${t("config.hybrid.tone.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.hybrid.tone.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configHybridToneSlider"
-              >
-                <input
-                  id="configHybridToneRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="85"
-                  step="1"
-                  aria-label=${t("config.hybrid.tone.aria", { value: 85 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-hybrid-tone-display>
-                    85
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field" data-mode="perceptual" hidden>
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configHybridRarityRange">
-                  ${t("config.hybrid.rarity.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.hybrid.rarity.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configHybridRaritySlider"
-              >
-                <input
-                  id="configHybridRarityRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="20"
-                  step="1"
-                  aria-label=${t("config.hybrid.rarity.aria", { value: 20 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-hybrid-rarity-display>
-                    20
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
+            ${renderHybridSteppedField({
+              controlKey: "tone",
+              shellId: "configHybridToneSlider",
+              inputId: "configHybridToneRange",
+            })}
+            ${renderHybridSteppedField({
+              controlKey: "rarity",
+              shellId: "configHybridRaritySlider",
+              inputId: "configHybridRarityRange",
+            })}
           </section>
 
           <section
@@ -342,170 +162,16 @@ class ConfigPanel extends LitElement {
             data-config-tabpanel="balance"
             hidden
           >
-            <div class="panel-form-field" data-mode="current">
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configScoringDiversityRange">
-                  ${t("config.balance.diversity.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.balance.diversity.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configScoringDiversitySlider"
-              >
-                <input
-                  id="configScoringDiversityRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="40"
-                  step="1"
-                  aria-label=${t("config.balance.diversity.aria", { value: 40 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-scoring-diversity-display>
-                    40
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field" data-mode="current">
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configScoringContrastRange">
-                  ${t("config.balance.contrast.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.balance.contrast.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configScoringContrastSlider"
-              >
-                <input
-                  id="configScoringContrastRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="15"
-                  step="1"
-                  aria-label=${t("config.balance.contrast.aria", { value: 15 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-scoring-contrast-display>
-                    15
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field" data-mode="perceptual" hidden>
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configHybridSpreadRange">
-                  ${t("config.hybrid.spread.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.hybrid.spread.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configHybridSpreadSlider"
-              >
-                <input
-                  id="configHybridSpreadRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="60"
-                  step="1"
-                  aria-label=${t("config.hybrid.spread.aria", { value: 60 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-hybrid-spread-display>
-                    60
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field" data-mode="perceptual" hidden>
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configHybridRepulsionRange">
-                  ${t("config.hybrid.repulsion.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.hybrid.repulsion.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configHybridRepulsionSlider"
-              >
-                <input
-                  id="configHybridRepulsionRange"
-                  type="range"
-                  min="0"
-                  max="20"
-                  value="8"
-                  step="1"
-                  aria-label=${t("config.hybrid.repulsion.aria", { value: 8 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-hybrid-repulsion-display>
-                    8
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">20</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-form-field" data-mode="perceptual" hidden>
-              <details class="panel-form-field-header">
-                <summary class="panel-form-label" for="configHybridLoyaltyRange">
-                  ${t("config.hybrid.loyalty.title")}
-                </summary>
-                <p class="panel-form-hint">
-                  ${t("config.hybrid.loyalty.hint")}
-                </p>
-              </details>
-
-              <div
-                class="swatch-slider panel-form-quality-slider config-drawer-slider"
-                id="configHybridLoyaltySlider"
-              >
-                <input
-                  id="configHybridLoyaltyRange"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="30"
-                  step="1"
-                  aria-label=${t("config.hybrid.loyalty.aria", { value: 30 })}
-                />
-                <div class="swatch-meta">
-                  <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                  <span class="swatch-count-indicator" data-config-hybrid-loyalty-display>
-                    30
-                  </span>
-                  <span class="swatch-scale-label swatch-scale-label-max">100</span>
-                </div>
-              </div>
-            </div>
+            ${renderHybridSteppedField({
+              controlKey: "spread",
+              shellId: "configHybridSpreadSlider",
+              inputId: "configHybridSpreadRange",
+            })}
+            ${renderHybridSteppedField({
+              controlKey: "loyalty",
+              shellId: "configHybridLoyaltySlider",
+              inputId: "configHybridLoyaltyRange",
+            })}
           </section>
         </div>
 
@@ -551,22 +217,7 @@ class ConfigPanel extends LitElement {
         </div>
         <label
           class="panel-form-checkbox config-drawer-darkest-toggle"
-          for="configOneMoreColorToggle"
-          data-mode="current"
-        >
-          <input
-            class="panel-form-checkbox-input"
-            id="configOneMoreColorToggle"
-            type="checkbox"
-          />
-          <span class="panel-form-checkbox-box" aria-hidden="true"></span>
-          <span class="panel-form-checkbox-label">${t("config.colors.darkest.checkbox")}</span>
-        </label>
-        <label
-          class="panel-form-checkbox config-drawer-darkest-toggle"
           for="configOriginBadgesToggle"
-          data-mode="perceptual"
-          hidden
         >
           <input
             class="panel-form-checkbox-input"

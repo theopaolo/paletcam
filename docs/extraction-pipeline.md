@@ -101,8 +101,7 @@ Two feedback loops keep the live feed calm: the selector receives its **own prev
 | `src/modules/color-smoothing.js` | Stage 4 — temporal smoothing on the main thread |
 | `src/modules/color-space-oklch.js` | OKLab/OKLCH conversions |
 | `src/modules/color-math.js` | `srgbToLinear`, `rgbToHsl`, RGB distances |
-| `src/modules/palette-extract-median-cut.js` | Dispatcher: routes `selector: "perceptual"` → hybrid, else classic |
-| `src/modules/palette-scoring.js` | The classic scorer (§8) |
+| `src/modules/palette-extraction.js` | Entry point: defaults + `extractPaletteColors` → `selectPaletteHybrid` |
 | `src/workers/palette-extraction.worker.js` | Worker shell: runs extraction off the UI thread |
 | `src/modules/app/live-preview-controller.js` | Orchestration: options, `previousColors`, smoothing, rendering |
 | `src/app-settings.js` | Defaults (`DEFAULT_HYBRID_SETTINGS`) and persistence |
@@ -328,11 +327,11 @@ The debug prototype also had `suggestSelectorParams` (auto Variety/Distinctness 
 
 ---
 
-## 8. The classic path (for contrast)
+## 8. The classic path (removed, kept for contrast)
 
-The old selector still ships and is the current default (`paletteSelector: "current"` in `app-settings.js`); the config panel switches to `"perceptual"`. Understanding it clarifies what the hybrid fixed. In `palette-extract-median-cut.js` + `palette-scoring.js`:
+The old selector (`palette-extract-median-cut.js` + `palette-scoring.js`, the `paletteSelector: "current"` mode) was **deleted in July 2026** — the perceptual selector is now the only pipeline. Understanding it still clarifies what the hybrid fixed:
 
-Same Stage 1 + 2, then `rankQuantizedCandidates` greedily maximizes a **weighted sum** over four normalized scores — chroma (HSL saturation), luma spread (distance from mid-lightness), hue rarity (inverse histogram over 12 hue buckets), diversity (min RGB distance to picks) — mixed 85/15 with a log-scaled population score. (A dormant `"perceptual"` scoring *model* inside the scorer swaps HSL for OKLCH features; not to be confused with the perceptual *selector*, which bypasses this scorer entirely.)
+Same Stage 1 + 2, then `rankQuantizedCandidates` greedily maximized a **weighted sum** over four normalized scores — chroma (HSL saturation), luma spread (distance from mid-lightness), hue rarity (inverse histogram over 12 hue buckets), diversity (min RGB distance to picks) — mixed 85/15 with a log-scaled population score. (A dormant `"perceptual"` scoring *model* inside the scorer swaps HSL for OKLCH features; not to be confused with the perceptual *selector*, which bypasses this scorer entirely.)
 
 Structural differences from the hybrid, and their consequences:
 
@@ -348,7 +347,7 @@ Structural differences from the hybrid, and their consequences:
 
 ## 9. The control surface
 
-`DEFAULT_HYBRID_SETTINGS` (`src/app-settings.js`), persisted per-user, exposed in the config panel when the perceptual selector is active:
+`DEFAULT_HYBRID_SETTINGS` (`src/app-settings.js`), persisted per-user, exposed in the config panel (preset chips + stepped sliders):
 
 | Param | Default | Range/unit | Meaning (user-facing name) |
 |---|---|---|---|
@@ -383,7 +382,7 @@ sequenceDiagram
     CS-->>LPC: displayColors → renderPaletteBars
 ```
 
-Routing: `extractPaletteColors` (`palette-extraction.js`) forwards to `extractMedianCutPaletteColors`, which branches on `selector === "perceptual"` into `selectPaletteHybrid` — otherwise the classic scorer path. The worker also computes swatch **origins** (where in the frame each color lives, for the origin badges) and **frozen presence** (whether a pinned color still exists in view); both are outside this doc's scope but ride the same message.
+Routing: `extractPaletteColors` (`palette-extraction.js`) applies the pool-size/pixel-budget defaults and calls `selectPaletteHybrid` directly. The worker also computes swatch **origins** (where in the frame each color lives, for the origin badges) and **frozen presence** (whether a pinned color still exists in view); both are outside this doc's scope but ride the same message.
 
 The pixel buffer crosses the worker boundary as a transferable; the packed copy inside is throwaway, which is why the quantizer is allowed to mutate it (it overwrites pixels with their 15-bit codes during histogramming — pass a copy if you ever reuse a buffer, as `extraction-trace.js` does).
 
@@ -397,7 +396,6 @@ The pixel buffer crosses the worker boundary as a transferable; the packed copy 
 - **Neutral picks report band mass**, not exemplar mass (§5.3) — population consumers (origin badges, sorting) rely on this.
 - **The output length is always exactly `swatchCount`** (padding guarantees it); `colors` may contain duplicates in pathological low-variety scenes.
 - **Chroma LUT & shared histogram are module-level state** — fine in the worker (single realm), but two concurrent quantizers in one realm would race the histogram. There is exactly one extraction in flight at a time by design.
-- **`palette-scoring.js`'s "perceptual" model ≠ the perceptual selector.** The former is a dormant variant of the classic scorer; the latter is `hybrid-selector.js`.
 - Tone's effect is subtle on tight clusters (mean ≈ peak) and pronounced on broad real-photo regions — don't judge it on synthetic flat-color tests.
 
 ## 12. Where the tests point
@@ -405,6 +403,6 @@ The pixel buffer crosses the worker boundary as a transferable; the packed copy 
 - `hybrid-selector.test.js` — the selector contract: exact count with populations, self-stability under loyalty, loyalty steering, degenerate input.
 - `color-cut-quantizer.test.js` — quantizer behavior incl. `vividRgb` exemplars.
 - `color-smoothing.test.js` — alignment, accumulator, deadband.
-- `color-math.test.js`, `palette-scoring.test.js`, `palette-extract-median-cut.test.js` — primitives and the classic path.
+- `color-math.test.js`, `palette-extraction.test.js` — primitives and the entry-point contract (guards, option forwarding).
 
 And the best learning tool remains the harness: `bun run dev` → http://localhost:3000/debug-extraction.html — every §5 concept (neutral spine, repulsion balls, candidates vs picks, threshold stats) is visible there in 3D, on your own images.

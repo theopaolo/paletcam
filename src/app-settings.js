@@ -1,13 +1,12 @@
 import {
   DEFAULT_MAX_QUANTIZER_PIXELS,
   DEFAULT_QUANTIZED_POOL_SIZE,
-} from "./modules/palette-extract-median-cut.js";
+} from "./modules/palette-extraction.js";
 
 const SETTINGS_STORAGE_KEY = "paletcam:settings:v1";
 const GLOBAL_SETTINGS_STORE_KEY = "__paletcamAppSettingsStore__";
 const MEDIAN_CUT_POOL_SIZE_RANGE = { min: 4, max: 64 };
 const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
-const SCORING_WEIGHT_RANGE = { min: 0, max: 100 };
 const HYBRID_REPULSION_RADIUS_RANGE = { min: 0, max: 0.2 };
 const HYBRID_STRENGTH_RANGE = { min: 0, max: 1 };
 const HYBRID_TONE_RANGE = { min: 0, max: 1 };
@@ -15,15 +14,7 @@ const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid", "swatch"]);
 const VALID_LOCALES = new Set(["fr", "en"]);
 const VALID_PHOTO_QUALITY_MODES = new Set(["sd", "hd", "fhd"]);
-const VALID_PALETTE_SELECTORS = new Set(["current", "perceptual"]);
 const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
-
-const DEFAULT_PALETTE_SCORING_SETTINGS = Object.freeze({
-  chromaWeight: 25,
-  lumaSpreadWeight: 15,
-  rarityWeight: 20,
-  diversityWeight: 40,
-});
 
 const DEFAULT_MEDIAN_CUT_SETTINGS = Object.freeze({
   quantizedPoolSize: DEFAULT_QUANTIZED_POOL_SIZE,
@@ -54,10 +45,6 @@ function normalizePhotoQualityMode(value) {
   return VALID_PHOTO_QUALITY_MODES.has(value) ? value : "hd";
 }
 
-function normalizePaletteSelector(value) {
-  return VALID_PALETTE_SELECTORS.has(value) ? value : "current";
-}
-
 function normalizePolaroidFooterLabel(value) {
   if (typeof value !== "string") {
     return DEFAULT_POLAROID_FOOTER_LABEL;
@@ -75,10 +62,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   oneMoreColor: true,
   originBadgesEnabled: true,
   photoQualityMode: "hd",
-  paletteSelector: "current",
   polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
-  paletteScoring: DEFAULT_PALETTE_SCORING_SETTINGS,
   hybrid: DEFAULT_HYBRID_SETTINGS,
 });
 
@@ -170,33 +155,6 @@ function normalizeHybridSettings(candidate) {
   };
 }
 
-function normalizePaletteScoringSettings(candidate) {
-  const fallback = DEFAULT_SETTINGS.paletteScoring;
-
-  return {
-    chromaWeight: clampIntegerInRange(
-      candidate?.chromaWeight,
-      fallback.chromaWeight,
-      SCORING_WEIGHT_RANGE,
-    ),
-    lumaSpreadWeight: clampIntegerInRange(
-      candidate?.lumaSpreadWeight,
-      fallback.lumaSpreadWeight,
-      SCORING_WEIGHT_RANGE,
-    ),
-    rarityWeight: clampIntegerInRange(
-      candidate?.rarityWeight,
-      fallback.rarityWeight,
-      SCORING_WEIGHT_RANGE,
-    ),
-    diversityWeight: clampIntegerInRange(
-      candidate?.diversityWeight,
-      fallback.diversityWeight,
-      SCORING_WEIGHT_RANGE,
-    ),
-  };
-}
-
 function normalizeSettings(candidate) {
   return {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
@@ -206,10 +164,8 @@ function normalizeSettings(candidate) {
     oneMoreColor: Boolean(candidate?.oneMoreColor),
     originBadgesEnabled: Boolean(candidate?.originBadgesEnabled),
     photoQualityMode: normalizePhotoQualityMode(candidate?.photoQualityMode),
-    paletteSelector: normalizePaletteSelector(candidate?.paletteSelector),
     polaroidFooterLabel: normalizePolaroidFooterLabel(candidate?.polaroidFooterLabel),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
-    paletteScoring: normalizePaletteScoringSettings(candidate?.paletteScoring),
     hybrid: normalizeHybridSettings(candidate?.hybrid),
   };
 }
@@ -246,14 +202,10 @@ function loadSettings() {
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
     ...storedSettings,
-    medianCut: {
-      ...DEFAULT_SETTINGS.medianCut,
-      ...(storedSettings?.medianCut ?? {}),
-    },
-    paletteScoring: {
-      ...DEFAULT_SETTINGS.paletteScoring,
-      ...(storedSettings?.paletteScoring ?? {}),
-    },
+    // No UI exposes medianCut or oneMoreColor anymore: ignore overrides
+    // persisted by older builds so everyone runs on the calibrated defaults.
+    medianCut: { ...DEFAULT_SETTINGS.medianCut },
+    oneMoreColor: DEFAULT_SETTINGS.oneMoreColor,
     hybrid: {
       ...DEFAULT_SETTINGS.hybrid,
       ...(storedSettings?.hybrid ?? {}),
@@ -277,7 +229,6 @@ export function getDefaultAppSettings() {
   return {
     ...DEFAULT_SETTINGS,
     medianCut: { ...DEFAULT_SETTINGS.medianCut },
-    paletteScoring: { ...DEFAULT_SETTINGS.paletteScoring },
     hybrid: { ...DEFAULT_SETTINGS.hybrid },
   };
 }
@@ -292,7 +243,6 @@ export function getAppSettings() {
   return {
     ...settingsStore.currentSettings,
     medianCut: { ...settingsStore.currentSettings.medianCut },
-    paletteScoring: { ...settingsStore.currentSettings.paletteScoring },
     hybrid: { ...settingsStore.currentSettings.hybrid },
   };
 }
@@ -308,10 +258,6 @@ export function updateAppSettings(partialSettings) {
     medianCut: {
       ...settingsStore.currentSettings.medianCut,
       ...(partialSettings?.medianCut ?? {}),
-    },
-    paletteScoring: {
-      ...settingsStore.currentSettings.paletteScoring,
-      ...(partialSettings?.paletteScoring ?? {}),
     },
     hybrid: {
       ...settingsStore.currentSettings.hybrid,
@@ -349,12 +295,6 @@ export const APP_SETTINGS_LIMITS = Object.freeze({
   medianCut: Object.freeze({
     quantizedPoolSize: Object.freeze({ ...MEDIAN_CUT_POOL_SIZE_RANGE }),
     maxQuantizerPixels: Object.freeze({ ...MEDIAN_CUT_MAX_PIXELS_RANGE }),
-  }),
-  paletteScoring: Object.freeze({
-    chromaWeight: Object.freeze({ ...SCORING_WEIGHT_RANGE }),
-    lumaSpreadWeight: Object.freeze({ ...SCORING_WEIGHT_RANGE }),
-    rarityWeight: Object.freeze({ ...SCORING_WEIGHT_RANGE }),
-    diversityWeight: Object.freeze({ ...SCORING_WEIGHT_RANGE }),
   }),
   hybrid: Object.freeze({
     repulsionRadius: Object.freeze({ ...HYBRID_REPULSION_RADIUS_RANGE }),

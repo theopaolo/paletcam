@@ -278,32 +278,27 @@ function createButton(id, attributes = {}) {
   return button;
 }
 
-function createDisplaySpan(attributeName) {
-  const element = new FakeElement("span");
-  element.setAttribute(attributeName, "");
-  return element;
-}
-
-function createRangeShell({ shellId, inputId, min, max, step, value, displayAttribute }) {
-  const shell = new FakeElement("div");
-  shell.setAttribute("id", shellId);
-  const input = new FakeElement("input");
-  input.setAttribute("id", inputId);
-  input.type = "range";
-  input.min = String(min);
-  input.max = String(max);
-  input.step = String(step);
-  input.value = String(value);
-  const display = createDisplaySpan(displayAttribute);
-  shell.append(input, display);
-  return { display, input, shell };
-}
-
 function createPanel(panelId, tabId) {
   const panel = new FakeElement("section");
   panel.setAttribute("id", panelId);
   panel.setAttribute("data-config-tabpanel", tabId);
   return panel;
+}
+
+function createSteppedShell({ controlKey, shellId, inputId, value }) {
+  const shell = new FakeElement("div");
+  shell.setAttribute("id", shellId);
+  const input = new FakeElement("input");
+  input.setAttribute("id", inputId);
+  input.type = "range";
+  input.min = "0";
+  input.max = "3";
+  input.step = "1";
+  input.value = String(value);
+  const labels = new FakeElement("div");
+  labels.setAttribute("data-config-step-labels", controlKey);
+  shell.append(input, labels);
+  return { input, labels, shell };
 }
 
 function createConfigFixture() {
@@ -313,79 +308,38 @@ function createConfigFixture() {
   root.appendChild(drawer);
 
   const tabList = new FakeElement("div");
-  const analysisTab = createButton("configTabAnalysis", { "data-config-tab": "analysis" });
   const colorsTab = createButton("configTabColors", { "data-config-tab": "colors" });
   const balanceTab = createButton("configTabBalance", { "data-config-tab": "balance" });
-  tabList.append(analysisTab, colorsTab, balanceTab);
+  tabList.append(colorsTab, balanceTab);
 
-  const analysisPanel = createPanel("configPanelAnalysis", "analysis");
+  const presetRow = new FakeElement("div");
+  const presetButtons = Object.fromEntries(
+    ["faithful", "tonal", "pop", "accents"].map((presetId) => {
+      const button = createButton("", { "data-config-preset": presetId });
+      presetRow.appendChild(button);
+      return [presetId, button];
+    }),
+  );
+
   const colorsPanel = createPanel("configPanelColors", "colors");
-  colorsPanel.hidden = true;
   const balancePanel = createPanel("configPanelBalance", "balance");
   balancePanel.hidden = true;
-  const oneMoreColorToggle = new FakeElement("input");
-  oneMoreColorToggle.setAttribute("id", "configOneMoreColorToggle");
-  oneMoreColorToggle.type = "checkbox";
-  oneMoreColorToggle.checked = false;
 
-  const diversity = createRangeShell({
-    displayAttribute: "data-config-scoring-diversity-display",
-    inputId: "configScoringDiversityRange",
-    max: 100,
-    min: 0,
-    shellId: "configScoringDiversitySlider",
-    step: 1,
-    value: 40,
+  const tone = createSteppedShell({
+    controlKey: "tone",
+    shellId: "configHybridToneSlider",
+    inputId: "configHybridToneRange",
+    value: 2,
   });
-  const contrast = createRangeShell({
-    displayAttribute: "data-config-scoring-contrast-display",
-    inputId: "configScoringContrastRange",
-    max: 100,
-    min: 0,
-    shellId: "configScoringContrastSlider",
-    step: 1,
-    value: 15,
-  });
-  const vibrancy = createRangeShell({
-    displayAttribute: "data-config-scoring-vibrancy-display",
-    inputId: "configScoringVibrancyRange",
-    max: 100,
-    min: 0,
-    shellId: "configScoringVibrancySlider",
-    step: 1,
-    value: 25,
-  });
-  const rarity = createRangeShell({
-    displayAttribute: "data-config-scoring-rarity-display",
-    inputId: "configScoringRarityRange",
-    max: 100,
-    min: 0,
-    shellId: "configScoringRaritySlider",
-    step: 1,
-    value: 20,
-  });
-  const pool = createRangeShell({
-    displayAttribute: "data-config-median-cut-pool-display",
-    inputId: "configMedianCutPoolRange",
-    max: 64,
-    min: 4,
-    shellId: "configMedianCutPoolSlider",
-    step: 1,
-    value: 16,
-  });
-  const pixels = createRangeShell({
-    displayAttribute: "data-config-median-cut-pixels-display",
-    inputId: "configMedianCutPixelsRange",
-    max: 60000,
-    min: 1000,
-    shellId: "configMedianCutPixelsSlider",
-    step: 1000,
-    value: 12000,
+  const spread = createSteppedShell({
+    controlKey: "spread",
+    shellId: "configHybridSpreadSlider",
+    inputId: "configHybridSpreadRange",
+    value: 1,
   });
 
-  analysisPanel.append(diversity.shell, contrast.shell);
-  colorsPanel.append(vibrancy.shell, rarity.shell, oneMoreColorToggle);
-  balancePanel.append(pool.shell, pixels.shell);
+  colorsPanel.append(tone.shell);
+  balancePanel.append(spread.shell);
 
   const undoButton = createButton("configUndoButton");
   const redoButton = createButton("configRedoButton");
@@ -393,7 +347,7 @@ function createConfigFixture() {
   const footer = new FakeElement("div");
   footer.append(undoButton, redoButton, resetButton);
 
-  drawer.append(tabList, analysisPanel, colorsPanel, balancePanel, footer);
+  drawer.append(tabList, presetRow, colorsPanel, balancePanel, footer);
 
   const toggleSection = new FakeElement("section");
   const toggleButton = createButton("", {
@@ -411,21 +365,22 @@ function createConfigFixture() {
   toggleSection.appendChild(toggleButton);
 
   return {
-    analysisTab,
+    balancePanel,
     balanceTab,
     colorsPanel,
     colorsTab,
-    contrastInput: contrast.input,
     drawer,
-    diversityDisplay: diversity.display,
-    diversityInput: diversity.input,
-    oneMoreColorToggle,
+    presetButtons,
     redoButton,
     root,
+    spreadInput: spread.input,
+    spreadLabels: spread.labels,
     toggleButton,
     toggleIcon,
     toggleLabel,
     toggleSection,
+    toneInput: tone.input,
+    toneLabels: tone.labels,
     undoButton,
   };
 }
@@ -504,18 +459,86 @@ describe("mountConfigPanel", () => {
       toggleSection: fixture.toggleSection,
     });
 
-    expect(fixture.colorsPanel.hidden).toBe(true);
-
-    fixture.colorsTab.click();
-
     expect(fixture.colorsPanel.hidden).toBe(false);
-    expect(fixture.colorsTab.getAttribute("aria-selected")).toBe("true");
-    expect(fixture.analysisTab.getAttribute("aria-selected")).toBe("false");
+    expect(fixture.balancePanel.hidden).toBe(true);
 
-    fixture.colorsTab.dispatch("keydown", { key: "ArrowRight" });
+    fixture.balanceTab.click();
 
+    expect(fixture.balancePanel.hidden).toBe(false);
+    expect(fixture.colorsPanel.hidden).toBe(true);
     expect(fixture.balanceTab.getAttribute("aria-selected")).toBe("true");
-    expect(fixture.balanceTab.wasFocused).toBe(true);
+    expect(fixture.colorsTab.getAttribute("aria-selected")).toBe("false");
+
+    fixture.balanceTab.dispatch("keydown", { key: "ArrowRight" });
+
+    expect(fixture.colorsTab.getAttribute("aria-selected")).toBe("true");
+    expect(fixture.colorsTab.wasFocused).toBe(true);
+
+    cleanup();
+  });
+
+  test("snaps hybrid sliders to detents and highlights the active step", () => {
+    const fixture = createConfigFixture();
+    const fakeDocument = new FakeEventTarget();
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: fakeDocument,
+    });
+
+    const cleanup = mountConfigPanel({
+      root: fixture.root,
+      toggleButton: fixture.toggleButton,
+      toggleSection: fixture.toggleSection,
+    });
+
+    expect(fixture.toneInput.value).toBe("2");
+    expect(fixture.toneLabels.getAttribute("data-active-index")).toBe("2");
+
+    fixture.toneInput.dispatch("pointerdown");
+    fixture.toneInput.value = "3";
+    fixture.toneInput.dispatch("input");
+    fixture.toneInput.dispatch("pointerup");
+
+    expect(getAppSettings().hybrid.tone).toBe(1);
+    expect(fixture.toneLabels.getAttribute("data-active-index")).toBe("3");
+    expect(fixture.undoButton.disabled).toBe(false);
+
+    cleanup();
+  });
+
+  test("applies preset bundles and marks the matching chip active", () => {
+    const fixture = createConfigFixture();
+    const fakeDocument = new FakeEventTarget();
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: fakeDocument,
+    });
+
+    const cleanup = mountConfigPanel({
+      root: fixture.root,
+      toggleButton: fixture.toggleButton,
+      toggleSection: fixture.toggleSection,
+    });
+
+    expect(fixture.presetButtons.faithful.getAttribute("aria-pressed")).toBe("true");
+
+    fixture.presetButtons.tonal.click();
+
+    const hybrid = getAppSettings().hybrid;
+    expect(hybrid.tone).toBe(0.6);
+    expect(hybrid.rarityStrength).toBe(0);
+    expect(hybrid.spreadStrength).toBe(0.15);
+    expect(hybrid.repulsionRadius).toBe(0.03);
+    expect(hybrid.loyaltyStrength).toBe(0.6);
+    expect(fixture.presetButtons.tonal.getAttribute("aria-pressed")).toBe("true");
+    expect(fixture.presetButtons.faithful.getAttribute("aria-pressed")).toBe("false");
+    expect(fixture.toneInput.value).toBe("1");
+    expect(fixture.toneLabels.getAttribute("data-active-index")).toBe("1");
+
+    fixture.undoButton.click();
+
+    expect(getAppSettings().hybrid.rarityStrength).toBe(0.2);
+    expect(fixture.presetButtons.faithful.getAttribute("aria-pressed")).toBe("true");
 
     cleanup();
   });
@@ -567,53 +590,29 @@ describe("mountConfigPanel", () => {
     });
 
     expect(fixture.undoButton.disabled).toBe(true);
-    expect(fixture.diversityDisplay.textContent).toBe("40");
+    expect(fixture.spreadInput.value).toBe("2");
+    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("2");
 
-    fixture.diversityInput.dispatch("pointerdown");
-    fixture.diversityInput.value = "55";
-    fixture.diversityInput.dispatch("input");
-    fixture.diversityInput.dispatch("pointerup");
+    fixture.spreadInput.dispatch("pointerdown");
+    fixture.spreadInput.value = "0";
+    fixture.spreadInput.dispatch("input");
+    fixture.spreadInput.dispatch("pointerup");
 
-    expect(getAppSettings().paletteScoring.diversityWeight).toBe(55);
+    expect(getAppSettings().hybrid.spreadStrength).toBe(0.15);
+    expect(getAppSettings().hybrid.repulsionRadius).toBe(0.03);
     expect(fixture.undoButton.disabled).toBe(false);
-    expect(fixture.diversityDisplay.textContent).toBe("55");
+    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("0");
 
     fixture.undoButton.click();
 
-    expect(getAppSettings().paletteScoring.diversityWeight).toBe(40);
+    expect(getAppSettings().hybrid.spreadStrength).toBe(0.6);
     expect(fixture.redoButton.disabled).toBe(false);
-    expect(fixture.diversityDisplay.textContent).toBe("40");
+    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("2");
 
     fixture.redoButton.click();
 
-    expect(getAppSettings().paletteScoring.diversityWeight).toBe(55);
-    expect(fixture.diversityDisplay.textContent).toBe("55");
-
-    cleanup();
-  });
-
-  test("updates one more color toggle from the config panel", () => {
-    const fixture = createConfigFixture();
-    const fakeDocument = new FakeEventTarget();
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: fakeDocument,
-    });
-
-    const cleanup = mountConfigPanel({
-      root: fixture.root,
-      toggleButton: fixture.toggleButton,
-      toggleSection: fixture.toggleSection,
-    });
-
-    expect(fixture.oneMoreColorToggle.checked).toBe(true);
-    expect(getAppSettings().oneMoreColor).toBe(true);
-
-    fixture.oneMoreColorToggle.checked = false;
-    fixture.oneMoreColorToggle.dispatch("change");
-
-    expect(getAppSettings().oneMoreColor).toBe(false);
-    expect(fixture.oneMoreColorToggle.checked).toBe(false);
+    expect(getAppSettings().hybrid.spreadStrength).toBe(0.15);
+    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("0");
 
     cleanup();
   });

@@ -1,11 +1,27 @@
 import { rgbDistanceSquared } from "./color-math.js";
 import { toRgbCss } from "./color-format.js";
-import { extractMedianCutPaletteColors } from "./palette-extract-median-cut.js";
+import { selectPaletteHybrid } from "./hybrid-selector.js";
 
 const DOMINANT_COLOR_CLUSTER_DISTANCE = 30;
+const MIN_SWATCH_COUNT = 1;
+export const DEFAULT_QUANTIZED_POOL_SIZE = 55;
+export const DEFAULT_MAX_QUANTIZER_PIXELS = 46_000;
 
 function getColorLuma(color) {
   return 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+}
+
+function clampSwatchCount(swatchCount) {
+  return Math.max(MIN_SWATCH_COUNT, Number(swatchCount) || MIN_SWATCH_COUNT);
+}
+
+function getQuantizedPoolSize(requestedPoolSize) {
+  const normalizedRequested = Number(requestedPoolSize);
+  if (Number.isFinite(normalizedRequested) && normalizedRequested > 0) {
+    return Math.floor(normalizedRequested);
+  }
+
+  return DEFAULT_QUANTIZED_POOL_SIZE;
 }
 
 /**
@@ -23,22 +39,25 @@ export function extractPaletteColors(
   swatchCount,
   options = null,
 ) {
-  const hasOptions = typeof options === "object" && options !== null;
+  const normalizedSwatchCount = clampSwatchCount(swatchCount);
 
-  return extractMedianCutPaletteColors(
-    imageData,
-    frameWidth,
-    frameHeight,
-    swatchCount,
-    hasOptions
-      ? {
-          ...(options.medianCut ?? {}),
-          scoring: options.scoring,
-          hybrid: options.hybrid,
-          selector: options.paletteSelector,
-        }
-      : undefined,
-  );
+  if (!imageData || frameWidth <= 0 || frameHeight <= 0) {
+    return { colors: [] };
+  }
+
+  const medianCut = options?.medianCut ?? {};
+  const hybrid = options?.hybrid ?? {};
+
+  return selectPaletteHybrid(imageData, frameWidth, frameHeight, normalizedSwatchCount, {
+    maxQuantizerPixels: medianCut.maxQuantizerPixels ?? DEFAULT_MAX_QUANTIZER_PIXELS,
+    quantizedPoolSize: getQuantizedPoolSize(medianCut.quantizedPoolSize),
+    repulsionRadius: hybrid.repulsionRadius,
+    spreadStrength: hybrid.spreadStrength,
+    rarityStrength: hybrid.rarityStrength,
+    tone: hybrid.tone,
+    previousColors: hybrid.previousColors,
+    loyaltyStrength: hybrid.loyaltyStrength,
+  });
 }
 
 // Draw palette colors as equal-width vertical bars across the canvas
