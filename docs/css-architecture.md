@@ -1,14 +1,13 @@
 # CSS Architecture
 
-This repo now has a token audit workflow built around [scripts/css-token-audit.js](/Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/scripts/css-token-audit.js) and a dedicated settings layer in [public/styles/settings/tokens.css](/Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/settings/tokens.css). The goal is to stop hand-hunting raw literals and use the audit to drive a deliberate migration.
+All design values live in a dedicated settings layer, [public/styles/settings/tokens.css](/Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/settings/tokens.css). Token usage is enforced by stylelint (`bun run lint:css`) via `stylelint-declaration-strict-value`; the one-off audit script that drove the original token migration was retired in July 2026 once the migration landed.
 
 ## Workflow
 
-1. Run `bun run css:audit`.
-2. Review `output/css-audit/report.md` for repeated raw values.
-3. Promote stable values into `settings/tokens.css`.
-4. Replace raw literals with semantic aliases, not raw scale names, where the intent is clear.
-5. Re-run the audit until the repeated raw values shrink to intentional exceptions.
+1. Before writing CSS, read `settings/tokens.css` — use tokens, never raw literals.
+2. When a value has no token, promote it into `settings/tokens.css` as a semantic alias (not a raw scale name) or flag it.
+3. Intentional hardcodes carry a `stylelint-disable-next-line scale-unlimited/declaration-strict-value` annotation.
+4. `bun run lint:css` is the gate.
 
 ## Folder Layout
 
