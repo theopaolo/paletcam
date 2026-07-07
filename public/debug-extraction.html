@@ -197,107 +197,19 @@
 
       .value {
         color: var(--color-accent);
-        min-width: 3ch;
+        min-width: 5ch;
         display: inline-block;
+        font-variant-numeric: tabular-nums;
+      }
+
+      input[type="range"],
+      input[type="checkbox"] {
+        accent-color: var(--color-accent);
       }
 
       input[type="range"] {
-        --fill: 50%;
-        --track-h: 6px;
-        --thumb: 16px;
         width: 120px;
-        height: var(--thumb);
-        appearance: none;
-        -webkit-appearance: none;
-        background: transparent;
         cursor: pointer;
-      }
-
-      input[type="range"]::-webkit-slider-runnable-track {
-        height: var(--track-h);
-        border-radius: var(--radius-sm);
-        background: linear-gradient(
-          to right,
-          var(--color-accent) 0%,
-          var(--color-accent-soft) var(--fill),
-          var(--color-surface-base) var(--fill),
-          var(--color-surface-base) 100%
-        );
-        border: 1px solid var(--color-border-subtle);
-      }
-
-      input[type="range"]::-moz-range-track {
-        height: var(--track-h);
-        border-radius: var(--radius-sm);
-        background: var(--color-surface-base);
-        border: 1px solid var(--color-border-subtle);
-      }
-
-      input[type="range"]::-moz-range-progress {
-        height: var(--track-h);
-        border-radius: var(--radius-sm);
-        background: linear-gradient(
-          to right,
-          var(--color-accent),
-          var(--color-accent-soft)
-        );
-      }
-
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: var(--thumb);
-        height: var(--thumb);
-        border-radius: 50%;
-        background: var(--color-accent-soft);
-        border: 2px solid var(--color-accent);
-        margin-top: 0;
-        box-shadow: 0 0 0 0 var(--color-accent-dim);
-        transition:
-          transform 0.12s ease,
-          box-shadow 0.18s ease;
-      }
-
-      input[type="range"]::-moz-range-thumb {
-        width: var(--thumb);
-        height: var(--thumb);
-        border-radius: 50%;
-        background: var(--color-accent-soft);
-        border: 2px solid var(--color-accent);
-        box-shadow: 0 0 0 0 var(--color-accent-dim);
-        transition:
-          transform 0.12s ease,
-          box-shadow 0.18s ease;
-      }
-
-      input[type="range"]:hover::-webkit-slider-thumb {
-        transform: scale(1.18);
-        box-shadow: 0 0 0 6px var(--color-accent-dim);
-      }
-
-      input[type="range"]:hover::-moz-range-thumb {
-        transform: scale(1.18);
-        box-shadow: 0 0 0 6px var(--color-accent-dim);
-      }
-
-      input[type="range"]:active::-webkit-slider-thumb {
-        transform: scale(1.28);
-        box-shadow: 0 0 0 8px var(--color-accent-strong);
-      }
-
-      input[type="range"]:active::-moz-range-thumb {
-        transform: scale(1.28);
-        box-shadow: 0 0 0 8px var(--color-accent-strong);
-      }
-
-      input[type="range"]:focus-visible::-webkit-slider-thumb {
-        outline: 2px solid var(--color-accent-active);
-        outline-offset: 3px;
-      }
-
-      input[type="range"]:focus-visible::-moz-range-thumb {
-        outline: 2px solid var(--color-accent-active);
-        outline-offset: 3px;
       }
 
       .toolbar--tuning {
@@ -612,49 +524,6 @@
       <img id="image-overlay-img" alt="selected source enlarged" />
     </div>
 
-    <script>
-      {
-        const syncFill = (input) => {
-          const min = Number(input.min) || 0;
-          const max = Number(input.max) || 100;
-          const val = Number(input.value);
-          const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
-          input.style.setProperty(
-            "--fill",
-            `${isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 50}%`,
-          );
-        };
-
-        const wire = (input) => {
-          syncFill(input);
-          input.addEventListener("input", () => syncFill(input));
-          input.addEventListener("change", () => syncFill(input));
-          const proto = Object.getPrototypeOf(input);
-          const desc = Object.getOwnPropertyDescriptor(proto, "value");
-          if (desc && desc.set) {
-            Object.defineProperty(input, "value", {
-              get() {
-                return desc.get.call(this);
-              },
-              set(v) {
-                desc.set.call(this, v);
-                syncFill(this);
-              },
-              configurable: true,
-            });
-          }
-        };
-
-        const init = () => {
-          document.querySelectorAll('input[type="range"]').forEach(wire);
-        };
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", init);
-        } else {
-          init();
-        }
-      }
-    </script>
     <script type="module" src="debug-extraction.js"></script>
   </body>
 </html>
