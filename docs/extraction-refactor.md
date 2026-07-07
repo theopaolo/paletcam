@@ -2,6 +2,8 @@
 
 Status as of 2026-06-22. Branch: `pwa/prod`. Nothing here is in the shipped app yet — all new work lives in a **debug harness**. The production pipeline is unchanged in behaviour (only cleaned up).
 
+> **Update (2026-07):** the New selector described below has since shipped as `src/modules/hybrid-selector.js` (the "perceptual" selector). This file remains as the historical record of how the design was chosen; for a full explanation of the pipeline as it exists today — theory, every stage, diagrams — see **[extraction-pipeline.md](extraction-pipeline.md)**.
+
 ---
 
 ## 1. Why
