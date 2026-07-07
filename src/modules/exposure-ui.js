@@ -1,8 +1,8 @@
 import { subscribeLocaleChange, t } from "../i18n.js";
+import { clampValue, createScrubberValue } from "./camera-scrubber-value.js";
 
 const DEFAULT_EXPOSURE_STEP = 0.1;
 const DEFAULT_HIDE_DELAY_MS = 1800;
-const HAPTIC_DURATION_MS = 10;
 const OVERLAY_RAIL_HEIGHT_PX = 146;
 const OVERLAY_RAIL_PADDING_PX = 12;
 
@@ -13,10 +13,6 @@ function formatExposureValue(value) {
 
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(1)}`;
-}
-
-function clampValue(value, minValue, maxValue) {
-  return Math.max(minValue, Math.min(maxValue, value));
 }
 
 /**
@@ -86,32 +82,33 @@ export function createExposureUiController({
 
   let isBound = false;
   let isEnabled = false;
+  let hasCapabilities = false;
   let activePointerId = null;
-  let currentExposure = 0;
-  let currentCapabilities = null;
   let hideTimeoutId = 0;
-  let lastBoundaryKey = null;
-  let lastAppliedExposure = null;
-  let pendingExposure = null;
   const unsubscribeLocaleChange = subscribeLocaleChange(() => {
     resetButton.setAttribute("aria-label", t("camera.exposure.reset"));
     passiveIndicator.setAttribute("aria-label", t("camera.exposure.label"));
   });
 
-  function getStepValue() {
-    const stepValue = Number(currentCapabilities?.step);
-    return Number.isFinite(stepValue) && stepValue > 0 ? stepValue : DEFAULT_EXPOSURE_STEP;
-  }
+  const exposureValue = createScrubberValue({
+    defaultStep: DEFAULT_EXPOSURE_STEP,
+    getDefaultValue: () => 0,
+    getBoundaryKey: (value, step) => {
+      if (Math.abs(value) <= step / 2) {
+        return "0";
+      }
 
-  function getExposureRange() {
-    const minValue = Number(currentCapabilities?.min);
-    const maxValue = Number(currentCapabilities?.max);
-
-    return {
-      min: Number.isFinite(minValue) ? minValue : 0,
-      max: Number.isFinite(maxValue) ? maxValue : 0,
-    };
-  }
+      const nearestWholeStop = Math.round(value);
+      return Math.abs(value - nearestWholeStop) <= step / 2 ? String(nearestWholeStop) : null;
+    },
+    applyToCamera: (nextExposure) => cameraController?.applyExposureCompensation?.(nextExposure),
+    onDisplay: (nextExposure) => {
+      valueBadge.textContent = formatExposureValue(nextExposure);
+      updateThumbPosition(nextExposure);
+      updateResetButtonState(nextExposure);
+      syncPassiveIndicator();
+    },
+  });
 
   function clearHideTimer() {
     if (!hideTimeoutId) {
@@ -145,29 +142,17 @@ export function createExposureUiController({
     }
   }
 
-  function clampToCapabilities(exposureValue) {
-    const { min, max } = getExposureRange();
-    return clampValue(exposureValue, min, max);
-  }
-
-  function quantizeExposure(exposureValue) {
-    const { min } = getExposureRange();
-    const stepValue = getStepValue();
-    const roundedValue = min + Math.round((exposureValue - min) / stepValue) * stepValue;
-    return clampToCapabilities(roundedValue);
-  }
-
-  function updateThumbPosition(exposureValue) {
-    const { min, max } = getExposureRange();
+  function updateThumbPosition(currentExposure) {
+    const { min, max } = exposureValue.getRange();
     const range = max - min;
     const usableHeight = OVERLAY_RAIL_HEIGHT_PX - OVERLAY_RAIL_PADDING_PX * 2;
-    const normalizedValue = range > 0 ? (exposureValue - min) / range : 0.5;
+    const normalizedValue = range > 0 ? (currentExposure - min) / range : 0.5;
     const nextTop = OVERLAY_RAIL_PADDING_PX + (1 - normalizedValue) * usableHeight;
     thumb.style.top = `${nextTop}px`;
   }
 
-  function updateResetButtonState(exposureValue) {
-    const isZeroExposure = Math.abs(exposureValue) < getStepValue() / 2;
+  function updateResetButtonState(currentExposure) {
+    const isZeroExposure = Math.abs(currentExposure) < exposureValue.getStep() / 2;
     resetButton.hidden = false;
     resetButton.disabled = isZeroExposure;
     resetButton.classList.toggle("is-zero", isZeroExposure);
@@ -177,74 +162,12 @@ export function createExposureUiController({
   function syncPassiveIndicator() {
     passiveIndicator.hidden = !isEnabled;
     passiveIndicator.classList.toggle("is-visible", isEnabled);
-    passiveIndicator.classList.toggle("is-offset", Math.abs(currentExposure) >= getStepValue() / 2);
+    passiveIndicator.classList.toggle(
+      "is-offset",
+      Math.abs(exposureValue.value) >= exposureValue.getStep() / 2,
+    );
     passiveIndicator.classList.toggle("is-open", overlayLayer.classList.contains("is-visible"));
-    passiveIndicator.textContent = `EV ${formatExposureValue(currentExposure)}`;
-  }
-
-  function updateExposureDisplay(exposureValue, { isConfirmed = false } = {}) {
-    currentExposure = clampToCapabilities(exposureValue);
-    if (isConfirmed) {
-      lastAppliedExposure = currentExposure;
-      pendingExposure = null;
-    }
-    valueBadge.textContent = formatExposureValue(currentExposure);
-    updateThumbPosition(currentExposure);
-    updateResetButtonState(currentExposure);
-    syncPassiveIndicator();
-  }
-
-  function emitBoundaryHaptic(exposureValue) {
-    const stepValue = getStepValue();
-    const isZeroBoundary = Math.abs(exposureValue) <= stepValue / 2;
-    const nearestWholeStop = Math.round(exposureValue);
-    const isWholeStopBoundary = Math.abs(exposureValue - nearestWholeStop) <= stepValue / 2;
-    const boundaryKey = isZeroBoundary
-      ? "0"
-      : isWholeStopBoundary
-        ? String(nearestWholeStop)
-        : null;
-
-    if (!boundaryKey) {
-      lastBoundaryKey = null;
-      return;
-    }
-
-    if (boundaryKey === lastBoundaryKey) {
-      return;
-    }
-
-    lastBoundaryKey = boundaryKey;
-    navigator.vibrate?.(HAPTIC_DURATION_MS);
-  }
-
-  async function applyExposureValue(exposureValue) {
-    const nextExposure = quantizeExposure(exposureValue);
-
-    if (nextExposure === pendingExposure) {
-      updateExposureDisplay(nextExposure);
-      return;
-    }
-
-    if (pendingExposure === null && nextExposure === lastAppliedExposure) {
-      updateExposureDisplay(nextExposure, { isConfirmed: true });
-      return;
-    }
-
-    updateExposureDisplay(nextExposure);
-    emitBoundaryHaptic(nextExposure);
-    pendingExposure = nextExposure;
-    let applySucceeded = false;
-
-    try {
-      applySucceeded = (await cameraController?.applyExposureCompensation?.(nextExposure)) === true;
-    } catch {
-      applySucceeded = false;
-    }
-
-    if (!applySucceeded && pendingExposure === nextExposure) {
-      updateExposureDisplay(lastAppliedExposure ?? 0, { isConfirmed: true });
-    }
+    passiveIndicator.textContent = `EV ${formatExposureValue(exposureValue.value)}`;
   }
 
   function resetActiveGesture() {
@@ -252,12 +175,12 @@ export function createExposureUiController({
   }
 
   function getExposureValueForPointer(event) {
-    const { min, max } = getExposureRange();
+    const { min, max } = exposureValue.getRange();
     const railBounds = rail.getBoundingClientRect();
     const railHeight = railBounds.height || OVERLAY_RAIL_HEIGHT_PX;
 
     if (railHeight <= 0 || max <= min) {
-      return currentExposure;
+      return exposureValue.value;
     }
 
     const normalizedPosition = clampValue((event.clientY - railBounds.top) / railHeight, 0, 1);
@@ -283,24 +206,24 @@ export function createExposureUiController({
   }
 
   function handleRailPointerDown(event) {
-    if (!isEnabled || !currentCapabilities || event.button !== 0) {
+    if (!isEnabled || !hasCapabilities || event.button !== 0) {
       return;
     }
 
     activePointerId = event.pointerId;
     clearHideTimer();
     setVisible(true);
-    void applyExposureValue(getExposureValueForPointer(event));
+    void exposureValue.apply(getExposureValueForPointer(event));
     rail.setPointerCapture?.(event.pointerId);
     event.preventDefault();
   }
 
   function handleRailPointerMove(event) {
-    if (event.pointerId !== activePointerId || !currentCapabilities) {
+    if (event.pointerId !== activePointerId || !hasCapabilities) {
       return;
     }
 
-    void applyExposureValue(getExposureValueForPointer(event));
+    void exposureValue.apply(getExposureValueForPointer(event));
     event.preventDefault();
   }
 
@@ -330,7 +253,7 @@ export function createExposureUiController({
     event.stopPropagation();
     clearHideTimer();
     setVisible(true);
-    void applyExposureValue(0);
+    void exposureValue.apply(0);
     scheduleHide();
   }
 
@@ -371,7 +294,7 @@ export function createExposureUiController({
     overlayLayer.classList.remove("is-visible");
     resetActiveGesture();
     clearHideTimer();
-    pendingExposure = null;
+    exposureValue.reset();
     resetButton.disabled = true;
     resetButton.classList.add("is-zero");
     resetButton.classList.remove("is-active");
@@ -385,40 +308,36 @@ export function createExposureUiController({
     const exposureCapabilities = cameraController?.getExposureCapabilities?.();
     const minExposure = Number(exposureCapabilities?.min);
     const maxExposure = Number(exposureCapabilities?.max);
-    const hasExposureCapabilities =
+    hasCapabilities =
       Number.isFinite(minExposure) && Number.isFinite(maxExposure) && maxExposure > minExposure;
 
-    if (!hasExposureCapabilities) {
-      currentCapabilities = null;
+    if (!hasCapabilities) {
+      exposureValue.setCapabilities(null);
       setDisabled();
       return;
     }
 
-    currentCapabilities = {
+    exposureValue.setCapabilities({
       min: minExposure,
       max: maxExposure,
       step: Number(exposureCapabilities?.step) || DEFAULT_EXPOSURE_STEP,
-    };
-    isEnabled = true;
-    updateExposureDisplay(cameraController?.getCurrentExposureCompensation?.() ?? 0, {
-      isConfirmed: true,
     });
+    isEnabled = true;
+    exposureValue.confirm(cameraController?.getCurrentExposureCompensation?.() ?? 0);
   }
 
-  function handleExposureChange(exposureValue) {
-    if (!Number.isFinite(exposureValue)) {
+  function handleExposureChange(nextExposure) {
+    if (!Number.isFinite(nextExposure)) {
       return;
     }
 
-    updateExposureDisplay(exposureValue, { isConfirmed: true });
+    exposureValue.confirm(nextExposure);
   }
 
   function initialize() {
     overlayLayer.classList.remove("is-visible");
     resetButton.hidden = false;
-    updateExposureDisplay(cameraController?.getCurrentExposureCompensation?.() ?? 0, {
-      isConfirmed: true,
-    });
+    exposureValue.confirm(cameraController?.getCurrentExposureCompensation?.() ?? 0);
   }
 
   return {

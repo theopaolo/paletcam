@@ -1,14 +1,10 @@
 import { subscribeLocaleChange, t } from "../i18n.js";
+import { clampValue, createScrubberValue } from "./camera-scrubber-value.js";
 
 const DEFAULT_ZOOM_STEP = 0.1;
 const ACTIVE_FEEDBACK_HIDE_DELAY_MS = 240;
-const HAPTIC_DURATION_MS = 10;
 const SCRUB_RANGE_PX = 220;
 const CANONICAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5];
-
-function clampValue(value, minValue, maxValue) {
-  return Math.max(minValue, Math.min(maxValue, value));
-}
 
 function formatZoomNumber(value) {
   if (!Number.isFinite(value)) {
@@ -81,43 +77,42 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
 
   let isBound = false;
   let isEnabled = false;
-  let currentCapabilities = null;
+  let hasCapabilities = false;
   let presetValues = [];
-  let currentZoom = 1;
-  let lastAppliedZoom = null;
-  let pendingZoom = null;
-  let lastBoundaryKey = null;
   let activePointerId = null;
   let activeFeedbackTimeoutId = 0;
   let gestureStartClientX = 0;
   let gestureStartZoom = 1;
   const unsubscribeLocaleChange = subscribeLocaleChange(() => {
     scrubber.setAttribute("aria-label", t("camera.zoom.label"));
-    updateScrubberA11y(currentZoom);
+    updateScrubberA11y(zoomValue.value);
   });
 
-  function getStepValue() {
-    const stepValue = Number(currentCapabilities?.step);
-    return Number.isFinite(stepValue) && stepValue > 0 ? stepValue : DEFAULT_ZOOM_STEP;
-  }
-
-  function getZoomRange() {
-    const minValue = Number(currentCapabilities?.min);
-    const maxValue = Number(currentCapabilities?.max);
-
-    return {
-      max: Number.isFinite(maxValue) ? maxValue : 1,
-      min: Number.isFinite(minValue) ? minValue : 1,
-    };
-  }
+  const zoomValue = createScrubberValue({
+    defaultStep: DEFAULT_ZOOM_STEP,
+    fallbackRange: { min: 1, max: 1 },
+    getDefaultValue: ({ min, max }) => clampValue(1, min, max),
+    getBoundaryKey: getZoomBoundaryKey,
+    applyToCamera: (nextZoom) => cameraController?.applyZoom?.(nextZoom),
+    onDisplay: (nextZoom) => {
+      readout.textContent = formatZoomReadout(nextZoom);
+      updateScrubberProgress(nextZoom);
+    },
+  });
 
   function getSelectionTolerance() {
-    return Math.max(getStepValue() * 2, 0.12);
+    return Math.max(zoomValue.getStep() * 2, 0.12);
   }
 
-  function getDefaultZoomValue() {
-    const { min, max } = getZoomRange();
-    return clampValue(1, min, max);
+  function getZoomBoundaryKey(value) {
+    const tolerance = getSelectionTolerance() / 2;
+    const nearestWholeZoom = Math.round(value);
+    const wholeZoomKey =
+      Math.abs(value - nearestWholeZoom) <= tolerance ? `whole:${nearestWholeZoom}` : null;
+    const presetZoom = presetValues.find(
+      (presetValue) => Math.abs(presetValue - value) <= tolerance,
+    );
+    return presetZoom !== undefined ? `preset:${presetZoom}` : wholeZoomKey;
   }
 
   function clearActiveFeedbackTimer() {
@@ -148,48 +143,13 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     }, ACTIVE_FEEDBACK_HIDE_DELAY_MS);
   }
 
-  function clampToCapabilities(zoomValue) {
-    const { min, max } = getZoomRange();
-    return clampValue(zoomValue, min, max);
-  }
-
-  function quantizeZoom(zoomValue) {
-    const { min } = getZoomRange();
-    const stepValue = getStepValue();
-    const roundedValue = min + Math.round((zoomValue - min) / stepValue) * stepValue;
-    return clampToCapabilities(roundedValue);
-  }
-
-  function emitBoundaryHaptic(zoomValue) {
-    const tolerance = getSelectionTolerance() / 2;
-    const nearestWholeZoom = Math.round(zoomValue);
-    const wholeZoomKey =
-      Math.abs(zoomValue - nearestWholeZoom) <= tolerance ? `whole:${nearestWholeZoom}` : null;
-    const presetZoom = presetValues.find(
-      (presetValue) => Math.abs(presetValue - zoomValue) <= tolerance,
-    );
-    const boundaryKey = presetZoom !== undefined ? `preset:${presetZoom}` : wholeZoomKey;
-
-    if (!boundaryKey) {
-      lastBoundaryKey = null;
-      return;
-    }
-
-    if (boundaryKey === lastBoundaryKey) {
-      return;
-    }
-
-    lastBoundaryKey = boundaryKey;
-    globalThis.navigator?.vibrate?.(HAPTIC_DURATION_MS);
-  }
-
   function buildPresetValues() {
-    const { min, max } = getZoomRange();
-    const minimumGap = Math.max(getStepValue() * 3, 0.18);
+    const { min, max } = zoomValue.getRange();
+    const minimumGap = Math.max(zoomValue.getStep() * 3, 0.18);
     const nextValues = [];
 
-    const pushValue = (zoomValue) => {
-      const clampedValue = quantizeZoom(zoomValue);
+    const pushValue = (candidateZoom) => {
+      const clampedValue = zoomValue.quantize(candidateZoom);
       if (!nextValues.some((candidate) => Math.abs(candidate - clampedValue) <= minimumGap / 2)) {
         nextValues.push(clampedValue);
       }
@@ -231,70 +191,29 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   }
 
   function getZoomFromGesture(clientX) {
-    const { min, max } = getZoomRange();
+    const { min, max } = zoomValue.getRange();
     const deltaX = clientX - gestureStartClientX;
     return gestureStartZoom + (deltaX / getTrackWidth()) * (max - min);
   }
 
-  function updateScrubberA11y(zoomValue) {
-    const { min, max } = getZoomRange();
+  function updateScrubberA11y(currentZoom) {
+    const { min, max } = zoomValue.getRange();
     scrubber.tabIndex = isEnabled ? 0 : -1;
     scrubber.setAttribute("aria-disabled", String(!isEnabled));
     scrubber.setAttribute("aria-valuemin", formatZoomNumber(min));
     scrubber.setAttribute("aria-valuemax", formatZoomNumber(max));
-    scrubber.setAttribute("aria-valuenow", formatZoomNumber(zoomValue));
+    scrubber.setAttribute("aria-valuenow", formatZoomNumber(currentZoom));
     scrubber.setAttribute(
       "aria-valuetext",
-      t("camera.zoom.valueText", { value: formatZoomReadout(zoomValue) }),
+      t("camera.zoom.valueText", { value: formatZoomReadout(currentZoom) }),
     );
   }
 
-  function updateScrubberProgress(zoomValue) {
-    const { min, max } = getZoomRange();
-    const normalizedValue = max > min ? (zoomValue - min) / (max - min) : 0.5;
+  function updateScrubberProgress(currentZoom) {
+    const { min, max } = zoomValue.getRange();
+    const normalizedValue = max > min ? (currentZoom - min) / (max - min) : 0.5;
     scrubberTrack.style.setProperty("--zoom-progress", String(clampValue(normalizedValue, 0, 1)));
-    updateScrubberA11y(zoomValue);
-  }
-
-  function updateZoomDisplay(zoomValue, { isConfirmed = false } = {}) {
-    currentZoom = clampToCapabilities(zoomValue);
-
-    if (isConfirmed) {
-      lastAppliedZoom = currentZoom;
-      pendingZoom = null;
-    }
-
-    readout.textContent = formatZoomReadout(currentZoom);
-    updateScrubberProgress(currentZoom);
-  }
-
-  async function applyZoomValue(zoomValue) {
-    const nextZoom = quantizeZoom(zoomValue);
-
-    if (nextZoom === pendingZoom) {
-      updateZoomDisplay(nextZoom);
-      return;
-    }
-
-    if (pendingZoom === null && nextZoom === lastAppliedZoom) {
-      updateZoomDisplay(nextZoom, { isConfirmed: true });
-      return;
-    }
-
-    updateZoomDisplay(nextZoom);
-    emitBoundaryHaptic(nextZoom);
-    pendingZoom = nextZoom;
-    let applySucceeded = false;
-
-    try {
-      applySucceeded = (await cameraController?.applyZoom?.(nextZoom)) === true;
-    } catch {
-      applySucceeded = false;
-    }
-
-    if (!applySucceeded && pendingZoom === nextZoom) {
-      updateZoomDisplay(lastAppliedZoom ?? getDefaultZoomValue(), { isConfirmed: true });
-    }
+    updateScrubberA11y(currentZoom);
   }
 
   function resetGestureState() {
@@ -309,7 +228,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
 
     activePointerId = event.pointerId;
     gestureStartClientX = event.clientX;
-    gestureStartZoom = currentZoom;
+    gestureStartZoom = zoomValue.value;
     clearActiveFeedbackTimer();
     setScrubberActive(true);
     scrubber.setPointerCapture?.(event.pointerId);
@@ -317,11 +236,11 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   }
 
   function handlePointerMove(event) {
-    if (event.pointerId !== activePointerId || !currentCapabilities) {
+    if (event.pointerId !== activePointerId || !hasCapabilities) {
       return;
     }
 
-    void applyZoomValue(getZoomFromGesture(event.clientX));
+    void zoomValue.apply(getZoomFromGesture(event.clientX));
     event.preventDefault();
   }
 
@@ -346,7 +265,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   }
 
   function handleWheel(event) {
-    if (!isEnabled || !currentCapabilities) {
+    if (!isEnabled || !hasCapabilities) {
       return;
     }
 
@@ -358,49 +277,48 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
 
     pulseScrubberActive();
 
-    const { min, max } = getZoomRange();
-    const zoomRange = max - min;
-    const nextZoom = currentZoom + (dominantDelta / SCRUB_RANGE_PX) * zoomRange;
-    void applyZoomValue(nextZoom);
+    const { min, max } = zoomValue.getRange();
+    const nextZoom = zoomValue.value + (dominantDelta / SCRUB_RANGE_PX) * (max - min);
+    void zoomValue.apply(nextZoom);
     event.preventDefault();
   }
 
   function handleKeyDown(event) {
-    if (!isEnabled || !currentCapabilities) {
+    if (!isEnabled || !hasCapabilities) {
       return;
     }
 
-    const fineStep = getStepValue();
+    const fineStep = zoomValue.getStep();
     const coarseStep = fineStep * 5;
     let nextZoom = null;
 
     switch (event.key) {
       case "ArrowLeft":
       case "ArrowDown":
-        nextZoom = currentZoom - fineStep;
+        nextZoom = zoomValue.value - fineStep;
         break;
       case "ArrowRight":
       case "ArrowUp":
-        nextZoom = currentZoom + fineStep;
+        nextZoom = zoomValue.value + fineStep;
         break;
       case "PageDown":
-        nextZoom = currentZoom - coarseStep;
+        nextZoom = zoomValue.value - coarseStep;
         break;
       case "PageUp":
-        nextZoom = currentZoom + coarseStep;
+        nextZoom = zoomValue.value + coarseStep;
         break;
       case "Home":
-        nextZoom = getZoomRange().min;
+        nextZoom = zoomValue.getRange().min;
         break;
       case "End":
-        nextZoom = getZoomRange().max;
+        nextZoom = zoomValue.getRange().max;
         break;
       default:
         return;
     }
 
     pulseScrubberActive();
-    void applyZoomValue(nextZoom);
+    void zoomValue.apply(nextZoom);
     event.preventDefault();
   }
 
@@ -442,49 +360,46 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     setScrubberActive(false);
     clearActiveFeedbackTimer();
     resetGestureState();
-    pendingZoom = null;
+    zoomValue.reset();
     presetValues = [];
-    updateScrubberA11y(currentZoom);
+    updateScrubberA11y(zoomValue.value);
   }
 
   function syncCapabilities() {
     const zoomCapabilities = cameraController?.getZoomCapabilities?.();
     const minZoom = Number(zoomCapabilities?.min);
     const maxZoom = Number(zoomCapabilities?.max);
-    const hasZoomCapabilities =
-      Number.isFinite(minZoom) && Number.isFinite(maxZoom) && maxZoom > minZoom;
+    hasCapabilities = Number.isFinite(minZoom) && Number.isFinite(maxZoom) && maxZoom > minZoom;
 
-    if (!hasZoomCapabilities) {
-      currentCapabilities = null;
+    if (!hasCapabilities) {
+      zoomValue.setCapabilities(null);
       setDisabled();
       return;
     }
 
-    currentCapabilities = {
+    zoomValue.setCapabilities({
       max: maxZoom,
       min: minZoom,
       step: Number(zoomCapabilities?.step) || DEFAULT_ZOOM_STEP,
-    };
+    });
     presetValues = buildPresetValues();
     isEnabled = true;
     overlayLayer.hidden = false;
-    updateZoomDisplay(cameraController?.getCurrentZoom?.() ?? getDefaultZoomValue(), {
-      isConfirmed: true,
-    });
+    zoomValue.confirm(cameraController?.getCurrentZoom?.() ?? zoomValue.getDefaultValue());
   }
 
-  function handleZoomChange(zoomValue) {
-    if (!Number.isFinite(zoomValue)) {
+  function handleZoomChange(nextZoom) {
+    if (!Number.isFinite(nextZoom)) {
       return;
     }
 
-    updateZoomDisplay(zoomValue, { isConfirmed: true });
+    zoomValue.confirm(nextZoom);
   }
 
   function initialize() {
     overlayLayer.hidden = true;
     setScrubberActive(false);
-    updateZoomDisplay(cameraController?.getCurrentZoom?.() ?? 1, { isConfirmed: true });
+    zoomValue.confirm(cameraController?.getCurrentZoom?.() ?? 1);
   }
 
   return {
