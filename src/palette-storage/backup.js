@@ -269,7 +269,6 @@ export async function importAllPalettes(jsonString) {
         moderationUpdatedAt: paletteMetadata.moderationUpdatedAt ?? null,
         lastModerationCheckAt: paletteMetadata.lastModerationCheckAt ?? null,
         polaroidRenderSettings: paletteMetadata.polaroidRenderSettings ?? null,
-        polaroidColorNames: paletteMetadata.polaroidColorNames ?? null,
         hasPhotoAsset: true,
       });
 

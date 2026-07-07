@@ -50,7 +50,7 @@ afterEach(() => {
 
 describe("palette-storage/core", () => {
   test("freezes missing polaroid render settings when palettes are read", async () => {
-    updateAppSettings({ polaroidFooterLabel: "captured", polaroidShowColorNames: true });
+    updateAppSettings({ polaroidFooterLabel: "captured" });
     const { bulkPut, module, update } = await loadCoreModule({
       storedPalettes: [
         {
@@ -66,12 +66,10 @@ describe("palette-storage/core", () => {
 
     expect(palettes[0].polaroidRenderSettings).toEqual({
       footerLabel: "captured",
-      showColorNames: false,
     });
     expect(update).toHaveBeenCalledWith(7, {
       polaroidRenderSettings: {
         footerLabel: "captured",
-        showColorNames: false,
       },
     });
     expect(bulkPut).not.toHaveBeenCalled();
@@ -93,13 +91,12 @@ describe("palette-storage/core", () => {
 
     expect(update.mock.calls[0][1].polaroidRenderSettings).toEqual({
       footerLabel: "colorcatchers.co",
-      showColorNames: false,
     });
     expect(bulkPut).not.toHaveBeenCalled();
   });
 
   test("stores current polaroid render settings on new captures", async () => {
-    updateAppSettings({ polaroidFooterLabel: "new capture", polaroidShowColorNames: true });
+    updateAppSettings({ polaroidFooterLabel: "new capture" });
     const { add, module } = await loadCoreModule();
     const photoBlob = new Blob(["photo"], { type: "image/webp" });
 
@@ -107,7 +104,6 @@ describe("palette-storage/core", () => {
 
     expect(add.mock.calls[0][0].polaroidRenderSettings).toEqual({
       footerLabel: "new capture",
-      showColorNames: false,
     });
   });
 });

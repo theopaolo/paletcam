@@ -55,7 +55,6 @@ async function loadPaletteCardModule({
   }));
 
   mock.module(palettePreviewPersistenceModuleUrl, () => ({
-    ensurePalettePolaroidColorNames: mock(async () => []),
     ensureSavedPalettePreviewBlob: mock(async () => null),
     getPalettePreviewFingerprint: mock(() => "preview-v5:test:names-on"),
     getStoredPalettePreviewBlob: mock(() => new Blob(["preview"], { type: "image/webp" })),

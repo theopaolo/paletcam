@@ -166,7 +166,6 @@ const en = {
   "settings.polaroid.label": "Text shown at the bottom of exported polaroids.",
   "settings.polaroid.placeholder": "colorcatchers.co",
   "settings.polaroid.defaultHint": "Default: colorcatchers.co",
-  "settings.polaroid.colorNames": "Show color names on polaroids",
   "settings.data.title": "Data",
   "settings.data.body": "Export your palettes to back them up or move them to another device.",
   "settings.data.export": "Export palettes",

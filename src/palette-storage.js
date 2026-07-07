@@ -9,7 +9,6 @@ export {
 } from "./palette-storage/core.js";
 export {
   readPalettePreviewBlobById,
-  updatePalettePolaroidColorNames,
   updatePalettePreviewBlob,
 } from "./palette-storage/assets.js";
 export {

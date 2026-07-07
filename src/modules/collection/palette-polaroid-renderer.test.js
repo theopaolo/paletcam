@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { resetAppSettingsForTests, updateAppSettings } from "../../app-settings.js";
+import { resetAppSettingsForTests } from "../../app-settings.js";
 
 import {
   getPalettePreviewImageMimeType,
@@ -466,109 +466,5 @@ describe("renderPalettePolaroidBlob", () => {
     expect(reticleMoveCalls).toHaveLength(2);
     expect(reticleMoveCalls[0]?.y).toBe(arcCalls[0]?.y);
     expect(reticleMoveCalls[1]?.x).toBe(arcCalls[0]?.x);
-  });
-
-  test("does not render color names inside the palette strip while the feature is paused", async () => {
-    updateAppSettings({ polaroidShowColorNames: true });
-
-    const fillTextCalls = [];
-    const photoUrl = "blob:palette-preview-source";
-    const fakeContext = {
-      fillStyle: "",
-      font: "",
-      shadowBlur: 0,
-      shadowColor: "",
-      textAlign: "left",
-      textBaseline: "alphabetic",
-      beginPath() {},
-      clearRect() {},
-      clip() {},
-      closePath() {},
-      drawImage() {},
-      fillRect() {},
-      fillText(text, x, y) {
-        fillTextCalls.push({ fillStyle: this.fillStyle, text, x, y });
-      },
-      lineTo() {},
-      measureText(text) {
-        return { width: String(text).length * 8 };
-      },
-      moveTo() {},
-      quadraticCurveTo() {},
-      rect() {},
-      restore() {},
-      rotate() {},
-      save() {},
-      scale() {},
-      translate() {},
-    };
-    const fakeCanvas = {
-      width: 0,
-      height: 0,
-      getContext() {
-        return fakeContext;
-      },
-      toBlob(callback, type) {
-        callback(new Blob(["preview"], { type }));
-      },
-    };
-
-    setGlobalProperty("document", {
-      createElement(tagName) {
-        if (tagName === "canvas") {
-          return fakeCanvas;
-        }
-
-        throw new Error(`Unexpected element creation: ${tagName}`);
-      },
-      documentElement: { nodeName: "HTML" },
-      fonts: {
-        load() {
-          return Promise.resolve();
-        },
-      },
-      querySelector() {
-        return null;
-      },
-    });
-    installPolaroidTokenMocks();
-    globalThis.URL.createObjectURL = () => photoUrl;
-    globalThis.URL.revokeObjectURL = () => {};
-    setGlobalProperty(
-      "Image",
-      class MockImage {
-        constructor() {
-          this.width = 1600;
-          this.height = 1200;
-          this.onload = null;
-        }
-
-        set src(value) {
-          this._src = value;
-
-          if (!value) {
-            return;
-          }
-
-          queueMicrotask(() => {
-            this.onload?.();
-          });
-        }
-      },
-    );
-
-    await renderPalettePolaroidBlob({
-      colors: [
-        { r: 151, g: 157, b: 26 },
-        { r: 255, g: 255, b: 255 },
-      ],
-      photoBlob: new Blob(["source"], { type: "image/webp" }),
-    });
-
-    const renderedTexts = fillTextCalls.map((call) => call.text);
-
-    expect(renderedTexts).not.toContain("PEA SOUP");
-    expect(renderedTexts).not.toContain("WHITE");
-    expect(renderedTexts).toContain("colorcatchers.co");
   });
 });

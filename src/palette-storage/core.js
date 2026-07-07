@@ -21,10 +21,7 @@ import {
 
 function getCurrentPolaroidRenderSettings() {
   const settings = getAppSettings();
-  return {
-    footerLabel: settings.polaroidFooterLabel,
-    showColorNames: false,
-  };
+  return { footerLabel: settings.polaroidFooterLabel };
 }
 
 async function freezeMissingPolaroidRenderSettings(paletteRecords) {
@@ -156,7 +153,6 @@ export async function getSavedPaletteById(id, { includePhotoBlob = true } = {}) 
  * @param {CaptureMode} [options.captureMode]
  * @param {RalMatchRecord | null} [options.ralMatch]
  * @param {PolaroidRenderSettings | null} [options.polaroidRenderSettings]
- * @param {string[] | null} [options.polaroidColorNames]
  * @returns {Promise<Palette>}
  */
 export async function savePalette(
@@ -175,7 +171,6 @@ export async function savePalette(
     captureMode,
     ralMatch = null,
     polaroidRenderSettings = getCurrentPolaroidRenderSettings(),
-    polaroidColorNames = null,
   } = {},
 ) {
   const timestamp = new Date().toISOString();
@@ -198,7 +193,6 @@ export async function savePalette(
     captureMode,
     ralMatch,
     polaroidRenderSettings,
-    polaroidColorNames,
     previewGalleryBlob,
     previewGalleryFooterLabel,
     previewViewerBlob,

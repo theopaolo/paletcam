@@ -141,11 +141,8 @@ describe("palette-storage/backup importAllPalettes", () => {
       footerLabel: "captured footer",
       showColorNames: true,
     });
-    expect(createPaletteMetadataRecord.mock.calls[0][0].polaroidColorNames).toEqual([
-      "Stored red",
-      "Stored green",
-      "Stored blue",
-    ]);
+    // Legacy backup field, dropped on import since the color-names feature was removed.
+    expect(createPaletteMetadataRecord.mock.calls[0][0].polaroidColorNames).toBeUndefined();
   });
 
   test("rejects imported palettes that do not include photo data", async () => {

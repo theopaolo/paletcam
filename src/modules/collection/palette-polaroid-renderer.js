@@ -1,6 +1,5 @@
 import { getAppSettings } from "../../app-settings.js";
 import { toRgbCss } from "../color-format.js";
-import { getColorNames } from "../color-name-api.js";
 import { relativeLuminance } from "../color-space-oklch.js";
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 
@@ -26,12 +25,9 @@ const PREVIEW_FONT_LOAD_TIMEOUT_MS = 1200;
 const PREVIEW_CANVAS_TO_BLOB_TIMEOUT_MS = 4000;
 const RAL_RETICLE_MIN_RADIUS = 8;
 const RAL_RETICLE_MAX_RADIUS = 18;
-const POLAROID_COLOR_NAME_MIN_FONT_SIZE = 10;
-const POLAROID_COLOR_NAME_MAX_FONT_SIZE = 22;
 const PALETTE_FALLBACK_COLORS = [{ r: 236, g: 231, b: 221 }];
 const PREVIEW_IMAGE_TYPE_WEBP = "image/webp";
 const PREVIEW_IMAGE_TYPE_JPEG = "image/jpeg";
-const POLAROID_COLOR_NAMES_ENABLED = false;
 let supportsWebpPreviewImages;
 let cachedPolaroidColorTokens = null;
 
@@ -41,21 +37,11 @@ function getPalettePolaroidRenderSettings(palette) {
   }
 
   const settings = getAppSettings();
-  return {
-    footerLabel: settings.polaroidFooterLabel,
-    showColorNames: Boolean(settings.polaroidShowColorNames),
-  };
+  return { footerLabel: settings.polaroidFooterLabel };
 }
 
 function getBrandLabel(palette) {
   return getPalettePolaroidRenderSettings(palette).footerLabel;
-}
-
-function shouldShowColorNamesOnPolaroid(palette) {
-  return (
-    POLAROID_COLOR_NAMES_ENABLED &&
-    Boolean(getPalettePolaroidRenderSettings(palette).showColorNames)
-  );
 }
 
 function canUseWebpPreviewImages() {
@@ -343,72 +329,6 @@ function drawPaletteStrip({ context, colors, x, y, width, height }) {
   });
 }
 
-function drawPaletteStripColorNames({
-  context,
-  colors,
-  colorNames,
-  x,
-  y,
-  width,
-  height,
-  cardWidth,
-}) {
-  const paletteColors =
-    Array.isArray(colors) && colors.length > 0 ? colors : PALETTE_FALLBACK_COLORS;
-
-  if (width <= 0 || height <= 0 || !Array.isArray(colorNames) || colorNames.length === 0) {
-    return;
-  }
-
-  context.save();
-  context.textAlign = "left";
-  context.textBaseline = "alphabetic";
-
-  paletteColors.forEach((color, index) => {
-    const label = String(colorNames[index] ?? "").trim();
-    if (!label) {
-      return;
-    }
-
-    const tileX = x + (width * index) / paletteColors.length;
-    const nextTileX = x + (width * (index + 1)) / paletteColors.length;
-    const tileWidth = nextTileX - tileX;
-    const isLightBackground = relativeLuminance(color.r, color.g, color.b) > 0.179;
-    const textColor = isLightBackground ? "rgba(20, 16, 12, 0.9)" : "rgba(255, 250, 244, 0.95)";
-    const shadowColor = isLightBackground ? "rgba(255, 255, 255, 0.4)" : "rgba(0, 0, 0, 0.28)";
-    const paddingBottom = Math.max(8, Math.round(height * 0.08));
-    const paddingX = paddingBottom;
-    const anchorX = tileX + paddingX;
-    const anchorY = y + height - paddingBottom;
-    const maxLabelWidth = Math.max(24, height - paddingBottom * 2);
-    const maxFontSize = Math.max(
-      POLAROID_COLOR_NAME_MIN_FONT_SIZE,
-      Math.min(
-        POLAROID_COLOR_NAME_MAX_FONT_SIZE,
-        Math.round(Math.min(tileWidth * 0.24, cardWidth * 0.018)),
-      ),
-    );
-    const fittedFontSize = fitTextToWidth(context, label.toUpperCase(), {
-      maxWidth: maxLabelWidth,
-      maxFontSize,
-      minFontSize: POLAROID_COLOR_NAME_MIN_FONT_SIZE,
-      fontWeight: 700,
-    });
-
-    context.save();
-    context.translate(anchorX, anchorY);
-    context.rotate(-Math.PI / 2);
-    context.font = `700 ${fittedFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
-    context.fillStyle = textColor;
-    context.shadowColor = shadowColor;
-    context.shadowBlur = 1;
-    context.fillText(label.toUpperCase(), 0, 0);
-    context.restore();
-  });
-
-  context.restore();
-}
-
 function drawRalReticleOverlay({ context, x, y, width, height }) {
   if (width <= 0 || height <= 0) {
     return;
@@ -621,7 +541,6 @@ function renderPolaroidCanvas({
   image,
   palette,
   colors,
-  colorNames,
   brandLabel,
   photoAspectRatio = DEFAULT_POLAROID_PHOTO_ASPECT_RATIO,
   photoSourceRect = null,
@@ -716,19 +635,6 @@ function renderPolaroidCanvas({
     width: innerWidth,
     height: palettePanelHeight,
   });
-
-  if (shouldShowColorNamesOnPolaroid(palette) && palette?.captureMode !== "ral") {
-    drawPaletteStripColorNames({
-      context,
-      colors,
-      colorNames,
-      x: palettePanelX,
-      y: palettePanelY,
-      width: innerWidth,
-      height: palettePanelHeight,
-      cardWidth,
-    });
-  }
 
   drawRalStripCaption({
     context,
@@ -826,19 +732,12 @@ export async function renderPalettePolaroidBlob(
 
   try {
     await waitForBrandFont();
-    const colorNames = shouldShowColorNamesOnPolaroid(palette)
-      ? Array.isArray(palette?.polaroidColorNames)
-        ? palette.polaroidColorNames
-        : await getColorNames(Array.isArray(palette?.colors) ? palette.colors : [])
-      : [];
-
     renderPolaroidCanvas({
       canvas,
       context,
       image,
       palette,
       colors: palette.colors,
-      colorNames,
       brandLabel: getBrandLabel(palette),
       photoAspectRatio: getPalettePhotoAspectRatioValue(palette),
       photoSourceRect: resolvePalettePhotoSourceRect(image, palette),

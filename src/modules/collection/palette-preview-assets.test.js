@@ -32,7 +32,6 @@ async function loadPalettePreviewAssets({
   const renderSavedPalettePreviewBlob = mock(
     async (_palette, variant = "viewer") => renderedPreviewBlobs[variant] ?? null,
   );
-  const ensurePalettePolaroidColorNames = mock(async () => []);
   const renderPalettePolaroidBlob = mock(async () => renderedHighQualityBlob);
   const getPalettePreviewFingerprint = mock(
     (_palette, variant = "viewer") => `preview-v6:${variant}:test:names-on`,
@@ -66,7 +65,6 @@ async function loadPalettePreviewAssets({
   });
 
   mock.module(palettePreviewPersistenceModuleUrl, () => ({
-    ensurePalettePolaroidColorNames,
     ensureSavedPalettePreviewBlob,
     getPalettePreviewFingerprint,
     getStoredPalettePreviewBlob,
@@ -80,7 +78,6 @@ async function loadPalettePreviewAssets({
 
   return {
     ensurePaletteMasterPhotoBlob,
-    ensurePalettePolaroidColorNames,
     ensureSavedPalettePreviewBlob,
     getStoredPalettePreviewBlob,
     palettePreviewAssets,

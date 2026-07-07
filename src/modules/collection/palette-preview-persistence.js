@@ -8,10 +8,8 @@ import {
 import {
   ensurePaletteMasterPhotoBlob,
   readPalettePreviewBlobById,
-  updatePalettePolaroidColorNames,
   updatePalettePreviewBlob,
 } from "../../palette-storage.js";
-import { getColorNames } from "../color-name-api.js";
 import { reportAppError } from "../error-reporting.js";
 import {
   getPalettePreviewImageMimeType,
@@ -32,9 +30,8 @@ const PALETTE_PREVIEW_RENDER_VARIANTS = Object.freeze({
     scale: 0.78,
   }),
 });
-const PALETTE_PREVIEW_RENDER_VERSION = "preview-v8";
+const PALETTE_PREVIEW_RENDER_VERSION = "preview-v9";
 const PALETTE_PREVIEW_WARMUP_BATCH_LIMIT = 20;
-const POLAROID_COLOR_NAMES_ENABLED = false;
 const queuedPreviewWarmups = new Set();
 let previewWarmupQueue = Promise.resolve();
 const scheduleIdleTask = globalThis.window?.requestIdleCallback
@@ -45,9 +42,8 @@ function getPreviewRenderOptions(variant = "viewer") {
   return PALETTE_PREVIEW_RENDER_VARIANTS[normalizePreviewVariant(variant)];
 }
 
-function buildPreviewFingerprint(label, showColorNames, variant = "viewer") {
-  const colorNameState = POLAROID_COLOR_NAMES_ENABLED && showColorNames ? "names-on" : "names-off";
-  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewVariant(variant)}:${getPalettePreviewImageMimeType()}:${normalizePreviewFooterLabel(label) ?? ""}:${colorNameState}`;
+function buildPreviewFingerprint(label, variant = "viewer") {
+  return `${PALETTE_PREVIEW_RENDER_VERSION}:${normalizePreviewVariant(variant)}:${getPalettePreviewImageMimeType()}:${normalizePreviewFooterLabel(label) ?? ""}`;
 }
 
 function getPaletteRenderSettings(palette) {
@@ -56,25 +52,15 @@ function getPaletteRenderSettings(palette) {
     return storedSettings;
   }
 
-  const settings = getAppSettings();
-  return {
-    footerLabel: settings.polaroidFooterLabel,
-    showColorNames: Boolean(settings.polaroidShowColorNames),
-  };
+  return { footerLabel: getAppSettings().polaroidFooterLabel };
 }
 
 export function getCurrentPalettePreviewFooterLabel(variant = "viewer") {
-  const settings = getAppSettings();
-  return buildPreviewFingerprint(
-    settings.polaroidFooterLabel,
-    settings.polaroidShowColorNames,
-    variant,
-  );
+  return buildPreviewFingerprint(getAppSettings().polaroidFooterLabel, variant);
 }
 
 export function getPalettePreviewFingerprint(palette, variant = "viewer") {
-  const settings = getPaletteRenderSettings(palette);
-  return buildPreviewFingerprint(settings.footerLabel, settings.showColorNames, variant);
+  return buildPreviewFingerprint(getPaletteRenderSettings(palette).footerLabel, variant);
 }
 
 export function getStoredPalettePreviewBlob(palette, variant = "viewer") {
@@ -123,34 +109,6 @@ export async function hydratePalettePreviewBlobFromIdb(palette, variant = "viewe
   return getStoredPalettePreviewBlob(palette, normalizedVariant);
 }
 
-export async function ensurePalettePolaroidColorNames(palette) {
-  if (
-    palette?.captureMode === "ral" ||
-    !POLAROID_COLOR_NAMES_ENABLED ||
-    !getPaletteRenderSettings(palette).showColorNames ||
-    !Array.isArray(palette?.colors) ||
-    palette.colors.length === 0
-  ) {
-    return [];
-  }
-
-  if (
-    Array.isArray(palette.polaroidColorNames) &&
-    palette.polaroidColorNames.length === palette.colors.length
-  ) {
-    return palette.polaroidColorNames;
-  }
-
-  const colorNames = await getColorNames(palette.colors);
-  palette.polaroidColorNames = colorNames;
-
-  if (Number.isFinite(Number(palette.id))) {
-    await updatePalettePolaroidColorNames(palette.id, colorNames);
-  }
-
-  return colorNames;
-}
-
 export async function renderPalettePreviewBlobFromMasterPhoto(
   palette,
   photoBlob,
@@ -159,8 +117,6 @@ export async function renderPalettePreviewBlobFromMasterPhoto(
   if (!(photoBlob instanceof Blob)) {
     return null;
   }
-
-  await ensurePalettePolaroidColorNames(palette);
 
   return renderPalettePolaroidBlob({ ...palette, photoBlob }, getPreviewRenderOptions(variant));
 }

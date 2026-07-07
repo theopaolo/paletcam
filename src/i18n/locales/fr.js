@@ -168,7 +168,6 @@ const fr = {
   "settings.polaroid.label": "Signature des polaroid.",
   "settings.polaroid.placeholder": "colorcatchers.co",
   "settings.polaroid.defaultHint": "Par défaut : colorcatchers.co",
-  "settings.polaroid.colorNames": "Afficher les noms des couleurs sur les polaroids",
   "settings.data.title": "Données",
   "settings.data.body":
     "Exportez vos palettes pour les sauvegarder ou les transférer sur un autre appareil.",

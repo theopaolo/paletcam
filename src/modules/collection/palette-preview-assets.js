@@ -2,7 +2,6 @@ import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
 import { isIOSDevice } from "../platform.js";
 import { hasPaletteMasterPhoto, renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
 import {
-  ensurePalettePolaroidColorNames,
   ensureSavedPalettePreviewBlob,
   getPalettePreviewFingerprint,
   getStoredPalettePreviewBlob,
@@ -226,8 +225,6 @@ async function renderHighQualityPalettePolaroidBlob(palette) {
   if (!(masterPhotoBlob instanceof Blob)) {
     return null;
   }
-
-  await ensurePalettePolaroidColorNames(palette);
 
   return renderPalettePolaroidBlob(
     { ...palette, photoBlob: masterPhotoBlob },

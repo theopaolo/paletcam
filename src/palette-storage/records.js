@@ -55,18 +55,7 @@ export function normalizePolaroidRenderSettings(value) {
   }
 
   const footerLabel = typeof value.footerLabel === "string" ? value.footerLabel.trim() : "";
-  return {
-    footerLabel,
-    showColorNames: Boolean(value.showColorNames),
-  };
-}
-
-export function normalizePolaroidColorNames(value) {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  return value.map((name) => String(name ?? "").trim());
+  return { footerLabel };
 }
 
 export function getPreviewVariantFieldKeys(variant) {
@@ -104,7 +93,6 @@ export function normalizeStoredPaletteRecord(
     ...palette,
     captureCropRect: normalizeCaptureCropRect(palette?.captureCropRect),
     polaroidRenderSettings: normalizePolaroidRenderSettings(palette?.polaroidRenderSettings),
-    polaroidColorNames: normalizePolaroidColorNames(palette?.polaroidColorNames),
     remoteCatchId: normalizeRemoteCatchId(palette?.remoteCatchId),
     moderationStatus: normalizeModerationStatus(palette?.moderationStatus),
     postedAt: normalizeIsoString(palette?.postedAt),
@@ -119,6 +107,7 @@ export function normalizeStoredPaletteRecord(
   delete normalized.previewBlob;
   delete normalized.previewFooterLabel;
   delete normalized.previewSwatchBlob;
+  delete normalized.polaroidColorNames;
 
   if (previewViewerBlob instanceof Blob) {
     normalized.previewViewerBlob = previewViewerBlob;
@@ -173,7 +162,6 @@ export function createPaletteMetadataRecord({
   moderationUpdatedAt = null,
   lastModerationCheckAt = null,
   polaroidRenderSettings = null,
-  polaroidColorNames = null,
   previewGalleryBlob = null,
   previewGalleryFooterLabel = null,
   previewViewerBlob = null,
@@ -188,7 +176,6 @@ export function createPaletteMetadataRecord({
     captureCropRect: normalizeCaptureCropRect(captureCropRect),
     ...(captureMode === "ral" ? { captureMode: "ral", ralMatch } : {}),
     polaroidRenderSettings: normalizePolaroidRenderSettings(polaroidRenderSettings),
-    polaroidColorNames: normalizePolaroidColorNames(polaroidColorNames),
     remoteCatchId: normalizeRemoteCatchId(remoteCatchId),
     moderationStatus: normalizeModerationStatus(moderationStatus),
     postedAt: normalizeIsoString(postedAt),
