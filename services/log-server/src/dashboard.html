@@ -3,355 +3,181 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>paletcam logs</title>
+<title>Paletcam operational logs</title>
 <style>
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    padding: 1.25rem;
-    font-family: ui-sans-serif, system-ui, sans-serif;
-    background: #0c0c0c;
-    color: #e8e8e8;
-    line-height: 1.4;
-  }
-  header { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; }
-  h1 { margin: 0 1rem 0 0; font-size: 1.05rem; font-weight: 500; letter-spacing: 0.02em; }
-  input, button, select {
-    background: #1b1b1b;
-    color: inherit;
-    border: 1px solid #2c2c2c;
-    padding: 0.4rem 0.6rem;
-    border-radius: 4px;
-    font: inherit;
-  }
-  input[type="date"] { color-scheme: dark; }
+  body { margin: 0; padding: 1.25rem; font: 14px/1.45 system-ui, sans-serif; background: #0c0c0c; color: #e8e8e8; }
+  header { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  h1 { margin: 0 1rem 0 0; font-size: 1.05rem; font-weight: 600; }
+  h2 { margin: 0 0 .8rem; font-size: .85rem; color: #ccc; }
+  input, button { background: #1b1b1b; color: inherit; border: 1px solid #343434; padding: .45rem .65rem; border-radius: 4px; font: inherit; }
   button { cursor: pointer; }
-  button:hover { background: #252525; }
-  #status { color: #888; font-size: 0.8rem; margin-left: 0.5rem; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
-  .stat { background: #1b1b1b; padding: 0.875rem 1rem; border-radius: 8px; border: 1px solid #232323; }
-  .stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
-  .stat-value { font-size: 1.35rem; font-weight: 500; margin-top: 0.2rem; }
-  .stat-sub { font-size: 0.7rem; color: #888; margin-top: 0.2rem; word-break: break-all; }
-  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
-  .card { background: #1b1b1b; padding: 1rem; border-radius: 8px; border: 1px solid #232323; }
-  .card h2 { margin: 0 0 0.75rem; font-size: 0.85rem; font-weight: 500; color: #ccc; }
-  .errors h2 { margin: 0 0 1rem; font-size: 0.85rem; font-weight: 500; color: #ccc; }
-  .error-item { padding: 0.75rem 0; border-top: 1px solid #2a2a2a; }
-  .error-item:first-child { border-top: none; padding-top: 0; }
-  .error-meta { display: flex; gap: 0.75rem; font-size: 0.7rem; color: #888; margin-bottom: 0.3rem; flex-wrap: wrap; }
-  .error-message { font-size: 0.85rem; margin-bottom: 0.4rem; }
-  .error-message code { color: #ffb86c; font-family: ui-monospace, monospace; }
-  details summary { cursor: pointer; user-select: none; color: #888; font-size: 0.75rem; padding: 0.2rem 0; }
-  pre { background: #0c0c0c; padding: 0.6rem; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 0.72rem; white-space: pre-wrap; overflow-x: auto; color: #aaa; margin: 0.25rem 0 0; max-height: 360px; }
-  .empty { color: #666; font-style: italic; padding: 1rem; text-align: center; }
+  #status { color: #999; font-size: .8rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; margin-bottom: 1.25rem; }
+  .card { background: #181818; border: 1px solid #292929; border-radius: 8px; padding: .9rem 1rem; }
+  .label { color: #999; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; }
+  .value { font-size: 1.35rem; margin-top: .2rem; }
+  .sub { color: #999; font-size: .72rem; word-break: break-word; }
+  .section { margin-bottom: 1.25rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  th, td { padding: .45rem; border-top: 1px solid #2b2b2b; text-align: left; vertical-align: top; }
+  th { color: #999; font-weight: 500; }
+  td:last-child, th:last-child { text-align: right; }
+  .error { padding: .75rem 0; border-top: 1px solid #2b2b2b; }
+  .error-meta { display: flex; gap: .75rem; flex-wrap: wrap; color: #999; font-size: .72rem; }
+  code { color: #ffb86c; overflow-wrap: anywhere; }
+  details { margin-top: .35rem; color: #999; }
+  pre { max-height: 320px; overflow: auto; white-space: pre-wrap; background: #0c0c0c; padding: .6rem; color: #bbb; }
+  .empty { color: #777; font-style: italic; }
 </style>
 </head>
 <body>
 <header>
-  <h1>paletcam logs</h1>
-  <input type="date" id="date-input">
-  <button id="refresh-btn" type="button">Refresh</button>
-  <span id="status"></span>
+  <h1>Paletcam operational logs</h1>
+  <input type="date" id="date">
+  <button type="button" id="refresh">Refresh</button>
+  <span id="status" aria-live="polite"></span>
 </header>
-
-<section class="stats" id="stats"></section>
-
-<section class="charts">
-  <div class="card"><h2>Events over time (5 min buckets)</h2><canvas id="chart-timeline"></canvas></div>
-  <div class="card"><h2>Top message types</h2><canvas id="chart-messages"></canvas></div>
-  <div class="card"><h2>Bundle versions in the wild</h2><canvas id="chart-versions"></canvas></div>
-  <div class="card"><h2>Gallery load duration (ms)</h2><canvas id="chart-latency"></canvas></div>
+<section class="grid" id="stats"></section>
+<section class="card section">
+  <h2>Top event types</h2>
+  <div id="events"></div>
 </section>
-
-<section class="card errors">
+<section class="card section">
   <h2>Recent errors (last 50)</h2>
   <div id="errors"></div>
 </section>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
 (() => {
-  const dateInput = document.getElementById("date-input");
-  const refreshBtn = document.getElementById("refresh-btn");
-  const statusEl = document.getElementById("status");
-  const statsEl = document.getElementById("stats");
-  const errorsEl = document.getElementById("errors");
-  const today = new Date().toISOString().slice(0, 10);
-  dateInput.value = today;
+  const dateInput = document.getElementById("date");
+  const refreshButton = document.getElementById("refresh");
+  const status = document.getElementById("status");
+  const stats = document.getElementById("stats");
+  const events = document.getElementById("events");
+  const errors = document.getElementById("errors");
+  dateInput.value = new Date().toISOString().slice(0, 10);
 
-  const charts = {};
+  const element = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = String(text);
+    return node;
+  };
 
-  function destroyChart(key) {
-    if (charts[key]) {
-      charts[key].destroy();
-      delete charts[key];
-    }
-  }
-
-  function setStatus(msg) {
-    statusEl.textContent = msg;
-  }
-
-  function bucketize(entries, bucketMs) {
-    const buckets = new Map();
-    for (const e of entries) {
-      const t = Date.parse(e.ts);
-      if (!Number.isFinite(t)) continue;
-      const bucket = Math.floor(t / bucketMs) * bucketMs;
-      buckets.set(bucket, (buckets.get(bucket) || 0) + 1);
-    }
-    return [...buckets.entries()].sort((a, b) => a[0] - b[0]);
-  }
-
-  function percentile(values, p) {
-    if (!values.length) return 0;
-    const sorted = [...values].sort((a, b) => a - b);
-    const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((sorted.length * p) / 100) - 1));
-    return sorted[idx];
-  }
-
-  function topByCount(map, n) {
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
-  }
-
-  function isErrorEntry(e) {
-    const m = e.message || "";
-    return /:(error|rejection)$/.test(m) || /API request failed/i.test(m) || m.startsWith("uncaught:");
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
-
-  function renderStat(label, value, sub) {
-    const div = document.createElement("div");
-    div.className = "stat";
-    div.innerHTML = `<div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${escapeHtml(value)}</div>${sub ? `<div class="stat-sub">${escapeHtml(sub)}</div>` : ""}`;
-    return div;
-  }
-
-  Chart.defaults.color = "#999";
-  Chart.defaults.borderColor = "#2a2a2a";
-  Chart.defaults.font = { family: "ui-sans-serif, system-ui, sans-serif", size: 11 };
-
-  function render(data) {
-    const entries = data.entries || [];
-
-    const errorEntries = entries.filter(isErrorEntry);
-    const galleryEntries = entries.filter((e) => e.message === "loadCollectionUi:success");
-    const galleryDurations = galleryEntries
-      .map((e) => Number(e.context?.totalMs))
-      .filter(Number.isFinite);
-    const uniqueIps = new Set(entries.map((e) => e.ip || "")).size;
-    const uniqueVersions = new Set(entries.map((e) => e.context?.appVersion).filter(Boolean));
-
-    statsEl.innerHTML = "";
-    statsEl.appendChild(
-      renderStat(
-        "Total events",
-        entries.length.toLocaleString(),
-        data.totalLines > entries.length
-          ? `${data.totalLines.toLocaleString()} total · showing last ${entries.length.toLocaleString()}`
-          : null,
-      ),
+  function percentile(values, percentileValue) {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((left, right) => left - right);
+    const index = Math.min(
+      sorted.length - 1,
+      Math.max(0, Math.ceil((sorted.length * percentileValue) / 100) - 1),
     );
-    statsEl.appendChild(renderStat("Errors", errorEntries.length.toLocaleString(), null));
-    statsEl.appendChild(renderStat("Unique IPs", uniqueIps.toLocaleString(), null));
-    statsEl.appendChild(
-      renderStat(
-        "Versions seen",
-        uniqueVersions.size.toLocaleString(),
-        [...uniqueVersions].sort().join(", ") || "—",
-      ),
-    );
-    if (galleryDurations.length) {
-      statsEl.appendChild(
-        renderStat(
-          "Gallery p50 / p95",
-          `${percentile(galleryDurations, 50)} / ${percentile(galleryDurations, 95)} ms`,
-          `${galleryDurations.length} loads`,
-        ),
-      );
+    return sorted[index];
+  }
+
+  function isError(entry) {
+    const message = String(entry.message || "");
+    return /:(error|rejection)$/.test(message) || /failed|uncaught/i.test(message);
+  }
+
+  function addStat(label, value, sub = "") {
+    const card = element("div", "card");
+    card.append(element("div", "label", label), element("div", "value", value));
+    if (sub) card.append(element("div", "sub", sub));
+    stats.append(card);
+  }
+
+  function renderEventCounts(entries) {
+    const counts = new Map();
+    for (const entry of entries) {
+      const message = String(entry.message || "(empty)");
+      counts.set(message, (counts.get(message) || 0) + 1);
     }
-
-    destroyChart("timeline");
-    const timelineBuckets = bucketize(entries, 5 * 60 * 1000);
-    charts.timeline = new Chart(document.getElementById("chart-timeline"), {
-      type: "line",
-      data: {
-        labels: timelineBuckets.map(([t]) =>
-          new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        ),
-        datasets: [
-          {
-            label: "Events",
-            data: timelineBuckets.map(([, c]) => c),
-            borderColor: "#74b9ff",
-            backgroundColor: "rgba(116,185,255,0.15)",
-            tension: 0.2,
-            fill: true,
-            pointRadius: 0,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: { grid: { color: "#222" } },
-          y: { grid: { color: "#222" }, beginAtZero: true },
-        },
-        plugins: { legend: { display: false } },
-      },
-    });
-
-    destroyChart("messages");
-    const messageCounts = new Map();
-    for (const e of entries) {
-      const m = e.message || "(empty)";
-      messageCounts.set(m, (messageCounts.get(m) || 0) + 1);
-    }
-    const topMessages = topByCount(messageCounts, 10);
-    charts.messages = new Chart(document.getElementById("chart-messages"), {
-      type: "bar",
-      data: {
-        labels: topMessages.map(([m]) => m),
-        datasets: [
-          { label: "Count", data: topMessages.map(([, c]) => c), backgroundColor: "#a29bfe" },
-        ],
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        scales: {
-          x: { grid: { color: "#222" }, beginAtZero: true },
-          y: { grid: { color: "#222" } },
-        },
-        plugins: { legend: { display: false } },
-      },
-    });
-
-    destroyChart("versions");
-    const versionCounts = new Map();
-    for (const e of entries) {
-      const v = e.context?.appVersion || "(none)";
-      versionCounts.set(v, (versionCounts.get(v) || 0) + 1);
-    }
-    const versionEntries = [...versionCounts.entries()].sort((a, b) => b[1] - a[1]);
-    const versionColors = ["#74b9ff", "#a29bfe", "#fdcb6e", "#55efc4", "#fab1a0", "#fd79a8", "#ffeaa7", "#81ecec"];
-    charts.versions = new Chart(document.getElementById("chart-versions"), {
-      type: "doughnut",
-      data: {
-        labels: versionEntries.map(([v]) => v),
-        datasets: [
-          {
-            data: versionEntries.map(([, c]) => c),
-            backgroundColor: versionEntries.map((_, i) => versionColors[i % versionColors.length]),
-          },
-        ],
-      },
-      options: { responsive: true, plugins: { legend: { position: "right" } } },
-    });
-
-    destroyChart("latency");
-    const buckets = [0, 250, 500, 1000, 2000, 5000, 10_000, 30_000];
-    const histogram = new Array(buckets.length).fill(0);
-    for (const v of galleryDurations) {
-      let idx = buckets.length - 1;
-      for (let i = 0; i < buckets.length - 1; i += 1) {
-        if (v < buckets[i + 1]) {
-          idx = i;
-          break;
-        }
-      }
-      histogram[idx] += 1;
-    }
-    const latencyLabels = buckets.map((b, i) =>
-      i === buckets.length - 1 ? `${b}+` : `${b}–${buckets[i + 1]}`,
-    );
-    charts.latency = new Chart(document.getElementById("chart-latency"), {
-      type: "bar",
-      data: {
-        labels: latencyLabels,
-        datasets: [
-          { label: "loadCollectionUi:success", data: histogram, backgroundColor: "#fdcb6e" },
-        ],
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: { grid: { color: "#222" } },
-          y: { grid: { color: "#222" }, beginAtZero: true },
-        },
-        plugins: { legend: { display: false } },
-      },
-    });
-
-    errorsEl.innerHTML = "";
-    if (errorEntries.length === 0) {
-      errorsEl.innerHTML = '<div class="empty">no errors</div>';
+    const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20);
+    events.replaceChildren();
+    if (rows.length === 0) {
+      events.append(element("div", "empty", "No events"));
       return;
     }
-    const recentErrors = errorEntries.slice(-50).reverse();
-    for (const e of recentErrors) {
-      const item = document.createElement("div");
-      item.className = "error-item";
-      const ts = new Date(e.ts).toLocaleString();
-      const ctx = e.context || {};
-      const stack = ctx.stack ? `<details><summary>stack</summary><pre>${escapeHtml(ctx.stack)}</pre></details>` : "";
-      const ctxClean = { ...ctx };
-      delete ctxClean.stack;
-      delete ctxClean.userAgent;
-      delete ctxClean.url;
-      delete ctxClean.timestamp;
-      delete ctxClean.appVersion;
-      delete ctxClean.commitHash;
-      const ctxStr = Object.keys(ctxClean).length
-        ? `<details><summary>context</summary><pre>${escapeHtml(JSON.stringify(ctxClean, null, 2))}</pre></details>`
-        : "";
-      const version = ctx.appVersion
-        ? `v${escapeHtml(ctx.appVersion)}${ctx.commitHash ? `·${escapeHtml(ctx.commitHash)}` : ""}`
-        : "";
-      item.innerHTML = `
-        <div class="error-meta">
-          <span>${escapeHtml(ts)}</span>
-          <span>${escapeHtml(e.ip || "")}</span>
-          ${version ? `<span>${version}</span>` : ""}
-        </div>
-        <div class="error-message"><code>${escapeHtml(e.message || "")}</code></div>
-        ${stack}
-        ${ctxStr}
-      `;
-      errorsEl.appendChild(item);
+    const table = element("table");
+    const head = element("tr");
+    head.append(element("th", "", "Event"), element("th", "", "Count"));
+    const thead = element("thead");
+    thead.append(head);
+    const tbody = element("tbody");
+    for (const [message, count] of rows) {
+      const row = element("tr");
+      row.append(element("td", "", message), element("td", "", count));
+      tbody.append(row);
     }
+    table.append(thead, tbody);
+    events.append(table);
+  }
+
+  function renderErrors(entries) {
+    errors.replaceChildren();
+    const recent = entries.filter(isError).slice(-50).reverse();
+    if (recent.length === 0) {
+      errors.append(element("div", "empty", "No errors"));
+      return;
+    }
+    for (const entry of recent) {
+      const item = element("article", "error");
+      const meta = element("div", "error-meta");
+      meta.append(
+        element("span", "", new Date(entry.ts).toLocaleString()),
+        element("span", "", entry.ip || ""),
+        element("span", "", entry.context?.appVersion || ""),
+      );
+      item.append(meta, element("code", "", entry.message || ""));
+      if (entry.context && Object.keys(entry.context).length > 0) {
+        const details = element("details");
+        details.append(element("summary", "", "Context"));
+        details.append(element("pre", "", JSON.stringify(entry.context, null, 2)));
+        item.append(details);
+      }
+      errors.append(item);
+    }
+  }
+
+  function render(data) {
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    const failures = entries.filter(isError);
+    const versions = new Set(entries.map((entry) => entry.context?.appVersion).filter(Boolean));
+    const sessions = new Set(entries.map((entry) => entry.context?.correlationId).filter(Boolean));
+    const timings = entries
+      .map((entry) => Number(entry.context?.durationMs))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    stats.replaceChildren();
+    addStat("Events", entries.length, data.totalLines > entries.length ? `${data.totalLines} stored` : "");
+    addStat("Errors", failures.length);
+    addStat("Observed sessions", sessions.size);
+    addStat("Versions", versions.size, [...versions].sort().join(", "));
+    if (timings.length > 0) addStat("Timing p50 / p95", `${percentile(timings, 50)} / ${percentile(timings, 95)} ms`);
+    renderEventCounts(entries);
+    renderErrors(entries);
   }
 
   async function load() {
-    setStatus("loading…");
+    status.textContent = "Loading…";
+    refreshButton.disabled = true;
     try {
-      const res = await fetch(
-        `/logs?date=${encodeURIComponent(dateInput.value)}&limit=20000`,
-        { credentials: "same-origin" },
-      );
-      if (!res.ok) {
-        setStatus(`error: HTTP ${res.status}`);
-        return;
-      }
-      const data = await res.json();
-      if (!data.ok) {
-        setStatus(`error: ${data.error || "unknown"}`);
-        return;
-      }
-      setStatus(`${data.returned} / ${data.totalLines} events`);
+      const response = await fetch(`/logs?date=${encodeURIComponent(dateInput.value)}&limit=5000`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
       render(data);
-    } catch (err) {
-      setStatus(`error: ${err.message}`);
+      status.textContent = `${data.returned || 0} entries`;
+    } catch {
+      status.textContent = "Unable to load logs";
+    } finally {
+      refreshButton.disabled = false;
     }
   }
 
-  refreshBtn.addEventListener("click", load);
+  refreshButton.addEventListener("click", load);
   dateInput.addEventListener("change", load);
-  load();
+  void load();
 })();
 </script>
 </body>

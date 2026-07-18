@@ -1,7 +1,11 @@
 import { getApiBaseUrl } from "./config.js";
+import { requestJson } from "./modules/http-request.js";
 
 const PENDING_COUNT_KEY = "paletcam:stats:pending:local_capture";
 const API_EVENT = "local_capture";
+const STATS_TIMEOUT_MS = 10_000;
+let activeFlushPromise = null;
+let requestStatsImplementation = requestJson;
 
 /**
  * Returns the Capacitor global if running inside a native app, otherwise null.
@@ -33,44 +37,63 @@ function isOnline() {
 }
 
 function getPendingCount() {
-  const raw = localStorage.getItem(PENDING_COUNT_KEY);
-  const n = parseInt(raw ?? "", 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  try {
+    const raw = localStorage.getItem(PENDING_COUNT_KEY);
+    const n = parseInt(raw ?? "", 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function setPendingCount(n) {
-  if (n <= 0) {
-    localStorage.removeItem(PENDING_COUNT_KEY);
-  } else {
-    localStorage.setItem(PENDING_COUNT_KEY, String(n));
+  try {
+    if (n <= 0) {
+      localStorage.removeItem(PENDING_COUNT_KEY);
+    } else {
+      localStorage.setItem(PENDING_COUNT_KEY, String(n));
+    }
+  } catch {
+    // Metrics are best-effort and must never break capture persistence.
   }
 }
 
-async function flushCaptureStats() {
-  const count = getPendingCount();
-  if (count <= 0 || !isOnline()) {
-    return;
+export function flushCaptureStats() {
+  if (activeFlushPromise) {
+    return activeFlushPromise;
   }
 
-  const platform = detectPlatform();
-  const body = /** @type {Record<string, unknown>} */ ({ event: API_EVENT, count });
-  if (platform !== null) {
-    body.platform = platform;
-  }
+  activeFlushPromise = (async () => {
+    while (isOnline()) {
+      const count = getPendingCount();
+      if (count <= 0) break;
 
-  try {
-    const response = await fetch(`${getApiBaseUrl()}/stats`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+      const platform = detectPlatform();
+      const body = /** @type {Record<string, unknown>} */ ({ event: API_EVENT, count });
+      if (platform !== null) {
+        body.platform = platform;
+      }
 
-    if (response.ok) {
-      setPendingCount(0);
+      try {
+        await requestStatsImplementation(`${getApiBaseUrl()}/stats`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          timeoutMs: STATS_TIMEOUT_MS,
+        });
+      } catch {
+        break;
+      }
+
+      // Captures can arrive while the request is pending. Remove only the
+      // acknowledged batch and leave newer events queued for the next pass.
+      setPendingCount(Math.max(0, getPendingCount() - count));
     }
-  } catch {
-    // Silent — will retry on next online event or capture.
-  }
+  })().finally(() => {
+    activeFlushPromise = null;
+  });
+
+  return activeFlushPromise;
 }
 
 /**
@@ -79,7 +102,7 @@ async function flushCaptureStats() {
  */
 export function trackCaptureStatAsync() {
   setPendingCount(getPendingCount() + 1);
-  flushCaptureStats();
+  void flushCaptureStats();
 }
 
 function setupNetworkListener() {
@@ -90,16 +113,21 @@ function setupNetworkListener() {
       "networkStatusChange",
       (/** @type {{ connected: boolean }} */ status) => {
         if (status.connected) {
-          flushCaptureStats();
+          void flushCaptureStats();
         }
       },
     );
     return;
   }
 
-  globalThis.addEventListener?.("online", flushCaptureStats);
+  globalThis.addEventListener?.("online", () => void flushCaptureStats());
 }
 
 // Drain any stats left over from a previous session.
 setupNetworkListener();
-flushCaptureStats();
+void flushCaptureStats();
+
+export function resetCaptureStatFlushForTests(requestImplementation = requestJson) {
+  activeFlushPromise = null;
+  requestStatsImplementation = requestImplementation;
+}

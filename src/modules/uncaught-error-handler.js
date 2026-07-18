@@ -1,54 +1,53 @@
 import { clientLog } from "./client-log.js";
 
-const STACK_MAX_LENGTH = 2048;
-
-function truncateStack(stack) {
-  if (typeof stack !== "string" || stack.length === 0) {
-    return "";
-  }
-
-  if (stack.length <= STACK_MAX_LENGTH) {
-    return stack;
-  }
-
-  return `${stack.slice(0, STACK_MAX_LENGTH)}\n[truncated]`;
-}
+const handlerCleanupByWindow = new WeakMap();
 
 function describeRejectionReason(reason) {
   if (reason && typeof reason === "object") {
     return {
       name: typeof reason.name === "string" ? reason.name : "",
-      message:
-        typeof reason.message === "string" && reason.message ? reason.message : String(reason),
-      stack: truncateStack(reason.stack),
+      reasonType: reason.constructor?.name || "object",
     };
   }
 
   return {
     name: "",
-    message: String(reason ?? ""),
-    stack: "",
+    reasonType: typeof reason,
   };
 }
 
 export function bindUncaughtErrorHandlers() {
   if (typeof window === "undefined") {
-    return;
+    return () => {};
   }
 
-  window.addEventListener("error", (event) => {
+  const targetWindow = window;
+  const existingCleanup = handlerCleanupByWindow.get(targetWindow);
+  if (existingCleanup) return existingCleanup;
+
+  const handleError = (event) => {
     const error = event.error;
     clientLog("uncaught:error", {
       name: typeof error?.name === "string" ? error.name : "",
-      message: event.message || error?.message || "",
-      filename: event.filename || "",
       lineno: Number.isFinite(event.lineno) ? event.lineno : 0,
       colno: Number.isFinite(event.colno) ? event.colno : 0,
-      stack: truncateStack(error?.stack),
     });
-  });
+  };
 
-  window.addEventListener("unhandledrejection", (event) => {
+  const handleRejection = (event) => {
     clientLog("uncaught:rejection", describeRejectionReason(event.reason));
-  });
+  };
+
+  targetWindow.addEventListener("error", handleError);
+  targetWindow.addEventListener("unhandledrejection", handleRejection);
+
+  const cleanup = () => {
+    targetWindow.removeEventListener("error", handleError);
+    targetWindow.removeEventListener("unhandledrejection", handleRejection);
+    if (handlerCleanupByWindow.get(targetWindow) === cleanup) {
+      handlerCleanupByWindow.delete(targetWindow);
+    }
+  };
+  handlerCleanupByWindow.set(targetWindow, cleanup);
+  return cleanup;
 }

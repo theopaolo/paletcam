@@ -15,6 +15,7 @@ describe("reportAppError", () => {
     const clientLogWithOptions = mock(() => true);
     mock.module(clientLogModuleUrl, () => ({
       clientLogWithOptions,
+      sanitizeTelemetryContext: (context) => context,
     }));
 
     const consoleError = mock(() => {});
@@ -48,11 +49,21 @@ describe("reportAppError", () => {
     expect(consoleError.mock.calls[0][1].stack).toContain("Unable to load preview image element");
     expect(clientLogWithOptions).toHaveBeenCalledWith(
       "Failed to render palette gallery preview.",
-      expect.objectContaining({ paletteId: 49, variant: "gallery" }),
+      expect.objectContaining({
+        errorName: "Error",
+        sourceAttempts: ["reader-data-url", "canvas-data-url", "original"],
+        sourceKind: "original",
+        variant: "gallery",
+      }),
       {
         key: "preview-gallery-failure",
         throttleMs: 15000,
       },
     );
+    const telemetryContext = clientLogWithOptions.mock.calls[0][1];
+    expect(telemetryContext).not.toHaveProperty("paletteId");
+    expect(telemetryContext).not.toHaveProperty("message");
+    expect(telemetryContext).not.toHaveProperty("details");
+    expect(telemetryContext).not.toHaveProperty("stack");
   });
 });

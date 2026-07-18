@@ -1,4 +1,4 @@
-import { clientLogWithOptions } from "./client-log.js";
+import { clientLogWithOptions, sanitizeTelemetryContext } from "./client-log.js";
 import { formatErrorDetails } from "./error-format.js";
 
 const STACK_MAX_LENGTH = 2048;
@@ -31,32 +31,34 @@ export function buildErrorReportContext(error, context = {}) {
     return nextContext;
   }
 
-  if (typeof error.name === "string" && error.name) {
-    nextContext.error = error.name;
+  const errorRecord = /** @type {Record<string, unknown>} */ (error);
+
+  if (typeof errorRecord.name === "string" && errorRecord.name) {
+    nextContext.error = errorRecord.name;
   }
 
-  if (typeof error.message === "string" && error.message) {
-    nextContext.message = error.message;
+  if (typeof errorRecord.message === "string" && errorRecord.message) {
+    nextContext.message = errorRecord.message;
   }
 
-  if (typeof error.code === "string" && error.code) {
-    nextContext.code = error.code;
+  if (typeof errorRecord.code === "string" && errorRecord.code) {
+    nextContext.code = errorRecord.code;
   }
 
-  if (typeof error.sourceKind === "string" && error.sourceKind) {
-    nextContext.sourceKind = error.sourceKind;
+  if (typeof errorRecord.sourceKind === "string" && errorRecord.sourceKind) {
+    nextContext.sourceKind = errorRecord.sourceKind;
   }
 
-  if (Array.isArray(error.sourceAttempts) && error.sourceAttempts.length > 0) {
-    nextContext.sourceAttempts = error.sourceAttempts;
+  if (Array.isArray(errorRecord.sourceAttempts) && errorRecord.sourceAttempts.length > 0) {
+    nextContext.sourceAttempts = errorRecord.sourceAttempts;
   }
 
-  const status = Number(error.status);
+  const status = Number(errorRecord.status);
   if (Number.isFinite(status) && status > 0) {
     nextContext.status = status;
   }
 
-  const stack = truncateStack(error.stack);
+  const stack = truncateStack(errorRecord.stack);
   if (stack) {
     nextContext.stack = stack;
   }
@@ -66,7 +68,53 @@ export function buildErrorReportContext(error, context = {}) {
     nextContext.details = details;
   }
 
-  return nextContext;
+  return sanitizeTelemetryContext(nextContext);
+}
+
+/**
+ * Builds the deliberately smaller context allowed to leave the device. Console
+ * diagnostics keep the rich message/details/stack through buildErrorReportContext.
+ * @param {unknown} error
+ * @param {Record<string, unknown>} [context]
+ */
+export function buildTelemetryErrorContext(error, context = {}) {
+  const nextContext = { ...context };
+  for (const key of Object.keys(nextContext)) {
+    if (
+      /(?:palette[-_]?id|remote[-_]?catch[-_]?id|catch[-_]?id|user[-_]?id|request[-_]?id)/i.test(
+        key,
+      )
+    ) {
+      delete nextContext[key];
+    }
+  }
+  if (!error || typeof error !== "object") {
+    return sanitizeTelemetryContext(nextContext);
+  }
+
+  const errorRecord = /** @type {Record<string, unknown>} */ (error);
+  if (typeof errorRecord.name === "string" && errorRecord.name) {
+    nextContext.errorName = errorRecord.name;
+  }
+  if (typeof errorRecord.code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(errorRecord.code)) {
+    nextContext.errorCode = errorRecord.code;
+  }
+  if (
+    typeof errorRecord.sourceKind === "string" &&
+    /^[a-z0-9-]{1,40}$/i.test(errorRecord.sourceKind)
+  ) {
+    nextContext.sourceKind = errorRecord.sourceKind;
+  }
+  if (Array.isArray(errorRecord.sourceAttempts)) {
+    nextContext.sourceAttempts = errorRecord.sourceAttempts
+      .filter((value) => typeof value === "string" && /^[a-z0-9-]{1,40}$/i.test(value))
+      .slice(0, 8);
+  }
+  const status = Number(errorRecord.status);
+  if (Number.isInteger(status) && status >= 100 && status <= 599) {
+    nextContext.status = status;
+  }
+  return sanitizeTelemetryContext(nextContext);
 }
 
 /**
@@ -114,6 +162,7 @@ export function reportAppError(
   } = {},
 ) {
   const nextContext = buildErrorReportContext(error, context);
+  const telemetryContext = buildTelemetryErrorContext(error, context);
 
   if (includeConsole && consoleMessage) {
     const consoleMethod = consoleLevel === "warn" ? console.warn : console.error;
@@ -129,7 +178,7 @@ export function reportAppError(
   }
 
   if (includeClientLog && logMessage) {
-    clientLogWithOptions(logMessage, nextContext, {
+    clientLogWithOptions(logMessage, telemetryContext, {
       key: clientLogKey || logMessage,
       throttleMs: clientLogThrottleMs,
     });

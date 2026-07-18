@@ -9,6 +9,7 @@ const PREPROD_BRANCH_NAME = "preprod";
 const DEPLOY_BRANCH_NAME =
   typeof __PALETCAM_DEPLOY_BRANCH__ === "string" ? __PALETCAM_DEPLOY_BRANCH__ : "";
 
+/** @param {unknown} branchName */
 function normalizeBranchName(branchName) {
   return String(branchName || "")
     .trim()
@@ -45,9 +46,10 @@ export function getApiBaseUrl() {
 }
 
 export function getLogApiBaseUrl() {
-  return LOG_API_BASE_URL_OVERRIDE || getApiBaseUrl();
+  return LOG_API_BASE_URL_OVERRIDE;
 }
 
+/** @param {unknown} branchName */
 export function isPreprodBranch(branchName) {
   const normalizedBranchName = normalizeBranchName(branchName);
   const branchSegments = normalizedBranchName.split("/").filter(Boolean);
