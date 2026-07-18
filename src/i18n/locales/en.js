@@ -14,6 +14,9 @@ const en = {
   "pwa.install.title": "Install ColorCatcher",
   "pwa.install.body": "Add the app to your home screen",
   "pwa.install.action": "Install",
+  "pwa.update.available": "A Paletcam update is ready.",
+  "pwa.update.action": "Update now",
+  "pwa.update.deferred": "The update will install when the current operation finishes.",
   "header.community": "Catchers Community",
   "header.logoAlt": "Color Catchers logo",
   "header.accountOpen": "Open account panel",
@@ -64,6 +67,7 @@ const en = {
   "collection.deleteFailed": "Deletion failed.",
   "collection.bulk.cancelled": "Bulk action cancelled.",
   "collection.bulk.deletePending": "Deleting {count} captures…",
+  "collection.bulk.deleteRunning": "Permanently deleting {count} captures…",
   "collection.bulk.deleteFailed": "{count} captures could not be deleted.",
   "collection.bulk.publishPending": "Publishing {count} captures…",
   "collection.bulk.publishSuccess": "{count} captures published. Moderation pending.",
@@ -84,6 +88,7 @@ const en = {
   "collection.publish.already": "Capture already published.",
   "collection.publish.failure": "Publish failed.",
   "collection.publish.cta": "My captures",
+  "collection.publication.sessionChanged": "Your community account changed. Try again.",
   "collection.unpublish.auth": "Sign in with your email to unpublish.",
   "collection.unpublish.success": "Capture removed from the public grid.",
   "collection.unpublish.already": "Capture already removed from the public grid.",
@@ -132,14 +137,20 @@ const en = {
   "login.hint.enterCode": "Enter the code you received by email.",
   "login.hint.success": "Signed in successfully.",
   "login.hint.loggedOut": "Account signed out.",
+  "login.hint.logoutStorageFailed":
+    "Signed out for this session, but local storage could not be cleared. Close the app before signing in again.",
   "login.toast.codeSent": "Code sent by email.",
   "login.toast.codeSendFailed": "Failed to send code.",
   "login.toast.connected": "Account connected.",
   "login.toast.invalidCode": "Invalid or expired code.",
   "login.toast.loggedOut": "Account signed out.",
+  "login.toast.logoutFailed": "Local sign-out cleanup failed.",
   "login.error.authExpired": "Your session expired. Sign in again.",
   "login.error.missingEmail": "Email is required.",
   "login.error.missingCode": "Code is required.",
+  "login.error.emailTooLong": "Email is too long.",
+  "login.error.codeTooLong": "Code is too long.",
+  "login.error.sessionChanged": "The signed-in account changed. Try again.",
   "delete.panelTitle": "Delete account",
   "delete.panelClose": "Close delete panel",
   "delete.title": "Delete my account",
@@ -156,6 +167,10 @@ const en = {
   "delete.toast.failure": "Deletion failed.",
   "delete.error.authExpired": "Your session expired. Sign in again.",
   "delete.error.missingCode": "Code is required.",
+  "delete.error.codeTooLong": "Code is too long.",
+  "delete.error.identityRequired": "This account has no stable identity. Sign in again.",
+  "delete.error.recoveryUnavailable":
+    "Safe deletion cannot start because local recovery storage is unavailable.",
   "settings.panelTitle": "Settings",
   "settings.panelClose": "Close settings",
   "settings.language.title": "Language",
@@ -178,6 +193,16 @@ const en = {
   "settings.data.exportDoneStatus.one": "Export complete · {count} palette · {elapsed}",
   "settings.data.exportDoneStatus.other": "Export complete · {count} palettes · {elapsed}",
   "settings.data.exportFailedStatus": "Export failed.",
+  "settings.data.exportIntegrityStatus":
+    "One stored photo is damaged or unsupported. Delete that palette and retry the backup.",
+  "settings.data.exportTooLargeStatus":
+    "This collection is too large for one safely restorable backup.",
+  "settings.data.exportStorageStatus":
+    "The stored photos could not be read. Free device storage, reopen the app, and retry.",
+  "settings.data.exportSerializationStatus":
+    "The backup file could not be created. Keep the app open and retry.",
+  "settings.data.exportHandoffStatus":
+    "The backup was created, but the browser could not save or share the file. Check download permissions and retry.",
   "settings.data.importLabel": "Import palettes",
   "settings.data.importBusy": "Importing palettes...",
   "settings.data.importChoose": "Choose a .json file",
@@ -188,9 +213,29 @@ const en = {
   "settings.versionAria": "App version",
   "settings.toast.exportDone": "Export complete.",
   "settings.toast.exportFailed": "Export failed.",
+  "settings.toast.exportIntegrity":
+    "A damaged photo cannot be backed up safely. Delete that palette and retry.",
+  "settings.toast.exportTooLarge": "Too many photos for one safe backup. Delete some and retry.",
+  "settings.toast.exportStorage": "Storage access failed. Free space, reopen the app, and retry.",
+  "settings.toast.exportSerialization": "Backup creation failed. Keep the app open and retry.",
+  "settings.toast.exportHandoff":
+    "Backup ready, but saving was blocked. Allow downloads or sharing and retry.",
   "settings.toast.imported.one": "{count} palette imported.",
   "settings.toast.imported.other": "{count} palettes imported.",
+  "settings.toast.importTooLarge":
+    "This backup exceeds the safe import limit. Choose a smaller backup.",
   "settings.toast.importFailed": "Import failed. Check the file and try again.",
+  "settings.toast.importInvalid":
+    "This is not a valid, complete Color Catchers backup. Export it again and retry.",
+  "settings.toast.importConflict":
+    "Another import is already running in this browser. Finish it or wait five minutes, then retry.",
+  "settings.toast.importInterrupted":
+    "The import was interrupted before anything was added. Reopen the app and retry the same file.",
+  "settings.toast.importStorageFull":
+    "There is not enough device storage to restore this backup. Free space and retry.",
+  "settings.toast.importStorage":
+    "Local storage is unavailable. Reopen the app; if it continues, check browser storage permissions.",
+  "settings.toast.flushBusy": "Finish the current save or backup, then clear local data.",
   "settings.toast.flushFailed": "Unable to clear local data.",
   "settings.tab.login": "Login",
   "settings.tab.language": "Language",
@@ -248,6 +293,12 @@ const en = {
   "camera.start.overconstrained": "Unable to start a compatible camera.",
   "camera.start.generic": "Unable to start the camera.",
   "camera.captureSaveFailed": "Save failed.",
+  "storage.database.blocked":
+    "Close other Paletcam tabs, then reopen the app to finish the storage update.",
+  "storage.database.versionchange":
+    "Paletcam storage was updated in another tab. Reopen the app to continue safely.",
+  "storage.database.maintenanceFailed":
+    "The storage update did not finish. Reopen Paletcam to retry; your existing palettes were not partially changed.",
   "camera.zoom.label": "Zoom",
   "camera.zoom.valueText": "Zoom {value}",
   "camera.exposure.reset": "Reset exposure",

@@ -16,31 +16,17 @@ import {
 } from "../palette-origins.js";
 import { createFrozenPinStore } from "./frozen-pins.js";
 import { getCenteredAspectCropRect, getTargetFrameHeight } from "./geometry.js";
+import { createLivePreviewExtractionPipeline } from "./live-preview-extraction-pipeline.js";
+import { createLivePreviewFrameAcquisition } from "./live-preview-frame-acquisition.js";
+import { createLivePreviewOriginMarkerModel } from "./live-preview-origin-marker-model.js";
+import { createLivePreviewTiming, EXTRACTION_MIN_INTERVAL_MS } from "./live-preview-timing.js";
 
-// The quantizer samples at most ~40k pixels, so anything above ~320px wide is
-// pure getImageData readback cost with no extraction-quality gain.
-const ANALYSIS_MAX_WIDTH = 320;
 const PREVIEW_SMOOTHING_FACTOR = 0.16;
 // Extraction cadence is time-based so cost stays constant across 60/120Hz
 // displays; the palette is intentionally slower than the camera preview.
-const EXTRACTION_MIN_INTERVAL_MS = 200;
-const CAMERA_TRACK_SETTINGS_REFRESH_MS = 1000;
-const ORIGIN_MARKER_SMOOTHING_FACTOR = 0.1;
-// Release animation: badges hop up, tumble off the bottom of the frame, and
-// the live badge pops back in with a bounce.
-const BADGE_FALL_HOP_VELOCITY = -140; // px/s
-const BADGE_FALL_GRAVITY = 1400; // px/s^2
-const BADGE_FALL_MAX_DURATION_MS = 1400;
-const BADGE_POP_DURATION_MS = 350;
 const HAPTIC_FREEZE_MS = 15;
 const HAPTIC_UNFREEZE_MS = 8;
 const HAPTIC_SCENE_RELEASE_PATTERN = [40, 60, 40];
-
-function easeOutBack(progress) {
-  const overshoot = 1.70158;
-  const p = progress - 1;
-  return 1 + (overshoot + 1) * p * p * p + overshoot * p * p;
-}
 
 function triggerHaptic(pattern) {
   try {
@@ -76,38 +62,50 @@ export function createLivePreviewController({
   getShouldMirrorUserFacingCamera,
   getSwatchCount,
   shouldUseCanvasPreview,
+  frameAcquisition: injectedFrameAcquisition = null,
+  getDevicePixelRatio = () => window.devicePixelRatio || 1,
+  timingOptions = {},
 }) {
-  const frameContext =
-    frameCanvas?.getContext("2d", { willReadFrequently: true }) ?? frameCanvas?.getContext("2d");
-  const paletteContext = paletteCanvas?.getContext("2d");
-  const originsOverlayContext = originsOverlayCanvas?.getContext("2d") ?? null;
+  const frameAcquisition =
+    injectedFrameAcquisition ??
+    createLivePreviewFrameAcquisition({
+      cameraFeed,
+      frameCanvas,
+      paletteCanvas,
+      analysisCanvas,
+      analysisContext,
+      originsOverlayCanvas,
+      drawFrame: drawFrameToCanvas,
+      getCropRect: getCenteredAspectCropRect,
+      getFrameHeight: getTargetFrameHeight,
+      getDevicePixelRatio,
+    });
+  const frameContext = frameAcquisition.getFrameContext();
+  const paletteContext = frameAcquisition.getPaletteContext();
+  const originsOverlayContext = frameAcquisition.getOriginsOverlayContext();
+  const activeAnalysisContext = frameAcquisition.getAnalysisContext();
   const colorSmoother = createColorSmoother();
-  // Only used by the sync fallback path; the worker keeps its own tracker.
-  const originTracker = createSwatchOriginTracker();
+  const timing = createLivePreviewTiming({ ...timingOptions, onFrame: refresh });
+  const extractionPipeline = createLivePreviewExtractionPipeline({
+    worker: paletteExtractionWorker,
+    extractPalette: extractPaletteColors,
+    originTracker: createSwatchOriginTracker(),
+    computePresence: computeColorPresence,
+  });
+  const originMarkerModel = createLivePreviewOriginMarkerModel({
+    findNearestColor,
+    hitTestMarkers: hitTestOriginMarkers,
+    now: () => timing.now(),
+    random: Math.random,
+  });
 
-  let frameWidth = 0;
-  let frameHeight = 0;
-  let analysisWidth = 0;
-  let analysisHeight = 0;
   let isStreaming = false;
-  let lastExtractionAt = 0;
-  let lastExtractedColors = null;
-  let lastExtractedOrigins = [];
-  let smoothedMarkerPositions = [];
-  let lastRenderedMarkers = [];
-  let markerBornAt = [];
-  let fallingBadges = [];
   const frozenPins = createFrozenPinStore();
   let lastVisiblePaletteColors = [];
   let lastPaintedColors = null;
   let paintedPaletteWidth = 0;
   let paintedPaletteHeight = 0;
-  let cachedPaletteWidth = 0;
-  let cachedPaletteHeight = 0;
-  let previewFrameRequestId = 0;
-  let latestPaletteWorkerDurationMs = null;
   let cachedCameraTrackSettings = null;
-  let cameraTrackSettingsRefreshedAt = 0;
 
   function getPaletteViewportSize() {
     const currentCaptureMode = getCurrentCaptureMode();
@@ -122,136 +120,30 @@ export function createLivePreviewController({
     };
   }
 
-  function updateAnalysisDimensions() {
-    if (frameWidth <= 0 || frameHeight <= 0) {
-      analysisWidth = 0;
-      analysisHeight = 0;
-      analysisCanvas.width = 0;
-      analysisCanvas.height = 0;
-      return false;
-    }
-
-    const scale = Math.min(1, ANALYSIS_MAX_WIDTH / frameWidth);
-    const nextAnalysisWidth = Math.max(1, Math.round(frameWidth * scale));
-    const nextAnalysisHeight = Math.max(1, Math.round(frameHeight * scale));
-
-    analysisWidth = nextAnalysisWidth;
-    analysisHeight = nextAnalysisHeight;
-
-    if (
-      analysisCanvas.width !== nextAnalysisWidth ||
-      analysisCanvas.height !== nextAnalysisHeight
-    ) {
-      analysisCanvas.width = nextAnalysisWidth;
-      analysisCanvas.height = nextAnalysisHeight;
-    }
-
-    return true;
-  }
-
   function updateCachedDimensions() {
     const { width: nextPaletteWidth, height: nextPaletteHeight } = getPaletteViewportSize();
-    if (nextPaletteWidth <= 0 || nextPaletteHeight <= 0) {
-      cachedPaletteWidth = 0;
-      cachedPaletteHeight = 0;
-      frameWidth = 0;
-      frameHeight = 0;
-      analysisWidth = 0;
-      analysisHeight = 0;
-      analysisCanvas.width = 0;
-      analysisCanvas.height = 0;
-      return false;
-    }
-
-    cachedPaletteWidth = nextPaletteWidth;
-    cachedPaletteHeight = nextPaletteHeight;
-    frameWidth = nextPaletteWidth;
-    frameHeight = getTargetFrameHeight(frameWidth);
-
-    if (
-      !cameraFeed ||
-      !frameCanvas ||
-      !paletteCanvas ||
-      !analysisContext ||
-      frameWidth <= 0 ||
-      frameHeight <= 0
-    ) {
-      return false;
-    }
-
-    cameraFeed.setAttribute("width", String(frameWidth));
-    cameraFeed.setAttribute("height", String(frameHeight));
-
-    if (frameCanvas.width !== frameWidth || frameCanvas.height !== frameHeight) {
-      frameCanvas.width = frameWidth;
-      frameCanvas.height = frameHeight;
-    }
-
-    if (originsOverlayCanvas) {
-      const dpr = window.devicePixelRatio || 1;
-      const overlayWidth = Math.round(frameWidth * dpr);
-      const overlayHeight = Math.round(frameHeight * dpr);
-      if (
-        originsOverlayCanvas.width !== overlayWidth ||
-        originsOverlayCanvas.height !== overlayHeight
-      ) {
-        originsOverlayCanvas.width = overlayWidth;
-        originsOverlayCanvas.height = overlayHeight;
-      }
-      originsOverlayContext?.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    if (paletteCanvas.width !== frameWidth || paletteCanvas.height !== cachedPaletteHeight) {
-      paletteCanvas.width = frameWidth;
-      paletteCanvas.height = cachedPaletteHeight;
-    }
-
-    updateAnalysisDimensions();
-    return true;
-  }
-
-  function getCameraFrameSourceRect() {
-    return getCenteredAspectCropRect(cameraFeed?.videoWidth ?? 0, cameraFeed?.videoHeight ?? 0);
-  }
-
-  function getPaletteExtractionOptions() {
-    return {
-      medianCut: { ...getMedianCutExtractionSettings() },
-      hybrid: {
-        ...getHybridSettings(),
-        // Previous raw extraction, used by the perceptual selector as a
-        // stability bias so picks don't flip between near-equal candidates.
-        previousColors: lastExtractedColors ?? [],
-      },
-    };
-  }
-
-  function cancelRefresh() {
-    if (!previewFrameRequestId) {
-      return;
-    }
-
-    window.cancelAnimationFrame(previewFrameRequestId);
-    previewFrameRequestId = 0;
-  }
-
-  function scheduleRefresh() {
-    if (!isStreaming || previewFrameRequestId) {
-      return;
-    }
-
-    previewFrameRequestId = window.requestAnimationFrame((rafTimestamp) => {
-      previewFrameRequestId = 0;
-      refresh(rafTimestamp);
+    return frameAcquisition.resize({
+      viewportWidth: nextPaletteWidth,
+      viewportHeight: nextPaletteHeight,
     });
   }
 
+  function getCameraFrameSourceRect() {
+    return frameAcquisition.getCameraFrameSourceRect();
+  }
+
+  function cancelRefresh() {
+    timing.cancel();
+  }
+
+  function scheduleRefresh() {
+    timing.schedule(isStreaming);
+  }
+
   function clearOriginMarkers() {
-    smoothedMarkerPositions = [];
-    lastRenderedMarkers = [];
-    markerBornAt = [];
-    fallingBadges = [];
+    originMarkerModel.reset();
     if (originsOverlayContext && originsOverlayCanvas) {
+      const { frameHeight, frameWidth } = frameAcquisition.getDimensions();
       originsOverlayContext.clearRect(0, 0, frameWidth || 0, frameHeight || 0);
     }
   }
@@ -264,20 +156,7 @@ export function createLivePreviewController({
       return;
     }
 
-    for (const { slot, entry } of released) {
-      if (animate && entry.position) {
-        fallingBadges.push({
-          x: entry.position.x,
-          y: entry.position.y,
-          color: entry.color,
-          label: slot + 1,
-          horizontalVelocity: (Math.random() - 0.5) * 160,
-          startedAt: performance.now(),
-        });
-      }
-      smoothedMarkerPositions[slot] = null;
-      markerBornAt[slot] = 0;
-    }
+    originMarkerModel.handleReleased(released, { animate });
 
     lastPaintedColors = null;
     syncSwatchLockHints(lastVisiblePaletteColors);
@@ -307,44 +186,13 @@ export function createLivePreviewController({
     }
   }
 
-  // Released badges hop up, tumble down past the frame edge, and fade.
-  function buildFallingBadgeMarkers(now) {
-    if (fallingBadges.length === 0) {
-      return [];
-    }
-
-    const markers = [];
-    fallingBadges = fallingBadges.filter((badge) => {
-      const elapsedSeconds = (now - badge.startedAt) / 1000;
-      if (now - badge.startedAt > BADGE_FALL_MAX_DURATION_MS) {
-        return false;
-      }
-
-      const dropPx =
-        BADGE_FALL_HOP_VELOCITY * elapsedSeconds +
-        0.5 * BADGE_FALL_GRAVITY * elapsedSeconds * elapsedSeconds;
-      const y = badge.y + dropPx / frameHeight;
-      if (y * frameHeight > frameHeight + 24) {
-        return false;
-      }
-
-      markers.push({
-        x: badge.x + (badge.horizontalVelocity * elapsedSeconds) / frameWidth,
-        y,
-        color: badge.color,
-        label: badge.label,
-        frozen: true,
-        clamp: false,
-        rotation: badge.horizontalVelocity * elapsedSeconds * 0.02,
-        alpha: 1 - (now - badge.startedAt) / BADGE_FALL_MAX_DURATION_MS,
-      });
-      return true;
-    });
-
-    return markers;
+  function applyExtractionResult({ colors, frozenPresence }) {
+    checkFrozenSceneChange(colors);
+    processFrozenPresence(frozenPresence);
   }
 
   function canToggleFreeze() {
+    const { frameHeight, frameWidth } = frameAcquisition.getDimensions();
     return (
       getOriginBadgesEnabled() &&
       getCurrentCaptureMode() !== "ral" &&
@@ -422,7 +270,12 @@ export function createLivePreviewController({
 
     // Swatch-initiated freezes can land on a slot whose badge is currently
     // hidden (no matching pixels); the color still pins, badge-less.
-    frozenPins.freeze(slot, displayColor, smoothedMarkerPositions[slot], lastExtractedColors);
+    frozenPins.freeze(
+      slot,
+      displayColor,
+      originMarkerModel.getPosition(slot),
+      extractionPipeline.getSnapshot().colors,
+    );
     lastPaintedColors = null;
     syncSwatchLockHints(lastVisiblePaletteColors);
     triggerHaptic(HAPTIC_FREEZE_MS);
@@ -430,17 +283,17 @@ export function createLivePreviewController({
   }
 
   function toggleOriginFreezeAt(normalizedX, normalizedY) {
-    if (!canToggleFreeze() || lastRenderedMarkers.length === 0) {
+    if (!canToggleFreeze()) {
       return false;
     }
 
-    const slot = hitTestOriginMarkers(
-      lastRenderedMarkers,
-      normalizedX * frameWidth,
-      normalizedY * frameHeight,
+    const { frameHeight, frameWidth } = frameAcquisition.getDimensions();
+    const slot = originMarkerModel.hitTestAt({
+      normalizedX,
+      normalizedY,
       frameWidth,
       frameHeight,
-    );
+    });
     if (slot < 0) {
       return false;
     }
@@ -458,16 +311,14 @@ export function createLivePreviewController({
     return toggleSlotFreeze(slot);
   }
 
-  // Each visible swatch is matched back to the raw extraction color whose
-  // scene centroid we know, then the badge glides toward that spot so sensor
-  // jitter doesn't make markers twitch.
   function updateOriginMarkers(displayColors) {
+    const { frameHeight, frameWidth } = frameAcquisition.getDimensions();
     if (!originsOverlayContext || frameWidth <= 0 || frameHeight <= 0) {
       return;
     }
 
     if (!getOriginBadgesEnabled()) {
-      if (lastRenderedMarkers.length > 0 || fallingBadges.length > 0) {
+      if (originMarkerModel.hasActivity()) {
         clearOriginMarkers();
       }
       if (frozenPins.size() > 0) {
@@ -476,96 +327,30 @@ export function createLivePreviewController({
       return;
     }
 
-    const now = performance.now();
-    const rawColors = lastExtractedColors ?? [];
-    const markers = [];
-
-    for (let slot = 0; slot < displayColors.length; slot += 1) {
-      const displayColor = displayColors[slot];
-
-      // Frozen badges stay where the color was pinned; the live scan no
-      // longer applies to them. A badge-less pin (frozen from the swatch bar
-      // while its color had no visible origin) keeps the slot marker-free.
-      const frozenEntry = frozenPins.get(slot);
-      if (frozenEntry) {
-        smoothedMarkerPositions[slot] = frozenEntry.position ? { ...frozenEntry.position } : null;
-        if (frozenEntry.position) {
-          markers.push({
-            x: frozenEntry.position.x,
-            y: frozenEntry.position.y,
-            color: frozenEntry.color,
-            label: slot + 1,
-            slot,
-            frozen: true,
-          });
-        }
-        continue;
-      }
-
-      const nearestRaw = findNearestColor(displayColor, rawColors);
-      const targetOrigin = nearestRaw ? lastExtractedOrigins[nearestRaw.index] : null;
-      if (!targetOrigin) {
-        smoothedMarkerPositions[slot] = null;
-        continue;
-      }
-
-      const previousPosition = smoothedMarkerPositions[slot];
-      if (!previousPosition) {
-        // Fresh appearance (first frame, or just released) — pop in.
-        markerBornAt[slot] = now;
-      }
-      const nextPosition = previousPosition
-        ? {
-            x:
-              previousPosition.x +
-              (targetOrigin.x - previousPosition.x) * ORIGIN_MARKER_SMOOTHING_FACTOR,
-            y:
-              previousPosition.y +
-              (targetOrigin.y - previousPosition.y) * ORIGIN_MARKER_SMOOTHING_FACTOR,
-          }
-        : { x: targetOrigin.x, y: targetOrigin.y };
-
-      const popProgress = Math.min(1, (now - (markerBornAt[slot] ?? 0)) / BADGE_POP_DURATION_MS);
-
-      smoothedMarkerPositions[slot] = nextPosition;
-      markers.push({
-        x: nextPosition.x,
-        y: nextPosition.y,
-        color: displayColor,
-        label: slot + 1,
-        slot,
-        scale: popProgress < 1 ? easeOutBack(popProgress) : 1,
-      });
-    }
-
-    smoothedMarkerPositions.length = displayColors.length;
-    markerBornAt.length = displayColors.length;
-    lastRenderedMarkers = markers;
-    drawOriginMarkers(
-      originsOverlayContext,
-      [...markers, ...buildFallingBadgeMarkers(now)],
+    const { colors: extractedColors, origins: extractedOrigins } = extractionPipeline.getSnapshot();
+    const markers = originMarkerModel.build({
+      displayColors,
+      rawColors: extractedColors ?? [],
+      origins: extractedOrigins,
+      frozenBySlot: displayColors.map((_, slot) => frozenPins.get(slot)),
       frameWidth,
       frameHeight,
-    );
+    });
+    drawOriginMarkers(originsOverlayContext, markers, frameWidth, frameHeight);
   }
 
   function reset() {
-    lastExtractionAt = 0;
-    lastExtractedColors = null;
-    lastExtractedOrigins = [];
+    extractionPipeline.reset();
     clearOriginMarkers();
-    originTracker.reset();
     frozenPins.reset();
     lastVisiblePaletteColors = [];
     lastPaintedColors = null;
     paintedPaletteWidth = 0;
     paintedPaletteHeight = 0;
     paletteLockOverlay?.replaceChildren();
-    latestPaletteWorkerDurationMs = null;
     cachedCameraTrackSettings = null;
-    cameraTrackSettingsRefreshedAt = 0;
+    timing.resetCadence();
     ralPreview.clear();
-    paletteExtractionWorker.invalidate();
     colorSmoother.reset();
     ralPreview.reset();
   }
@@ -578,7 +363,7 @@ export function createLivePreviewController({
   // color's density from its nearest raw extracted color so saved palettes
   // keep the data behind the verso's density stripes.
   function findNearestExtractedPopulation(color) {
-    const nearest = findNearestColor(color, lastExtractedColors ?? []);
+    const nearest = findNearestColor(color, extractionPipeline.getSnapshot().colors ?? []);
     return Number.isFinite(nearest?.color?.population) ? nearest.color.population : 0;
   }
 
@@ -594,66 +379,33 @@ export function createLivePreviewController({
   }
 
   function drawCurrentFrameToAnalysisCanvas() {
-    if (!analysisContext || analysisWidth <= 0 || analysisHeight <= 0) {
-      return false;
-    }
-
-    drawFrameToCanvas({
-      context: analysisContext,
-      cameraFeed,
-      width: analysisWidth,
-      height: analysisHeight,
+    return frameAcquisition.drawCurrentFrameToAnalysisCanvas({
       facingMode: cameraController.getFacingMode(),
       shouldMirrorUserFacing: getShouldMirrorUserFacingCamera(),
-      sourceRect: getCameraFrameSourceRect(),
     });
-
-    return true;
   }
 
   function copyVisibleFrameToAnalysisCanvas() {
-    if (
-      !analysisContext ||
-      !frameCanvas ||
-      analysisWidth <= 0 ||
-      analysisHeight <= 0 ||
-      frameWidth <= 0 ||
-      frameHeight <= 0
-    ) {
-      return false;
-    }
-
-    analysisContext.drawImage(
-      frameCanvas,
-      0,
-      0,
-      frameWidth,
-      frameHeight,
-      0,
-      0,
-      analysisWidth,
-      analysisHeight,
-    );
-
-    return true;
+    return frameAcquisition.copyVisibleFrameToAnalysisCanvas();
   }
 
-  function readCurrentRalMatch(context = frameContext, width = frameWidth, height = frameHeight) {
+  function readCurrentRalMatch(
+    context = frameContext,
+    width = frameAcquisition.getDimensions().frameWidth,
+    height = frameAcquisition.getDimensions().frameHeight,
+  ) {
     return ralPreview.readCurrentMatch(context, width, height);
   }
 
-  function getCameraTrackSettings(now = performance.now()) {
-    if (
-      cachedCameraTrackSettings &&
-      now - cameraTrackSettingsRefreshedAt < CAMERA_TRACK_SETTINGS_REFRESH_MS
-    ) {
+  function getCameraTrackSettings(now = timing.now()) {
+    if (!timing.shouldRefreshCameraSettings(now, Boolean(cachedCameraTrackSettings))) {
       return cachedCameraTrackSettings;
     }
 
     const stream = cameraFeed?.srcObject;
     cachedCameraTrackSettings =
       stream instanceof MediaStream ? (stream.getVideoTracks()[0]?.getSettings?.() ?? null) : null;
-    cameraTrackSettingsRefreshedAt = now;
+    timing.markCameraSettingsRefreshed(now);
     return cachedCameraTrackSettings;
   }
 
@@ -667,16 +419,18 @@ export function createLivePreviewController({
   function refresh(rafTimestamp = 0) {
     if (
       !isStreaming ||
-      !analysisContext ||
+      !activeAnalysisContext ||
       (shouldUseCanvasPreview && !frameContext) ||
       !paletteContext
     ) {
       return;
     }
 
+    const { analysisHeight, analysisWidth, frameHeight, frameWidth, paletteHeight, paletteWidth } =
+      frameAcquisition.getDimensions();
     if (
-      cachedPaletteWidth <= 0 ||
-      cachedPaletteHeight <= 0 ||
+      paletteWidth <= 0 ||
+      paletteHeight <= 0 ||
       frameWidth <= 0 ||
       frameHeight <= 0 ||
       analysisWidth <= 0 ||
@@ -687,20 +441,14 @@ export function createLivePreviewController({
       scheduleRefresh();
       return;
     }
-    const frameStartTime = performance.now();
-    let analysisDurationMs = latestPaletteWorkerDurationMs;
-    latestPaletteWorkerDurationMs = null;
+    const frameStartTime = timing.now();
+    let analysisDurationMs = extractionPipeline.takeLatestWorkerDurationMs();
     const currentCaptureMode = getCurrentCaptureMode();
 
     if (shouldUseCanvasPreview) {
-      drawFrameToCanvas({
-        context: frameContext,
-        cameraFeed,
-        width: frameWidth,
-        height: frameHeight,
+      frameAcquisition.drawPreview({
         facingMode: cameraController.getFacingMode(),
         shouldMirrorUserFacing: getShouldMirrorUserFacingCamera(),
-        sourceRect: getCameraFrameSourceRect(),
       });
     }
 
@@ -709,87 +457,58 @@ export function createLivePreviewController({
       // Force a repaint + glow refresh on the next palette frame.
       lastPaintedColors = null;
     } else if (currentCaptureMode === "ral") {
-      if (smoothedMarkerPositions.length > 0) {
+      if (originMarkerModel.hasActivity()) {
         clearOriginMarkers();
       }
-      const analysisStartTime = performance.now();
+      const analysisStartTime = timing.now();
       if (!shouldUseCanvasPreview) {
         drawCurrentFrameToAnalysisCanvas();
       }
 
       readCurrentRalMatch(
-        shouldUseCanvasPreview ? frameContext : analysisContext,
+        shouldUseCanvasPreview ? frameContext : activeAnalysisContext,
         shouldUseCanvasPreview ? frameWidth : analysisWidth,
         shouldUseCanvasPreview ? frameHeight : analysisHeight,
       );
-      analysisDurationMs = performance.now() - analysisStartTime;
+      analysisDurationMs = timing.now() - analysisStartTime;
     } else {
-      if (frameStartTime - lastExtractionAt >= EXTRACTION_MIN_INTERVAL_MS || !lastExtractedColors) {
-        const analysisStartTime = performance.now();
+      if (timing.shouldExtract(frameStartTime, Boolean(extractionPipeline.getSnapshot().colors))) {
+        const analysisStartTime = timing.now();
         const analysisFrameReady = shouldUseCanvasPreview
           ? copyVisibleFrameToAnalysisCanvas()
           : drawCurrentFrameToAnalysisCanvas();
 
         if (analysisFrameReady) {
-          lastExtractionAt = frameStartTime;
-          const frameImageData = analysisContext.getImageData(
-            0,
-            0,
-            analysisWidth,
-            analysisHeight,
-          ).data;
-          const extractionDelegatedToWorker = paletteExtractionWorker.requestExtraction({
+          timing.markExtracted(frameStartTime);
+          const frameImageData = frameAcquisition.readAnalysisPixels();
+          if (!frameImageData) {
+            scheduleRefresh();
+            return;
+          }
+          const extraction = extractionPipeline.request({
             imageData: frameImageData,
             width: analysisWidth,
             height: analysisHeight,
             swatchCount: getEffectiveSwatchCount(),
-            options: getPaletteExtractionOptions(),
-            frozenColors: frozenPins.getEntries(),
+            medianCutSettings: getMedianCutExtractionSettings(),
+            hybridSettings: getHybridSettings(),
+            frozenEntries: frozenPins.getEntries(),
           });
 
-          if (!extractionDelegatedToWorker) {
-            const result = extractPaletteColors(
-              frameImageData,
-              analysisWidth,
-              analysisHeight,
-              getEffectiveSwatchCount(),
-              getPaletteExtractionOptions(),
-            );
-
-            lastExtractedColors = result.colors;
-            lastExtractedOrigins = originTracker.compute(
-              frameImageData,
-              analysisWidth,
-              analysisHeight,
-              result.colors,
-            );
-            checkFrozenSceneChange(result.colors);
-            if (frozenPins.size() > 0) {
-              const frozenEntries = frozenPins.getEntries();
-              const presence = computeColorPresence(
-                frameImageData,
-                analysisWidth,
-                analysisHeight,
-                frozenEntries.map((entry) => entry.color),
-              );
-              processFrozenPresence(
-                frozenEntries.map((entry, index) => ({
-                  slot: entry.slot,
-                  presence: presence[index] ?? 0,
-                })),
-              );
-            }
-            analysisDurationMs = performance.now() - analysisStartTime;
+          if (!extraction.delegated) {
+            applyExtractionResult(extraction.result);
+            analysisDurationMs = timing.now() - analysisStartTime;
           }
         }
       }
 
-      if (!lastExtractedColors || lastExtractedColors.length === 0) {
+      const extractedColors = extractionPipeline.getSnapshot().colors;
+      if (!extractedColors || extractedColors.length === 0) {
         scheduleRefresh();
         return;
       }
 
-      const smoothedColors = colorSmoother.smooth(lastExtractedColors, PREVIEW_SMOOTHING_FACTOR);
+      const smoothedColors = colorSmoother.smooth(extractedColors, PREVIEW_SMOOTHING_FACTOR);
       const liveColors = getOneMoreColor() ? removeDarkestColor(smoothedColors) : smoothedColors;
       const displayColors = frozenPins.applyToColors(liveColors);
 
@@ -835,7 +554,7 @@ export function createLivePreviewController({
       captureMode: currentCaptureMode,
       extractionIntervalMs: currentCaptureMode === "ral" ? null : EXTRACTION_MIN_INTERVAL_MS,
       rafTimestamp,
-      refreshDurationMs: performance.now() - frameStartTime,
+      refreshDurationMs: timing.now() - frameStartTime,
       sourceHeight: cameraFeed.videoHeight,
       sourceWidth: cameraFeed.videoWidth,
       streaming: isStreaming,
@@ -851,15 +570,11 @@ export function createLivePreviewController({
     getCapturePaletteColors,
     getEffectiveSwatchCount,
     getFrameContext: () => frameContext,
-    getFrameHeight: () => frameHeight,
-    getFrameWidth: () => frameWidth,
+    getFrameHeight: () => frameAcquisition.getDimensions().frameHeight,
+    getFrameWidth: () => frameAcquisition.getDimensions().frameWidth,
     getIsStreaming: () => isStreaming,
-    handleWorkerResult({ colors, durationMs, origins, frozenPresence }) {
-      latestPaletteWorkerDurationMs = durationMs;
-      lastExtractedColors = colors;
-      lastExtractedOrigins = Array.isArray(origins) ? origins : [];
-      checkFrozenSceneChange(colors);
-      processFrozenPresence(frozenPresence);
+    handleWorkerResult(result) {
+      applyExtractionResult(extractionPipeline.acceptWorkerResult(result));
     },
     readCurrentRalMatch,
     recordStoppedFrame,

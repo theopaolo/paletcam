@@ -8,6 +8,7 @@
  * Code is numeric (e.g. 1000) — display as "RAL 1000".
  */
 
+/** @type {Array<[number, string, number, number, number]>} */
 // prettier-ignore
 const RAL_CLASSIC_RAW = [
   // ── 1xxx Yellow shades ──────────────────────────────────────────────

@@ -2,6 +2,10 @@
 //  Domain models
 // ---------------------------------------------------------------------------
 
+interface Window {
+  __sharedPanelEscapeHandlerBound?: boolean;
+}
+
 /** An RGB color with integer channels (0–255). */
 interface RgbColor {
   r: number;
@@ -38,7 +42,7 @@ type ModerationStatus = "TO_MODERATE" | "PUBLIC" | "REJECTED" | "PRIVATE";
 /** A saved palette entry as stored in IndexedDB. Legacy entries may lack capture metadata. */
 interface PolaroidRenderSettings {
   footerLabel: string;
-  showColorNames: boolean;
+  showColorNames?: boolean;
 }
 
 interface Palette {
@@ -48,6 +52,10 @@ interface Palette {
   photoBlob?: Blob | null;
   previewBlob?: Blob | null;
   previewFooterLabel?: string | null;
+  previewGalleryBlob?: Blob | null;
+  previewGalleryFooterLabel?: string | null;
+  previewViewerBlob?: Blob | null;
+  previewViewerFooterLabel?: string | null;
   hasPhotoAsset?: boolean;
   captureAspectRatio?: string;
   captureCropRect?: CropRect | null;
@@ -56,10 +64,42 @@ interface Palette {
   polaroidRenderSettings?: PolaroidRenderSettings | null;
   polaroidColorNames?: string[] | null;
   remoteCatchId: string | null;
+  remoteOwnerAccountKey: string | null;
   moderationStatus: ModerationStatus | null;
   postedAt: string | null;
   moderationUpdatedAt: string | null;
   lastModerationCheckAt: string | null;
+}
+
+type PalettePreviewVariant = "gallery" | "viewer";
+
+interface PaletteAssetRecord {
+  paletteId: number;
+  photoBlob: Blob;
+}
+
+interface PalettePreviewRecord {
+  paletteId: number;
+  variant: PalettePreviewVariant;
+  blob: Blob;
+  footerLabel: string | null;
+}
+
+interface PaletteStorageMetadataRecord {
+  key: string;
+  version?: number;
+  completedAt?: string;
+  sessionId?: string;
+  state?: "staging";
+  stagedCount?: number;
+  createdAtMs?: number;
+  updatedAtMs?: number;
+}
+
+interface PaletteImportStagingRecord {
+  sessionId: string;
+  ordinal: number;
+  palette: Omit<Palette, "id"> & { photoBlob: Blob };
 }
 
 /** Copy-mode identifiers used throughout the UI. */
@@ -87,7 +127,14 @@ type QuantizationColorSpace = "rgb" | "oklch";
 interface MedianCutSettings {
   quantizedPoolSize: number;
   maxQuantizerPixels: number;
-  colorSpace: QuantizationColorSpace;
+}
+
+interface HybridSettings {
+  repulsionRadius: number;
+  spreadStrength: number;
+  rarityStrength: number;
+  tone: number;
+  loyaltyStrength: number;
 }
 
 interface PaletteScoringWeights {
@@ -103,11 +150,11 @@ interface AppSettings {
   locale: "fr" | "en";
   performanceHudEnabled: boolean;
   oneMoreColor: boolean;
+  originBadgesEnabled: boolean;
   photoQualityMode: "sd" | "hd" | "fhd";
   polaroidFooterLabel: string;
-  polaroidShowColorNames: boolean;
   medianCut: MedianCutSettings;
-  paletteScoring: PaletteScoringWeights;
+  hybrid: HybridSettings;
 }
 
 /** Deep-partial variant for updateAppSettings — nested groups accept partial patches. */
@@ -117,11 +164,11 @@ interface AppSettingsPatch {
   locale?: "fr" | "en";
   performanceHudEnabled?: boolean;
   oneMoreColor?: boolean;
+  originBadgesEnabled?: boolean;
   photoQualityMode?: "sd" | "hd" | "fhd";
   polaroidFooterLabel?: string;
-  polaroidShowColorNames?: boolean;
   medianCut?: Partial<MedianCutSettings>;
-  paletteScoring?: Partial<PaletteScoringWeights>;
+  hybrid?: Partial<HybridSettings>;
 }
 
 interface AppSettingsStore {
@@ -161,6 +208,19 @@ interface PaletteDeleteRemoteCleanupResult {
     | "authentication_required"
     | "failed";
   success: boolean;
+}
+
+interface CommunityDeleteOutboxRecord {
+  key: string;
+  accountKey: string;
+  attemptCount: number;
+  enqueuedAt: string;
+  lastAttemptAt: string | null;
+  nextAttemptAt: string | null;
+  remoteCatchId: string;
+  leaseOwner: string | null;
+  leaseToken: string | null;
+  leaseExpiresAt: string | null;
 }
 
 interface PublicationMeta {
@@ -207,7 +267,14 @@ interface HueRarityMap {
 
 interface PaletteExtractionResult {
   colors: RgbColor[];
-  chosenIndices: number[];
+  chosenIndices?: number[];
+  candidates?: unknown[];
+  neutralCount?: number;
+  neutralThreshold?: number;
+}
+
+interface HybridExtractionSettings extends Partial<HybridSettings> {
+  previousColors?: RgbColor[];
 }
 
 interface PaletteExtractionOptions {
@@ -216,6 +283,7 @@ interface PaletteExtractionOptions {
   colorSpace?: QuantizationColorSpace;
   grid?: Partial<GridSettings>;
   medianCut?: Partial<MedianCutSettings>;
+  hybrid?: HybridExtractionSettings;
   scoring?: Partial<PaletteScoringWeights> | ScoringProfile;
 }
 
@@ -309,6 +377,7 @@ interface UndoToastOptions {
   duration?: number;
   onUndo?: () => void;
   onExpire?: () => void;
+  onDismiss?: (reason: "user-dismiss" | "swipe" | "interrupted" | "programmatic") => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -478,9 +547,43 @@ interface CaptureMicroInteractions {
   triggerCaptureFlash(): void;
 }
 
+interface FrozenPinEntry {
+  color: RgbColor;
+  position: { x: number; y: number } | null;
+}
+
+interface FrozenPinStore {
+  freeze(
+    slot: number,
+    color: RgbColor,
+    position: { x: number; y: number } | null,
+    sceneColors: RgbColor[],
+  ): void;
+  release(slot: number): Array<{ slot: number; entry: FrozenPinEntry }>;
+  releaseAll(): Array<{ slot: number; entry: FrozenPinEntry }>;
+  get(slot: number): FrozenPinEntry | null;
+  getEntries(): Array<{ slot: number; color: RgbColor }>;
+  has(slot: number): boolean;
+  size(): number;
+  applyToColors(colors: RgbColor[]): RgbColor[];
+  checkSceneChange(colors: RgbColor[]): Array<{ slot: number; entry: FrozenPinEntry }>;
+  processPresence(
+    presence: Array<{ slot: number; presence: number }>,
+  ): Array<{ slot: number; entry: FrozenPinEntry }>;
+  reset(): void;
+}
+
+interface PerformanceHudController {
+  destroy(): void;
+  recordFrame(metrics: Record<string, unknown>): void;
+  renderHud(now?: number): void;
+  setEnabled(enabled: boolean): void;
+}
+
 interface VisualEffects {
   setCaptureButtonGlowColor(color: RgbColor): void;
   setCaptureGlowActive(isActive: boolean): void;
+  setPaletteRibbon(colors: RgbColor[]): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -494,14 +597,15 @@ interface CardPositionSnapshot {
 
 interface CollectionCardLifecycle {
   ensureEmptyMessage(): void;
-  syncSessionStateFromCardContainer(cardContainer: HTMLElement | null): void;
+  syncDayStateFromCardContainer(cardContainer: HTMLElement | null): void;
   takeCardPositionSnapshot(card: HTMLElement): CardPositionSnapshot;
-  restoreCardFromSnapshot(card: HTMLElement, snapshot: CardPositionSnapshot): void;
+  restoreCardFromSnapshot(card: HTMLElement, snapshot: CardPositionSnapshot): boolean;
 }
 
 interface PreviewAsset {
   blob: Blob;
-  objectUrl: string;
+  objectUrl?: string;
+  source?: string;
 }
 
 interface ShareResult {
@@ -515,10 +619,12 @@ interface ShareResult {
 interface PaletteViewerOpenOptions {
   palettes?: Palette[];
   initialIndex?: number;
+  returnFocusTarget?: HTMLElement | null;
   getPalettes?: () => Palette[];
   getPreviewAsset?: (palette: Palette) => Promise<PreviewAsset>;
   onShare?: (palette: Palette) => void | Promise<void>;
   onExport?: (palette: Palette) => void | Promise<void>;
+  onExportVerso?: (palette: Palette) => void | Promise<void>;
   onPublish?: (palette: Palette) => void | Promise<void>;
   onDelete?: (palette: Palette) => void | Promise<void>;
   getPublishAction?: (palette: Palette) => PublicationAction;
@@ -558,30 +664,55 @@ interface CommunityServiceError extends Error {
 //  Vendor shims
 // ---------------------------------------------------------------------------
 
-interface PaletcamDexieTable {
-  add(item: object): Promise<number>;
+interface PaletcamDexieCollection<TRecord = Palette, TKey = number> {
+  delete(): Promise<number>;
+  modify(fn: (item: TRecord) => void): Promise<number>;
+  primaryKeys(): Promise<TKey[]>;
+}
+
+interface PaletcamDexieWhereClause<TRecord = Palette, TKey = number> {
+  equals(value: IDBValidKey): PaletcamDexieCollection<TRecord, TKey>;
+}
+
+interface PaletcamDexieTable<TRecord = Palette, TKey = number> {
+  add(item: object): Promise<TKey>;
+  bulkAdd(items: object[]): Promise<unknown>;
+  bulkDelete(keys: TKey[]): Promise<void>;
+  bulkGet(keys: TKey[]): Promise<Array<TRecord | undefined>>;
   bulkPut(items: object[]): Promise<number>;
-  get(key: number): Promise<Palette | undefined>;
-  put(item: object): Promise<number>;
-  update(key: number, changes: object): Promise<number>;
-  delete(key: number): Promise<void>;
-  reverse(): PaletcamDexieTable;
-  toArray(): Promise<Palette[]>;
-  toCollection(): { modify(fn: (item: Palette) => void): Promise<number> };
+  bulkUpdate(items: Array<{ key: TKey; changes: object }>): Promise<number>;
+  get(key: TKey): Promise<TRecord | undefined>;
+  put(item: object): Promise<TKey>;
+  update(key: TKey, changes: object): Promise<number>;
+  delete(key: TKey): Promise<void>;
+  clear(): Promise<void>;
+  orderBy(index: string): PaletcamDexieTable<TRecord, TKey>;
+  reverse(): PaletcamDexieTable<TRecord, TKey>;
+  toArray(): Promise<TRecord[]>;
+  toCollection(): PaletcamDexieCollection<TRecord, TKey>;
+  where(index: string): PaletcamDexieWhereClause<TRecord, TKey>;
 }
 
 interface PaletcamDb {
   version(ver: number): {
     stores(schema: Record<string, string>): {
-      upgrade(fn: (tx: { table(name: string): PaletcamDexieTable }) => Promise<void> | void): void;
+      upgrade(
+        // biome-ignore lint/suspicious/noExplicitAny: Dexie migration tables are selected dynamically by schema name.
+        fn: (tx: { table(name: string): PaletcamDexieTable<any, any> }) => Promise<void> | void,
+      ): void;
     };
   };
-  transaction(
+  transaction<TResult = void>(
     mode: "rw" | "r",
-    ...args: [...PaletcamDexieTable[], () => Promise<void>]
-  ): Promise<void>;
-  palettes: PaletcamDexieTable;
-  paletteAssets: PaletcamDexieTable;
+    // biome-ignore lint/suspicious/noExplicitAny: Transactions accept heterogeneous Dexie table instances.
+    ...args: [...PaletcamDexieTable<any, any>[], () => Promise<TResult> | TResult]
+  ): Promise<TResult>;
+  palettes: PaletcamDexieTable<Palette, number>;
+  paletteAssets: PaletcamDexieTable<PaletteAssetRecord, number>;
+  palettePreviews: PaletcamDexieTable<PalettePreviewRecord, [number, PalettePreviewVariant]>;
+  paletteStorageMetadata: PaletcamDexieTable<PaletteStorageMetadataRecord, string>;
+  communityDeleteOutbox: PaletcamDexieTable<CommunityDeleteOutboxRecord, string>;
+  paletteImportStaging: PaletcamDexieTable<PaletteImportStagingRecord, [string, number]>;
 }
 
 interface CapacitorLike {
@@ -605,11 +736,7 @@ interface Navigator {
 declare const __COMMUNITY_BASE_URL__: string;
 declare const __PALETCAM_LOG_API_BASE_URL__: string;
 declare const __PALETCAM_DEPLOY_BRANCH__: string;
+declare const __PALETCAM_DEBUG_TOOLS__: boolean;
+declare const __PALETCAM_BUILD_ARTIFACT__: boolean;
 declare const __APP_VERSION__: string;
 declare const __COMMIT_HASH__: string;
-
-declare module "bun:test" {
-  export function describe(name: string, fn: () => void): void;
-  export function test(name: string, fn: () => void | Promise<void>): void;
-  export function expect(value: unknown): unknown;
-}

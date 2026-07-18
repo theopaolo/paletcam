@@ -4,6 +4,7 @@ import { formatErrorDetails } from "../error-format.js";
 import { showToast } from "../toast-ui.js";
 import { t } from "../../i18n.js";
 import { supportsCameraStartup, waitForDelay } from "../platform.js";
+import { recordOperationalMetric } from "../operational-metrics.js";
 
 const CAMERA_HEALTH_CHECK_DELAY_MS = 320;
 const CAMERA_MIN_TIME_ADVANCE_SECONDS = 0.05;
@@ -24,15 +25,19 @@ export function createCameraLifecycleController({
   syncCameraFeedOrientation,
   syncCameraViewportLayout,
   updateCachedPreviewDimensions,
+  now = () => performance.now(),
+  recordMetric = recordOperationalMetric,
 }) {
   let isInitialStartupComplete = false;
   let shouldResumeCameraOnForeground = false;
   let cameraResumeTimeoutId = 0;
   let cameraResumeAttemptId = 0;
   let activeCameraStartPromise = null;
+  let isSurfaceSuspended = false;
 
   function syncActionAvailability() {
-    const shouldDisableActions = !supportsCameraStartup() || Boolean(activeCameraStartPromise);
+    const shouldDisableActions =
+      isSurfaceSuspended || !supportsCameraStartup() || Boolean(activeCameraStartPromise);
     if (captureButton) captureButton.disabled = shouldDisableActions;
     if (rotateButton) rotateButton.disabled = shouldDisableActions;
     captureButton?.classList.toggle("is-loading", Boolean(activeCameraStartPromise));
@@ -99,7 +104,7 @@ export function createCameraLifecycleController({
   }
 
   function finalizeStartedCameraStream(started) {
-    if (!started) {
+    if (!started || isSurfaceSuspended) {
       return false;
     }
 
@@ -117,9 +122,15 @@ export function createCameraLifecycleController({
     return true;
   }
 
-  async function runStartOperation(startOperation) {
+  async function runStartOperation(startOperation, operation) {
+    if (isSurfaceSuspended) {
+      syncActionAvailability();
+      return false;
+    }
+
     if (!supportsCameraStartup()) {
       syncActionAvailability();
+      recordMetric("camera-start", { operation, outcome: "unavailable", durationMs: 0 });
       return false;
     }
 
@@ -127,15 +138,31 @@ export function createCameraLifecycleController({
       return activeCameraStartPromise;
     }
 
+    const startedAt = now();
     const startPromise = (async () => {
       cancelScheduledResume();
       invalidateResumeChecks();
       livePreviewController.setStreaming(false);
       livePreviewController.cancelRefresh();
 
-      const started = await startOperation();
-
-      return finalizeStartedCameraStream(started);
+      try {
+        const started = await startOperation();
+        const finalized = finalizeStartedCameraStream(started);
+        recordMetric("camera-start", {
+          operation,
+          outcome: finalized ? "success" : "failure",
+          durationMs: now() - startedAt,
+        });
+        return finalized;
+      } catch (error) {
+        recordMetric("camera-start", {
+          operation,
+          outcome: "failure",
+          durationMs: now() - startedAt,
+          errorName: error?.name ?? "Error",
+        });
+        throw error;
+      }
     })();
 
     activeCameraStartPromise = startPromise;
@@ -162,7 +189,7 @@ export function createCameraLifecycleController({
   }
 
   function shouldHandleCameraLifecycle() {
-    return !getIsAppDestroyed() && Boolean(cameraFeed);
+    return !isSurfaceSuspended && !getIsAppDestroyed() && Boolean(cameraFeed);
   }
 
   function getShouldKeepCameraWarmInBackground() {
@@ -381,16 +408,20 @@ export function createCameraLifecycleController({
   }
 
   async function startCameraStream() {
-    return runStartOperation(() => cameraController.startStream());
+    return runStartOperation(() => cameraController.startStream(), "start");
   }
 
   async function rotateCamera() {
     stopCurrentStream({ preserveResumeIntent: true });
-    await runStartOperation(() => cameraController.toggleFacingMode());
+    return runStartOperation(() => cameraController.toggleFacingMode(), "rotate");
   }
 
   function handleCameraCanPlay() {
-    if (cameraFeed.videoWidth <= 0 || cameraFeed.videoHeight <= 0) {
+    if (
+      !shouldHandleCameraLifecycle() ||
+      cameraFeed.videoWidth <= 0 ||
+      cameraFeed.videoHeight <= 0
+    ) {
       return;
     }
 
@@ -409,8 +440,10 @@ export function createCameraLifecycleController({
     shouldResumeCameraOnForeground = preserveResumeIntent;
     invalidateResumeChecks();
     cancelScheduledResume();
+    activeCameraStartPromise = null;
     pauseCameraPreview();
     cameraController.stopStream();
+    syncActionAvailability();
   }
 
   return {
@@ -423,7 +456,18 @@ export function createCameraLifecycleController({
     handleStreamInterrupted,
     handleWindowFocus,
     handleWindowPageShow,
+    isStartPending() {
+      return Boolean(activeCameraStartPromise);
+    },
     rotateCamera,
+    setSurfaceSuspended(nextIsSuspended) {
+      isSurfaceSuspended = Boolean(nextIsSuspended);
+      if (isSurfaceSuspended) {
+        invalidateResumeChecks();
+        cancelScheduledResume();
+      }
+      syncActionAvailability();
+    },
     setInitialStartupComplete() {
       isInitialStartupComplete = true;
     },

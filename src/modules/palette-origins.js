@@ -359,7 +359,7 @@ const MARKER_RADIUS = 11;
  * markers get an extra white ring so a pinned color reads as "locked".
  *
  * @param {CanvasRenderingContext2D} context
- * @param {Array<{x: number, y: number, color: {r: number, g: number, b: number}, label: string | number, frozen?: boolean}>} markers
+ * @param {Array<{x: number, y: number, color: {r: number, g: number, b: number}, label: string | number, frozen?: boolean, clamp?: boolean, rotation?: number, scale?: number, alpha?: number}>} markers
  *   x/y normalized 0-1
  * @param {number} width  CSS pixel width of the overlay
  * @param {number} height CSS pixel height of the overlay

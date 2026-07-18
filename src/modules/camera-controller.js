@@ -30,6 +30,7 @@ export function createCameraController({
   /** @type {Promise<boolean> | null} */
   let activeStartPromise = null;
   let streamRevision = 0;
+  let isDestroyed = false;
   /** @type {Array<() => void>} */
   const trackEventCleanups = [];
 
@@ -72,6 +73,15 @@ export function createCameraController({
     return cameraFeed?.srcObject instanceof MediaStream
       ? /** @type {MediaStream} */ (cameraFeed.srcObject)
       : null;
+  }
+
+  function releaseStream(stream) {
+    stream?.getTracks?.().forEach((track) => {
+      track.stop();
+    });
+    if (cameraFeed?.srcObject === stream) {
+      cameraFeed.srcObject = null;
+    }
   }
 
   function notifyStreamInterrupted(type) {
@@ -281,7 +291,9 @@ export function createCameraController({
     }
 
     try {
-      await videoTrack.applyConstraints({ advanced: [nextConstraintSet] });
+      await videoTrack.applyConstraints({
+        advanced: [/** @type {MediaTrackConstraintSet} */ (nextConstraintSet)],
+      });
       syncTrackControlsFromSettings();
       notifyZoomChange();
       notifyExposureChange();
@@ -340,18 +352,15 @@ export function createCameraController({
       return;
     }
 
-    stream.getTracks().forEach((track) => {
-      track.stop();
-    });
+    releaseStream(stream);
     cameraFeed?.pause?.();
-    cameraFeed.srcObject = null;
     videoTrack = null;
     currentMeteringPoint = null;
     notifyCameraActiveChange(false);
   }
 
   async function startStream() {
-    if (!cameraFeed) {
+    if (!cameraFeed || isDestroyed) {
       return false;
     }
 
@@ -364,6 +373,7 @@ export function createCameraController({
     const startRevision = streamRevision;
 
     const currentStartPromise = (async () => {
+      let acquiredStream = null;
       try {
         const videoConstraintCandidates = [
           {
@@ -376,10 +386,9 @@ export function createCameraController({
           true,
         ];
 
-        let stream = null;
         for (const video of videoConstraintCandidates) {
           try {
-            stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+            acquiredStream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
             break;
           } catch (err) {
             if (getErrorName(err) !== "OverconstrainedError") {
@@ -388,37 +397,40 @@ export function createCameraController({
           }
         }
 
-        if (!stream) {
+        if (!acquiredStream) {
           throw new DOMException("Camera unavailable", "OverconstrainedError");
         }
 
         if (startRevision !== streamRevision) {
-          stream.getTracks().forEach((track) => {
-            track.stop();
-          });
+          releaseStream(acquiredStream);
           return false;
         }
 
-        cameraFeed.srcObject = stream;
+        cameraFeed.srcObject = acquiredStream;
         await cameraFeed.play();
 
         if (startRevision !== streamRevision) {
-          stream.getTracks().forEach((track) => {
-            track.stop();
-          });
-          if (cameraFeed.srcObject === stream) {
-            cameraFeed.srcObject = null;
-          }
+          releaseStream(acquiredStream);
           return false;
         }
 
-        bindVideoTrack(stream.getVideoTracks()[0] ?? null);
+        bindVideoTrack(acquiredStream.getVideoTracks()[0] ?? null);
         syncTrackControlsFromSettings();
         await applyTrackControls();
+
+        if (startRevision !== streamRevision) {
+          releaseStream(acquiredStream);
+          return false;
+        }
+
         notifyCameraActiveChange(true);
 
         return true;
       } catch (error) {
+        releaseStream(acquiredStream);
+        if (startRevision !== streamRevision || isDestroyed) {
+          return false;
+        }
         notifyCameraActiveChange(false);
         const name = getErrorName(error);
         if (name === "NotAllowedError" || name === "OverconstrainedError") {
@@ -443,6 +455,9 @@ export function createCameraController({
   }
 
   async function toggleFacingMode() {
+    if (isDestroyed) {
+      return false;
+    }
     facingMode = facingMode === "environment" ? "user" : "environment";
     currentZoom = 1;
     currentExposureCompensation = 0;
@@ -513,6 +528,7 @@ export function createCameraController({
   }
 
   function destroy() {
+    isDestroyed = true;
     stopStream();
   }
 

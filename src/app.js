@@ -1,5 +1,4 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
-import { openDirectPaletteViewer, PALETTE_DELETED_EVENT } from "./collection-ui.js";
 import { setLocale, t } from "./i18n.js";
 import { createCameraController } from "./modules/camera-controller.js";
 import { renderOutputSwatches } from "./modules/camera-ui.js";
@@ -12,72 +11,82 @@ import {
 } from "./modules/photo-quality-ui.js";
 import { createCaptureMicroInteractions } from "./modules/micro-interactions.js";
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
-import { createPerformanceHudController } from "./modules/performance-hud.js";
+import { createPerformanceHudBridge } from "./modules/performance-hud-bridge.js";
 import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
+import { initializeStorageHealth } from "./modules/storage-health.js";
+import { recordOperationalMetric, recordSessionStarted } from "./modules/operational-metrics.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
 import { createCameraLifecycleController } from "./modules/app/camera-lifecycle-controller.js";
+import { createCameraSurfaceLifecycleController } from "./modules/app/camera-surface-lifecycle-controller.js";
 import { createCaptureController } from "./modules/app/capture-controller.js";
 import { CAMERA_FRAME_ASPECT_RATIO, getContainedSize } from "./modules/app/geometry.js";
 import { createLivePreviewController } from "./modules/app/live-preview-controller.js";
+import { createPanelCameraUiController } from "./modules/app/panel-camera-ui-controller.js";
+import {
+  COLLECTION_SURFACE_NAME,
+  createCollectionEntryController,
+  VIEWER_SURFACE_NAME,
+} from "./modules/app/collection-entry-controller.js";
 import { isIOSDevice, supportsCameraStartup } from "./modules/platform.js";
 import { createPhotoOutputController } from "./modules/app/photo-output.js";
 import { createRalPreviewController } from "./modules/app/ral-preview.js";
 import { createViewportHeightController } from "./modules/app/viewport-height.js";
+import { createAppView, hasRequiredAppViewElements } from "./modules/app/app-view.js";
+import { terminateAppLifetime } from "./modules/app-terminal-lifecycle.js";
 import { initCommunityHomepageLink } from "./community-homepage-link.js";
 import "./modules/panels/config-panel.js";
 import "./modules/panels/settings-panel.js";
+import { initializePaletteStorage, subscribePaletteDatabaseLifecycle } from "./palette-storage.js";
 
-bindUncaughtErrorHandlers();
+const unbindUncaughtErrorHandlers = bindUncaughtErrorHandlers();
+recordSessionStarted();
 setLocale(getAppSettings().locale, { force: true });
+void initializePaletteStorage({
+  polaroidRenderSettings: { footerLabel: getAppSettings().polaroidFooterLabel },
+}).catch(() => {
+  showToast(t("storage.database.maintenanceFailed"), {
+    variant: "error",
+    duration: 8000,
+  });
+});
 
-const cameraFeed = /** @type {HTMLVideoElement | null} */ (document.querySelector(".camera-feed"));
-const captureButton = /** @type {HTMLButtonElement | null} */ (
-  document.querySelector(".btn-capture")
-);
-const captureModeToggle = /** @type {HTMLButtonElement | null} */ (
-  document.querySelector(".btn-capture-mode-toggle")
-);
-const allowButton = /** @type {HTMLElement | null} */ (document.querySelector(".btn-allow-media"));
-const allowText = /** @type {HTMLElement | null} */ (
-  document.querySelector(".allow-container span")
-);
-const captureContainer = /** @type {HTMLElement | null} */ (document.querySelector(".capture"));
-const capturePaletteStage = /** @type {HTMLElement | null} */ (
-  document.querySelector(".capture-palette-stage")
-);
-const captureCameraStage = /** @type {HTMLElement | null} */ (
-  document.querySelector(".capture-camera-stage")
-);
-const cameraStageMount = document.getElementById("cameraStageMount");
-const cameraPreviewDock = document.getElementById("cameraPreviewDock");
-const photoOutput = /** @type {HTMLImageElement | null} */ (document.getElementById("photo"));
-const outputPalette = document.getElementById("outputPalette");
-const frameCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById("canvas"));
-const paletteCanvas = /** @type {HTMLCanvasElement | null} */ (
-  document.getElementById("canvas-palette")
-);
-const paletteLockOverlay = document.getElementById("paletteLockOverlay");
-const rotateButton = /** @type {HTMLButtonElement | null} */ (
-  document.querySelector(".btn-rotate")
-);
-const swatchSlider = /** @type {HTMLInputElement | null} */ (
-  document.querySelector('.swatch-slider input[type="range"]')
-);
-const ralReticle = document.getElementById("ralReticle");
-const ralLiveSwatch = document.getElementById("ralLiveSwatch");
-const ralLiveSwatchColor = document.getElementById("ralLiveSwatchColor");
-const ralLiveSwatchCode = document.getElementById("ralLiveSwatchCode");
-const ralLiveSwatchName = document.getElementById("ralLiveSwatchName");
-const ralLiveSwatchQuality = document.getElementById("ralLiveSwatchQuality");
-const slidersContainer = document.querySelector(".sliders-container");
-const paletteCaptureStage = document.querySelector(".capture-palette-stage");
-
-const cameraViewportFrame = document.createElement("div");
-const cameraSourceMount = document.createElement("div");
-const paletteOriginsOverlay = document.createElement("canvas");
+const appView = createAppView(document);
+const {
+  allowButton,
+  allowText,
+  cameraFeed,
+  cameraPreviewDock,
+  cameraSourceMount,
+  cameraStageMount,
+  cameraViewportFrame,
+  captureButton,
+  captureCameraStage,
+  captureContainer,
+  captureModeSection,
+  captureModeToggle,
+  capturePaletteStage,
+  configPanel,
+  frameCanvas,
+  outputPalette,
+  paletteCanvas,
+  paletteLockOverlay,
+  paletteOriginsOverlay,
+  photoOutput,
+  ralLiveSwatch,
+  ralLiveSwatchCode,
+  ralLiveSwatchColor,
+  ralLiveSwatchName,
+  ralLiveSwatchQuality,
+  ralReticle,
+  rotateButton,
+  slidersContainer,
+  swatchSlider,
+  viewCollectionButton,
+} = appView;
+const paletteCaptureStage = capturePaletteStage;
 paletteOriginsOverlay.className = "palette-origins-overlay";
 paletteOriginsOverlay.setAttribute("aria-hidden", "true");
 const isIOS = isIOSDevice();
@@ -107,6 +116,9 @@ let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let hybridSettings = { ...getAppSettings().hybrid };
 let lastCameraViewportLayout = null;
 let unsubscribeFromAppSettings = () => {};
+let unsubscribeFromDatabaseLifecycle = () => {};
+let destroyCommunityHomepageLink = () => {};
+let cancelDeferredDeleteOutboxInitialization = () => {};
 let isAppDestroyed = false;
 let currentLocale = getAppSettings().locale;
 let livePreviewController = null;
@@ -119,8 +131,11 @@ function bindManagedEventListener(target, eventName, listener) {
 const photoOutputController = createPhotoOutputController(photoOutput);
 const clearPhotoOutput = photoOutputController.clear;
 let cameraLifecycleController = null;
-const performanceHud = createPerformanceHudController({
+const performanceHud = createPerformanceHudBridge({
   initialEnabled: getAppSettings().performanceHudEnabled,
+  loadController: __PALETCAM_DEBUG_TOOLS__
+    ? () => import(new URL("debug/performance-hud.js", document.baseURI).href)
+    : null,
 });
 
 cameraViewportFrame.className = "camera-feed-frame";
@@ -142,6 +157,10 @@ const ralPreview = createRalPreviewController({
 });
 const paletteExtractionWorker = createPaletteExtractionWorkerController({
   onError: (error) => {
+    recordOperationalMetric("worker-fallback", {
+      worker: "palette-extraction",
+      errorName: error instanceof Error ? error.name : "Error",
+    });
     reportAppError(error, {
       logMessage: "Palette extraction worker unavailable.",
       consoleLevel: "warn",
@@ -286,7 +305,7 @@ function applyAppSettings({
   syncCaptureMode(captureMode);
 }
 
-captureModeToggle?.addEventListener("click", () => {
+bindManagedEventListener(captureModeToggle, "click", () => {
   const nextMode = currentCaptureMode === "ral" ? "palette" : "ral";
   updateAppSettings({ captureMode: nextMode });
 });
@@ -420,16 +439,25 @@ exposureUi = createExposureUiController({
 
 photoQualityUi = createPhotoQualityUiController({
   overlayHost: cameraViewportFrame,
-  onModeChange: (mode) => updateAppSettings({ photoQualityMode: mode }),
+  onModeChange: (mode) =>
+    updateAppSettings({ photoQualityMode: /** @type {"sd" | "hd" | "fhd"} */ (mode) }),
 });
 
 gridUi = createCameraGridUiController({
   overlayHost: cameraViewportFrame,
 });
 
+const panelCameraUi = createPanelCameraUiController({
+  cameraFeed,
+  configPanel,
+  zoomUi,
+  exposureUi,
+  photoQualityUi,
+  gridUi,
+});
+
 // The capture-mode toggle overlays the live preview like the grid/quality/EV
 // controls, so it moves into the viewport frame alongside them.
-const captureModeSection = document.querySelector(".capture-mode-section");
 if (captureModeSection) {
   cameraViewportFrame.appendChild(captureModeSection);
 }
@@ -452,6 +480,56 @@ cameraLifecycleController = createCameraLifecycleController({
   updateCachedPreviewDimensions: () => livePreviewController?.updateCachedDimensions() ?? false,
 });
 
+const cameraSurfaceLifecycleController = createCameraSurfaceLifecycleController({
+  isCameraActive: () =>
+    Boolean(livePreviewController?.getIsStreaming()) ||
+    Boolean(cameraController.getStreamState().hasStream) ||
+    Boolean(cameraLifecycleController?.isStartPending()),
+  suspendCamera: ({ shouldResume }) => {
+    cameraLifecycleController?.setSurfaceSuspended(true);
+    cameraLifecycleController?.stopCurrentStream({ preserveResumeIntent: shouldResume });
+  },
+  releaseCamera: ({ shouldResume }) => {
+    cameraLifecycleController?.setSurfaceSuspended(false);
+    return shouldResume ? cameraLifecycleController?.startCameraStream() : false;
+  },
+  onError: (error, operation) => {
+    reportAppError(error, {
+      logMessage: `Failed to ${operation} the camera for a full-screen surface.`,
+    });
+  },
+});
+
+const collectionEntryController = createCollectionEntryController({
+  photoOutput,
+  viewCollectionButton,
+  photoOutputController,
+  deletedEventTarget: window,
+  loadCollectionModule: () => import("./collection-ui.js"),
+  onLoadError: (error, operation) => {
+    reportAppError(error, {
+      logMessage:
+        operation === "viewer" ? "Failed to load collection viewer." : "Failed to load collection.",
+    });
+    showToast(t("collection.loadErrorToast"), { variant: "error", duration: 1800 });
+  },
+  onViewerPendingDelete: () => {
+    showToast(t("collection.viewerPendingDelete"), { duration: 1800 });
+  },
+  onViewerMissing: () => {
+    showToast(t("collection.viewerMissing"), { duration: 1800 });
+  },
+  onSurfaceOpening: cameraSurfaceLifecycleController.open,
+  onSurfaceOpenAbandoned: cameraSurfaceLifecycleController.close,
+});
+
+function handleSharedPanelClosed(event) {
+  const panelName = event?.detail?.panelName;
+  if (panelName === COLLECTION_SURFACE_NAME || panelName === VIEWER_SURFACE_NAME) {
+    cameraSurfaceLifecycleController.close(panelName);
+  }
+}
+
 function handleCaptureButtonClick(event) {
   event.preventDefault();
 
@@ -467,44 +545,12 @@ function handleCaptureButtonClick(event) {
   void captureController?.captureCurrentFrame();
 }
 
-async function handleMiniOutputClick() {
-  const paletteId = photoOutputController.getPaletteId();
-  if (!photoOutputController.hasPhoto() || paletteId === null) {
-    return;
-  }
-
-  const viewerOpenState = await openDirectPaletteViewer(paletteId);
-  if (viewerOpenState === "opened") {
-    return;
-  }
-
-  if (viewerOpenState === "pending-delete") {
-    showToast(t("collection.viewerPendingDelete"), {
-      duration: 1800,
-    });
-    return;
-  }
-
-  clearPhotoOutput();
-  showToast(t("collection.viewerMissing"), {
-    duration: 1800,
-  });
-}
-
 function handleWindowBeforeUnload() {
   destroyApp();
 }
 
 function initializeApp() {
-  if (
-    !cameraFeed ||
-    !captureButton ||
-    !captureContainer ||
-    !frameCanvas ||
-    !paletteCanvas ||
-    !cameraStageMount ||
-    !cameraPreviewDock
-  ) {
+  if (!hasRequiredAppViewElements(appView)) {
     reportAppError(null, {
       consoleMessage: "Missing required DOM elements for camera app initialization.",
       includeClientLog: false,
@@ -512,23 +558,32 @@ function initializeApp() {
     return;
   }
 
+  unsubscribeFromDatabaseLifecycle = subscribePaletteDatabaseLifecycle((eventType) => {
+    showToast(t(`storage.database.${eventType}`), {
+      variant: "error",
+      duration: 8000,
+    });
+  });
+
   isAppDestroyed = false;
   viewportHeightController?.sync();
   applyAppSettings(getAppSettings());
   setPreviewExpanded(true);
   bindCameraPermissionEvents();
   bindCaptureEvents();
-  bindMiniOutputEvents();
+  collectionEntryController.bindEvents();
   zoomUi.bindEvents();
   exposureUi.bindEvents();
   photoQualityUi.bindEvents();
   gridUi.bindEvents();
   bindRotationEvents();
   swatchSliderUi.bindEvents();
+  panelCameraUi.bind();
   bindManagedEventListener(window, "beforeunload", handleWindowBeforeUnload);
   bindManagedEventListener(window, "focus", cameraLifecycleController?.handleWindowFocus);
   bindManagedEventListener(window, "pagehide", cameraLifecycleController?.handleAppHidden);
   bindManagedEventListener(window, "pageshow", cameraLifecycleController?.handleWindowPageShow);
+  bindManagedEventListener(document, "shared-panel-closed", handleSharedPanelClosed);
   bindManagedEventListener(window, "resize", () => viewportHeightController?.schedule());
   bindManagedEventListener(window, "orientationchange", () => viewportHeightController?.schedule());
   bindManagedEventListener(window.visualViewport, "resize", () =>
@@ -543,55 +598,12 @@ function initializeApp() {
     cameraLifecycleController?.handleDocumentVisibilityChange,
   );
 
-  const configPanelEl = /** @type {HTMLElement | null} */ (document.querySelector("config-panel"));
-  let configPipVideo = null;
-  bindManagedEventListener(document, "config-drawer-change", (event) => {
-    if (event.detail.isOpen) {
-      zoomUi?.setDisabled();
-      exposureUi?.setDisabled();
-      photoQualityUi?.hide();
-      gridUi?.hide();
-      const stream = cameraFeed?.srcObject;
-      if (stream && configPanelEl && !configPipVideo && window.innerHeight < 800) {
-        configPipVideo = document.createElement("video");
-        configPipVideo.autoplay = true;
-        configPipVideo.muted = true;
-        configPipVideo.playsInline = true;
-        configPipVideo.className = "config-pip";
-        configPipVideo.setAttribute("aria-hidden", "true");
-        configPipVideo.srcObject = /** @type {MediaStream} */ (stream);
-        document.body.appendChild(configPipVideo);
-        configPipVideo.play().catch(() => {});
-      }
-    } else {
-      if (configPipVideo) {
-        configPipVideo.srcObject = null;
-        configPipVideo.remove();
-        configPipVideo = null;
-      }
-      zoomUi?.syncCapabilities();
-      exposureUi?.syncCapabilities();
-      photoQualityUi?.show();
-      gridUi?.show();
-    }
-  });
-  bindManagedEventListener(document, "settings-drawer-change", (event) => {
-    if (event.detail.isOpen) {
-      zoomUi?.setDisabled();
-      exposureUi?.setDisabled();
-      photoQualityUi?.hide();
-      gridUi?.hide();
-    } else {
-      zoomUi?.syncCapabilities();
-      exposureUi?.syncCapabilities();
-      photoQualityUi?.show();
-      gridUi?.show();
-    }
-  });
-  bindManagedEventListener(document, "toggle-performance-hud", () => {
-    const next = !getAppSettings().performanceHudEnabled;
-    updateAppSettings({ performanceHudEnabled: next });
-  });
+  if (__PALETCAM_DEBUG_TOOLS__) {
+    bindManagedEventListener(document, "toggle-performance-hud", () => {
+      const next = !getAppSettings().performanceHudEnabled;
+      updateAppSettings({ performanceHudEnabled: next });
+    });
+  }
   unsubscribeFromAppSettings = subscribeAppSettings(applyAppSettings);
   syncCameraFeedOrientation();
 
@@ -603,6 +615,11 @@ function initializeApp() {
   cameraLifecycleController?.syncActionAvailability();
   clearPhotoOutput();
   renderOutputSwatches(outputPalette, []);
+  captureButton.disabled = false;
+  if (viewCollectionButton) {
+    viewCollectionButton.disabled = false;
+  }
+  document.documentElement.dataset.appReady = "true";
 
   if (supportsCameraStartup()) {
     void cameraLifecycleController?.startCameraStream()?.then(() => {
@@ -661,33 +678,27 @@ function bindCaptureEvents() {
   });
 }
 
-function handlePaletteDeleted(event) {
-  const deletedPaletteId = Number(event?.detail?.paletteId);
-  if (
-    !Number.isFinite(deletedPaletteId) ||
-    photoOutputController.getPaletteId() !== deletedPaletteId
-  ) {
+function scheduleDeleteOutboxInitialization() {
+  const initialize = () => {
+    cancelDeferredDeleteOutboxInitialization = () => {};
+    void import("./community-delete-outbox.js")
+      .then(({ initializeDeleteOutbox }) => initializeDeleteOutbox())
+      .catch((error) => {
+        reportAppError(error, {
+          logMessage: "Failed to initialize remote deletion cleanup.",
+          consoleLevel: "warn",
+        });
+      });
+  };
+
+  if (typeof globalThis.requestIdleCallback === "function") {
+    const idleId = globalThis.requestIdleCallback(initialize, { timeout: 3000 });
+    cancelDeferredDeleteOutboxInitialization = () => globalThis.cancelIdleCallback(idleId);
     return;
   }
 
-  clearPhotoOutput();
-}
-
-function bindMiniOutputEvents() {
-  if (!photoOutput) {
-    return;
-  }
-
-  bindManagedEventListener(photoOutput, "load", () => {
-    photoOutput.hidden = false;
-  });
-  bindManagedEventListener(photoOutput, "error", () => {
-    if (photoOutput.getAttribute("src")) {
-      clearPhotoOutput();
-    }
-  });
-  bindManagedEventListener(photoOutput, "click", handleMiniOutputClick);
-  bindManagedEventListener(window, PALETTE_DELETED_EVENT, handlePaletteDeleted);
+  const timeoutId = globalThis.setTimeout(initialize, 1200);
+  cancelDeferredDeleteOutboxInitialization = () => globalThis.clearTimeout(timeoutId);
 }
 
 function bindRotationEvents() {
@@ -700,21 +711,34 @@ function destroyApp() {
   }
 
   isAppDestroyed = true;
+  terminateAppLifetime();
   viewportHeightController?.clear();
+  cameraSurfaceLifecycleController.destroy();
   cameraLifecycleController?.stopCurrentStream({ preserveResumeIntent: false });
   swatchSliderUi.destroy?.();
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   photoQualityUi?.destroy?.();
   gridUi?.destroy?.();
+  panelCameraUi.destroy();
+  collectionEntryController.destroy();
   cameraController.destroy?.();
   paletteExtractionWorker.destroy();
   performanceHud.destroy?.();
   unsubscribeFromAppSettings();
   unsubscribeFromAppSettings = () => {};
+  unsubscribeFromDatabaseLifecycle();
+  unsubscribeFromDatabaseLifecycle = () => {};
+  cancelDeferredDeleteOutboxInitialization();
+  cancelDeferredDeleteOutboxInitialization = () => {};
+  destroyCommunityHomepageLink();
+  destroyCommunityHomepageLink = () => {};
   eventAbortController.abort();
+  unbindUncaughtErrorHandlers();
   clearPhotoOutput();
 }
 
-initCommunityHomepageLink();
+destroyCommunityHomepageLink = initCommunityHomepageLink();
+void initializeStorageHealth();
 initializeApp();
+scheduleDeleteOutboxInitialization();

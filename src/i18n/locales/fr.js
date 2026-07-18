@@ -14,6 +14,9 @@ const fr = {
   "pwa.install.title": "Installer ColorCatcher",
   "pwa.install.body": "Ajoutez l'app à votre écran d'accueil",
   "pwa.install.action": "Installer",
+  "pwa.update.available": "Une mise à jour de Paletcam est prête.",
+  "pwa.update.action": "Mettre à jour",
+  "pwa.update.deferred": "La mise à jour s’installera à la fin de l’opération en cours.",
   "header.community": "Catchers Community",
   "header.logoAlt": "Logo Color Catchers",
   "header.accountOpen": "Ouvrir le panneau compte",
@@ -64,6 +67,7 @@ const fr = {
   "collection.deleteFailed": "Suppression échouée.",
   "collection.bulk.cancelled": "Action groupée annulée.",
   "collection.bulk.deletePending": "Suppression de {count} captures…",
+  "collection.bulk.deleteRunning": "Suppression définitive de {count} captures…",
   "collection.bulk.deleteFailed": "{count} captures n'ont pas pu être supprimées.",
   "collection.bulk.publishPending": "Publication de {count} captures…",
   "collection.bulk.publishSuccess": "{count} captures publiées. Modération en cours.",
@@ -85,6 +89,7 @@ const fr = {
   "collection.publish.already": "Capture déjà publiée.",
   "collection.publish.failure": "Publication échouée.",
   "collection.publish.cta": "Mes captures",
+  "collection.publication.sessionChanged": "Votre compte communautaire a changé. Réessayez.",
   "collection.unpublish.auth": "Connectez votre email pour dépublier.",
   "collection.unpublish.success": "Capture retirée de la grille publique.",
   "collection.unpublish.already": "Capture déjà retirée de la grille publique.",
@@ -134,14 +139,20 @@ const fr = {
   "login.hint.enterCode": "Entrez le code reçu par email.",
   "login.hint.success": "Connexion réussie.",
   "login.hint.loggedOut": "Compte déconnecté.",
+  "login.hint.logoutStorageFailed":
+    "Déconnecté pour cette session, mais le stockage local n'a pas pu être effacé. Fermez l'application avant de vous reconnecter.",
   "login.toast.codeSent": "Code envoyé par email.",
   "login.toast.codeSendFailed": "Envoi du code échoué.",
   "login.toast.connected": "Compte connecté.",
   "login.toast.invalidCode": "Code invalide ou expiré.",
   "login.toast.loggedOut": "Compte déconnecté.",
+  "login.toast.logoutFailed": "Le nettoyage local de la déconnexion a échoué.",
   "login.error.authExpired": "Votre session a expiré. Reconnectez-vous.",
   "login.error.missingEmail": "L'email est requis.",
   "login.error.missingCode": "Le code est requis.",
+  "login.error.emailTooLong": "L'email est trop long.",
+  "login.error.codeTooLong": "Le code est trop long.",
+  "login.error.sessionChanged": "Le compte connecté a changé. Réessayez.",
   "delete.panelTitle": "Suppression du compte",
   "delete.panelClose": "Fermer le panneau suppression",
   "delete.title": "Supprimer mon compte",
@@ -158,6 +169,10 @@ const fr = {
   "delete.toast.failure": "Suppression échouée.",
   "delete.error.authExpired": "Votre session a expiré. Reconnectez-vous.",
   "delete.error.missingCode": "Le code est requis.",
+  "delete.error.codeTooLong": "Le code est trop long.",
+  "delete.error.identityRequired": "Ce compte n'a pas d'identité stable. Reconnectez-vous.",
+  "delete.error.recoveryUnavailable":
+    "La suppression sûre ne peut pas démarrer car le stockage local de récupération est indisponible.",
   "settings.panelTitle": "Réglages",
   "settings.panelClose": "Fermer les réglages",
   "settings.language.title": "Langue",
@@ -182,6 +197,16 @@ const fr = {
   "settings.data.exportDoneStatus.one": "Export terminé · {count} palette · {elapsed}",
   "settings.data.exportDoneStatus.other": "Export terminé · {count} palettes · {elapsed}",
   "settings.data.exportFailedStatus": "Erreur lors de l'export.",
+  "settings.data.exportIntegrityStatus":
+    "Une photo enregistrée est endommagée ou incompatible. Supprimez cette palette puis relancez la sauvegarde.",
+  "settings.data.exportTooLargeStatus":
+    "Cette collection est trop volumineuse pour une sauvegarde restaurable en toute sécurité.",
+  "settings.data.exportStorageStatus":
+    "Impossible de lire les photos enregistrées. Libérez de l’espace, rouvrez l’app puis réessayez.",
+  "settings.data.exportSerializationStatus":
+    "Impossible de créer le fichier de sauvegarde. Gardez l’app ouverte puis réessayez.",
+  "settings.data.exportHandoffStatus":
+    "La sauvegarde est créée, mais le navigateur ne peut pas enregistrer ou partager le fichier. Vérifiez les autorisations de téléchargement puis réessayez.",
   "settings.data.importLabel": "Importer des palettes",
   "settings.data.importBusy": "Import des palettes...",
   "settings.data.importChoose": "Choisir un fichier .json",
@@ -192,9 +217,33 @@ const fr = {
   "settings.versionAria": "Version de l'application",
   "settings.toast.exportDone": "Export terminé.",
   "settings.toast.exportFailed": "Erreur lors de l'export.",
+  "settings.toast.exportIntegrity":
+    "Une photo endommagée ne peut pas être sauvegardée. Supprimez cette palette puis réessayez.",
+  "settings.toast.exportTooLarge":
+    "Trop de photos pour une sauvegarde sûre. Supprimez-en puis réessayez.",
+  "settings.toast.exportStorage":
+    "Accès au stockage impossible. Libérez de l’espace, rouvrez l’app puis réessayez.",
+  "settings.toast.exportSerialization":
+    "Création de la sauvegarde impossible. Gardez l’app ouverte puis réessayez.",
+  "settings.toast.exportHandoff":
+    "Sauvegarde prête, mais enregistrement bloqué. Autorisez le téléchargement ou le partage puis réessayez.",
   "settings.toast.imported.one": "{count} palette importée.",
   "settings.toast.imported.other": "{count} palettes importées.",
+  "settings.toast.importTooLarge":
+    "Cette sauvegarde dépasse la limite d’import sûre. Choisissez un fichier plus petit.",
   "settings.toast.importFailed": "Erreur lors de l'import. Vérifiez le fichier.",
+  "settings.toast.importInvalid":
+    "Ce fichier n’est pas une sauvegarde Color Catchers valide et complète. Exportez-le à nouveau puis réessayez.",
+  "settings.toast.importConflict":
+    "Un autre import est déjà en cours dans ce navigateur. Terminez-le ou attendez cinq minutes, puis réessayez.",
+  "settings.toast.importInterrupted":
+    "L’import a été interrompu avant tout ajout. Rouvrez l’app puis réessayez avec le même fichier.",
+  "settings.toast.importStorageFull":
+    "L’espace de stockage de l’appareil est insuffisant pour restaurer cette sauvegarde. Libérez de l’espace puis réessayez.",
+  "settings.toast.importStorage":
+    "Le stockage local est indisponible. Rouvrez l’app ; si le problème persiste, vérifiez les autorisations de stockage du navigateur.",
+  "settings.toast.flushBusy":
+    "Terminez l’enregistrement ou la sauvegarde en cours avant d’effacer les données.",
   "settings.toast.flushFailed": "Impossible d'effacer les données locales.",
   "settings.tab.login": "Compte",
   "settings.tab.language": "Langue",
@@ -253,6 +302,12 @@ const fr = {
   "camera.start.overconstrained": "Impossible de démarrer une caméra compatible.",
   "camera.start.generic": "Impossible de démarrer la caméra.",
   "camera.captureSaveFailed": "Sauvegarde échouée.",
+  "storage.database.blocked":
+    "Fermez les autres onglets Paletcam, puis rouvrez l’application pour terminer la mise à jour du stockage.",
+  "storage.database.versionchange":
+    "Le stockage Paletcam a été mis à jour dans un autre onglet. Rouvrez l’application pour continuer en toute sécurité.",
+  "storage.database.maintenanceFailed":
+    "La mise à jour du stockage n’a pas abouti. Rouvrez Paletcam pour réessayer ; vos palettes existantes n’ont pas été modifiées partiellement.",
   "camera.zoom.label": "Zoom",
   "camera.zoom.valueText": "Zoom {value}",
   "camera.exposure.reset": "Réinitialiser l'exposition",
