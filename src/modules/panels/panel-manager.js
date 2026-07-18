@@ -1,11 +1,22 @@
 import "./shared-panel.js";
 
+/**
+ * @typedef {HTMLElement & {
+ *   openPanel: (returnFocusTarget?: HTMLElement | null) => void,
+ *   closePanel: (options?: { restoreFocus?: boolean }) => void
+ * }} SharedPanelElement
+ */
+
+/** @returns {SharedPanelElement[]} */
 function getAllSharedPanels() {
-  return Array.from(document.querySelectorAll("shared-panel[data-panel-name]"));
+  return /** @type {SharedPanelElement[]} */ (
+    Array.from(document.querySelectorAll("shared-panel[data-panel-name]"))
+  );
 }
 
+/** @returns {SharedPanelElement | null} */
 function getSharedPanel(panelName) {
-  return /** @type {HTMLElement | null} */ (
+  return /** @type {SharedPanelElement | null} */ (
     document.querySelector(`shared-panel[data-panel-name="${panelName}"]`)
   );
 }
@@ -61,6 +72,11 @@ function closePanelElement(panel, options) {
   panel?.closePanel?.(options);
 }
 
+function setPanelInteractive(panel, isInteractive) {
+  panel.inert = !isInteractive;
+  panel.setAttribute("aria-hidden", String(!isInteractive));
+}
+
 export function closeAllSharedPanels({ exceptPanelName = "", restoreFocus = true } = {}) {
   getOpenSharedPanels().forEach((panel) => {
     if (panel.dataset.panelName === exceptPanelName) {
@@ -71,21 +87,38 @@ export function closeAllSharedPanels({ exceptPanelName = "", restoreFocus = true
   });
 }
 
-export function openSharedPanel(panelName, { closeOtherPanels = true } = {}) {
+export function openSharedPanel(
+  panelName,
+  { closeOtherPanels = true, returnFocusTarget = getDeepActiveElement() } = {},
+) {
   const panel = getSharedPanel(panelName);
   if (!panel) {
     return false;
   }
 
-  const returnFocusTarget = getDeepActiveElement();
-
   if (closeOtherPanels) {
     closeAllSharedPanels({ exceptPanelName: panelName, restoreFocus: false });
+  } else {
+    getOpenSharedPanels().forEach((openPanel) => {
+      if (openPanel !== panel) setPanelInteractive(openPanel, false);
+    });
   }
 
-  panel.openPanel?.(returnFocusTarget);
+  panel.openPanel?.(returnFocusTarget instanceof HTMLElement ? returnFocusTarget : null);
   return true;
 }
+
+document.addEventListener("shared-panel-closing", (event) => {
+  const closingPanel = event.target;
+  if (!(closingPanel instanceof HTMLElement)) return;
+
+  const underlyingPanel = getOpenSharedPanels()
+    .filter((panel) => panel !== closingPanel)
+    .sort(
+      (leftPanel, rightPanel) => getPanelStackLevel(rightPanel) - getPanelStackLevel(leftPanel),
+    )[0];
+  if (underlyingPanel) setPanelInteractive(underlyingPanel, true);
+});
 
 export function closeSharedPanel(panelName) {
   const panel = getSharedPanel(panelName);

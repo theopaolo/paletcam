@@ -1,6 +1,7 @@
 import { getAppSettings } from "../app-settings.js";
 import { clientLog } from "../modules/client-log.js";
 import { reportAppError } from "../modules/error-reporting.js";
+import { recordIndexedDbFailure } from "../modules/operational-metrics.js";
 import { dataUrlToBlob } from "./blob.js";
 import {
   ensurePaletteMasterPhotoBlob,
@@ -11,88 +12,86 @@ import { db } from "./db.js";
 import {
   createPaletteAssetRecord,
   createPaletteMetadataRecord,
+  createPalettePreviewRecord,
   getPaletteIdOrThrow,
   normalizeIsoString,
   normalizeModerationStatus,
-  normalizePolaroidRenderSettings,
   normalizeRemoteCatchId,
+  normalizeRemoteOwnerAccountKey,
   normalizeStoredPaletteRecord,
+  parseStoredPaletteMetadataRecord,
 } from "./records.js";
+
+const MAX_BULK_REMOTE_STATE_UPDATES = 2_000;
+const MAX_REPORTED_INVALID_PALETTE_RECORDS = 2_000;
+const INVALID_PALETTE_REPORT_THROTTLE_MS = 60_000;
+
+export class PaletteRecordMissingError extends Error {
+  constructor(paletteId) {
+    super(`Palette ${paletteId} no longer exists.`);
+    this.name = "PaletteRecordMissingError";
+    this.code = "PALETTE_RECORD_MISSING";
+    this.paletteId = paletteId;
+  }
+}
 
 function getCurrentPolaroidRenderSettings() {
   const settings = getAppSettings();
   return { footerLabel: settings.polaroidFooterLabel };
 }
 
-async function freezeMissingPolaroidRenderSettings(paletteRecords) {
-  const missingRecords = paletteRecords.filter(
-    (palette) => !normalizePolaroidRenderSettings(palette?.polaroidRenderSettings),
-  );
-
-  if (missingRecords.length === 0) {
-    return paletteRecords;
+function reportInvalidStoredPaletteRecords(invalidCount) {
+  if (invalidCount <= 0) {
+    return;
   }
 
-  const writeStartTime = performance.now();
-  const polaroidRenderSettings = getCurrentPolaroidRenderSettings();
-  const nextRecords = paletteRecords.map((palette) =>
-    missingRecords.includes(palette) ? { ...palette, polaroidRenderSettings } : palette,
-  );
-
-  await Promise.all(
-    missingRecords
-      .filter((palette) => palette?.id !== undefined && palette?.id !== null)
-      .map((palette) => db.palettes.update(palette.id, { polaroidRenderSettings })),
-  );
-
-  clientLog("freezeMissingPolaroidRenderSettings", {
-    missingCount: missingRecords.length,
-    totalCount: paletteRecords.length,
-    writesMs: Math.round(performance.now() - writeStartTime),
+  reportAppError(null, {
+    logMessage: "Ignored invalid stored palette metadata records.",
+    includeConsole: false,
+    clientLogKey: "palette-storage-invalid-metadata",
+    clientLogThrottleMs: INVALID_PALETTE_REPORT_THROTTLE_MS,
+    context: {
+      invalidCount: Math.min(invalidCount, MAX_REPORTED_INVALID_PALETTE_RECORDS),
+      invalidCountCapped: invalidCount > MAX_REPORTED_INVALID_PALETTE_RECORDS,
+    },
   });
-
-  return nextRecords;
 }
 
 /**
- * @param {object} [options]
- * @param {boolean} [options.includeViewerPreviewBlob] Defaults to false — keep the listing lean
- *   on iOS by skipping the larger viewer-variant blob refs. Callers that need the viewer blob
- *   hydrate it on demand via the preview-asset pipeline.
  * @returns {Promise<Palette[]>}
  */
-export async function getSavedPalettes({ includeViewerPreviewBlob = false } = {}) {
+export async function getSavedPalettes() {
   const startTime = performance.now();
   try {
     const dexieReadStartTime = performance.now();
     const rawRecords = await db.palettes.orderBy("timestamp").reverse().toArray();
     const dexieReadMs = performance.now() - dexieReadStartTime;
 
-    const freezeStartTime = performance.now();
-    const palettes = await freezeMissingPolaroidRenderSettings(rawRecords);
-    const freezeMs = performance.now() - freezeStartTime;
-
-    const result = palettes.map((palette) =>
-      normalizeStoredPaletteRecord(palette, {
-        includePhotoBlob: false,
-        includeViewerPreviewBlob,
-      }),
-    );
+    const result = [];
+    let invalidCount = 0;
+    for (const rawRecord of rawRecords) {
+      const palette = parseStoredPaletteMetadataRecord(rawRecord);
+      if (palette) {
+        result.push(palette);
+      } else {
+        invalidCount += 1;
+      }
+    }
+    reportInvalidStoredPaletteRecords(invalidCount);
 
     clientLog("getSavedPalettes:success", {
       totalMs: Math.round(performance.now() - startTime),
       dexieReadMs: Math.round(dexieReadMs),
-      freezeMs: Math.round(freezeMs),
       rawCount: rawRecords.length,
-      includeViewerPreviewBlob,
+      returnedCount: result.length,
     });
 
     return result;
   } catch (error) {
+    recordIndexedDbFailure("read", error);
     clientLog("getSavedPalettes:error", {
       totalMs: Math.round(performance.now() - startTime),
       errorName: error?.name ?? "",
-      errorMessage: error?.message ?? "",
     });
     reportAppError(error, {
       consoleMessage: "Failed to read saved palettes:",
@@ -117,18 +116,22 @@ export async function getSavedPaletteById(id, { includePhotoBlob = true } = {}) 
       return undefined;
     }
 
-    const [frozenPaletteRecord] = await freezeMissingPolaroidRenderSettings([paletteRecord]);
-    const palette = normalizeStoredPaletteRecord(frozenPaletteRecord, { includePhotoBlob: false });
+    const palette = parseStoredPaletteMetadataRecord(paletteRecord);
+    if (!palette) {
+      reportInvalidStoredPaletteRecords(1);
+      return undefined;
+    }
     if (!includePhotoBlob) {
       return palette;
     }
 
     const photoBlob = await readPalettePhotoBlobById(paletteId);
-    return normalizeStoredPaletteRecord(frozenPaletteRecord, {
+    return normalizeStoredPaletteRecord(palette, {
       includePhotoBlob: true,
       photoBlob,
     });
   } catch (error) {
+    recordIndexedDbFailure("read", error);
     reportAppError(error, {
       consoleMessage: `Failed to read palette ${paletteId}:`,
       includeClientLog: false,
@@ -193,25 +196,45 @@ export async function savePalette(
     captureMode,
     ralMatch,
     polaroidRenderSettings,
-    previewGalleryBlob,
-    previewGalleryFooterLabel,
-    previewViewerBlob,
-    previewViewerFooterLabel,
     hasPhotoAsset: true,
   });
 
   try {
     let savedPaletteId = 0;
 
-    await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
+    await db.transaction("rw", db.palettes, db.paletteAssets, db.palettePreviews, async () => {
       savedPaletteId = await db.palettes.add(nextPaletteMetadata);
       await db.paletteAssets.put(createPaletteAssetRecord(savedPaletteId, photoBlob));
+
+      const previewRecords = [
+        createPalettePreviewRecord(
+          savedPaletteId,
+          "gallery",
+          previewGalleryBlob,
+          previewGalleryFooterLabel,
+        ),
+        createPalettePreviewRecord(
+          savedPaletteId,
+          "viewer",
+          previewViewerBlob,
+          previewViewerFooterLabel,
+        ),
+      ].filter((record) => record !== null);
+      if (previewRecords.length > 0) {
+        await db.palettePreviews.bulkPut(previewRecords);
+      }
     });
 
     return normalizeStoredPaletteRecord(
       {
         ...nextPaletteMetadata,
         id: savedPaletteId,
+        ...(previewGalleryBlob instanceof Blob
+          ? { previewGalleryBlob, previewGalleryFooterLabel }
+          : {}),
+        ...(previewViewerBlob instanceof Blob
+          ? { previewViewerBlob, previewViewerFooterLabel }
+          : {}),
       },
       {
         includePhotoBlob: true,
@@ -219,6 +242,7 @@ export async function savePalette(
       },
     );
   } catch (error) {
+    recordIndexedDbFailure("save", error);
     reportAppError(error, {
       consoleMessage: "Failed to save palette:",
       includeClientLog: false,
@@ -228,16 +252,21 @@ export async function savePalette(
 }
 
 /**
- * @param {number} id
- * @param {Partial<Pick<Palette, 'remoteCatchId' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>} [patch]
- * @returns {Promise<Palette | undefined>}
+ * @param {Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>} [patch]
+ * @returns {Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>}
  */
-export async function updatePaletteRemoteState(id, patch = {}) {
-  const paletteId = getPaletteIdOrThrow(id);
+function normalizePaletteRemoteStatePatch(patch = {}) {
   const nextPatch = {};
 
   if (Object.hasOwn(patch, "remoteCatchId")) {
     nextPatch.remoteCatchId = normalizeRemoteCatchId(patch.remoteCatchId);
+    if (nextPatch.remoteCatchId === null && !Object.hasOwn(patch, "remoteOwnerAccountKey")) {
+      nextPatch.remoteOwnerAccountKey = null;
+    }
+  }
+
+  if (Object.hasOwn(patch, "remoteOwnerAccountKey")) {
+    nextPatch.remoteOwnerAccountKey = normalizeRemoteOwnerAccountKey(patch.remoteOwnerAccountKey);
   }
 
   if (Object.hasOwn(patch, "moderationStatus")) {
@@ -256,14 +285,37 @@ export async function updatePaletteRemoteState(id, patch = {}) {
     nextPatch.lastModerationCheckAt = normalizeIsoString(patch.lastModerationCheckAt);
   }
 
+  return nextPatch;
+}
+
+/**
+ * @param {number} id
+ * @param {Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>} [patch]
+ * @returns {Promise<Palette | undefined>}
+ */
+export async function updatePaletteRemoteState(id, patch = {}) {
+  const paletteId = getPaletteIdOrThrow(id);
+  const nextPatch = normalizePaletteRemoteStatePatch(patch);
+
   if (Object.keys(nextPatch).length === 0) {
     return getSavedPaletteById(paletteId, { includePhotoBlob: false });
   }
 
   try {
-    await db.palettes.update(paletteId, nextPatch);
-    return getSavedPaletteById(paletteId, { includePhotoBlob: false });
+    const updatedCount = await db.palettes.update(paletteId, nextPatch);
+    if (updatedCount !== 1) {
+      throw new PaletteRecordMissingError(paletteId);
+    }
+    const updatedPalette = await getSavedPaletteById(paletteId, { includePhotoBlob: false });
+    if (!updatedPalette) {
+      throw new PaletteRecordMissingError(paletteId);
+    }
+    return updatedPalette;
   } catch (error) {
+    if (error instanceof PaletteRecordMissingError) {
+      throw error;
+    }
+    recordIndexedDbFailure("update", error);
     reportAppError(error, {
       consoleMessage: `Failed to update remote state for palette ${paletteId}:`,
       includeClientLog: false,
@@ -272,30 +324,205 @@ export async function updatePaletteRemoteState(id, patch = {}) {
   }
 }
 
-export async function deletePalette(id) {
-  const paletteId = getPaletteIdOrThrow(id);
+/**
+ * Atomically applies a bounded set of normalized remote-state patches without
+ * reading full palette records back into memory.
+ * @param {Array<{id: number | string, patch: Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>}>} updates
+ * @returns {Promise<number>} number of existing records updated
+ */
+export async function bulkUpdatePaletteRemoteStates(updates) {
+  if (!Array.isArray(updates)) {
+    throw new TypeError("Palette remote-state updates must be an array.");
+  }
+  if (updates.length > MAX_BULK_REMOTE_STATE_UPDATES) {
+    throw new RangeError(
+      `Palette remote-state updates support at most ${MAX_BULK_REMOTE_STATE_UPDATES} entries.`,
+    );
+  }
+
+  const normalizedUpdates = updates
+    .map((update) => ({
+      key: getPaletteIdOrThrow(update?.id),
+      changes: normalizePaletteRemoteStatePatch(update?.patch),
+    }))
+    .filter((update) => Object.keys(update.changes).length > 0);
+
+  if (normalizedUpdates.length === 0) {
+    return 0;
+  }
 
   try {
-    await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
-      await db.paletteAssets.delete(paletteId);
-      await db.palettes.delete(paletteId);
+    let updatedCount = 0;
+    await db.transaction("rw", db.palettes, async () => {
+      updatedCount = await db.palettes.bulkUpdate(normalizedUpdates);
     });
+    return updatedCount;
   } catch (error) {
+    recordIndexedDbFailure("update", error);
     reportAppError(error, {
-      consoleMessage: `Failed to delete palette ${paletteId}:`,
+      consoleMessage: "Failed to bulk update palette remote states:",
       includeClientLog: false,
     });
-    throw new Error("Unable to delete palette.", { cause: error });
+    throw new Error("Unable to bulk update palette remote states.", { cause: error });
   }
+}
+
+/**
+ * Applies moderation results only while the authoritative owner and remote id
+ * still match the request snapshot. This prevents a late cross-tab response
+ * from overwriting a republished palette.
+ * @param {Array<{id: number | string, expectedRemoteCatchId: string, patch: Partial<Pick<Palette, 'moderationStatus' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>}>} updates
+ * @param {{ownerAccountKey: string}} options
+ */
+export async function bulkUpdateOwnedPaletteRemoteStates(
+  updates,
+  { ownerAccountKey } = { ownerAccountKey: "" },
+) {
+  if (!Array.isArray(updates)) {
+    throw new TypeError("Palette remote-state updates must be an array.");
+  }
+  if (updates.length > MAX_BULK_REMOTE_STATE_UPDATES) {
+    throw new RangeError(
+      `Palette remote-state updates support at most ${MAX_BULK_REMOTE_STATE_UPDATES} entries.`,
+    );
+  }
+  const normalizedOwner = normalizeRemoteOwnerAccountKey(ownerAccountKey);
+  if (!normalizedOwner) {
+    throw new TypeError("A valid remote owner account key is required.");
+  }
+
+  const normalizedUpdates = updates.map((update) => {
+    const expectedRemoteCatchId = normalizeRemoteCatchId(update?.expectedRemoteCatchId);
+    if (!expectedRemoteCatchId) {
+      throw new TypeError("A valid expected remote catch id is required.");
+    }
+    return {
+      key: getPaletteIdOrThrow(update?.id),
+      expectedRemoteCatchId,
+      changes: normalizePaletteRemoteStatePatch(update?.patch),
+    };
+  });
+  if (normalizedUpdates.length === 0) return 0;
+
+  try {
+    let updatedCount = 0;
+    await db.transaction("rw", db.palettes, async () => {
+      const currentRows = await db.palettes.bulkGet(normalizedUpdates.map((update) => update.key));
+      const safeUpdates = normalizedUpdates
+        .filter((update, index) => {
+          const current = currentRows[index];
+          return (
+            normalizeRemoteOwnerAccountKey(current?.remoteOwnerAccountKey) === normalizedOwner &&
+            normalizeRemoteCatchId(current?.remoteCatchId) === update.expectedRemoteCatchId
+          );
+        })
+        .filter((update) => Object.keys(update.changes).length > 0)
+        .map(({ key, changes }) => ({ key, changes }));
+      updatedCount = safeUpdates.length > 0 ? await db.palettes.bulkUpdate(safeUpdates) : 0;
+    });
+    return updatedCount;
+  } catch (error) {
+    recordIndexedDbFailure("update", error);
+    reportAppError(error, {
+      consoleMessage: "Failed to conditionally update palette remote states:",
+      includeClientLog: false,
+    });
+    throw new Error("Unable to conditionally update palette remote states.", { cause: error });
+  }
+}
+
+export async function clearCommunityStateForAccount(ownerAccountKey) {
+  const normalizedOwners = [
+    ...new Set(
+      (Array.isArray(ownerAccountKey) ? ownerAccountKey : [ownerAccountKey])
+        .map(normalizeRemoteOwnerAccountKey)
+        .filter(Boolean),
+    ),
+  ];
+  if (normalizedOwners.length === 0) {
+    return { clearedOutboxCount: 0, clearedPaletteCount: 0 };
+  }
+
+  const changes = {
+    remoteCatchId: null,
+    remoteOwnerAccountKey: null,
+    moderationStatus: null,
+    postedAt: null,
+    moderationUpdatedAt: null,
+    lastModerationCheckAt: null,
+  };
+  try {
+    let clearedOutboxCount = 0;
+    let clearedPaletteCount = 0;
+    await db.transaction("rw", db.palettes, db.communityDeleteOutbox, async () => {
+      const palettes = await db.palettes.toArray();
+      const ownedIds = palettes
+        .filter((palette) =>
+          normalizedOwners.includes(normalizeRemoteOwnerAccountKey(palette?.remoteOwnerAccountKey)),
+        )
+        .map((palette) => palette.id)
+        .filter(Number.isSafeInteger);
+      clearedPaletteCount =
+        ownedIds.length > 0
+          ? await db.palettes.bulkUpdate(ownedIds.map((key) => ({ key, changes })))
+          : 0;
+      for (const normalizedOwner of normalizedOwners) {
+        clearedOutboxCount += await db.communityDeleteOutbox
+          .where("accountKey")
+          .equals(normalizedOwner)
+          .delete();
+      }
+    });
+    return { clearedOutboxCount, clearedPaletteCount };
+  } catch (error) {
+    recordIndexedDbFailure("update", error);
+    reportAppError(error, {
+      consoleMessage: "Failed to clear account-scoped community state:",
+      includeClientLog: false,
+    });
+    throw new Error("Unable to clear account-scoped community state.", { cause: error });
+  }
+}
+
+/** @param {number[]} paletteIds */
+export async function clearPaletteRemoteStates(paletteIds) {
+  const ids = [...new Set(paletteIds.map(Number).filter(Number.isSafeInteger))];
+  if (ids.length === 0) return;
+
+  const changes = {
+    remoteCatchId: null,
+    remoteOwnerAccountKey: null,
+    moderationStatus: null,
+    postedAt: null,
+    moderationUpdatedAt: null,
+    lastModerationCheckAt: null,
+  };
+  await db.transaction("rw", db.palettes, async () => {
+    await db.palettes.bulkUpdate(ids.map((key) => ({ key, changes })));
+  });
 }
 
 export async function clearSavedPalettes() {
   try {
-    await db.transaction("rw", db.palettes, db.paletteAssets, async () => {
-      await db.paletteAssets.clear();
-      await db.palettes.clear();
-    });
+    await db.transaction(
+      "rw",
+      db.palettes,
+      db.paletteAssets,
+      db.palettePreviews,
+      db.communityDeleteOutbox,
+      db.paletteStorageMetadata,
+      db.paletteImportStaging,
+      async () => {
+        await db.paletteImportStaging.clear();
+        await db.paletteStorageMetadata.clear();
+        await db.communityDeleteOutbox.clear();
+        await db.palettePreviews.clear();
+        await db.paletteAssets.clear();
+        await db.palettes.clear();
+      },
+    );
   } catch (error) {
+    recordIndexedDbFailure("clear", error);
     reportAppError(error, {
       consoleMessage: "Failed to clear saved palettes:",
       includeClientLog: false,

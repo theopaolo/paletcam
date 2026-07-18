@@ -151,6 +151,7 @@ class SharedPanelElement extends LitElement {
     this.hideTimeoutId = 0;
     this.openFrameRequestId = 0;
     this.returnFocusTarget = null;
+    this.returnFocusTargetId = "";
   }
 
   connectedCallback() {
@@ -256,6 +257,54 @@ class SharedPanelElement extends LitElement {
     return this.getCloseButton();
   }
 
+  getFocusableTargets() {
+    const selector = [
+      "button:not([disabled])",
+      "a[href]",
+      'input:not([type="hidden"]):not([disabled])',
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(", ");
+    const lightDomTargets = Array.from(this.querySelectorAll(selector)).filter((element) =>
+      this.isFocusableTarget(element),
+    );
+    const headerTargets = lightDomTargets.filter((element) => element.slot === "header-actions");
+    const bodyTargets = lightDomTargets.filter((element) => element.slot !== "header-actions");
+    const closeButton = this.getCloseButton();
+
+    return [
+      ...headerTargets,
+      ...(this.isFocusableTarget(closeButton) ? [closeButton] : []),
+      ...bodyTargets,
+    ];
+  }
+
+  handlePanelKeyDown(event) {
+    if (event.key !== "Tab" || !this.open) {
+      return;
+    }
+
+    const focusableTargets = this.getFocusableTargets();
+    if (focusableTargets.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const activeElement = this.getDeepActiveElement();
+    const firstTarget = focusableTargets[0];
+    const lastTarget = focusableTargets.at(-1);
+    const shouldWrapBackward = event.shiftKey && activeElement === firstTarget;
+    const shouldWrapForward = !event.shiftKey && activeElement === lastTarget;
+
+    if (!shouldWrapBackward && !shouldWrapForward) {
+      return;
+    }
+
+    event.preventDefault();
+    this.focusElement(shouldWrapBackward ? lastTarget : firstTarget);
+  }
+
   focusElement(element) {
     if (!(element instanceof HTMLElement)) {
       return false;
@@ -298,8 +347,13 @@ class SharedPanelElement extends LitElement {
       return;
     }
 
-    if (this.isFocusableTarget(this.returnFocusTarget) && this.returnFocusTarget !== this) {
-      if (this.focusElement(this.returnFocusTarget)) {
+    const connectedReturnTarget = this.isFocusableTarget(this.returnFocusTarget)
+      ? this.returnFocusTarget
+      : this.returnFocusTargetId
+        ? document.getElementById(this.returnFocusTargetId)
+        : null;
+    if (this.isFocusableTarget(connectedReturnTarget) && connectedReturnTarget !== this) {
+      if (this.focusElement(connectedReturnTarget)) {
         return;
       }
     }
@@ -314,6 +368,7 @@ class SharedPanelElement extends LitElement {
     this.hasPendingCloseEvent = false;
     this.returnFocusTarget =
       returnFocusTarget instanceof HTMLElement ? returnFocusTarget : this.getDeepActiveElement();
+    this.returnFocusTargetId = this.returnFocusTarget?.id || "";
     this.hidden = false;
     this.inert = false;
     this.open = false;
@@ -412,6 +467,7 @@ class SharedPanelElement extends LitElement {
         role="dialog"
         aria-modal="true"
         aria-label=${this.panelTitle}
+        @keydown=${this.handlePanelKeyDown}
         @transitionend=${this.handleShellTransitionEnd}
       >
         <header

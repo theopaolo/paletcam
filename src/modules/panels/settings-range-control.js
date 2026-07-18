@@ -38,6 +38,21 @@ function isRangeInteractionKey(key) {
   return RANGE_INTERACTION_KEYS.has(key);
 }
 
+/**
+ * @param {object} options
+ * @param {ParentNode} options.root
+ * @param {string} options.shellId
+ * @param {string} options.inputId
+ * @param {string} [options.inlineValueId]
+ * @param {string} [options.displaySelector]
+ * @param {(settings: AppSettings) => number} options.getValueFromSettings
+ * @param {(value: number) => void} options.onValueInput
+ * @param {() => void} options.onInteractionStart
+ * @param {() => void} options.onInteractionCommit
+ * @param {(value: number) => string} options.getAriaLabel
+ * @param {(value: number) => string} [options.formatInlineValue]
+ * @param {(value: number) => string} [options.formatDisplayValue]
+ */
 export function createRangeControl({
   root,
   shellId,

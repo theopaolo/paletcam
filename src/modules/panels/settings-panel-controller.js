@@ -1,12 +1,91 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "../../app-settings.js";
 import { t } from "../../i18n.js";
 import { exportAllPalettesBlob, importAllPalettes } from "../../palette-storage.js";
+import {
+  PaletteBackupSizeLimitError,
+  PALETTE_IMPORT_MAX_STREAMING_JSON_BYTES,
+} from "../../palette-storage/json-transfer.js";
+import {
+  BACKUP_TRANSFER_CATEGORIES,
+  classifyBackupTransferError,
+} from "../../palette-storage/backup-transfer-errors.js";
 import { flushAllLocalData } from "../local-data-reset.js";
+import {
+  beginCriticalOperation,
+  tryBeginExclusiveCriticalOperation,
+} from "../critical-operation.js";
 import { isIOSDevice } from "../platform.js";
+import { recordOperationalMetric } from "../operational-metrics.js";
 import { showToast } from "../toast-ui.js";
+import { createSettingsBackupOperationCoordinator } from "./settings-backup-operation.js";
 
 const TAB_IDS = ["login", "language", "watermark", "data"];
 const SETTINGS_TOGGLE_CLOSE_ICON_SRC = "icons/close.svg";
+
+const EXPORT_FAILURE_PRESENTATIONS = Object.freeze({
+  [BACKUP_TRANSFER_CATEGORIES.database]: [
+    "settings.data.exportStorageStatus",
+    "settings.toast.exportStorage",
+    3500,
+  ],
+  [BACKUP_TRANSFER_CATEGORIES.fileHandoff]: [
+    "settings.data.exportHandoffStatus",
+    "settings.toast.exportHandoff",
+    3500,
+  ],
+  [BACKUP_TRANSFER_CATEGORIES.integrity]: [
+    "settings.data.exportIntegrityStatus",
+    "settings.toast.exportIntegrity",
+    3500,
+  ],
+  [BACKUP_TRANSFER_CATEGORIES.quota]: [
+    "settings.data.exportStorageStatus",
+    "settings.toast.exportStorage",
+    3500,
+  ],
+  [BACKUP_TRANSFER_CATEGORIES.serialization]: [
+    "settings.data.exportSerializationStatus",
+    "settings.toast.exportSerialization",
+    3500,
+  ],
+  [BACKUP_TRANSFER_CATEGORIES.sizeLimit]: [
+    "settings.data.exportTooLargeStatus",
+    "settings.toast.exportTooLarge",
+    3500,
+  ],
+});
+
+const IMPORT_FAILURE_PRESENTATIONS = Object.freeze({
+  [BACKUP_TRANSFER_CATEGORIES.conflict]: ["settings.toast.importConflict", 3500],
+  [BACKUP_TRANSFER_CATEGORIES.database]: ["settings.toast.importStorage", 4000],
+  [BACKUP_TRANSFER_CATEGORIES.integrity]: ["settings.toast.importInvalid", 3500],
+  [BACKUP_TRANSFER_CATEGORIES.interrupted]: ["settings.toast.importInterrupted", 4000],
+  [BACKUP_TRANSFER_CATEGORIES.invalidFile]: ["settings.toast.importInvalid", 3500],
+  [BACKUP_TRANSFER_CATEGORIES.quota]: ["settings.toast.importStorageFull", 4000],
+  [BACKUP_TRANSFER_CATEGORIES.sizeLimit]: ["settings.toast.importTooLarge", 3500],
+});
+
+function getElapsedOperationMs(startedAtMs) {
+  return Math.max(0, Date.now() - startedAtMs);
+}
+
+function recordBackupTransfer(direction, outcome, startedAtMs, category) {
+  recordOperationalMetric("backup-transfer", {
+    category,
+    direction,
+    durationMs: getElapsedOperationMs(startedAtMs),
+    outcome,
+  });
+}
+
+async function runReloadSensitiveOperation(name, operation) {
+  const releaseCriticalOperation = beginCriticalOperation(name);
+  try {
+    return await operation();
+  } finally {
+    releaseCriticalOperation();
+  }
+}
 
 function queryById(root, id) {
   if (!id) {
@@ -123,7 +202,9 @@ function isEventInsideElement(event, element) {
   );
 }
 
-export function mountSettingsPanel({ root, toggleButton }) {
+export function mountSettingsPanel({ root, toggleButton, backupOperations = null }) {
+  const ownsBackupOperations = backupOperations === null;
+  const backupOperationCoordinator = backupOperations ?? createSettingsBackupOperationCoordinator();
   const dom = getSettingsDom(root);
   const availableTabIds = getAvailableTabIds(dom);
   const toggleButtonIcon = /** @type {HTMLImageElement | null} */ (
@@ -135,12 +216,14 @@ export function mountSettingsPanel({ root, toggleButton }) {
   const cleanups = [];
   let activeTabId = availableTabIds[0] ?? TAB_IDS[0];
   let isDrawerOpen = false;
-  let isExportInProgress = false;
-  let isImportInProgress = false;
+  let backupOperationSnapshot = backupOperationCoordinator.getSnapshot();
+  let previousBackupOperationToken = null;
+  let isMounted = true;
   let versionClickCount = 0;
+  const locallyOwnedBackupOperationTokens = new Set();
 
   function setExportStatus(message, { isError = false } = {}) {
-    if (!dom.exportStatus) {
+    if (!isMounted || !dom.exportStatus) {
       return;
     }
 
@@ -150,10 +233,12 @@ export function mountSettingsPanel({ root, toggleButton }) {
   }
 
   function syncExportButtonState(progress = null) {
-    if (!dom.exportButton) {
+    if (!isMounted || !dom.exportButton) {
       return;
     }
 
+    const isExportInProgress = backupOperationSnapshot.kind === "export";
+    const isImportInProgress = backupOperationSnapshot.kind === "import";
     dom.exportButton.disabled = isExportInProgress || isImportInProgress;
     dom.exportButton.setAttribute("aria-busy", String(isExportInProgress));
 
@@ -171,6 +256,12 @@ export function mountSettingsPanel({ root, toggleButton }) {
   }
 
   function syncImportUi() {
+    if (!isMounted) {
+      return;
+    }
+
+    const isExportInProgress = backupOperationSnapshot.kind === "export";
+    const isImportInProgress = backupOperationSnapshot.kind === "import";
     const isImportDisabled = isImportInProgress || isExportInProgress;
 
     if (dom.importInput) {
@@ -307,6 +398,26 @@ export function mountSettingsPanel({ root, toggleButton }) {
     syncSettingsToggleButton();
   }
 
+  const unsubscribeBackupOperations = backupOperationCoordinator.subscribe((snapshot) => {
+    const completedOperationToken = snapshot.token === null ? previousBackupOperationToken : null;
+    backupOperationSnapshot = snapshot;
+    syncExportButtonState(snapshot.progress);
+    syncImportUi();
+
+    if (snapshot.kind === "export") {
+      setExportStatus(buildExportProgressMessage(snapshot.progress));
+    } else if (snapshot.kind === "import") {
+      setExportStatus(t("settings.data.importBusy"));
+    } else if (
+      completedOperationToken &&
+      !locallyOwnedBackupOperationTokens.has(completedOperationToken)
+    ) {
+      setExportStatus("");
+    }
+
+    previousBackupOperationToken = snapshot.token;
+  });
+
   function bindTabButton(button) {
     on(button, "click", () => {
       const tabId = button.getAttribute("data-settings-tab");
@@ -393,12 +504,15 @@ export function mountSettingsPanel({ root, toggleButton }) {
   on(dom.polaroidFooterLabelInput, "change", commitPolaroidFooterLabel);
   on(dom.polaroidFooterLabelInput, "blur", commitPolaroidFooterLabel);
   on(dom.localeToggle, "click", (e) => {
-    const btn = /** @type {HTMLElement} */ (e.target).closest("[data-locale]");
+    const btn = e.target instanceof Element ? e.target.closest("[data-locale]") : null;
     if (!btn) {
       return;
     }
 
-    updateAppSettings({ locale: btn.getAttribute("data-locale") });
+    const locale = btn.getAttribute("data-locale");
+    if (locale === "fr" || locale === "en") {
+      updateAppSettings({ locale });
+    }
   });
 
   on(dom.exportButton, "click", async () => {
@@ -406,10 +520,22 @@ export function mountSettingsPanel({ root, toggleButton }) {
       return;
     }
 
-    isExportInProgress = true;
-    syncExportButtonState();
-    syncImportUi();
-    setExportStatus(t("settings.data.exportPreparing"));
+    const backupOperation = backupOperationCoordinator.begin("export");
+    if (!backupOperation) {
+      return;
+    }
+    locallyOwnedBackupOperationTokens.add(backupOperation.token);
+    const transferStartedAtMs = Date.now();
+    /** @type {"transfer" | "file-handoff"} */
+    let exportPhase = "transfer";
+    let outcomeRecorded = false;
+    const recordExportOutcome = (outcome, category) => {
+      if (outcomeRecorded) {
+        return;
+      }
+      outcomeRecorded = true;
+      recordBackupTransfer("export", outcome, transferStartedAtMs, category);
+    };
 
     let latestExportProgress = {
       completed: 0,
@@ -419,93 +545,126 @@ export function mountSettingsPanel({ root, toggleButton }) {
     };
 
     try {
-      const blob = await exportAllPalettesBlob({
-        onProgress: (progress) => {
-          latestExportProgress = progress;
-          syncExportButtonState(progress);
-          setExportStatus(buildExportProgressMessage(progress));
-        },
-      });
-      latestExportProgress = {
-        ...latestExportProgress,
-        phase: "saving",
-      };
-      setExportStatus(buildExportProgressMessage(latestExportProgress));
-      const filename = buildExportFilename({
-        paletteCount: latestExportProgress.total,
-      });
-      const exportDoneTranslationKey =
-        latestExportProgress.total === 1
-          ? "settings.data.exportDoneStatus.one"
-          : "settings.data.exportDoneStatus.other";
-      const exportDoneMessage = t(exportDoneTranslationKey, {
-        count: latestExportProgress.total,
-        elapsed: formatElapsedDuration(latestExportProgress.elapsedMs),
-      });
-
-      const isIOS = isIOSDevice();
-      const shareMimeCandidates = isIOS ? ["application/json", "text/plain"] : ["application/json"];
-      const reportExportSuccess = () => {
-        setExportStatus(exportDoneMessage);
-        showToast(t("settings.toast.exportDone"), { duration: 1400 });
-      };
-      const canShareFile = (file) => {
-        if (typeof navigator.canShare !== "function") {
-          return true;
+      await runReloadSensitiveOperation("backup-export", async () => {
+        const blob = await exportAllPalettesBlob({
+          onProgress: (progress) => {
+            latestExportProgress = progress;
+            backupOperation.setProgress(progress);
+          },
+        });
+        if (!backupOperation.isActive()) {
+          return;
         }
-        try {
-          return navigator.canShare({ files: [file] });
-        } catch {
-          return false;
-        }
-      };
+        latestExportProgress = {
+          ...latestExportProgress,
+          phase: "saving",
+        };
+        backupOperation.setProgress(latestExportProgress);
+        const filename = buildExportFilename({
+          paletteCount: latestExportProgress.total,
+        });
+        const exportDoneTranslationKey =
+          latestExportProgress.total === 1
+            ? "settings.data.exportDoneStatus.one"
+            : "settings.data.exportDoneStatus.other";
+        const exportDoneMessage = t(exportDoneTranslationKey, {
+          count: latestExportProgress.total,
+          elapsed: formatElapsedDuration(latestExportProgress.elapsedMs),
+        });
 
-      if (typeof navigator.share === "function") {
-        for (const mimeType of shareMimeCandidates) {
-          const file = new File([blob], filename, { type: mimeType });
-          if (!canShareFile(file)) {
-            continue;
-          }
-
-          try {
-            await navigator.share({ files: [file], title: filename });
-            reportExportSuccess();
+        exportPhase = "file-handoff";
+        const isIOS = isIOSDevice();
+        const shareMimeCandidates = isIOS
+          ? ["application/json", "text/plain"]
+          : ["application/json"];
+        const reportExportSuccess = () => {
+          recordExportOutcome("success");
+          if (!isMounted) {
             return;
-          } catch (shareError) {
-            if (shareError instanceof Error && shareError.name === "AbortError") {
-              setExportStatus("");
-              return;
+          }
+          setExportStatus(exportDoneMessage);
+          showToast(t("settings.toast.exportDone"), { duration: 1400 });
+        };
+        const canShareFile = (file) => {
+          if (typeof navigator.canShare !== "function") {
+            return true;
+          }
+          try {
+            return navigator.canShare({ files: [file] });
+          } catch {
+            return false;
+          }
+        };
+
+        if (typeof navigator.share === "function") {
+          for (const mimeType of shareMimeCandidates) {
+            const file = new File([blob], filename, { type: mimeType });
+            if (!canShareFile(file)) {
+              continue;
             }
-            console.warn("Palette export share failed", { mimeType, shareError });
+
+            try {
+              await navigator.share({ files: [file], title: filename });
+              reportExportSuccess();
+              return;
+            } catch (shareError) {
+              if (shareError instanceof Error && shareError.name === "AbortError") {
+                recordExportOutcome("cancelled", BACKUP_TRANSFER_CATEGORIES.cancelled);
+                setExportStatus("");
+                return;
+              }
+              console.warn("Palette export share failed", { mimeType, shareError });
+            }
           }
         }
-      }
 
-      const url = URL.createObjectURL(blob);
-      const revokeUrlLater = () => {
-        window.setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 60000);
-      };
+        const url = backupOperation.createObjectUrl(blob);
+        if (!url) {
+          throw new Error("The browser could not create the backup file download.");
+        }
 
-      if (isIOS) {
-        window.open(url, "_blank");
-      } else {
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = filename;
-        anchor.click();
-      }
-      revokeUrlLater();
-      reportExportSuccess();
+        if (isIOS) {
+          const exportWindow = window.open(url, "_blank");
+          if (!exportWindow) {
+            throw new Error("The browser blocked the backup download window.");
+          }
+        } else {
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = filename;
+          anchor.click();
+        }
+        reportExportSuccess();
+      });
     } catch (error) {
       console.error("Export failed:", error);
-      setExportStatus(t("settings.data.exportFailedStatus"), { isError: true });
-      showToast(t("settings.toast.exportFailed"), { duration: 2000 });
+      const category = classifyBackupTransferError(error, {
+        operation: "export",
+        phase: exportPhase,
+      });
+      recordExportOutcome(
+        category === BACKUP_TRANSFER_CATEGORIES.cancelled ? "cancelled" : "failure",
+        category,
+      );
+      if (!backupOperation.isActive()) {
+        return;
+      }
+      if (category === BACKUP_TRANSFER_CATEGORIES.cancelled) {
+        setExportStatus("");
+        return;
+      }
+      const [statusKey, toastKey, duration] = EXPORT_FAILURE_PRESENTATIONS[category] ?? [
+        "settings.data.exportFailedStatus",
+        "settings.toast.exportFailed",
+        2500,
+      ];
+      setExportStatus(t(statusKey), { isError: true });
+      if (isMounted) {
+        showToast(t(toastKey), { duration });
+      }
     } finally {
-      isExportInProgress = false;
-      syncExportButtonState();
-      syncImportUi();
+      backupOperation.finish();
+      locallyOwnedBackupOperationTokens.delete(backupOperation.token);
     }
   });
 
@@ -519,26 +678,60 @@ export function mountSettingsPanel({ root, toggleButton }) {
       return;
     }
 
-    isImportInProgress = true;
-    syncImportUi();
-    syncExportButtonState();
-    setExportStatus(t("settings.data.importBusy"));
+    const backupOperation = backupOperationCoordinator.begin("import");
+    if (!backupOperation) {
+      dom.importInput.value = "";
+      return;
+    }
+    locallyOwnedBackupOperationTokens.add(backupOperation.token);
+    const transferStartedAtMs = Date.now();
     try {
-      const text = await file.text();
-      const count = await importAllPalettes(text);
+      if (!Number.isSafeInteger(file.size) || file.size > PALETTE_IMPORT_MAX_STREAMING_JSON_BYTES) {
+        throw new PaletteBackupSizeLimitError("Palette backup exceeds the import size limit.");
+      }
+      const count = await runReloadSensitiveOperation("backup-import", () =>
+        importAllPalettes(file),
+      );
+      recordBackupTransfer("import", "success", transferStartedAtMs);
+      if (!backupOperation.isActive()) {
+        return;
+      }
       const translationKey =
         count === 1 ? "settings.toast.imported.one" : "settings.toast.imported.other";
       setExportStatus(t(translationKey, { count }));
-      showToast(t(translationKey, { count }), { duration: 2000 });
+      if (isMounted) {
+        showToast(t(translationKey, { count }), { duration: 2000 });
+      }
     } catch (error) {
       console.error("Import failed:", error);
-      setExportStatus(t("settings.toast.importFailed"), { isError: true });
-      showToast(t("settings.toast.importFailed"), { duration: 2500 });
+      const category = classifyBackupTransferError(error, { operation: "import" });
+      recordBackupTransfer(
+        "import",
+        category === BACKUP_TRANSFER_CATEGORIES.cancelled ? "cancelled" : "failure",
+        transferStartedAtMs,
+        category,
+      );
+      if (!backupOperation.isActive()) {
+        return;
+      }
+      if (category === BACKUP_TRANSFER_CATEGORIES.cancelled) {
+        setExportStatus("");
+        return;
+      }
+      const [messageKey, duration] = IMPORT_FAILURE_PRESENTATIONS[category] ?? [
+        "settings.toast.importFailed",
+        3000,
+      ];
+      setExportStatus(t(messageKey), { isError: true });
+      if (isMounted) {
+        showToast(t(messageKey), { duration });
+      }
     } finally {
-      isImportInProgress = false;
-      dom.importInput.value = "";
-      syncImportUi();
-      syncExportButtonState();
+      if (isMounted) {
+        dom.importInput.value = "";
+      }
+      backupOperation.finish();
+      locallyOwnedBackupOperationTokens.delete(backupOperation.token);
     }
   });
 
@@ -549,6 +742,15 @@ export function mountSettingsPanel({ root, toggleButton }) {
 
     const isConfirmed = globalThis.confirm?.(t("settings.data.flushConfirm")) ?? true;
     if (!isConfirmed) {
+      return;
+    }
+
+    const releaseExclusiveOperation = tryBeginExclusiveCriticalOperation("local-data-flush");
+    if (!releaseExclusiveOperation) {
+      showToast(t("settings.toast.flushBusy"), {
+        variant: "error",
+        duration: 2500,
+      });
       return;
     }
 
@@ -563,6 +765,8 @@ export function mountSettingsPanel({ root, toggleButton }) {
         duration: 2500,
       });
       dom.flushDataButton.disabled = false;
+    } finally {
+      releaseExclusiveOperation();
     }
   });
 
@@ -580,6 +784,11 @@ export function mountSettingsPanel({ root, toggleButton }) {
   const unsubscribe = subscribeAppSettings(renderSettingsUi);
 
   return () => {
+    isMounted = false;
+    unsubscribeBackupOperations();
+    if (ownsBackupOperations) {
+      backupOperationCoordinator.destroy();
+    }
     unsubscribe();
     cleanups.forEach((cleanup) => {
       cleanup();

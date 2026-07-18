@@ -2,30 +2,62 @@ import { html, LitElement } from "lit";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { shouldShowPanelFormVersion } from "../../config.js";
 import { mountSettingsPanel } from "./settings-panel-controller.js";
+import { createSettingsBackupOperationCoordinator } from "./settings-backup-operation.js";
 import { initLoginUi } from "../../login-ui.js";
 import { initDeleteAccountUi } from "../../delete-account-ui.js";
 
 class SettingsPanel extends LitElement {
+  constructor() {
+    super();
+    this.backupOperations = createSettingsBackupOperationCoordinator();
+  }
+
   createRenderRoot() {
     return this;
   }
 
   firstUpdated() {
+    this.mountControllers();
+    this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
+      void this.remountForLocaleChange();
+    });
+  }
+
+  mountControllers() {
     this.cleanupSettingsPanel = mountSettingsPanel({
       root: this,
       toggleButton: document.querySelector(".btn-open-settings"),
+      backupOperations: this.backupOperations,
     });
-    initLoginUi();
-    initDeleteAccountUi();
-    this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
-      this.requestUpdate();
-    });
+    this.cleanupLoginUi = initLoginUi(this);
+    this.cleanupDeleteAccountUi = initDeleteAccountUi();
+  }
+
+  cleanupControllers() {
+    this.cleanupSettingsPanel?.();
+    this.cleanupSettingsPanel = null;
+    this.cleanupLoginUi?.();
+    this.cleanupLoginUi = null;
+    this.cleanupDeleteAccountUi?.();
+    this.cleanupDeleteAccountUi = null;
+  }
+
+  async remountForLocaleChange() {
+    const generation = (this.localeRenderGeneration ?? 0) + 1;
+    this.localeRenderGeneration = generation;
+    this.cleanupControllers();
     this.requestUpdate();
+    await this.updateComplete;
+    if (this.isConnected && this.localeRenderGeneration === generation) {
+      this.mountControllers();
+    }
   }
 
   disconnectedCallback() {
-    this.cleanupSettingsPanel?.();
+    this.localeRenderGeneration = (this.localeRenderGeneration ?? 0) + 1;
+    this.cleanupControllers();
     this.unsubscribeLocaleChange?.();
+    this.backupOperations.destroy();
     super.disconnectedCallback();
   }
 
@@ -100,6 +132,7 @@ class SettingsPanel extends LitElement {
                 class="panel-form-text-input"
                 id="communityEmailInput"
                 type="email"
+                maxlength="320"
                 autocomplete="email"
                 placeholder=${t("login.emailPlaceholder")}
               />
@@ -125,6 +158,7 @@ class SettingsPanel extends LitElement {
                 type="text"
                 inputmode="numeric"
                 autocomplete="one-time-code"
+                maxlength="32"
                 placeholder=${t("login.codePlaceholder")}
               />
               <button

@@ -1,13 +1,19 @@
 export {
+  bulkUpdatePaletteRemoteStates,
+  bulkUpdateOwnedPaletteRemoteStates,
+  clearCommunityStateForAccount,
   clearSavedPalettes,
-  deletePalette,
+  clearPaletteRemoteStates,
   ensurePaletteMasterPhotoBlob,
   getSavedPaletteById,
   getSavedPalettes,
   savePalette,
   updatePaletteRemoteState,
 } from "./palette-storage/core.js";
+export { deletePalette } from "./palette-storage/deletion.js";
 export {
+  readPalettePhotoBlobsByIds,
+  readPalettePreviewBlobsByIds,
   readPalettePreviewBlobById,
   updatePalettePreviewBlob,
 } from "./palette-storage/assets.js";
@@ -16,3 +22,5 @@ export {
   exportAllPalettesBlob,
   importAllPalettes,
 } from "./palette-storage/backup.js";
+export { initializePaletteStorage } from "./palette-storage/maintenance.js";
+export { subscribePaletteDatabaseLifecycle } from "./palette-storage/db.js";
