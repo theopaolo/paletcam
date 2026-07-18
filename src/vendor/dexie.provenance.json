@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "package": "dexie",
+  "version": "4.3.0",
+  "license": "Apache-2.0",
+  "sourceArchiveUrl": "https://registry.npmjs.org/dexie/-/dexie-4.3.0.tgz",
+  "sourceArchivePath": "package/dist/dexie.mjs",
+  "vendoredPath": "src/vendor/dexie.mjs",
+  "sha256": "5b902ec42eda4eb5609020bfb26d60887234d65d222136c0e6fb1c1a1bb20d7b"
+}

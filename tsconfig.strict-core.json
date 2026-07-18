@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.production.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "include": [
+    "src/community-api-contract.js",
+    "src/community-account-key.js",
+    "src/community-session.js",
+    "src/modules/app/app-view.js",
+    "src/modules/app/live-preview-extraction-pipeline.js",
+    "src/modules/app/live-preview-frame-acquisition.js",
+    "src/modules/app/live-preview-origin-marker-model.js",
+    "src/modules/app/live-preview-timing.js",
+    "src/modules/client-log.js",
+    "src/modules/collection/palette-deletion.js",
+    "src/modules/collection/bulk-publication.js",
+    "src/modules/collection/collection-lifecycle.js",
+    "src/modules/collection/collection-load-coordinator.js",
+    "src/modules/collection/collection-view.js",
+    "src/modules/collection/collection-viewer-coordinator.js",
+    "src/modules/collection/deletion-settlement-coordinator.js",
+    "src/modules/collection/moderation-sync-controller.js",
+    "src/modules/collection/palette-output-commands.js",
+    "src/modules/collection/selection-mode.js",
+    "src/modules/critical-operation.js",
+    "src/modules/operational-metrics.js",
+    "src/modules/service-worker-update-controller.js",
+    "src/modules/toast/toast-settlement.js",
+    "src/palette-storage/image-header.js",
+    "types/**/*.d.ts"
+  ]
+}

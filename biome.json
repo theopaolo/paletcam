@@ -4,9 +4,11 @@
     "includes": [
       "**",
       "!dist",
+      "!test-results",
       "!vendor",
       "!src/vendor",
       "!.sisyphus",
+      "!**/colorcatches-*.json",
       "!public/__*",
       "!public/debug-*.html"
     ]

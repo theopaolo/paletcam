@@ -1,4 +1,6 @@
 import { extname, join, normalize } from "node:path";
+import { resolveCommunityApiBaseUrl } from "./community-api-config.js";
+import { resolveLogApiBaseUrl } from "./log-api-config.js";
 import { withSecurityHeaders } from "./security-headers.js";
 import { resolveDeployBranchName } from "./git-utils.js";
 
@@ -19,9 +21,11 @@ const appCommitHash = (() => {
   }
 })();
 const communityApiProxyPrefix = "/api/v1";
-const communityApiProxyTarget = (
-  process.env.COMMUNITY_API_PROXY_TARGET ?? "https://colorcatchers.co"
-).replace(/\/+$/, "");
+const communityApiProxyTarget = resolveCommunityApiBaseUrl(
+  process.env.COMMUNITY_API_PROXY_TARGET ?? "https://colorcatchers.co",
+  "",
+);
+const logApiBaseUrl = resolveLogApiBaseUrl(process.env.PALETCAM_LOG_API_BASE_URL, "");
 const fallbackPorts = [
   ...Array.from({ length: 120 }, (_, index) => initialPort + index),
   5173,
@@ -53,6 +57,10 @@ function resolveRequestCandidates(urlPathname) {
 
   if (normalizedPath === "_headers" || normalizedPath === "_redirects") {
     return [];
+  }
+
+  if (normalizedPath === "debug/performance-hud.js") {
+    return [join(sourceRoot, "modules", "performance-hud.js")];
   }
 
   return [join(publicRoot, normalizedPath), join(sourceRoot, normalizedPath)];
@@ -181,7 +189,9 @@ async function bundleSourceModule(filePath) {
       "process.env.NODE_ENV": JSON.stringify(browserBundleNodeEnv),
       __COMMUNITY_BASE_URL__: JSON.stringify(communityApiProxyTarget),
       __PALETCAM_DEPLOY_BRANCH__: JSON.stringify(deployBranchName),
-      __PALETCAM_LOG_API_BASE_URL__: JSON.stringify(process.env.PALETCAM_LOG_API_BASE_URL ?? ""),
+      __PALETCAM_DEBUG_TOOLS__: "true",
+      __PALETCAM_BUILD_ARTIFACT__: "false",
+      __PALETCAM_LOG_API_BASE_URL__: JSON.stringify(logApiBaseUrl),
       __APP_VERSION__: JSON.stringify(appVersion),
       __COMMIT_HASH__: JSON.stringify(appCommitHash),
     },

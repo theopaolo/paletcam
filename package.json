@@ -2,15 +2,42 @@
   "name": "paletcam",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "bun@1.3.11",
+  "engines": {
+    "bun": "1.3.11"
+  },
   "type": "module",
   "scripts": {
     "dev": "bun run scripts/dev-server.js",
     "build": "bun run scripts/build.js",
+    "build:production": "PALETCAM_DEPLOY_BRANCH=pwa/prod bun run build",
+    "build:preprod": "PALETCAM_DEPLOY_BRANCH=pwa/preprod bun run build",
+    "verify:build": "bun run scripts/verify-build.js",
+    "verify:reproducible": "bun run scripts/verify-reproducible-build.js",
+    "verify:preprod": "bun run scripts/verify-preprod-build.js",
+    "generate:preprod-image-manifest": "bun run scripts/generate-preprod-image-manifest.js",
+    "verify:release-metadata": "bun run scripts/verify-release-metadata.js",
+    "release:evidence": "bun run scripts/release-evidence.js",
+    "release:evidence:validate": "bun run scripts/release-evidence.js --validate --require-external-signoffs --require-verified-automation",
     "test": "bun run scripts/test-isolated.js",
+    "test:e2e": "playwright test",
+    "test:e2e:dist": "PLAYWRIGHT_REUSE_DIST=1 PLAYWRIGHT_RELEASE_SUITE=e2e playwright test",
+    "test:pwa": "playwright test --config playwright.pwa.config.js",
+    "test:pwa:dist": "PLAYWRIGHT_REUSE_DIST=1 PLAYWRIGHT_RELEASE_SUITE=pwa playwright test --config playwright.pwa.config.js",
+    "test:pwa:preprod": "PLAYWRIGHT_REUSE_DIST=1 PWA_EXPECT_DEBUG_ASSETS=1 PLAYWRIGHT_RELEASE_SUITE=pwa-preprod playwright test --config playwright.pwa.config.js",
+    "test:performance": "playwright test --config playwright.performance.config.js",
+    "test:performance:dist": "PLAYWRIGHT_REUSE_DIST=1 PLAYWRIGHT_RELEASE_SUITE=performance playwright test --config playwright.performance.config.js",
+    "typecheck": "tsc -p tsconfig.production.json --noEmit",
+    "typecheck:all": "tsc --noEmit",
+    "typecheck:production": "tsc -p tsconfig.production.json --noEmit",
+    "typecheck:strict-core": "tsc -p tsconfig.strict-core.json --noEmit",
     "lint:css": "stylelint 'public/styles/**/*.css'",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
+    "verify": "bun run test && bun run lint && bun run lint:css && bun run typecheck && bun run typecheck:strict-core && bun run verify:release-metadata && bun run build:production && bun run verify:build",
+    "verify:preprod-release": "bun run build:preprod && bun run verify:preprod && bun run test:pwa:preprod",
+    "verify:release": "bun run verify:preprod-release && bun run verify && bun run verify:reproducible && bun run test:e2e && bun run test:e2e:dist && bun run test:pwa:dist && bun run test:performance:dist && bun run verify:build",
     "analyze-sm": "source-map-explorer dist/app.js dist/app.js.map --no-border-checks"
   },
   "dependencies": {
@@ -19,12 +46,15 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",
+    "@playwright/test": "^1.61.1",
+    "@types/bun": "1.3.11",
     "jpeg-js": "^0.4.4",
     "pngjs": "^7.0.0",
     "sharp": "^0.35.2",
     "source-map-explorer": "^2.5.3",
     "stylelint": "^17.9.1",
     "stylelint-config-standard": "^40.0.0",
-    "stylelint-declaration-strict-value": "^1.11.1"
+    "stylelint-declaration-strict-value": "^1.11.1",
+    "typescript": "5.9.3"
   }
 }

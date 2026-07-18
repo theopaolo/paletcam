@@ -1,4 +1,5 @@
 node_modules/
+.release-gate-receipt.json
 dist/
 .DS_Store
 src/color-thief-src/
@@ -17,8 +18,15 @@ output/
 
 # Stray Playwright CLI session dumps
 .playwright-cli/
+playwright-report/
+test-results/
+release-reports/
 
-# Local debug extraction galleries
+# Local palette/photo backups can contain private camera images.
+colorcatches-*.json
+**/colorcatches-*.json
+
+# The reviewed reference-image corpus under public/assets/img is intentional
+# preprod-only source material. The build policy excludes it from production
+# and from every service-worker cache.
 .sisyphus/
-public/assets/img/*
-!public/assets/img/image.png

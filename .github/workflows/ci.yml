@@ -5,22 +5,84 @@ on:
     branches:
       - main
       - master
+      - pwa/preprod
+      - pwa/prod
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
-    name: Bun Test
+  verify:
+    name: Verify production build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.11
+
+      - name: Restore Bun dependency cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-1.3.11-${{ hashFiles('bun.lock', 'services/log-server/bun.lock') }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run tests
-        run: bun run test
+      - name: Verify vendored dependency provenance
+        run: bun run scripts/verify-vendored-dependencies.js
+
+      - name: Verify log-service dependency graph
+        working-directory: services/log-server
+        run: bun install --frozen-lockfile && bun test
+
+      - name: Build production log-service image
+        run: docker build --tag paletcam-log-server:ci services/log-server
+
+      - name: Install browser engines
+        run: bunx playwright install --with-deps chromium webkit
+
+      - name: Run complete production release gate
+        env:
+          # Public, CSP-authorized telemetry origin compiled into the release
+          # artifact. Runtime credentials belong only to the log service.
+          PALETCAM_LOG_API_BASE_URL: https://cclogs.ludique.dev
+        run: bun run verify:release
+
+      - name: Bind release gate receipt to the verified artifact
+        run: bun run scripts/write-release-gate-receipt.js
+
+      - name: Generate release evidence
+        run: bun run release:evidence --verified --output release-evidence.json
+
+      - name: Upload verified artifact and release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: paletcam-production-${{ github.sha }}
+          path: |
+            dist
+            release-evidence.json
+            release-reports
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-artifacts
+          path: |
+            dist
+            playwright-report
+            playwright-report-pwa
+            playwright-report-performance
+            release-reports
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
