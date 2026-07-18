@@ -275,20 +275,58 @@ describe("cleanupPaletteRemoteCatch", () => {
     expect(palette.moderationStatus).toBe("PRIVATE");
   });
 
-  test("refuses ownerless legacy cleanup before calling the API", async () => {
-    const { service, unpublishCatchFromCommunity } = await loadCommunityService({
+  test("claims an ownerless legacy palette after authenticated cleanup succeeds", async () => {
+    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } =
+      await loadCommunityService({
+        token: "session-token",
+      });
+    const palette = {
+      id: 12,
+      remoteCatchId: "legacy-remote",
+      remoteOwnerAccountKey: null,
+      moderationStatus: "PUBLIC",
+    };
+
+    await expect(service.cleanupPaletteRemoteCatch(palette)).resolves.toMatchObject({
+      status: "unpublished",
+      success: true,
+    });
+    expect(unpublishCatchFromCommunity).toHaveBeenCalledWith({
+      remoteCatchId: "legacy-remote",
       token: "session-token",
     });
-
-    await expect(
-      service.cleanupPaletteRemoteCatch({
-        id: 12,
-        remoteCatchId: "legacy-remote",
-        remoteOwnerAccountKey: null,
-        moderationStatus: "PUBLIC",
+    expect(updatePaletteRemoteState).toHaveBeenCalledWith(
+      12,
+      expect.objectContaining({
+        moderationStatus: "PRIVATE",
+        remoteOwnerAccountKey: TEST_OWNER_ACCOUNT_KEY,
       }),
-    ).rejects.toMatchObject({ code: "REMOTE_OWNER_UNKNOWN" });
-    expect(unpublishCatchFromCommunity).not.toHaveBeenCalled();
+    );
+    expect(palette.remoteOwnerAccountKey).toBe(TEST_OWNER_ACCOUNT_KEY);
+  });
+
+  test("does not claim an ownerless legacy palette from a concealed not-found response", async () => {
+    const notFoundError = Object.assign(new Error("missing"), { status: 404 });
+    const { service, updatePaletteRemoteState } = await loadCommunityService({
+      token: "session-token",
+      unpublishImplementation: async () => {
+        throw notFoundError;
+      },
+    });
+    const palette = {
+      id: 12,
+      remoteCatchId: "legacy-remote",
+      remoteOwnerAccountKey: null,
+      moderationStatus: "PUBLIC",
+    };
+
+    await expect(service.cleanupPaletteRemoteCatch(palette)).resolves.toMatchObject({
+      error: expect.objectContaining({ code: "REMOTE_OWNER_UNKNOWN" }),
+      status: "failed",
+      success: false,
+    });
+    expect(updatePaletteRemoteState).not.toHaveBeenCalled();
+    expect(palette.remoteOwnerAccountKey).toBeNull();
   });
 });
 
@@ -679,6 +717,68 @@ describe("unpublishPaletteFromCommunityFeed", () => {
       code: "REMOTE_OWNER_MISMATCH",
     });
     expect(unpublishCatchFromCommunity).not.toHaveBeenCalled();
+  });
+
+  test("claims an ownerless legacy palette after authenticated unpublish succeeds", async () => {
+    const { service, unpublishCatchFromCommunity, updatePaletteRemoteState } =
+      await loadCommunityService({ token: "session-token" });
+    const palette = createPublishedPalette();
+    palette.remoteOwnerAccountKey = null;
+
+    await expect(service.unpublishPaletteFromCommunityFeed(palette)).resolves.toMatchObject({
+      moderationStatus: "PRIVATE",
+      remoteCatchId: "remote-catch-id",
+    });
+    expect(unpublishCatchFromCommunity).toHaveBeenCalledWith({
+      remoteCatchId: "remote-catch-id",
+      token: "session-token",
+    });
+    expect(updatePaletteRemoteState).toHaveBeenCalledWith(
+      palette.id,
+      expect.objectContaining({
+        moderationStatus: "PRIVATE",
+        remoteOwnerAccountKey: TEST_OWNER_ACCOUNT_KEY,
+      }),
+    );
+    expect(palette.remoteOwnerAccountKey).toBe(TEST_OWNER_ACCOUNT_KEY);
+  });
+
+  test("does not claim an ownerless legacy palette when the server cannot verify it", async () => {
+    const forbiddenError = Object.assign(new Error("forbidden"), { status: 403 });
+    const { service, updatePaletteRemoteState } = await loadCommunityService({
+      token: "session-token",
+      unpublishImplementation: async () => {
+        throw forbiddenError;
+      },
+    });
+    const palette = createPublishedPalette();
+    palette.remoteOwnerAccountKey = null;
+
+    await expect(service.unpublishPaletteFromCommunityFeed(palette)).rejects.toMatchObject({
+      code: "API_ERROR",
+    });
+    expect(updatePaletteRemoteState).not.toHaveBeenCalled();
+    expect(palette.remoteOwnerAccountKey).toBeNull();
+    expect(palette.moderationStatus).toBe("PUBLIC");
+  });
+
+  test("does not claim an ownerless legacy palette from a concealed not-found response", async () => {
+    const notFoundError = Object.assign(new Error("missing"), { status: 404 });
+    const { service, updatePaletteRemoteState } = await loadCommunityService({
+      token: "session-token",
+      unpublishImplementation: async () => {
+        throw notFoundError;
+      },
+    });
+    const palette = createPublishedPalette();
+    palette.remoteOwnerAccountKey = null;
+
+    await expect(service.unpublishPaletteFromCommunityFeed(palette)).rejects.toMatchObject({
+      code: "REMOTE_OWNER_UNKNOWN",
+      cause: notFoundError,
+    });
+    expect(updatePaletteRemoteState).not.toHaveBeenCalled();
+    expect(palette.remoteOwnerAccountKey).toBeNull();
   });
 
   test("converges local state when the remote catch is already absent", async () => {

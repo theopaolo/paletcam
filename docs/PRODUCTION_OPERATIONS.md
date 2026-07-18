@@ -51,7 +51,8 @@ Current IndexedDB schema version 7 keeps palette metadata, master photos,
 previews, maintenance markers, the durable leased community-delete outbox, and
 isolated provisional import rows in separate stores. Version 7 additionally
 binds new remote publications to a stable non-secret account key; pre-v7 remote
-rows remain owner-unknown and fail closed for remote mutations. Its changes are
+rows remain owner-unknown unless an explicit authenticated unpublish succeeds
+for that exact catch. Failed and concealed not-found responses fail closed. Its changes are
 additive and reads normalize missing fields; do not ship a rollback that cannot open
 schema version 7. If a future migration is not
 backward-compatible, require a forward-fix release instead.

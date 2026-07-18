@@ -22,8 +22,10 @@ Status: audit baseline created 2026-07-11 on `pwa/preprod`.
   service-worker cache. Client telemetry aborts a stalled delivery after ten
   seconds so one hung request cannot block the bounded single-flight queue.
 - **Publication remains blocked on two product/backend decisions:** historical
-  pre-v7 remote-linked palettes need a server-verified ownership claim contract;
-  the client must not infer ownership from the active login. In addition, normal
+  pre-v7 remote-linked palettes can recover ownership only when an explicit
+  authenticated unpublish succeeds; other ownerless remote operations still need
+  a server-verified ownership claim contract, and the client must not infer
+  ownership from the active login. In addition, normal
   captures/imports can currently grow beyond the 2,000-palette / 512 MiB decoded
   photo envelope of the only full backup format. Promotion requires either a
   chunked/segmented restorable backup or a clearly enforced collection-wide
@@ -585,9 +587,11 @@ These are explicit production-readiness decisions, not hidden refactoring debt:
   confirmation that the community backend enforces deduplication for that key.
 - **P1 legacy remote-owner recovery:** owner binding is persisted and enforced
   for new publications. Historical remote-linked rows that predate database v7
-  deliberately remain owner-unknown and cannot trigger remote mutation. A future
-  backend ownership-verification contract may offer explicit recovery; the client
-  must not infer ownership from the current login or from a concealed 404.
+  may bind to the originating account only after its bearer token successfully
+  unpublishes that exact catch. Failed requests and concealed 404 responses remain
+  owner-unknown. A future read-only backend ownership-verification contract may
+  extend recovery to moderation, republish, and direct-delete flows; the client
+  must not infer ownership from the current login.
 - **P1 publication encoding evidence:** the per-byte JavaScript loop is removed,
   but a throttled and physical-device benchmark at the maximum supported
   capture/request size must confirm that native data-URL encoding stays within

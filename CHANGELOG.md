@@ -25,6 +25,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Fixed
 
+- Pre-v7 published palettes can recover their account binding when an explicit authenticated unpublish succeeds; rejected or concealed not-found responses remain owner-unknown.
 - Camera, service-worker update, worker, publication, deletion, backup, and collection lifecycle races now have explicit ownership and recovery boundaries.
 - Service-worker caching rejects query-bearing allowlisted variants, preventing unbounded cache-key growth.
 - Backup workers and staged atomic commits terminate with the app lifetime; cancellation rolls back before live data becomes visible.

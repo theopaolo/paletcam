@@ -81,6 +81,35 @@ function assertPaletteRemoteOwner(palette, session) {
   }
 }
 
+function assertPaletteRemoteOwnerIfKnown(palette, session) {
+  const ownerAccountKey = normalizeCommunityAccountKey(palette?.remoteOwnerAccountKey);
+  if (!ownerAccountKey) return false;
+  if (!paletteRemoteOwnerMatchesSession(palette, session)) {
+    throw createCommunityServiceError(
+      "This palette was published by a different community account.",
+      { code: "REMOTE_OWNER_MISMATCH" },
+    );
+  }
+  return true;
+}
+
+function getLegacyRemoteOwnerClaimAccountKey(session) {
+  const ownerAccountKey = deriveCommunityAccountKey(session);
+  if (!ownerAccountKey) {
+    throw createCommunityServiceError("A stable community account identity is required.", {
+      code: "COMMUNITY_ACCOUNT_IDENTITY_REQUIRED",
+    });
+  }
+  return ownerAccountKey;
+}
+
+function createLegacyRemoteOwnerUnverifiedError(cause) {
+  return createCommunityServiceError(
+    "The palette's publishing account could not be verified by the server.",
+    { code: "REMOTE_OWNER_UNKNOWN", cause },
+  );
+}
+
 async function runCriticalPublication(operation) {
   const releaseCriticalOperation = beginCriticalOperation("community-publication");
   try {
@@ -415,9 +444,10 @@ function buildRemoteDeletionCleanupAuthRequiredResult(remoteCatchId) {
   };
 }
 
-async function persistPalettePrivateRemoteState(palette) {
+async function persistPalettePrivateRemoteState(palette, { remoteOwnerAccountKey = "" } = {}) {
   const nowIso = new Date().toISOString();
   const nextRemoteState = {
+    ...(remoteOwnerAccountKey ? { remoteOwnerAccountKey } : {}),
     moderationStatus: CATCH_MODERATION_STATUSES.PRIVATE,
     moderationUpdatedAt: nowIso,
     lastModerationCheckAt: nowIso,
@@ -530,11 +560,22 @@ async function cleanupPaletteRemoteCatchOperation(palette) {
   if (!session?.token) {
     return cleanupRemoteCatchOperation(remoteCatchId, session);
   }
-  assertPaletteRemoteOwner(palette, session);
+  const hasKnownOwner = assertPaletteRemoteOwnerIfKnown(palette, session);
+  const legacyOwnerAccountKey = hasKnownOwner ? "" : getLegacyRemoteOwnerClaimAccountKey(session);
 
   const result = await cleanupRemoteCatchOperation(remoteCatchId, session);
+  if (!hasKnownOwner && result.status === "already_removed") {
+    return {
+      ...result,
+      error: createLegacyRemoteOwnerUnverifiedError(result.error),
+      status: "failed",
+      success: false,
+    };
+  }
   if (result.success && result.attempted) {
-    await persistPalettePrivateRemoteState(palette);
+    await persistPalettePrivateRemoteState(palette, {
+      remoteOwnerAccountKey: legacyOwnerAccountKey,
+    });
   }
 
   return result;
@@ -767,7 +808,10 @@ async function unpublishPaletteFromCommunityFeedOperation(palette, publicationSe
     throw createCommunityServiceError("Palette is not public.", { code: "NOT_PUBLIC" });
   }
 
-  assertPaletteRemoteOwner(palette, publicationSession);
+  const hasKnownOwner = assertPaletteRemoteOwnerIfKnown(palette, publicationSession);
+  const legacyOwnerAccountKey = hasKnownOwner
+    ? ""
+    : getLegacyRemoteOwnerClaimAccountKey(publicationSession);
   assertPublicationSessionCurrent(publicationSession);
   const token = publicationSession.token;
 
@@ -778,7 +822,10 @@ async function unpublishPaletteFromCommunityFeedOperation(palette, publicationSe
     });
   } catch (error) {
     if (Number(error?.status) === 404) {
-      // The desired remote state is already committed; persist local convergence below.
+      if (!hasKnownOwner) {
+        throw createLegacyRemoteOwnerUnverifiedError(error);
+      }
+      // A known-owned catch is already absent; persist local convergence below.
     } else {
       if (error?.name === "CommunityServiceError") {
         throw error;
@@ -793,6 +840,7 @@ async function unpublishPaletteFromCommunityFeedOperation(palette, publicationSe
   const nowIso = new Date().toISOString();
   const nextModerationStatus = CATCH_MODERATION_STATUSES.PRIVATE;
   const nextRemoteState = {
+    ...(legacyOwnerAccountKey ? { remoteOwnerAccountKey: legacyOwnerAccountKey } : {}),
     moderationStatus: nextModerationStatus,
     moderationUpdatedAt: nowIso,
     lastModerationCheckAt: nowIso,

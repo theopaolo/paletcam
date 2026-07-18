@@ -81,10 +81,11 @@ are not release evidence for `HEAD` until the clean promotion commit passes CI.
 
 ## Operational and product gates
 
-- [ ] Historical pre-v7 published palettes can be rebound only through a
-      server-confirmed ownership claim. Until that backend contract exists,
-      ownerless remote-linked palettes intentionally fail closed and cannot be
-      safely unpublished or deleted locally.
+- [ ] Historical pre-v7 published palettes bind only after the existing
+      authenticated unpublish endpoint successfully mutates that exact catch.
+      Confirm the backend enforces ownership on that endpoint. Failed and
+      concealed not-found responses must remain owner-unknown; direct delete,
+      moderation, and republish remain closed without a read-only claim contract.
 - [ ] Every collection state accepted by capture and import remains fully
       exportable. Implement a chunked/segmented restorable backup, or enforce a
       collection-wide count/photo-byte policy before writes. The current
