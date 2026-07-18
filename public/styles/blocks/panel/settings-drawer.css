@@ -149,7 +149,7 @@ settings-panel.is-open .settings-drawer {
 }
 
 .settings-data-status.is-error {
-  color: var(--color-feedback-danger-soft);
+  color: var(--color-danger-soft);
 }
 
 .settings-action-button.is-busy {

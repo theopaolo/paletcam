@@ -357,6 +357,19 @@ describe("palette-storage/backup exportAllPalettesBlob", () => {
 });
 
 describe("palette-storage/backup importAllPalettes", () => {
+  test("accepts a 400 MiB Blob at the top-level import boundary", async () => {
+    const largeBlob = Object.create(Blob.prototype);
+    Object.defineProperty(largeBlob, "size", {
+      value: 400 * 1024 * 1024,
+    });
+    const { backupModule, beginImportSession } = await loadBackupModule({
+      workerImportResult: Promise.resolve({ palettes: [] }),
+    });
+
+    await expect(backupModule.importAllPalettes(largeBlob)).resolves.toBe(0);
+    expect(beginImportSession).toHaveBeenCalledTimes(1);
+  });
+
   test("rejects an oversized Blob before starting worker or fallback parsing", async () => {
     const { backupModule, transaction } = await loadBackupModule();
     const oversizedBlob = Object.create(Blob.prototype);

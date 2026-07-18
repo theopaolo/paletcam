@@ -63,8 +63,8 @@ are not release evidence for `HEAD` until the clean promotion commit passes CI.
 - [ ] Existing collection survives app/browser upgrade.
 - [ ] Backup export/import and corrupt-import rollback work with real photos.
 - [ ] Import the maximum accepted backup on a representative low-memory iPhone
-      and Android device; record peak memory for the 192 MiB streamed JSON /
-      128 MiB cumulative decoded-photo / 16 MiB per-photo limits. Larger
+      and Android device; record peak memory for the 768 MiB streamed JSON /
+      512 MiB cumulative decoded-photo / 16 MiB per-photo limits. Larger
       collections require a future chunked format.
 - [ ] Community login, publish, unpublish, offline cleanup retry, logout, and
       account deletion work in a test account.
@@ -88,7 +88,7 @@ are not release evidence for `HEAD` until the clean promotion commit passes CI.
 - [ ] Every collection state accepted by capture and import remains fully
       exportable. Implement a chunked/segmented restorable backup, or enforce a
       collection-wide count/photo-byte policy before writes. The current
-      2,000-palette / 128 MiB decoded-photo single-file envelope is an import and
+      2,000-palette / 512 MiB decoded-photo single-file envelope is an import and
       export boundary but is not yet an application storage boundary.
 - [ ] Public privacy notice matches `docs/PRIVACY_DATA_INVENTORY.md`.
 - [ ] Log origin allowlist, credentials, retention, rotation, persistent volume,

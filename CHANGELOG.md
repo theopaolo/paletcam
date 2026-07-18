@@ -16,6 +16,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 - Database schema advances to version 7. Versions 1–6 upgrade forward in bounded transactions; production rollback must use a forward fix rather than an older app that cannot open the newest schema.
 - Backup schema remains version 2. Existing valid version-2 backups remain compatible; unsupported or unsafe files fail before writes.
+- Incremental backup import/export now accepts a 768 MiB JSON file containing up to 512 MiB of decoded photos, allowing large photo collections without materializing the complete backup in memory.
 - Debug pages and the full reference image corpus are preprod/dev-only and are never added to service-worker caches.
 - Backup failures now provide separate invalid-file, conflict, interrupted, quota, database, serialization, integrity, and file-handoff recovery guidance with identifier-free metrics.
 - The log-service container runs as the unprivileged `bun` user; production rejects the published example credentials and separately rate-limits authenticated dashboard routes.
@@ -33,11 +34,12 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Settings backup operations remain single-flight across locale remounts, malformed remote-cleanup jobs are discarded before API use, and local-data reset cannot race pending capture persistence.
 - Corrupt authoritative palette metadata is isolated without deleting user data, and a real interrupted IndexedDB upgrade now proves transaction rollback and clean retry.
 - Log-service startup now verifies an exclusive write, fsync, close, and cleanup in `LOG_DIR`; readiness continues probing without exposing filesystem work to public health requests.
+- Settings backup errors use the defined high-contrast danger color instead of falling back to unreadable inherited text.
 
 ### Known limitations
 
 - Physical iOS Safari/PWA and Android Chrome/PWA validation, including low-memory backup import and camera background recovery, remains required before promotion.
-- Blob backups now stream within a 192 MiB file, 128 MiB cumulative decoded-photo, 32 MiB per-entry, and 16 MiB per-photo contract; whole-string compatibility remains capped at 32 MiB.
+- Blob backups now stream within a 768 MiB file, 512 MiB cumulative decoded-photo, 32 MiB per-entry, and 16 MiB per-photo contract; whole-string compatibility remains capped at 32 MiB.
 - Exactly-once publication still requires the community backend to enforce the transmitted idempotency key.
 - Deployed observability/operations sign-off and manual exact-artifact browser smoke remain required before promotion.
 

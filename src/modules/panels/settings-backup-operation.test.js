@@ -197,6 +197,27 @@ afterEach(() => {
 });
 
 describe("settings backup operation locale remount", () => {
+  test("passes a 400 MiB backup to the streaming importer", async () => {
+    importAllPalettes.mockResolvedValueOnce(1);
+    const settings = createSettingsRoot();
+    const cleanup = controllerModule.mountSettingsPanel({
+      root: settings.root,
+      toggleButton: null,
+    });
+    const largeBackup = { name: "large-backup.json", size: 400 * 1024 * 1024 };
+    settings.importInput.files = [largeBackup];
+
+    try {
+      await Promise.all(settings.importInput.dispatch("change"));
+
+      expect(importAllPalettes).toHaveBeenCalledWith(largeBackup);
+      expect(settings.exportStatus.textContent).toBe("settings.toast.imported.one");
+      expect(settings.exportStatus.classList.contains("is-error")).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
   test("shows conflict recovery and emits only a categorical failed-import metric", async () => {
     const originalConsoleError = console.error;
     console.error = mock(() => {});

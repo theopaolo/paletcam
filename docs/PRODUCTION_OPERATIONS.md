@@ -82,14 +82,15 @@ backup file and reproduce failures in a disposable profile. A failed import must
 leave the existing collection unchanged. Before any destructive support step,
 export a backup and verify that it contains photo data.
 
-The current version-2 format accepts Blob backups up to 192 MiB, with at most
-32 MiB per JSON palette entry, 16 MiB per decoded photo, 128 MiB decoded photos
+The current version-2 format accepts Blob backups up to 768 MiB, with at most
+32 MiB per JSON palette entry, 16 MiB per decoded photo, 512 MiB decoded photos
 in total, 12 megapixels per photo, and 2,000 palettes. Blob import is incremental
 and worker batches are acknowledged only after durable staging. Blob export uses
 the same restorable limits; the whole-string compatibility API remains capped at
 32 MiB. Record peak memory on representative low-memory devices before release.
-Do not raise these limits without new physical evidence and an updated bounded
-format design.
+The expanded envelope retains the existing bounded parser, per-entry validation,
+worker backpressure, and transactional staging design. Do not raise it again
+without new physical evidence and an updated bounded format design.
 
 The in-app data flush removes Paletcam-owned local settings, session/outbox data,
 palettes, master photos, derived previews, storage metadata, and provisional

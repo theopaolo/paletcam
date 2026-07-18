@@ -28,9 +28,9 @@ describe("palette-storage/json-transfer", () => {
 
     expect(PALETTE_IMPORT_MAX_JSON_BYTES).toBe(32 * 1024 * 1024);
     expect(PALETTE_IMPORT_MAX_ENTRY_JSON_BYTES).toBe(32 * 1024 * 1024);
-    expect(PALETTE_IMPORT_MAX_STREAMING_JSON_BYTES).toBe(192 * 1024 * 1024);
+    expect(PALETTE_IMPORT_MAX_STREAMING_JSON_BYTES).toBe(768 * 1024 * 1024);
     expect(PALETTE_IMPORT_MAX_PHOTO_BYTES).toBe(16 * 1024 * 1024);
-    expect(PALETTE_IMPORT_MAX_TOTAL_PHOTO_BYTES).toBe(128 * 1024 * 1024);
+    expect(PALETTE_IMPORT_MAX_TOTAL_PHOTO_BYTES).toBe(512 * 1024 * 1024);
     expect(maximumEncodedPhotoBytes + 10 * 1024 * 1024).toBeLessThan(PALETTE_IMPORT_MAX_JSON_BYTES);
   });
 

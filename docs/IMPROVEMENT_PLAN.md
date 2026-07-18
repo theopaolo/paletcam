@@ -24,7 +24,7 @@ Status: audit baseline created 2026-07-11 on `pwa/preprod`.
 - **Publication remains blocked on two product/backend decisions:** historical
   pre-v7 remote-linked palettes need a server-verified ownership claim contract;
   the client must not infer ownership from the active login. In addition, normal
-  captures/imports can currently grow beyond the 2,000-palette / 128 MiB decoded
+  captures/imports can currently grow beyond the 2,000-palette / 512 MiB decoded
   photo envelope of the only full backup format. Promotion requires either a
   chunked/segmented restorable backup or a clearly enforced collection-wide
   storage policy that guarantees every accepted state remains exportable.
@@ -134,14 +134,14 @@ Status: audit baseline created 2026-07-11 on `pwa/preprod`.
   emit a bounded storage failure, close obsolete connections on version change,
   and show actionable reopen/close-other-tab recovery guidance; the coordinator
   is covered by direct lifecycle tests. Normal file imports preflight `File.size`
-  against a 192 MiB streaming ceiling and pass the Blob handle into the JSON
+  against a 768 MiB streaming ceiling and pass the Blob handle into the JSON
   worker without creating a whole-file string. The parser retains at most one
-  32 MiB JSON entry plus a bounded batch, validates 16 MiB per-photo, 128 MiB
+  32 MiB JSON entry plus a bounded batch, validates 16 MiB per-photo, 512 MiB
   cumulative decoded-photo, 12-megapixel, and 2,000-palette limits, and uses an
   acknowledgement after each worker batch for backpressure. The legacy string
   API remains capped at 32 MiB because it still uses `JSON.parse`; UTF-8 byte
   counting does not allocate a second full encoded buffer before parsing. Blob
-  export uses the same 192/128 MiB restorable contract, while string export stays
+  export uses the same 768/512 MiB restorable contract, while string export stays
   at 32 MiB; a stable error code drives specific oversized-backup guidance in
   English and French. Export now reads metadata, master assets, and
   recovery previews from one read-only IndexedDB snapshot in bounded batches;
@@ -560,14 +560,14 @@ Status: audit baseline created 2026-07-11 on `pwa/preprod`.
 
 The working tree is substantially hardened rather than the unbounded initial
 build, but release-candidate status still requires physical low-memory evidence
-for the bounded 192 MiB streaming backup format and the clean promotion CI gate to pass.
+for the bounded 768 MiB streaming backup format and the clean promotion CI gate to pass.
 Artifact/cache policy, the full CI gate, critical browser/PWA
 journeys, storage maintenance and recovery boundaries, worker/network/camera lifecycles, telemetry
 redaction, operational runbooks, privacy inventory, and synthetic performance
 budgets are implemented. Release sign-off still requires executing the physical-
 device matrix, publishing the public privacy notice, completing deployed
 observability/operations sign-off, validating backend publication deduplication,
-and validating the 192 MiB file/128 MiB decoded-photo import ceilings on
+and validating the 768 MiB file/512 MiB decoded-photo import ceilings on
 representative low-memory phones, plus severity-based review of remaining large
 composition modules. The production
 deployment must set `PALETCAM_LOG_API_BASE_URL`; exact production builds now reject
@@ -603,7 +603,7 @@ These are explicit production-readiness decisions, not hidden refactoring debt:
   atomically, and stable recovery categories provide bilingual guidance plus
   identifier-free outcome metrics. Physical low-memory Safari/Android evidence
   is still required because staging plus final commit can temporarily consume
-  two logical Blob copies near the 128 MiB decoded-photo ceiling.
+  two logical Blob copies near the 512 MiB decoded-photo ceiling.
 - **P1 log-service hardening:** production rejects the public example
   credentials, dashboard routes have a separate bounded per-IP limit, the
   container runs as the unprivileged `bun` user, and startup plus periodic

@@ -18,13 +18,15 @@ export const PALETTE_EXPORT_VERSION = 2;
 export const PALETTE_IMPORT_MAX_JSON_BYTES = 32 * 1024 * 1024;
 // Blob imports are parsed incrementally, so their total file bound can be much
 // larger than the bound used by the legacy JSON.parse path without creating a
-// same-sized UTF-16 string. Each individual palette remains separately bounded
-// below, and the existing photo/count limits are still enforced.
-export const PALETTE_IMPORT_MAX_STREAMING_JSON_BYTES = 192 * 1024 * 1024;
+// same-sized UTF-16 string. The 768 MiB envelope leaves base64 and metadata
+// headroom for collections containing up to 512 MiB of decoded photos. Each
+// individual palette remains separately bounded below, and batches are durably
+// staged instead of retaining the complete collection in memory.
+export const PALETTE_IMPORT_MAX_STREAMING_JSON_BYTES = 768 * 1024 * 1024;
 export const PALETTE_IMPORT_MAX_ENTRY_JSON_BYTES = 32 * 1024 * 1024;
 export const PALETTE_IMPORT_MAX_COUNT = 2_000;
 export const PALETTE_IMPORT_MAX_PHOTO_BYTES = 16 * 1024 * 1024;
-export const PALETTE_IMPORT_MAX_TOTAL_PHOTO_BYTES = 128 * 1024 * 1024;
+export const PALETTE_IMPORT_MAX_TOTAL_PHOTO_BYTES = 512 * 1024 * 1024;
 export const PALETTE_IMPORT_MAX_PHOTO_PIXELS = 12_000_000;
 export const PALETTE_IMPORT_MAX_COLORS = 7;
 const PALETTE_IMPORT_MAX_REMOTE_ID_LENGTH = 256;
