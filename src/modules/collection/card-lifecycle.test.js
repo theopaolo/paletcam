@@ -86,4 +86,54 @@ describe("createCollectionCardLifecycle", () => {
     expect(collectionGrid.querySelector(".empty-message")?.textContent).toBe("Aucune capture");
     expect(collapsedDayIds.has("day-1")).toBe(false);
   });
+
+  test("restores a detached card to its connected snapshot parent", () => {
+    const collectionGrid = new FakeElement("div");
+    const parent = new FakeElement("div");
+    const card = createCard();
+    const nextCard = createCard();
+    collectionGrid.appendChild(parent);
+    parent.append(card, nextCard);
+    collectionGrid.isConnected = true;
+    parent.isConnected = true;
+    card.isConnected = false;
+
+    const lifecycle = createCollectionCardLifecycle({
+      collectionGrid,
+      emptyMessageText: "Aucune capture",
+      collapsedDayIds: new Set(),
+      reloadCollectionUi: async () => {},
+    });
+    const snapshot = lifecycle.takeCardPositionSnapshot(card);
+    card.remove();
+
+    expect(lifecycle.restoreCardFromSnapshot(card, snapshot)).toBe(true);
+    expect(parent.children).toEqual([card, nextCard]);
+  });
+
+  test("reloads instead of restoring into a disconnected snapshot parent", () => {
+    const collectionGrid = new FakeElement("div");
+    const parent = new FakeElement("div");
+    const card = createCard();
+    parent.appendChild(card);
+    collectionGrid.isConnected = true;
+    parent.isConnected = false;
+    card.isConnected = false;
+    let reloadCount = 0;
+
+    const lifecycle = createCollectionCardLifecycle({
+      collectionGrid,
+      emptyMessageText: "Aucune capture",
+      collapsedDayIds: new Set(),
+      reloadCollectionUi: async () => {
+        reloadCount += 1;
+      },
+    });
+    const snapshot = lifecycle.takeCardPositionSnapshot(card);
+    card.remove();
+
+    expect(lifecycle.restoreCardFromSnapshot(card, snapshot)).toBe(false);
+    expect(reloadCount).toBe(1);
+    expect(parent.children).toEqual([]);
+  });
 });

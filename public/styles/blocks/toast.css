@@ -1,7 +1,10 @@
 .toast-host {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--space-16) + env(safe-area-inset-bottom));
+
+  /* Keep transient diagnostics above the camera action dock so permission and
+     network errors never block capture, collection, or retry controls. */
+  bottom: calc(6rem + var(--space-16) + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   width: min(92vw, 420px);
   z-index: 1400;

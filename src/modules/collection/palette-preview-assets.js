@@ -6,6 +6,7 @@ import {
   getPalettePreviewFingerprint,
   getStoredPalettePreviewBlob,
   hydratePalettePreviewBlobFromIdb,
+  invalidateSavedPalettePreviewBlob,
   renderSavedPalettePreviewBlob,
 } from "./palette-preview-persistence.js";
 
@@ -15,6 +16,7 @@ const POLAROID_EXPORT_QUALITY = 0.95;
 const MAX_PREVIEW_ASSET_CACHE_ENTRIES = 24;
 
 const previewAssetCache = new Map();
+const pendingDownloadObjectUrls = new Map();
 
 function describeBlob(blob) {
   if (!(blob instanceof Blob)) {
@@ -137,9 +139,11 @@ export async function downloadBlob(blob, filename) {
 
   const downloadUrl = URL.createObjectURL(blob);
   const revokeUrlLater = () => {
-    window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
+      pendingDownloadObjectUrls.delete(downloadUrl);
       URL.revokeObjectURL(downloadUrl);
     }, 60000);
+    pendingDownloadObjectUrls.set(downloadUrl, timeoutId);
   };
 
   if (isIOS) {
@@ -160,10 +164,23 @@ function disposePreviewAssetCacheEntry(cacheKey) {
   previewAssetCache.delete(cacheKey);
 }
 
-export function resetPreviewAssetCacheForTests() {
+export function clearPalettePreviewAssetCache() {
   for (const key of [...previewAssetCache.keys()]) {
     disposePreviewAssetCacheEntry(key);
   }
+}
+
+export function disposePalettePreviewDownloads() {
+  for (const [objectUrl, timeoutId] of pendingDownloadObjectUrls) {
+    window.clearTimeout(timeoutId);
+    URL.revokeObjectURL(objectUrl);
+  }
+  pendingDownloadObjectUrls.clear();
+}
+
+export function resetPreviewAssetCacheForTests() {
+  clearPalettePreviewAssetCache();
+  disposePalettePreviewDownloads();
 }
 
 export function getPalettePreviewDebugInfo(palette, asset = null, variant = "viewer") {
@@ -255,7 +272,9 @@ export async function getPaletteGalleryPreviewAsset(palette) {
     }
 
     const asset = createAssetFromBlob(previewBlob);
-    setPreviewAssetCacheEntry(cacheKey, asset);
+    if (previewAssetCache.get(cacheKey)?.promise === promise) {
+      setPreviewAssetCacheEntry(cacheKey, asset);
+    }
     return asset;
   })().catch((error) => {
     if (previewAssetCache.get(cacheKey)?.promise === promise) {
@@ -284,7 +303,9 @@ export async function getPaletteViewerPreviewAsset(palette) {
     const hydratedPreviewBlob = await hydratePalettePreviewBlobFromIdb(palette, variant);
     if (hydratedPreviewBlob instanceof Blob) {
       const asset = createAssetFromBlob(hydratedPreviewBlob);
-      setPreviewAssetCacheEntry(cacheKey, asset);
+      if (previewAssetCache.get(cacheKey)?.promise === promise) {
+        setPreviewAssetCacheEntry(cacheKey, asset);
+      }
       return asset;
     }
 
@@ -294,7 +315,9 @@ export async function getPaletteViewerPreviewAsset(palette) {
     }
 
     const asset = createAssetFromBlob(previewBlob);
-    setPreviewAssetCacheEntry(cacheKey, asset);
+    if (previewAssetCache.get(cacheKey)?.promise === promise) {
+      setPreviewAssetCacheEntry(cacheKey, asset);
+    }
     return asset;
   })().catch((error) => {
     if (previewAssetCache.get(cacheKey)?.promise === promise) {
@@ -307,10 +330,10 @@ export async function getPaletteViewerPreviewAsset(palette) {
   return promise;
 }
 
-export function refreshPaletteGalleryAsset(palette, paletteId) {
+export async function refreshPaletteGalleryAsset(palette, paletteId) {
   disposePalettePreviewAsset(paletteId);
   if (palette && typeof palette === "object") {
-    palette.previewGalleryBlob = null;
+    await invalidateSavedPalettePreviewBlob(palette, "gallery");
     palette.photoBlob = null;
   }
 }

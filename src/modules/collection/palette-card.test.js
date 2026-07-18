@@ -28,7 +28,7 @@ async function loadPaletteCardModule({
     }));
   const getPalettePreviewDebugInfo = mock(() => ({ paletteId: 5, variant: "gallery" }));
   const getStoredPaletteGalleryPreviewAssetSync = mock(() => null);
-  const refreshPaletteGalleryAsset = mock(() => {});
+  const refreshPaletteGalleryAsset = mock(async () => {});
   const reportAppError = mock(() => ({}));
 
   mock.module(communityServiceModuleUrl, () => ({
@@ -108,7 +108,7 @@ describe("createSwatchCard", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(onOpenViewer).toHaveBeenCalledWith(5);
+    expect(onOpenViewer).toHaveBeenCalledWith(5, trigger);
     expect(getPaletteGalleryPreviewAsset).toHaveBeenCalledWith(palette);
     expect(loadImageElementBlobSource).toHaveBeenCalledTimes(1);
     expect(loadImageElementBlobSource.mock.calls[0][1]).toBe(galleryPreviewBlob);
@@ -150,12 +150,15 @@ describe("createSwatchCard", () => {
 
   test("refreshes and retries once when a gallery preview blob fails to load", async () => {
     let observerCallback = () => {};
+    let observedTarget = null;
     globalThis.window.IntersectionObserver = class FakeIntersectionObserver {
       constructor(callback) {
         observerCallback = callback;
       }
 
-      observe() {}
+      observe(target) {
+        observedTarget = target;
+      }
       disconnect() {}
     };
 
@@ -189,7 +192,7 @@ describe("createSwatchCard", () => {
     };
 
     paletteCard.createPaletteCard({ palette });
-    observerCallback([{ isIntersecting: true }]);
+    observerCallback([{ isIntersecting: true, target: observedTarget }]);
     await new Promise((resolve) => setTimeout(resolve, 180));
 
     expect(getPaletteGalleryPreviewAsset).toHaveBeenCalledTimes(2);
@@ -197,5 +200,54 @@ describe("createSwatchCard", () => {
     expect(loadImageElementBlobSource.mock.calls[1][1]).toBe(previewBlobs[1]);
     expect(refreshPaletteGalleryAsset).toHaveBeenCalledWith(palette, 5);
     expect(reportAppError).not.toHaveBeenCalled();
+  });
+
+  test("shares preview observers and releases targets when cards unmount", async () => {
+    const observerInstances = [];
+    globalThis.window.IntersectionObserver = class FakeIntersectionObserver {
+      constructor(callback) {
+        this.callback = callback;
+        this.disconnect = mock(() => {});
+        this.observe = mock(() => {});
+        this.unobserve = mock(() => {});
+        observerInstances.push(this);
+      }
+    };
+
+    const { paletteCard } = await loadPaletteCardModule();
+    const first = paletteCard.createPaletteCard({
+      palette: { id: 5, colors: [{ r: 1, g: 2, b: 3 }] },
+    });
+    const second = paletteCard.createPaletteCard({
+      palette: { id: 6, colors: [{ r: 4, g: 5, b: 6 }] },
+    });
+
+    expect(observerInstances).toHaveLength(1);
+    expect(observerInstances[0].observe).toHaveBeenCalledTimes(2);
+    expect(paletteCard.disposePaletteCard(first)).toBe(true);
+    expect(paletteCard.disposePaletteCard(second)).toBe(true);
+    expect(observerInstances[0].unobserve).toHaveBeenCalledTimes(2);
+    expect(observerInstances[0].disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  test("removes a disposed card from the global preview queue and cancels an empty flush", async () => {
+    const requestAnimationFrame = mock(() => 91);
+    const cancelAnimationFrame = mock(() => {});
+    globalThis.window.requestAnimationFrame = requestAnimationFrame;
+    globalThis.window.cancelAnimationFrame = cancelAnimationFrame;
+    const getPaletteGalleryPreviewAsset = mock(async () => ({
+      blob: new Blob(["preview"], { type: "image/webp" }),
+      source: null,
+    }));
+    const { paletteCard } = await loadPaletteCardModule({ getPaletteGalleryPreviewAsset });
+
+    const card = paletteCard.createPaletteCard({
+      palette: { id: 44, colors: [{ r: 1, g: 2, b: 3 }] },
+    });
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(paletteCard.disposePaletteCard(card)).toBe(true);
+
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(91);
+    expect(getPaletteGalleryPreviewAsset).not.toHaveBeenCalled();
   });
 });

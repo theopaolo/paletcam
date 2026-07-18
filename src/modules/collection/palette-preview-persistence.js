@@ -1,5 +1,7 @@
 import { getAppSettings } from "../../app-settings.js";
+import { isAppLifetimeTerminated, registerAppTermination } from "../app-terminal-lifecycle.js";
 import {
+  getPalettePreviewMutationVariantOrThrow,
   getPreviewVariantFieldKeys,
   normalizePolaroidRenderSettings,
   normalizePreviewFooterLabel,
@@ -33,10 +35,40 @@ const PALETTE_PREVIEW_RENDER_VARIANTS = Object.freeze({
 const PALETTE_PREVIEW_RENDER_VERSION = "preview-v9";
 const PALETTE_PREVIEW_WARMUP_BATCH_LIMIT = 20;
 const queuedPreviewWarmups = new Set();
+const scheduledPreviewWarmupCancellations = new Set();
 let previewWarmupQueue = Promise.resolve();
-const scheduleIdleTask = globalThis.window?.requestIdleCallback
-  ? globalThis.window.requestIdleCallback.bind(globalThis.window)
-  : (callback) => globalThis.setTimeout(callback, 0);
+let previewWarmupGeneration = 0;
+let arePreviewWarmupsTerminated = isAppLifetimeTerminated();
+
+function scheduleIdleTask(callback) {
+  if (typeof globalThis.window?.requestIdleCallback === "function") {
+    const handle = globalThis.window.requestIdleCallback(callback, { timeout: 1200 });
+    return () => globalThis.window?.cancelIdleCallback?.(handle);
+  }
+
+  const handle = globalThis.setTimeout(callback, 0);
+  return () => globalThis.clearTimeout(handle);
+}
+
+function terminatePreviewWarmups() {
+  if (arePreviewWarmupsTerminated) {
+    return;
+  }
+  arePreviewWarmupsTerminated = true;
+  previewWarmupGeneration += 1;
+  scheduledPreviewWarmupCancellations.forEach((cancel) => {
+    cancel();
+  });
+  scheduledPreviewWarmupCancellations.clear();
+  queuedPreviewWarmups.clear();
+}
+
+registerAppTermination(terminatePreviewWarmups);
+
+/** @returns {boolean} */
+function alwaysContinue() {
+  return true;
+}
 
 function getPreviewRenderOptions(variant = "viewer") {
   return PALETTE_PREVIEW_RENDER_VARIANTS[normalizePreviewVariant(variant)];
@@ -80,7 +112,11 @@ export function getStoredPalettePreviewBlob(palette, variant = "viewer") {
  * @param {"gallery" | "viewer"} variant
  * @returns {Promise<Blob | null>}
  */
-export async function hydratePalettePreviewBlobFromIdb(palette, variant = "viewer") {
+export async function hydratePalettePreviewBlobFromIdb(
+  palette,
+  variant = "viewer",
+  { shouldContinue = alwaysContinue } = {},
+) {
   if (!palette || typeof palette !== "object") {
     return null;
   }
@@ -98,8 +134,11 @@ export async function hydratePalettePreviewBlobFromIdb(palette, variant = "viewe
     return null;
   }
 
+  if (!shouldContinue()) {
+    return null;
+  }
   const stored = await readPalettePreviewBlobById(paletteId, normalizedVariant);
-  if (!stored || !(stored.blob instanceof Blob)) {
+  if (!shouldContinue() || !stored || !(stored.blob instanceof Blob)) {
     return null;
   }
 
@@ -121,8 +160,18 @@ export async function renderPalettePreviewBlobFromMasterPhoto(
   return renderPalettePolaroidBlob({ ...palette, photoBlob }, getPreviewRenderOptions(variant));
 }
 
-export async function renderSavedPalettePreviewBlob(palette, variant = "viewer") {
+export async function renderSavedPalettePreviewBlob(
+  palette,
+  variant = "viewer",
+  { shouldContinue = alwaysContinue } = {},
+) {
+  if (!shouldContinue()) {
+    return null;
+  }
   const photoBlob = await ensurePaletteMasterPhotoBlob(palette);
+  if (!shouldContinue()) {
+    return null;
+  }
   return renderPalettePreviewBlobFromMasterPhoto(palette, photoBlob, variant);
 }
 
@@ -131,12 +180,17 @@ export async function persistSavedPalettePreviewBlob(
   previewBlob,
   previewFooterLabel = null,
   variant = "viewer",
+  { shouldContinue = alwaysContinue } = {},
 ) {
-  const normalizedVariant = normalizePreviewVariant(variant);
+  const normalizedVariant = getPalettePreviewMutationVariantOrThrow(variant);
   const normalizedPreviewFooterLabel = normalizePreviewFooterLabel(
     previewFooterLabel ?? getPalettePreviewFingerprint(palette, normalizedVariant),
   );
   const { blobKey, footerKey } = getPreviewVariantFieldKeys(normalizedVariant);
+
+  if (!shouldContinue()) {
+    return null;
+  }
 
   if (Number.isFinite(Number(palette?.id))) {
     await updatePalettePreviewBlob(palette.id, previewBlob, normalizedPreviewFooterLabel, {
@@ -144,7 +198,7 @@ export async function persistSavedPalettePreviewBlob(
     });
   }
 
-  if (palette && typeof palette === "object") {
+  if (shouldContinue() && palette && typeof palette === "object") {
     palette[blobKey] = previewBlob;
     palette[footerKey] = normalizedPreviewFooterLabel;
   }
@@ -152,14 +206,56 @@ export async function persistSavedPalettePreviewBlob(
   return previewBlob;
 }
 
-export async function ensureSavedPalettePreviewBlob(palette, variant = "viewer") {
+/**
+ * Clears one persisted preview variant and its in-memory mirror. This is used
+ * when an image decoder rejects a stored blob so the next render cannot reuse
+ * the same corrupt data.
+ * @param {Palette} palette
+ * @param {"gallery" | "viewer"} variant
+ * @returns {Promise<boolean>}
+ */
+export async function invalidateSavedPalettePreviewBlob(palette, variant = "viewer") {
+  const normalizedVariant = getPalettePreviewMutationVariantOrThrow(variant);
+  if (!palette || typeof palette !== "object") {
+    return false;
+  }
+
+  const { blobKey, footerKey } = getPreviewVariantFieldKeys(normalizedVariant);
+  const paletteId = Number(palette.id);
+
+  if (Number.isFinite(paletteId)) {
+    await updatePalettePreviewBlob(paletteId, null, null, { variant: normalizedVariant });
+  }
+
+  delete palette[blobKey];
+  delete palette[footerKey];
+  return Number.isFinite(paletteId);
+}
+
+export async function ensureSavedPalettePreviewBlob(
+  palette,
+  variant = "viewer",
+  { shouldContinue = alwaysContinue } = {},
+) {
+  if (!shouldContinue()) {
+    return null;
+  }
   const normalizedVariant = normalizePreviewVariant(variant);
   const storedPreviewBlob = getStoredPalettePreviewBlob(palette, normalizedVariant);
   if (storedPreviewBlob instanceof Blob) {
     return storedPreviewBlob;
   }
 
-  const previewBlob = await renderSavedPalettePreviewBlob(palette, normalizedVariant);
+  const hydratedPreviewBlob = await hydratePalettePreviewBlobFromIdb(palette, normalizedVariant, {
+    shouldContinue,
+  });
+  if (hydratedPreviewBlob instanceof Blob) {
+    return hydratedPreviewBlob;
+  }
+
+  const previewBlob = await renderSavedPalettePreviewBlob(palette, normalizedVariant, {
+    shouldContinue,
+  });
   if (!(previewBlob instanceof Blob)) {
     return null;
   }
@@ -168,19 +264,23 @@ export async function ensureSavedPalettePreviewBlob(palette, variant = "viewer")
     return previewBlob;
   }
 
+  if (!shouldContinue()) {
+    return null;
+  }
+
   try {
     return await persistSavedPalettePreviewBlob(
       palette,
       previewBlob,
       getPalettePreviewFingerprint(palette, normalizedVariant),
       normalizedVariant,
+      { shouldContinue },
     );
   } catch (error) {
     reportAppError(error, {
       includeConsole: false,
       logMessage: "Failed to persist saved palette preview.",
       context: {
-        paletteId: palette?.id ?? null,
         variant: normalizedVariant,
       },
     });
@@ -192,15 +292,18 @@ export async function ensureSavedPalettePreviewBlob(palette, variant = "viewer")
  * @param {Palette} palette
  * @returns {Promise<Blob | null>}
  */
-export async function warmSavedPalettePreview(palette, variant = "gallery") {
+export async function warmSavedPalettePreview(
+  palette,
+  variant = "gallery",
+  { shouldContinue = alwaysContinue } = {},
+) {
   try {
-    return await ensureSavedPalettePreviewBlob(palette, variant);
+    return await ensureSavedPalettePreviewBlob(palette, variant, { shouldContinue });
   } catch (error) {
     reportAppError(error, {
       includeConsole: false,
       logMessage: "Failed to warm saved palette preview.",
       context: {
-        paletteId: palette?.id ?? null,
         variant: normalizePreviewVariant(variant),
       },
     });
@@ -217,19 +320,29 @@ function canWarmPalettePreview(palette, variant = "gallery") {
   );
 }
 
-function enqueueSavedPalettePreviewWarmup(palette, variant = "gallery") {
+function enqueueSavedPalettePreviewWarmup(palette, variant = "gallery", generation) {
   const paletteId = Number(palette?.id);
   const normalizedVariant = normalizePreviewVariant(variant);
   const warmupKey = `${String(paletteId)}:${normalizedVariant}`;
-  if (!Number.isFinite(paletteId) || queuedPreviewWarmups.has(warmupKey)) {
+  if (
+    arePreviewWarmupsTerminated ||
+    generation !== previewWarmupGeneration ||
+    !Number.isFinite(paletteId) ||
+    queuedPreviewWarmups.has(warmupKey)
+  ) {
     return;
   }
 
   queuedPreviewWarmups.add(warmupKey);
+  const shouldContinue = () =>
+    !arePreviewWarmupsTerminated && generation === previewWarmupGeneration;
   const task = async () => {
     try {
-      if (!(getStoredPalettePreviewBlob(palette, normalizedVariant) instanceof Blob)) {
-        await warmSavedPalettePreview(palette, normalizedVariant);
+      if (
+        shouldContinue() &&
+        !(getStoredPalettePreviewBlob(palette, normalizedVariant) instanceof Blob)
+      ) {
+        await warmSavedPalettePreview(palette, normalizedVariant, { shouldContinue });
       }
     } finally {
       queuedPreviewWarmups.delete(warmupKey);
@@ -241,16 +354,18 @@ function enqueueSavedPalettePreviewWarmup(palette, variant = "gallery") {
 
 export function scheduleSavedPalettePreviewWarmup(palette, variant = "gallery") {
   const normalizedVariant = normalizePreviewVariant(variant);
-  if (!canWarmPalettePreview(palette, normalizedVariant)) {
+  if (arePreviewWarmupsTerminated || !canWarmPalettePreview(palette, normalizedVariant)) {
     return;
   }
 
-  scheduleIdleTask(
-    () => {
-      enqueueSavedPalettePreviewWarmup(palette, normalizedVariant);
-    },
-    { timeout: 1200 },
-  );
+  const generation = previewWarmupGeneration;
+  let cancelScheduledTask = () => {};
+  const runScheduledTask = () => {
+    scheduledPreviewWarmupCancellations.delete(cancelScheduledTask);
+    enqueueSavedPalettePreviewWarmup(palette, normalizedVariant, generation);
+  };
+  cancelScheduledTask = scheduleIdleTask(runScheduledTask);
+  scheduledPreviewWarmupCancellations.add(cancelScheduledTask);
 }
 
 export function scheduleSavedPalettePreviewWarmupBatch(palettes, variant = "gallery") {

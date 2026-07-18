@@ -124,6 +124,7 @@ export function createDayContentVirtualizer({ scrollRoot, onCardMount } = {}) {
     destroy() {
       destroyed = true;
       observer?.disconnect();
+      flushBatchedUnmounts([...handlers.values()].filter((handler) => handler.isMounted));
       handlers.clear();
     },
   };

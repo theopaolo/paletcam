@@ -148,9 +148,7 @@
 }
 
 .palette-viewer-track {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 100%;
+  display: flex;
   width: 100%;
   height: 100%;
   overflow: auto hidden;
@@ -162,11 +160,18 @@
   background: var(--color-surface-raised);
 }
 
+.palette-viewer-spacer {
+  flex: 0 0 var(--viewer-spacer-width, 0%);
+  min-width: 0;
+  pointer-events: none;
+}
+
 .palette-viewer-track::-webkit-scrollbar {
   display: none;
 }
 
 .palette-viewer-slide {
+  flex: 0 0 100%;
   position: relative;
   min-width: 0;
   min-height: 0;

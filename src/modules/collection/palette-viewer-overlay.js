@@ -1,5 +1,4 @@
 import { getIntlLocale, subscribeLocaleChange, t } from "../../i18n.js";
-import { getColorNames } from "../color-name-api.js";
 import { reportAppError } from "../error-reporting.js";
 import { loadImageElementBlobSource } from "../image-element-loader.js";
 import {
@@ -9,7 +8,9 @@ import {
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
 import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
-import { createPaletteVersoElement } from "./palette-verso.js";
+import { runSessionBoundAction } from "./session-bound-action.js";
+
+const VIEWER_WINDOW_RADIUS = 2;
 
 const viewerTrack = document.getElementById("catchDetailsTrack");
 const shareButton = /** @type {HTMLButtonElement | null} */ (
@@ -37,6 +38,29 @@ let isBusy = false;
 let pendingAdjacentPreloadId = 0;
 let pendingTrackAlignmentRaf = 0;
 let pendingTrackScrollRaf = 0;
+let pendingAdjacentPreloadCancel = () => {};
+let pendingReturnFocusRaf = 0;
+let viewerEventAbortController = null;
+let unsubscribeLocaleChange = () => {};
+let unsubscribeViewerPanelClosing = () => {};
+let unsubscribeViewerPanelClosed = () => {};
+let isViewerDestroyed = false;
+let versoToolsPromise = null;
+
+function loadVersoTools() {
+  if (!versoToolsPromise) {
+    versoToolsPromise = Promise.all([import("../color-name-api.js"), import("./palette-verso.js")])
+      .then(([colorNames, paletteVerso]) => ({
+        getColorNames: colorNames.getColorNames,
+        createPaletteVersoElement: paletteVerso.createPaletteVersoElement,
+      }))
+      .catch((error) => {
+        versoToolsPromise = null;
+        throw error;
+      });
+  }
+  return versoToolsPromise;
+}
 
 function getPublishButtonCopy() {
   return {
@@ -93,7 +117,7 @@ function getActionIconMarkup(iconName) {
   `;
 }
 
-function hydrateViewerActionButton(button, { label, iconName, visibleLabel }) {
+function hydrateViewerActionButton(button, { label, iconName, visibleLabel = "" }) {
   if (!button) {
     return;
   }
@@ -164,6 +188,21 @@ function clearPendingTrackScroll() {
 
   window.cancelAnimationFrame(pendingTrackScrollRaf);
   pendingTrackScrollRaf = 0;
+}
+
+function clearPendingAdjacentPreload() {
+  pendingAdjacentPreloadId += 1;
+  pendingAdjacentPreloadCancel();
+  pendingAdjacentPreloadCancel = () => {};
+}
+
+function clearPendingReturnFocus() {
+  if (!pendingReturnFocusRaf) {
+    return;
+  }
+
+  window.cancelAnimationFrame(pendingReturnFocusRaf);
+  pendingReturnFocusRaf = 0;
 }
 
 function syncPublishButtonGlow() {
@@ -277,17 +316,23 @@ async function buildSlideVerso(slideState, palette) {
 
   slideState.versoBuildState = "building";
   let names = [];
+  let createPaletteVersoElement;
   try {
-    names = await getColorNames(palette.colors);
+    const versoTools = await loadVersoTools();
+    createPaletteVersoElement = versoTools.createPaletteVersoElement;
+    names = await versoTools.getColorNames(palette.colors);
   } catch (_error) {
     names = [];
   }
 
-  if (slideState.versoBuildState !== "building") {
+  if (
+    slideState.versoBuildState !== "building" ||
+    activeSession?.slideStates?.get(slideState.index) !== slideState
+  ) {
     return;
   }
 
-  const verso = createPaletteVersoElement(palette, names);
+  const verso = createPaletteVersoElement?.(palette, names);
   if (verso) {
     slideState.versoFace.replaceChildren(verso);
   }
@@ -347,6 +392,7 @@ function createSlideState(palette, index) {
   }
 
   const slideState = {
+    index,
     paletteId: palette.id,
     slide,
     flip,
@@ -372,17 +418,59 @@ function createSlideState(palette, index) {
   return slideState;
 }
 
-function renderViewerTrack() {
+function disposeSlideState(slideState) {
+  slideState.requestId += 1;
+  slideState.versoBuildState = "disposed";
+  slideState.image.removeAttribute("src");
+}
+
+function createViewerSpacer(slideCount) {
+  const spacer = document.createElement("div");
+  spacer.className = "palette-viewer-spacer";
+  spacer.setAttribute("aria-hidden", "true");
+  spacer.style.setProperty("--viewer-spacer-width", `${Math.max(0, slideCount) * 100}%`);
+  return spacer;
+}
+
+function renderViewerWindow({ reset = false } = {}) {
   if (!viewerTrack || !activeSession) {
     return;
   }
 
-  viewerTrack.innerHTML = "";
-  activeSession.slideStates = activeSession.palettes.map((palette, index) => {
-    const slideState = createSlideState(palette, index);
-    viewerTrack.appendChild(slideState.slide);
-    return slideState;
+  const session = activeSession;
+  const firstIndex = Math.max(0, session.activeIndex - VIEWER_WINDOW_RADIUS);
+  const lastIndex = Math.min(
+    session.palettes.length - 1,
+    session.activeIndex + VIEWER_WINDOW_RADIUS,
+  );
+  const previousStates = reset ? new Map() : session.slideStates;
+  if (reset) {
+    session.slideStates.forEach(disposeSlideState);
+  }
+  const nextStates = new Map();
+  const children = [createViewerSpacer(firstIndex)];
+
+  for (let index = firstIndex; index <= lastIndex; index += 1) {
+    const palette = session.palettes[index];
+    const previous = previousStates.get(index);
+    const slideState =
+      previous?.paletteId === palette?.id ? previous : createSlideState(palette, index);
+    if (previous && previous !== slideState) {
+      disposeSlideState(previous);
+    }
+    nextStates.set(index, slideState);
+    children.push(slideState.slide);
+  }
+
+  previousStates.forEach((slideState, index) => {
+    if (!nextStates.has(index)) {
+      disposeSlideState(slideState);
+    }
   });
+
+  children.push(createViewerSpacer(session.palettes.length - lastIndex - 1));
+  session.slideStates = nextStates;
+  viewerTrack.replaceChildren(...children);
 }
 
 async function loadSlideAsset(index) {
@@ -391,7 +479,7 @@ async function loadSlideAsset(index) {
   }
 
   const palette = activeSession.palettes[index];
-  const slideState = activeSession.slideStates[index];
+  const slideState = activeSession.slideStates.get(index);
   if (
     !palette ||
     !slideState ||
@@ -414,7 +502,7 @@ async function loadSlideAsset(index) {
     previewAsset = asset;
     if (
       activeSession !== session ||
-      session.slideStates[index] !== slideState ||
+      session.slideStates.get(index) !== slideState ||
       slideState.requestId !== requestId
     ) {
       return;
@@ -423,7 +511,7 @@ async function loadSlideAsset(index) {
     await loadImageElementBlobSource(slideState.image, asset.blob);
     if (
       activeSession !== session ||
-      session.slideStates[index] !== slideState ||
+      session.slideStates.get(index) !== slideState ||
       slideState.requestId !== requestId
     ) {
       return;
@@ -435,7 +523,7 @@ async function loadSlideAsset(index) {
   } catch (error) {
     if (
       activeSession !== session ||
-      session.slideStates[index] !== slideState ||
+      session.slideStates.get(index) !== slideState ||
       slideState.requestId !== requestId
     ) {
       return;
@@ -481,7 +569,7 @@ function preloadNearbySlides() {
   const activeLoad = loadSlideAsset(activeIndex);
   const nextIndex = activeIndex + 1;
   const previousIndex = activeIndex - 1;
-  pendingAdjacentPreloadId += 1;
+  clearPendingAdjacentPreload();
   const preloadId = pendingAdjacentPreloadId;
 
   void activeLoad.finally(() => {
@@ -500,22 +588,27 @@ function preloadNearbySlides() {
     return;
   }
 
-  const schedule =
-    typeof window.requestIdleCallback === "function"
-      ? window.requestIdleCallback.bind(window)
-      : (callback) => window.setTimeout(callback, 0);
-
-  schedule(() => {
+  const runPreviousPreload = () => {
+    pendingAdjacentPreloadCancel = () => {};
     if (activeSession !== session || pendingAdjacentPreloadId !== preloadId) {
       return;
     }
 
     void loadSlideAsset(previousIndex);
-  });
+  };
+
+  if (typeof window.requestIdleCallback === "function") {
+    const idleId = window.requestIdleCallback(runPreviousPreload, { timeout: 200 });
+    pendingAdjacentPreloadCancel = () => window.cancelIdleCallback?.(idleId);
+    return;
+  }
+
+  const timeoutId = window.setTimeout(runPreviousPreload, 0);
+  pendingAdjacentPreloadCancel = () => window.clearTimeout(timeoutId);
 }
 
 function playFlipPeekHint() {
-  const slideState = activeSession?.slideStates?.[activeSession.activeIndex];
+  const slideState = activeSession?.slideStates?.get(activeSession.activeIndex);
   if (!slideState || slideState.flip.disabled || slideState.isFlipped) {
     return;
   }
@@ -532,6 +625,7 @@ function playFlipPeekHint() {
   );
 }
 
+/** @param {ScrollBehavior} [behavior] */
 function scrollToActiveSlide(behavior = "auto") {
   if (!viewerTrack || !activeSession) {
     return;
@@ -566,6 +660,7 @@ function updateActiveIndex(nextIndex) {
   }
 
   activeSession.activeIndex = clampedIndex;
+  renderViewerWindow();
   syncViewerChrome();
   preloadNearbySlides();
 }
@@ -609,7 +704,7 @@ function syncSessionPalettes({
 
   activeSession.palettes = [...nextPalettes];
   activeSession.activeIndex = nextIndex;
-  renderViewerTrack();
+  renderViewerWindow({ reset: true });
   syncViewerChrome();
   scheduleTrackAlignment();
   return true;
@@ -632,41 +727,36 @@ async function runAction(actionName) {
   }
 
   const palette = getActivePalette();
-  const action = activeSession[actionName];
-  const fallbackIndex = activeSession.activeIndex;
+  const session = activeSession;
+  const action = session[actionName];
+  const fallbackIndex = session.activeIndex;
   const paletteId = palette?.id ?? null;
   if (!palette || typeof action !== "function") {
     return;
   }
 
   setBusy(true);
-  try {
-    await action(palette);
-    if (!activeSession) {
-      return;
-    }
+  await runSessionBoundAction({
+    isCurrent: () => activeSession === session,
+    run: () => action(palette),
+    onCurrentSuccess: () => {
+      if (actionName === "onPublish") {
+        syncSessionPalettes({
+          preferredPaletteId: paletteId,
+          fallbackIndex,
+        });
+        return;
+      }
 
-    if (actionName === "onPublish") {
-      syncSessionPalettes({
-        preferredPaletteId: paletteId,
-        fallbackIndex,
-      });
-      return;
-    }
+      if (actionName === "onDelete") {
+        syncSessionPalettes({ fallbackIndex });
+        return;
+      }
 
-    if (actionName === "onDelete") {
-      syncSessionPalettes({
-        fallbackIndex,
-      });
-      return;
-    }
-
-    syncViewerChrome();
-  } finally {
-    if (activeSession) {
-      setBusy(false);
-    }
-  }
+      syncViewerChrome();
+    },
+    onCurrentFinally: () => setBusy(false),
+  });
 }
 
 function handleTrackScroll() {
@@ -689,9 +779,22 @@ function handleWindowResize() {
 }
 
 function handleViewerPanelClosing() {
-  pendingAdjacentPreloadId += 1;
+  clearPendingAdjacentPreload();
+  clearPendingReturnFocus();
+  const returnFocusTarget = activeSession?.returnFocusTarget;
+  const connectedReturnFocusTarget = returnFocusTarget?.isConnected
+    ? returnFocusTarget
+    : returnFocusTarget?.id
+      ? document.getElementById(returnFocusTarget.id)
+      : null;
   activeSession = undefined;
   setBusy(false);
+  if (connectedReturnFocusTarget) {
+    pendingReturnFocusRaf = window.requestAnimationFrame(() => {
+      pendingReturnFocusRaf = 0;
+      connectedReturnFocusTarget.focus({ preventScroll: true });
+    });
+  }
 }
 
 function handleViewerPanelClosed() {
@@ -717,40 +820,68 @@ function handleLocaleChange() {
 }
 
 function bindViewerPanelEvents() {
-  if (hasBoundViewerPanelEvents) {
+  if (hasBoundViewerPanelEvents || isViewerDestroyed) {
     return;
   }
 
   hasBoundViewerPanelEvents = true;
+  viewerEventAbortController = new AbortController();
+  const { signal } = viewerEventAbortController;
   handleLocaleChange();
 
-  shareButton?.addEventListener("click", () => {
-    void runAction("onShare");
-  });
-  exportButton?.addEventListener("click", () => {
-    const slideState = activeSession?.slideStates?.[activeSession.activeIndex];
-    if (slideState?.isFlipped && typeof activeSession?.onExportVerso === "function") {
-      void runAction("onExportVerso");
-      return;
-    }
+  shareButton?.addEventListener(
+    "click",
+    () => {
+      void runAction("onShare");
+    },
+    { signal },
+  );
+  exportButton?.addEventListener(
+    "click",
+    () => {
+      const slideState = activeSession?.slideStates?.get(activeSession.activeIndex);
+      if (slideState?.isFlipped && typeof activeSession?.onExportVerso === "function") {
+        void runAction("onExportVerso");
+        return;
+      }
 
-    void runAction("onExport");
-  });
-  publishButton?.addEventListener("click", () => {
-    void runAction("onPublish");
-  });
-  deleteButton?.addEventListener("click", () => {
-    void runAction("onDelete");
-  });
-  cameraButton?.addEventListener("click", () => {
-    closePaletteViewerOverlay();
-    closeSharedPanel("collection");
-  });
-  viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true });
-  window.addEventListener("resize", handleWindowResize);
-  subscribeLocaleChange(handleLocaleChange);
-  subscribeSharedPanelClosing("catch-details", handleViewerPanelClosing);
-  subscribeSharedPanelClosed("catch-details", handleViewerPanelClosed);
+      void runAction("onExport");
+    },
+    { signal },
+  );
+  publishButton?.addEventListener(
+    "click",
+    () => {
+      void runAction("onPublish");
+    },
+    { signal },
+  );
+  deleteButton?.addEventListener(
+    "click",
+    () => {
+      void runAction("onDelete");
+    },
+    { signal },
+  );
+  cameraButton?.addEventListener(
+    "click",
+    () => {
+      closePaletteViewerOverlay();
+      closeSharedPanel("collection");
+    },
+    { signal },
+  );
+  viewerTrack?.addEventListener("scroll", handleTrackScroll, { passive: true, signal });
+  window.addEventListener("resize", handleWindowResize, { signal });
+  unsubscribeLocaleChange = subscribeLocaleChange(handleLocaleChange);
+  unsubscribeViewerPanelClosing = subscribeSharedPanelClosing(
+    "catch-details",
+    handleViewerPanelClosing,
+  );
+  unsubscribeViewerPanelClosed = subscribeSharedPanelClosed(
+    "catch-details",
+    handleViewerPanelClosed,
+  );
 }
 
 /** @param {PaletteViewerOpenOptions} options */
@@ -769,7 +900,18 @@ export function openPaletteViewerOverlay({
   canExport,
   canPublish,
   canDelete,
+  returnFocusTarget: requestedReturnFocusTarget,
 }) {
+  if (isViewerDestroyed) {
+    return false;
+  }
+
+  const returnFocusTarget =
+    requestedReturnFocusTarget instanceof HTMLElement
+      ? requestedReturnFocusTarget
+      : document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
   bindViewerPanelEvents();
 
   if (!Array.isArray(palettes) || palettes.length === 0 || typeof getPreviewAsset !== "function") {
@@ -779,7 +921,7 @@ export function openPaletteViewerOverlay({
   activeSession = {
     palettes: [...palettes],
     activeIndex: clampIndex(initialIndex, palettes.length),
-    slideStates: [],
+    slideStates: new Map(),
     getPalettes,
     getPreviewAsset,
     onShare,
@@ -792,15 +934,17 @@ export function openPaletteViewerOverlay({
     canExport,
     canPublish,
     canDelete,
+    returnFocusTarget,
   };
 
   resetViewerFrame();
-  renderViewerTrack();
+  renderViewerWindow();
   syncViewerChrome();
   setBusy(false);
-  openSharedPanel("catch-details", { closeOtherPanels: false });
+  openSharedPanel("catch-details", { closeOtherPanels: false, returnFocusTarget });
   scheduleTrackAlignment();
   playFlipPeekHint();
+  return true;
 }
 
 export function refreshPaletteViewerOverlay(options = {}) {
@@ -817,6 +961,36 @@ export function refreshPaletteViewerOverlay(options = {}) {
 
 export function closePaletteViewerOverlay() {
   closeSharedPanel("catch-details");
+}
+
+export function destroyPaletteViewerOverlay() {
+  if (isViewerDestroyed) {
+    return false;
+  }
+
+  isViewerDestroyed = true;
+  clearPendingAdjacentPreload();
+  clearPendingTrackAlignment();
+  clearPendingTrackScroll();
+  clearPendingReturnFocus();
+  activeSession?.slideStates?.forEach((slideState) => {
+    slideState.requestId += 1;
+    slideState.versoBuildState = "disposed";
+  });
+  activeSession = undefined;
+  isBusy = false;
+  viewerEventAbortController?.abort();
+  viewerEventAbortController = null;
+  unsubscribeLocaleChange();
+  unsubscribeViewerPanelClosing();
+  unsubscribeViewerPanelClosed();
+  unsubscribeLocaleChange = () => {};
+  unsubscribeViewerPanelClosing = () => {};
+  unsubscribeViewerPanelClosed = () => {};
+  hasBoundViewerPanelEvents = false;
+  closeSharedPanel("catch-details");
+  resetViewerFrame();
+  return true;
 }
 
 export function subscribePaletteViewerOverlayClose(listener) {

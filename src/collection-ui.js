@@ -1,13 +1,15 @@
 import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
 import {
-  enqueueDeleteRetry,
+  captureDeleteOutboxAccountKey,
   flushDeleteOutbox,
   initializeDeleteOutbox,
+  preparePaletteDeletionRemoteCleanup,
+  reserveDeleteRetryInCurrentTransaction,
 } from "./community-delete-outbox.js";
 import {
-  cleanupPaletteRemoteCatch,
   getCurrentCommunitySession,
   getPalettePublicationAction,
+  isCommunityPublicationSessionCurrent,
   publishPaletteToCommunityFeed,
   syncPublishedPalettesModerationStatus,
   unpublishPaletteFromCommunityFeed,
@@ -16,25 +18,38 @@ import { createCommunityAutoLoginOpener } from "./community-homepage-link.js";
 import { t } from "./i18n.js";
 import { openLoginPanel } from "./login-ui.js";
 import { clientLog } from "./modules/client-log.js";
-import { getColorNames } from "./modules/color-name-api.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
+import { runBoundedBulkDeletion } from "./modules/collection/bulk-deletion.js";
+import { runBulkPublication } from "./modules/collection/bulk-publication.js";
+import { createCollectionLifecycle } from "./modules/collection/collection-lifecycle.js";
+import { PALETTE_DELETED_EVENT } from "./modules/collection/collection-events.js";
+import { createCollectionLoadCoordinator } from "./modules/collection/collection-load-coordinator.js";
+import {
+  createCollectionView,
+  hasRequiredCollectionViewElements,
+} from "./modules/collection/collection-view.js";
+import { createCollectionViewerCoordinator } from "./modules/collection/collection-viewer-coordinator.js";
+import { createDeletionSettlementCoordinator } from "./modules/collection/deletion-settlement-coordinator.js";
 import { createDayContentVirtualizer } from "./modules/collection/day-virtualizer.js";
 import { groupPalettesByDay } from "./modules/collection/grouping.js";
-import { createPaletteCard, createSwatchCard } from "./modules/collection/palette-card.js";
+import { createModerationSyncController } from "./modules/collection/moderation-sync-controller.js";
+import { createPaletteOutputCommands } from "./modules/collection/palette-output-commands.js";
 import {
+  createPaletteCard,
+  createSwatchCard,
+  disposePaletteCard,
+} from "./modules/collection/palette-card.js";
+import { createPaletteDeletionUseCase } from "./modules/collection/palette-deletion.js";
+import {
+  clearPalettePreviewAssetCache,
   disposePalettePreviewAsset,
+  disposePalettePreviewDownloads,
   downloadBlob,
   exportPalettePolaroidImage,
   getPaletteViewerPreviewAsset,
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
 } from "./modules/collection/palette-preview-assets.js";
-import { renderPaletteVersoBlob } from "./modules/collection/palette-verso.js";
-import {
-  closePaletteViewerOverlay,
-  openPaletteViewerOverlay,
-  refreshPaletteViewerOverlay,
-} from "./modules/collection/palette-viewer-overlay.js";
 import {
   areAllCollectionDaysCollapsed,
   buildCollectionPanelTitle,
@@ -42,7 +57,7 @@ import {
   toggleAllCollectionDays,
 } from "./modules/collection/panel-state.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
-import { applySelectionModeCardClick } from "./modules/collection/selection-mode.js";
+import { createCollectionSelectionState } from "./modules/collection/selection-mode.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import {
   closeSharedPanel,
@@ -52,48 +67,201 @@ import {
 import { dismissToast, showToast, showUndoToast } from "./modules/toast-ui.js";
 import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
 
-export const PALETTE_DELETED_EVENT = "paletcam:palette-deleted";
-
-const collectionPanel = document.querySelector(".collection-panel");
-const collectionGrid = document.getElementById("collectionGrid");
-const collectionViewListButton = document.getElementById("collectionViewListButton");
-const collectionViewGridButton = document.getElementById("collectionViewGridButton");
-const collectionViewSwatchButton = document.getElementById("collectionViewSwatchButton");
-const collectionCollapseAllButton = document.getElementById("collectionCollapseAllButton");
-const collectionFilterPublishedButton = document.getElementById("collectionFilterPublishedButton");
-const collectionSelectionBar = document.getElementById("collectionSelectionBar");
-const collectionSelectionCount = document.getElementById("collectionSelectionCount");
-const collectionSelectionCancel = document.getElementById("collectionSelectionCancel");
-const collectionSelectionDelete = document.getElementById("collectionSelectionDelete");
-const collectionSelectionExport = document.getElementById("collectionSelectionExport");
-const collectionSelectionPublish = document.getElementById("collectionSelectionPublish");
-const collectionSelectionUnpublish = document.getElementById("collectionSelectionUnpublish");
-const viewCollectionButton = document.querySelector(".btn-view-collection");
+const collectionView = createCollectionView(document);
+const {
+  panel: collectionPanel,
+  grid: collectionGrid,
+  viewListButton: collectionViewListButton,
+  viewGridButton: collectionViewGridButton,
+  viewSwatchButton: collectionViewSwatchButton,
+  collapseAllButton: collectionCollapseAllButton,
+  filterPublishedButton: collectionFilterPublishedButton,
+  selectionBar: collectionSelectionBar,
+  selectionCount: collectionSelectionCount,
+  selectionCancelButton: collectionSelectionCancel,
+  selectionDeleteButton: collectionSelectionDelete,
+  selectionExportButton: collectionSelectionExport,
+  selectionPublishButton: collectionSelectionPublish,
+  selectionUnpublishButton: collectionSelectionUnpublish,
+} = collectionView;
 const DELETE_UNDO_DURATION_MS = 5000;
 const CARD_REVEAL_DURATION_MS = 280;
 const CARD_REVEAL_STAGGER_MS = 42;
-const MODERATION_SYNC_DELAY_MS = 12000;
 const pendingDeletionIds = new Set();
 const collapsedDayIds = new Set();
-const selectedIds = new Set();
-let moderationSyncTimeoutId = 0;
-let isModerationSyncInProgress = false;
+const selectionState = createCollectionSelectionState();
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
 let currentLocale = getAppSettings().locale;
 let currentFilter = null;
-let isSelectMode = false;
 let longPressTimer = null;
 let longPressStartPos = null;
-let suppressNextSelectionClick = false;
 let activeDayVirtualizer = null;
+/** @type {Map<string, () => void>} */
+const ownedUndoCancellations = new Map();
+
+const collectionLifecycle = createCollectionLifecycle({
+  onCleanupError: (error) => {
+    reportAppError(error, {
+      logMessage: "Failed to release a collection resource.",
+      includeClientLog: false,
+    });
+  },
+});
+const paletteViewerCoordinator = createCollectionViewerCoordinator({
+  loadModule: () => import("./modules/collection/palette-viewer-overlay.js"),
+});
+const paletteOutputCommands = createPaletteOutputCommands({
+  exportPolaroid: exportPalettePolaroidImage,
+  sharePolaroid: sharePalettePolaroidImage,
+  download: downloadBlob,
+  loadVersoTools: async () => {
+    const [{ getColorNames }, { renderPaletteVersoBlob }] = await Promise.all([
+      import("./modules/color-name-api.js"),
+      import("./modules/collection/palette-verso.js"),
+    ]);
+    return { getColorNames, renderVersoBlob: renderPaletteVersoBlob };
+  },
+});
 
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
   emptyMessageText: () => t("collection.empty"),
   collapsedDayIds,
-  reloadCollectionUi: () => loadCollectionUi(),
+  reloadCollectionUi: async () => {
+    await loadCollectionUi();
+  },
 });
+const deletePaletteWithCleanup = createPaletteDeletionUseCase({
+  commitLocalPaletteDeletion: (paletteId) =>
+    deletePalette(paletteId, {
+      accountKey: captureDeleteOutboxAccountKey(),
+      prepareRemoteCleanup: () => preparePaletteDeletionRemoteCleanup(paletteId),
+      reserveRemoteCleanup: reserveDeleteRetryInCurrentTransaction,
+    }),
+  disposePreviewAsset: disposePalettePreviewAsset,
+  flushRemoteCleanup: flushDeleteOutbox,
+  notifyDeleted: dispatchPaletteDeletedEvent,
+});
+const moderationSyncController = createModerationSyncController({
+  isActive: () => Boolean(collectionPanel?.classList.contains("visible")),
+  runSync: (signal) => syncPublishedPalettesModerationStatus({ signal }),
+  onUpdated: loadCollectionUi,
+  onError: (error) => {
+    reportAppError(error, {
+      logMessage: "Failed to sync moderation statuses.",
+      includeClientLog: false,
+    });
+  },
+});
+const collectionLoadCoordinator = createCollectionLoadCoordinator({
+  loadPalettes: getSavedPalettes,
+  selectPalettes: (palettes) => palettes.filter((palette) => !pendingDeletionIds.has(palette.id)),
+  applyPalettes: renderCollectionUi,
+  handleFailure: renderCollectionLoadFailure,
+  recordMetric: clientLog,
+  now: () => performance.now(),
+});
+const deletionSettlementCoordinator = createDeletionSettlementCoordinator({
+  onSettlementError: (error, { settlement, trigger }) => {
+    reportAppError(error, {
+      consoleMessage: "Failed to settle a staged palette deletion.",
+      includeClientLog: false,
+      context: { settlement, trigger },
+    });
+  },
+});
+
+/** @param {string} toastId @param {() => void} cancel */
+function trackOwnedUndo(toastId, cancel) {
+  if (toastId) {
+    ownedUndoCancellations.set(toastId, cancel);
+  }
+  return toastId;
+}
+
+/** @param {string} toastId */
+function releaseOwnedUndo(toastId) {
+  if (toastId) {
+    ownedUndoCancellations.delete(toastId);
+  }
+}
+
+function cancelOwnedUndoWork() {
+  for (const [toastId, cancel] of ownedUndoCancellations) {
+    try {
+      cancel();
+    } finally {
+      dismissToast(toastId);
+    }
+  }
+  ownedUndoCancellations.clear();
+}
+
+/**
+ * Binds all terminal toast paths to one exact-once deletion operation. User
+ * close/swipe accepts deletion; programmatic teardown preserves local data.
+ * @param {string} message
+ * @param {{
+ *   operation: {
+ *     undo(): Promise<unknown>,
+ *     expire(): Promise<unknown>,
+ *     dismiss(reason: string): Promise<unknown>,
+ *     cancel(): Promise<unknown>,
+ *   },
+ *   actionLabel?: string,
+ * }} options
+ */
+function showDeletionUndoToast(message, { operation, actionLabel }) {
+  let toastId = "";
+  toastId = showUndoToast(message, {
+    duration: DELETE_UNDO_DURATION_MS,
+    actionLabel,
+    onUndo: () => {
+      releaseOwnedUndo(toastId);
+      void operation.undo();
+    },
+    onExpire: () => {
+      releaseOwnedUndo(toastId);
+      void operation.expire();
+    },
+    onDismiss: (reason) => {
+      releaseOwnedUndo(toastId);
+      void operation.dismiss(reason);
+    },
+  });
+
+  if (!toastId) {
+    void operation.expire();
+    return "";
+  }
+
+  return trackOwnedUndo(toastId, () => {
+    void operation.cancel();
+  });
+}
+
+function releaseCollectionResources() {
+  collectionLoadCoordinator.destroy();
+  moderationSyncController.destroy();
+  clearLongPress();
+  cancelOwnedUndoWork();
+  void deletionSettlementCoordinator.destroy();
+  paletteViewerCoordinator.destroy();
+  activeDayVirtualizer?.destroy();
+  activeDayVirtualizer = null;
+  collectionGrid?.querySelectorAll(".palette-card").forEach(disposePaletteCard);
+  collectionGrid?.replaceChildren();
+  clearPalettePreviewAssetCache();
+  disposePalettePreviewDownloads();
+  currentPalettes = [];
+  pendingDeletionIds.clear();
+  collapsedDayIds.clear();
+  selectionState.exit();
+  currentFilter = null;
+}
+
+collectionLifecycle.registerCleanup(releaseCollectionResources);
 
 function getPublicationActions() {
   return {
@@ -237,16 +405,6 @@ function dispatchPaletteDeletedEvent(paletteId) {
   );
 }
 
-function createDeleteRemoteCleanupFallbackResult(palette, error) {
-  return {
-    attempted: true,
-    error,
-    remoteCatchId: String(palette?.remoteCatchId || "").trim(),
-    status: "failed",
-    success: false,
-  };
-}
-
 function insertPaletteAtIndex(palette, index) {
   if (currentPalettes.some((entry) => entry.id === palette.id)) {
     return;
@@ -261,7 +419,14 @@ function insertPaletteAtIndex(palette, index) {
 }
 
 async function handleExportPalette(palette) {
-  const exported = await exportPalettePolaroidImage(palette);
+  const result = await paletteOutputCommands.exportPalette(palette);
+  const exported = result.status === "exported";
+  if (result.status === "failed" && result.error !== undefined) {
+    reportAppError(result.error, {
+      consoleMessage: "Failed to export palette.",
+      includeClientLog: false,
+    });
+  }
   showToast(exported ? t("collection.exportSuccess") : t("collection.exportFailed"), {
     variant: exported ? "default" : "error",
     duration: exported ? 1400 : 1800,
@@ -269,13 +434,10 @@ async function handleExportPalette(palette) {
 }
 
 async function handleExportPaletteVerso(palette) {
-  let exported = false;
-  try {
-    const names = await getColorNames(palette.colors);
-    const blob = await renderPaletteVersoBlob(palette, names);
-    exported = await downloadBlob(blob, `palette-${palette.id}-verso.png`);
-  } catch (error) {
-    reportAppError(error, {
+  const result = await paletteOutputCommands.exportPaletteVerso(palette);
+  const exported = result.status === "exported";
+  if (result.status === "failed" && result.error !== undefined) {
+    reportAppError(result.error, {
       logMessage: "Failed to export palette verso.",
     });
   }
@@ -286,8 +448,16 @@ async function handleExportPaletteVerso(palette) {
   });
 }
 
+function closePaletteViewerOverlay() {
+  paletteViewerCoordinator.close();
+}
+
+function refreshPaletteViewerOverlay(options) {
+  paletteViewerCoordinator.refresh(options);
+}
+
 async function handleSharePalette(palette) {
-  const result = await sharePalettePolaroidImage(palette);
+  const result = await paletteOutputCommands.sharePalette(palette);
 
   if (result.status === "shared") {
     showToast(t("collection.shareSuccess"), {
@@ -300,8 +470,14 @@ async function handleSharePalette(palette) {
     return;
   }
 
-  if (result.status === "unsupported") {
-    const exported = await exportPalettePolaroidImage(palette);
+  if (result.status === "fallback_exported" || result.status === "unsupported") {
+    const exported = result.status === "fallback_exported";
+    if (!exported && result.error !== undefined) {
+      reportAppError(result.error, {
+        consoleMessage: "Failed to export palette after sharing was unavailable.",
+        includeClientLog: false,
+      });
+    }
     showToast(
       exported ? t("collection.shareUnsupportedWithExport") : t("collection.shareUnsupported"),
       {
@@ -310,6 +486,13 @@ async function handleSharePalette(palette) {
       },
     );
     return;
+  }
+
+  if (result.error !== undefined) {
+    reportAppError(result.error, {
+      consoleMessage: "Failed to share palette.",
+      includeClientLog: false,
+    });
   }
 
   showToast(t("collection.shareFailed"), {
@@ -341,9 +524,8 @@ async function handleDeletePalette(palette) {
     syncCollectionUiAfterPaletteRemoval();
   }
 
-  showUndoToast(t("collection.deleteUndo"), {
-    duration: DELETE_UNDO_DURATION_MS,
-    onUndo: () => {
+  const deletionOperation = deletionSettlementCoordinator.stage({
+    undo: () => {
       pendingDeletionIds.delete(palette.id);
 
       if (shouldTrackCollectionState) {
@@ -351,7 +533,10 @@ async function handleDeletePalette(palette) {
       }
 
       if (card instanceof HTMLElement && snapshot) {
-        cardLifecycle.restoreCardFromSnapshot(card, snapshot);
+        const restored = cardLifecycle.restoreCardFromSnapshot(card, snapshot);
+        if (!restored) {
+          disposePaletteCard(card);
+        }
       } else if (shouldTrackCollectionState) {
         syncCollectionUiAfterPaletteRemoval();
       }
@@ -365,10 +550,13 @@ async function handleDeletePalette(palette) {
         fallbackIndex: removedIndex < 0 ? 0 : removedIndex,
       });
     },
-    onExpire: async () => {
+    commit: async () => {
       const result = await commitPaletteDeletion(palette, {
         fallbackIndex: removedIndex,
       });
+      if (card instanceof HTMLElement && !card.isConnected) {
+        disposePaletteCard(card);
+      }
       if (!result.success) {
         return;
       }
@@ -378,51 +566,35 @@ async function handleDeletePalette(palette) {
       } else if (shouldTrackCollectionState) {
         syncCollectionUiAfterPaletteRemoval();
       }
-
-      if (result.remoteCleanupResult) {
-        notifyDeleteRemoteCleanupIssue(result.remoteCleanupResult, {
-          wasQueued: result.wasRemoteCleanupQueued,
-        });
+    },
+    cancel: () => {
+      pendingDeletionIds.delete(palette.id);
+      if (card instanceof HTMLElement && !card.isConnected) {
+        disposePaletteCard(card);
       }
     },
+  });
+
+  showDeletionUndoToast(t("collection.deleteUndo"), {
+    operation: deletionOperation,
   });
 }
 
 async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = false } = {}) {
-  const remoteCleanupPromise = cleanupPaletteRemoteCatch(palette);
-
   try {
-    const [deleteResult, remoteCleanupResult] = await Promise.allSettled([
-      deletePalette(palette.id),
-      remoteCleanupPromise,
-    ]);
-
-    if (deleteResult.status === "rejected") {
-      throw deleteResult.reason;
-    }
+    const result = await deletePaletteWithCleanup(palette);
+    if (!result.success) throw result.error;
 
     pendingDeletionIds.delete(palette.id);
-    disposePalettePreviewAsset(palette);
-    dispatchPaletteDeletedEvent(palette.id);
-
-    const resolvedRemoteCleanupResult =
-      remoteCleanupResult.status === "fulfilled"
-        ? remoteCleanupResult.value
-        : createDeleteRemoteCleanupFallbackResult(palette, remoteCleanupResult.reason);
-    const wasRemoteCleanupQueued = enqueueDeleteRemoteCleanupRetry(
-      resolvedRemoteCleanupResult,
-      palette,
-    );
-
-    return {
-      success: true,
-      remoteCleanupResult: resolvedRemoteCleanupResult,
-      wasRemoteCleanupQueued,
-    };
+    if (result.remoteFlushError) {
+      reportAppError(result.remoteFlushError, {
+        logMessage: "Failed to process the remote deletion outbox.",
+      });
+    }
+    return result;
   } catch (error) {
     reportAppError(error, {
       logMessage: "Failed to delete palette.",
-      context: { paletteId: palette.id },
       consoleMessage: `Failed to delete palette ${palette.id}:`,
     });
     pendingDeletionIds.delete(palette.id);
@@ -453,58 +625,8 @@ async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = fal
   }
 }
 
-function enqueueDeleteRemoteCleanupRetry(result, palette) {
-  if (!result || result.success) {
-    return false;
-  }
-
-  const remoteCatchId = String(result?.remoteCatchId || palette?.remoteCatchId || "").trim();
-  if (!remoteCatchId) {
-    return false;
-  }
-
-  return enqueueDeleteRetry({ remoteCatchId });
-}
-
-function notifyDeleteRemoteCleanupIssue(result, { wasQueued = false } = {}) {
-  if (!result || result.success) {
-    return;
-  }
-
-  reportAppError(result?.error, {
-    logMessage: "Failed to clean up palette publication during delete.",
-    includeConsole: false,
-    context: {
-      remoteCatchId: result?.remoteCatchId,
-      status: result?.status,
-    },
-  });
-
-  let message =
-    result.status === "authentication_required"
-      ? t("collection.deleteRemoteCleanupAuth")
-      : t("collection.deleteRemoteCleanupFailed");
-  let variant = "error";
-
-  if (wasQueued) {
-    message =
-      result.status === "authentication_required"
-        ? t("collection.deleteRemoteCleanupAuthQueued")
-        : t("collection.deleteRemoteCleanupFailedQueued");
-    variant = "default";
-  }
-
-  showToast(
-    message,
-    createErrorToastOptions(result.error, {
-      variant,
-      duration: 4200,
-    }),
-  );
-}
-
-function openCollectionPaletteViewer(paletteId) {
-  if (isSelectMode) {
+async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) {
+  if (selectionState.isActive()) {
     return;
   }
 
@@ -514,22 +636,38 @@ function openCollectionPaletteViewer(paletteId) {
     return;
   }
 
-  openPaletteViewerOverlay({
-    palettes: displayPalettes,
-    initialIndex,
-    getPalettes: getDisplayPalettes,
-    getPreviewAsset: getPaletteViewerPreviewAsset,
-    getPublishAction: getPalettePublicationAction,
-    canShare: canSharePalette,
-    canExport: canExportPalette,
-    canPublish: canPublishPalette,
-    canDelete: () => true,
-    onShare: handleSharePalette,
-    onExport: handleExportPalette,
-    onExportVerso: handleExportPaletteVerso,
-    onPublish: (palette) => handlePublishPalette(palette, getPalettePublicationAction(palette)),
-    onDelete: handleDeletePalette,
-  });
+  const canApplyViewerOpen = collectionLoadCoordinator.captureGuard();
+  try {
+    await paletteViewerCoordinator.open(
+      {
+        palettes: displayPalettes,
+        initialIndex,
+        getPalettes: getDisplayPalettes,
+        getPreviewAsset: getPaletteViewerPreviewAsset,
+        getPublishAction: getPalettePublicationAction,
+        canShare: canSharePalette,
+        canExport: canExportPalette,
+        canPublish: canPublishPalette,
+        canDelete: () => true,
+        returnFocusTarget,
+        onShare: handleSharePalette,
+        onExport: handleExportPalette,
+        onExportVerso: handleExportPaletteVerso,
+        onPublish: (palette) => handlePublishPalette(palette, getPalettePublicationAction(palette)),
+        onDelete: handleDeletePalette,
+      },
+      {
+        canOpen: () =>
+          canApplyViewerOpen() && Boolean(collectionPanel?.classList.contains("visible")),
+      },
+    );
+  } catch (error) {
+    if (!canApplyViewerOpen() || error?.name === "AbortError") {
+      return;
+    }
+    reportAppError(error, { logMessage: "Failed to load palette viewer." });
+    showToast(t("collection.loadErrorToast"), { variant: "error", duration: 1800 });
+  }
 }
 
 function createCollectionPaletteCard(palette) {
@@ -568,6 +706,8 @@ function createCollectionDayGroup(dayGroup) {
 
       syncCollectionHeaderControls();
     },
+    onCardMount: applyCardSelectionState,
+    onCardUnmount: disposePaletteCard,
     revealDurationMs: CARD_REVEAL_DURATION_MS,
     revealStaggerMs: CARD_REVEAL_STAGGER_MS,
     viewMode: currentCollectionViewMode,
@@ -585,20 +725,14 @@ function pruneUnavailableCollapsedDays(dayGroups) {
 }
 
 function syncSelectModeAfterRender() {
-  if (!isSelectMode) {
+  if (!selectionState.isActive()) {
     return;
   }
 
   collectionGrid.classList.add("is-select-mode");
 
-  const availablePaletteIds = new Set(currentPalettes.map((palette) => palette.id));
-
-  selectedIds.forEach((paletteId) => {
-    if (!availablePaletteIds.has(paletteId)) {
-      selectedIds.delete(paletteId);
-      return;
-    }
-
+  selectionState.pruneUnavailable(currentPalettes);
+  selectionState.getSelectedIds().forEach((paletteId) => {
     const card = getCollectionCardByPaletteId(paletteId);
     if (card) {
       card.classList.add("is-selected");
@@ -609,7 +743,7 @@ function syncSelectModeAfterRender() {
 }
 
 function applyCardSelectionState(card) {
-  if (!isSelectMode) {
+  if (!selectionState.isActive()) {
     return;
   }
 
@@ -619,12 +753,16 @@ function applyCardSelectionState(card) {
     return;
   }
 
-  if (selectedIds.has(paletteId)) {
+  if (selectionState.isSelected(paletteId)) {
     card.classList.add("is-selected");
   }
 }
 
 function renderCollectionUi(palettes) {
+  if (collectionLifecycle.isDestroyed()) {
+    return false;
+  }
+
   currentPalettes = palettes;
   const displayPalettes = getDisplayPalettes();
 
@@ -643,7 +781,7 @@ function renderCollectionUi(palettes) {
     `;
     syncCollectionPanelChrome([]);
     refreshPaletteViewerOverlay();
-    return;
+    return true;
   }
 
   const dayGroups = groupPalettesByDay(displayPalettes);
@@ -671,53 +809,29 @@ function renderCollectionUi(palettes) {
 
   syncSelectModeAfterRender();
   refreshPaletteViewerOverlay();
+  return true;
 }
 
 async function loadCollectionUi() {
-  const startTime = performance.now();
-  try {
-    const fetchStartTime = performance.now();
-    const fetchedPalettes = await getSavedPalettes();
-    const fetchMs = performance.now() - fetchStartTime;
+  return (await collectionLoadCoordinator.load()) === "applied";
+}
 
-    const filterStartTime = performance.now();
-    const palettes = fetchedPalettes.filter((palette) => !pendingDeletionIds.has(palette.id));
-    const filterMs = performance.now() - filterStartTime;
-
-    const renderStartTime = performance.now();
-    renderCollectionUi(palettes);
-    const renderMs = performance.now() - renderStartTime;
-
-    clientLog("loadCollectionUi:success", {
-      totalMs: Math.round(performance.now() - startTime),
-      fetchMs: Math.round(fetchMs),
-      filterMs: Math.round(filterMs),
-      renderMs: Math.round(renderMs),
-      fetchedCount: fetchedPalettes.length,
-      displayedCount: palettes.length,
-    });
-  } catch (error) {
-    clientLog("loadCollectionUi:error", {
-      totalMs: Math.round(performance.now() - startTime),
-      errorName: error?.name ?? "",
-      errorMessage: error?.message ?? "",
-    });
-    currentPalettes = [];
-    collectionGrid.innerHTML = `<p class="empty-message">${t("collection.loadErrorInline")}</p>`;
-    collectionGrid.dataset.viewMode = currentCollectionViewMode;
-    syncCollectionPanelChrome([]);
-    reportAppError(error, {
-      logMessage: "Failed to load palette collection.",
-    });
-    showToast(
-      t("collection.loadErrorToast"),
-      createErrorToastOptions(error, {
-        variant: "error",
-        duration: 3000,
-      }),
-    );
-    refreshPaletteViewerOverlay();
-  }
+function renderCollectionLoadFailure(error) {
+  currentPalettes = [];
+  collectionGrid.innerHTML = `<p class="empty-message">${t("collection.loadErrorInline")}</p>`;
+  collectionGrid.dataset.viewMode = currentCollectionViewMode;
+  syncCollectionPanelChrome([]);
+  reportAppError(error, {
+    logMessage: "Failed to load palette collection.",
+  });
+  showToast(
+    t("collection.loadErrorToast"),
+    createErrorToastOptions(error, {
+      variant: "error",
+      duration: 3000,
+    }),
+  );
+  refreshPaletteViewerOverlay();
 }
 
 function handleCollectionViewModeChange(nextViewMode) {
@@ -769,28 +883,6 @@ function handleCollapseAllDays() {
   renderCollectionUi(currentPalettes);
 }
 
-function clearModerationSyncLoop() {
-  if (!moderationSyncTimeoutId) {
-    return;
-  }
-
-  window.clearTimeout(moderationSyncTimeoutId);
-  moderationSyncTimeoutId = 0;
-}
-
-function scheduleModerationSync() {
-  clearModerationSyncLoop();
-
-  if (!collectionPanel?.classList.contains("visible")) {
-    return;
-  }
-
-  moderationSyncTimeoutId = window.setTimeout(() => {
-    moderationSyncTimeoutId = 0;
-    void syncModerationStatuses();
-  }, MODERATION_SYNC_DELAY_MS);
-}
-
 function getPublicationErrorMessage(error, fallbackMessage) {
   const apiMessage = error?.cause?.payload?.message;
   if (typeof apiMessage === "string" && apiMessage.trim()) {
@@ -809,11 +901,16 @@ function getPublicationActionConfig(action) {
   return publicationActions[action] ?? publicationActions.publish;
 }
 
-function runPublicationAction(palette, action = "publish") {
+/**
+ * @param {Palette} palette
+ * @param {string} [action]
+ * @param {{session?: CommunitySession | null}} [options]
+ */
+function runPublicationAction(palette, action = "publish", { session } = {}) {
   const actionConfig = getPublicationActionConfig(action);
 
   return actionConfig
-    .run(palette)
+    .run(palette, { session })
     .then(() => ({
       actionConfig,
       status: "success",
@@ -835,6 +932,14 @@ function runPublicationAction(palette, action = "publish") {
         };
       }
 
+      if (error?.code === "SESSION_CHANGED") {
+        return {
+          actionConfig,
+          error,
+          status: "session_changed",
+        };
+      }
+
       return {
         actionConfig,
         error,
@@ -845,8 +950,9 @@ function runPublicationAction(palette, action = "publish") {
 
 async function handlePublishPalette(palette, action = "publish") {
   const actionConfig = getPublicationActionConfig(action);
+  const publicationSession = getCurrentCommunitySession();
 
-  if (!getCurrentCommunitySession()?.token) {
+  if (!publicationSession?.token) {
     showToast(actionConfig.authMessage, {
       variant: "error",
       duration: 3500,
@@ -860,7 +966,7 @@ async function handlePublishPalette(palette, action = "publish") {
     return;
   }
 
-  const result = await runPublicationAction(palette, action);
+  const result = await runPublicationAction(palette, action, { session: publicationSession });
 
   if (result.status === "success") {
     const toastOptions = {
@@ -875,7 +981,7 @@ async function handlePublishPalette(palette, action = "publish") {
     await loadCollectionUi();
 
     if (actionConfig.shouldScheduleModerationSync) {
-      scheduleModerationSync();
+      moderationSyncController.schedule();
     }
 
     return;
@@ -902,6 +1008,14 @@ async function handlePublishPalette(palette, action = "publish") {
     return;
   }
 
+  if (result.status === "session_changed") {
+    showToast(t("collection.publication.sessionChanged"), {
+      variant: "error",
+      duration: 2500,
+    });
+    return;
+  }
+
   reportAppError(result.error, {
     logMessage: "Failed to update palette publication.",
     context: { action },
@@ -915,46 +1029,29 @@ async function handlePublishPalette(palette, action = "publish") {
   );
 }
 
-async function syncModerationStatuses() {
-  if (isModerationSyncInProgress) {
-    return;
-  }
-
-  if (!collectionPanel?.classList.contains("visible")) {
-    return;
-  }
-
-  isModerationSyncInProgress = true;
-
-  try {
-    const { updatedCount, pendingCount } = await syncPublishedPalettesModerationStatus();
-
-    if (updatedCount > 0) {
-      await loadCollectionUi();
-    }
-
-    if (pendingCount > 0) {
-      scheduleModerationSync();
-    }
-  } catch (error) {
-    reportAppError(error, {
-      logMessage: "Failed to sync moderation statuses.",
-      includeClientLog: false,
-    });
-  } finally {
-    isModerationSyncInProgress = false;
-  }
-}
-
 export async function openCollectionPanel() {
-  if (!collectionPanel || !collectionGrid) {
+  if (collectionLifecycle.isDestroyed() || !hasRequiredCollectionViewElements(collectionView)) {
     return false;
   }
 
-  openSharedPanel("collection");
-  await loadCollectionUi();
-  void flushDeleteOutbox();
-  void syncModerationStatuses();
+  // Collection actions own the deletion outbox. Initialize it immediately on
+  // entry even when the app's startup-friendly idle initialization has not run.
+  initializeDeleteOutbox();
+  const didOpen = openSharedPanel("collection");
+  if (!didOpen) {
+    return false;
+  }
+
+  const didLoad = await loadCollectionUi();
+  if (
+    didLoad &&
+    !collectionLifecycle.isDestroyed() &&
+    collectionPanel.classList.contains("visible")
+  ) {
+    void flushDeleteOutbox();
+    void moderationSyncController.runNow();
+  }
+
   return true;
 }
 
@@ -965,11 +1062,19 @@ export async function openCollectionPanel() {
  * @returns {Promise<"opened" | "missing" | "pending-delete">}
  */
 export async function openDirectPaletteViewer(paletteId) {
+  if (collectionLifecycle.isDestroyed()) {
+    return "missing";
+  }
+  const isCurrentOpenIntent = paletteViewerCoordinator.beginOpenIntent();
+
   if (isPalettePendingDeletion(paletteId)) {
     return "pending-delete";
   }
 
   const palette = await getSavedPaletteById(paletteId);
+  if (collectionLifecycle.isDestroyed() || !isCurrentOpenIntent()) {
+    return "missing";
+  }
   if (!palette) {
     return "missing";
   }
@@ -978,23 +1083,31 @@ export async function openDirectPaletteViewer(paletteId) {
     return "pending-delete";
   }
 
-  openPaletteViewerOverlay({
-    palettes: [palette],
-    initialIndex: 0,
-    getPalettes: () => (isPalettePendingDeletion(palette.id) ? [] : [palette]),
-    getPreviewAsset: getPaletteViewerPreviewAsset,
-    getPublishAction: getPalettePublicationAction,
-    canShare: canSharePalette,
-    canExport: canExportPalette,
-    canPublish: canPublishPalette,
-    canDelete: () => true,
-    onShare: handleSharePalette,
-    onExport: handleExportPalette,
-    onExportVerso: handleExportPaletteVerso,
-    onPublish: (p) => handlePublishPalette(p, getPalettePublicationAction(p)),
-    onDelete: handleDeletePalette,
-  });
-  return "opened";
+  const didOpen = await paletteViewerCoordinator.open(
+    {
+      palettes: [palette],
+      initialIndex: 0,
+      getPalettes: () => (isPalettePendingDeletion(palette.id) ? [] : [palette]),
+      getPreviewAsset: getPaletteViewerPreviewAsset,
+      getPublishAction: getPalettePublicationAction,
+      canShare: canSharePalette,
+      canExport: canExportPalette,
+      canPublish: canPublishPalette,
+      canDelete: () => true,
+      onShare: handleSharePalette,
+      onExport: handleExportPalette,
+      onExportVerso: handleExportPaletteVerso,
+      onPublish: (p) => handlePublishPalette(p, getPalettePublicationAction(p)),
+      onDelete: handleDeletePalette,
+    },
+    {
+      canOpen: () =>
+        isCurrentOpenIntent() &&
+        !collectionLifecycle.isDestroyed() &&
+        !isPalettePendingDeletion(palette.id),
+    },
+  );
+  return didOpen ? "opened" : isPalettePendingDeletion(palette.id) ? "pending-delete" : "missing";
 }
 
 function syncSelectionBar() {
@@ -1002,20 +1115,20 @@ function syncSelectionBar() {
     return;
   }
 
-  collectionSelectionBar.hidden = !isSelectMode;
+  collectionSelectionBar.hidden = !selectionState.isActive();
 
-  if (!isSelectMode) {
+  if (!selectionState.isActive()) {
     return;
   }
 
-  const count = selectedIds.size;
+  const count = selectionState.getCount();
 
   if (collectionSelectionCount) {
     collectionSelectionCount.textContent = String(count);
   }
 
   const displayPalettes = getDisplayPalettes();
-  const selected = displayPalettes.filter((p) => selectedIds.has(p.id));
+  const selected = selectionState.getSelected(displayPalettes);
 
   if (collectionSelectionDelete instanceof HTMLButtonElement) {
     collectionSelectionDelete.disabled = count === 0;
@@ -1039,14 +1152,11 @@ function syncSelectionBar() {
 }
 
 function enterSelectMode(initialPaletteId = null, { suppressNextClick = false } = {}) {
-  isSelectMode = true;
-  suppressNextSelectionClick = suppressNextClick;
-  selectedIds.clear();
+  selectionState.enter(initialPaletteId, { suppressNextClick });
 
   collectionGrid?.classList.add("is-select-mode");
 
   if (initialPaletteId !== null) {
-    selectedIds.add(initialPaletteId);
     const card = getCollectionCardByPaletteId(initialPaletteId);
     card?.classList.add("is-selected");
   }
@@ -1055,9 +1165,7 @@ function enterSelectMode(initialPaletteId = null, { suppressNextClick = false } 
 }
 
 function exitSelectMode() {
-  isSelectMode = false;
-  suppressNextSelectionClick = false;
-  selectedIds.clear();
+  selectionState.exit();
 
   collectionGrid?.classList.remove("is-select-mode");
   collectionGrid?.querySelectorAll(".palette-card.is-selected").forEach((card) => {
@@ -1087,7 +1195,7 @@ function syncBulkDeleteUi(stagedDeletions) {
 }
 
 async function handleSelectionDelete() {
-  const toDelete = getDisplayPalettes().filter((p) => selectedIds.has(p.id));
+  const toDelete = selectionState.getSelected(getDisplayPalettes());
   exitSelectMode();
   if (toDelete.length === 0) {
     return;
@@ -1116,53 +1224,90 @@ async function handleSelectionDelete() {
 
   syncBulkDeleteUi(stagedDeletions);
 
-  showUndoToast(t("collection.bulk.deletePending", { count: stagedDeletions.length }), {
-    duration: DELETE_UNDO_DURATION_MS,
-    actionLabel: t("collection.select.cancel"),
-    onUndo: () => {
+  const deletionOperation = deletionSettlementCoordinator.stage({
+    undo: () => {
       [...stagedDeletions].reverse().forEach(({ palette, removedIndex }) => {
         pendingDeletionIds.delete(palette.id);
         insertPaletteAtIndex(palette, removedIndex);
       });
       syncBulkDeleteUi(stagedDeletions);
     },
-    onExpire: async () => {
-      const results = await Promise.all(
-        stagedDeletions.map(({ palette, removedIndex }) =>
-          commitPaletteDeletion(palette, {
-            fallbackIndex: removedIndex,
-            silent: true,
-          }),
-        ),
+    commit: async () => {
+      let isCancelled = false;
+      const progressToastId = showUndoToast(
+        t("collection.bulk.deleteRunning", { count: stagedDeletions.length }),
+        {
+          duration: 0,
+          actionLabel: t("collection.select.cancel"),
+          onUndo: () => {
+            isCancelled = true;
+          },
+          onDismiss: () => {
+            isCancelled = true;
+          },
+        },
       );
-      const failedResults = results.filter((result) => !result.success);
+      trackOwnedUndo(progressToastId, () => {
+        isCancelled = true;
+      });
 
-      if (failedResults.length > 0) {
+      let bulkResult;
+      try {
+        bulkResult = await runBoundedBulkDeletion({
+          deletions: stagedDeletions,
+          isCancelled: () => isCancelled || collectionLifecycle.signal.aborted,
+          runDelete: ({ palette, removedIndex }) =>
+            commitPaletteDeletion(palette, {
+              fallbackIndex: removedIndex,
+              silent: true,
+            }),
+        });
+      } finally {
+        releaseOwnedUndo(progressToastId);
+        dismissToast(progressToastId);
+      }
+
+      if (collectionLifecycle.signal.aborted) {
+        return;
+      }
+
+      if (bulkResult.cancelledCount > 0) {
+        stagedDeletions.slice(bulkResult.completedCount).forEach(({ palette }) => {
+          pendingDeletionIds.delete(palette.id);
+        });
+      }
+
+      if (bulkResult.failedResults.length > 0 || bulkResult.cancelledCount > 0) {
         await loadCollectionUi();
+      }
+
+      if (bulkResult.failedResults.length > 0) {
         showToast(
-          t("collection.bulk.deleteFailed", { count: failedResults.length }),
-          createErrorToastOptions(failedResults[0].error, {
+          t("collection.bulk.deleteFailed", { count: bulkResult.failedResults.length }),
+          createErrorToastOptions(bulkResult.failedResults[0].error, {
             variant: "error",
             duration: 2200,
           }),
         );
+      } else if (bulkResult.cancelled) {
+        showToast(t("collection.bulk.cancelled"), { duration: 1400 });
       }
-
-      results.forEach((result) => {
-        if (!result.success || !result.remoteCleanupResult) {
-          return;
-        }
-
-        notifyDeleteRemoteCleanupIssue(result.remoteCleanupResult, {
-          wasQueued: result.wasRemoteCleanupQueued,
-        });
+    },
+    cancel: () => {
+      stagedDeletions.forEach(({ palette }) => {
+        pendingDeletionIds.delete(palette.id);
       });
     },
+  });
+
+  showDeletionUndoToast(t("collection.bulk.deletePending", { count: stagedDeletions.length }), {
+    operation: deletionOperation,
+    actionLabel: t("collection.select.cancel"),
   });
 }
 
 async function handleSelectionExport() {
-  const toExport = getDisplayPalettes().filter((p) => selectedIds.has(p.id) && canExportPalette(p));
+  const toExport = selectionState.getSelected(getDisplayPalettes(), canExportPalette);
   exitSelectMode();
   for (const palette of toExport) {
     await handleExportPalette(palette);
@@ -1170,7 +1315,8 @@ async function handleSelectionExport() {
 }
 
 async function handleSelectionPublish() {
-  if (!getCurrentCommunitySession()?.token) {
+  const publicationSession = getCurrentCommunitySession();
+  if (!publicationSession?.token) {
     showToast(t("collection.publish.auth"), {
       variant: "error",
       duration: 3500,
@@ -1180,18 +1326,17 @@ async function handleSelectionPublish() {
     return;
   }
 
-  const toPublish = getDisplayPalettes().filter(
-    (p) =>
-      selectedIds.has(p.id) &&
-      canPublishPalette(p) &&
-      getPalettePublicationAction(p) !== "unpublish",
+  const toPublish = selectionState.getSelected(
+    getDisplayPalettes(),
+    (p) => canPublishPalette(p) && getPalettePublicationAction(p) !== "unpublish",
   );
   exitSelectMode();
-  await handleSelectionPublicationAction("publish", toPublish);
+  await handleSelectionPublicationAction("publish", toPublish, publicationSession);
 }
 
 async function handleSelectionUnpublish() {
-  if (!getCurrentCommunitySession()?.token) {
+  const publicationSession = getCurrentCommunitySession();
+  if (!publicationSession?.token) {
     showToast(t("collection.unpublish.auth"), {
       variant: "error",
       duration: 3500,
@@ -1201,14 +1346,15 @@ async function handleSelectionUnpublish() {
     return;
   }
 
-  const toUnpublish = getDisplayPalettes().filter(
-    (p) => selectedIds.has(p.id) && getPalettePublicationAction(p) === "unpublish",
+  const toUnpublish = selectionState.getSelected(
+    getDisplayPalettes(),
+    (p) => getPalettePublicationAction(p) === "unpublish",
   );
   exitSelectMode();
-  await handleSelectionPublicationAction("unpublish", toUnpublish);
+  await handleSelectionPublicationAction("unpublish", toUnpublish, publicationSession);
 }
 
-async function handleSelectionPublicationAction(action, palettes) {
+async function handleSelectionPublicationAction(action, palettes, publicationSession) {
   if (palettes.length === 0) {
     return;
   }
@@ -1218,12 +1364,6 @@ async function handleSelectionPublicationAction(action, palettes) {
   const successMessageKey = `collection.bulk.${action}Success`;
   const failureMessageKey = `collection.bulk.${action}Failed`;
   let isCancelled = false;
-  let successCount = 0;
-  let alreadyDoneCount = 0;
-  let failureCount = 0;
-  let authRequired = false;
-  let firstFailure = null;
-  let shouldReload = false;
 
   const toastId = showUndoToast(t(pendingMessageKey, { count: palettes.length }), {
     duration: 0,
@@ -1231,48 +1371,45 @@ async function handleSelectionPublicationAction(action, palettes) {
     onUndo: () => {
       isCancelled = true;
     },
+    onDismiss: () => {
+      isCancelled = true;
+    },
+  });
+  trackOwnedUndo(toastId, () => {
+    isCancelled = true;
   });
 
+  let bulkResult;
   try {
-    for (const palette of palettes) {
-      if (isCancelled) {
-        break;
-      }
-
-      const result = await runPublicationAction(palette, action);
-      if (result.status === "success") {
-        successCount += 1;
-        shouldReload = true;
-        continue;
-      }
-
-      if (result.status === "already_done") {
-        alreadyDoneCount += 1;
-        shouldReload = shouldReload || result.actionConfig.shouldReloadOnAlreadyDone;
-        continue;
-      }
-
-      if (result.status === "auth_required") {
-        authRequired = true;
-        firstFailure = result.error;
-        break;
-      }
-
-      if (!firstFailure) {
-        firstFailure = result.error;
-      }
-      failureCount += 1;
-    }
+    bulkResult = await runBulkPublication({
+      palettes,
+      runAction: (palette) =>
+        runPublicationAction(palette, action, { session: publicationSession }),
+      isCancelled: () => isCancelled,
+      isSessionCurrent: () => isCommunityPublicationSessionCurrent(publicationSession),
+    });
   } finally {
+    releaseOwnedUndo(toastId);
     dismissToast(toastId);
   }
+
+  const {
+    alreadyDoneCount,
+    authRequired,
+    cancelled,
+    failureCount,
+    firstFailure,
+    sessionChanged,
+    shouldReload,
+    successCount,
+  } = bulkResult;
 
   if (shouldReload) {
     await loadCollectionUi();
   }
 
   if (successCount > 0 && actionConfig.shouldScheduleModerationSync) {
-    scheduleModerationSync();
+    moderationSyncController.schedule();
   }
 
   if (authRequired) {
@@ -1281,6 +1418,14 @@ async function handleSelectionPublicationAction(action, palettes) {
       duration: 2000,
     });
     openLoginPanel();
+    return;
+  }
+
+  if (sessionChanged) {
+    showToast(t("collection.publication.sessionChanged"), {
+      variant: "error",
+      duration: 2500,
+    });
     return;
   }
 
@@ -1313,84 +1458,106 @@ async function handleSelectionPublicationAction(action, palettes) {
     return;
   }
 
-  if (alreadyDoneCount > 0 && !isCancelled) {
+  if (alreadyDoneCount > 0 && !cancelled) {
     showToast(actionConfig.alreadyDoneMessage, {
       duration: 1500,
     });
     return;
   }
 
-  if (isCancelled) {
+  if (cancelled) {
     showToast(t("collection.bulk.cancelled"), {
       duration: 1400,
     });
   }
 }
 
+/**
+ * @param {EventTarget | null | undefined} target
+ * @param {string} eventName
+ * @param {EventListenerOrEventListenerObject} listener
+ * @param {AddEventListenerOptions} [options]
+ */
+function bindCollectionEventListener(target, eventName, listener, options = {}) {
+  target?.addEventListener(eventName, listener, {
+    ...options,
+    signal: collectionLifecycle.signal,
+  });
+}
+
+function handleCollectionPanelClosing() {
+  collectionLoadCoordinator.invalidate();
+  moderationSyncController.stop();
+  clearLongPress();
+  closePaletteViewerOverlay();
+  activeDayVirtualizer?.destroy();
+  activeDayVirtualizer = null;
+}
+
 function bindCollectionUiEvents() {
-  if (!collectionPanel || !collectionGrid) {
+  if (!hasRequiredCollectionViewElements(collectionView)) {
     return;
   }
 
-  viewCollectionButton?.addEventListener("click", async () => {
-    await openCollectionPanel();
-  });
-
-  collectionViewListButton?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionViewListButton, "click", () => {
     updateAppSettings({ collectionViewMode: "list" });
   });
 
-  collectionViewGridButton?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionViewGridButton, "click", () => {
     updateAppSettings({ collectionViewMode: "grid" });
   });
 
-  collectionViewSwatchButton?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionViewSwatchButton, "click", () => {
     updateAppSettings({ collectionViewMode: "swatch" });
   });
 
-  collectionCollapseAllButton?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionCollapseAllButton, "click", () => {
     handleCollapseAllDays();
   });
 
-  collectionFilterPublishedButton?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionFilterPublishedButton, "click", () => {
     currentFilter = currentFilter === "published" ? null : "published";
-    if (isSelectMode) {
+    if (selectionState.isActive()) {
       exitSelectMode();
     }
     renderCollectionUi(currentPalettes);
   });
 
-  collectionSelectionCancel?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionSelectionCancel, "click", () => {
     exitSelectMode();
   });
 
-  collectionSelectionDelete?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionSelectionDelete, "click", () => {
     void handleSelectionDelete();
   });
 
-  collectionSelectionExport?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionSelectionExport, "click", () => {
     void handleSelectionExport();
   });
 
-  collectionSelectionPublish?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionSelectionPublish, "click", () => {
     void handleSelectionPublish();
   });
 
-  collectionSelectionUnpublish?.addEventListener("click", () => {
+  bindCollectionEventListener(collectionSelectionUnpublish, "click", () => {
     void handleSelectionUnpublish();
   });
 
-  collectionGrid?.addEventListener("pointerdown", (event) => {
-    if (isSelectMode) {
+  bindCollectionEventListener(collectionGrid, "pointerdown", (event) => {
+    const pointerEvent = /** @type {PointerEvent} */ (event);
+    if (selectionState.isActive()) {
       return;
     }
 
-    const card = /** @type {HTMLElement} */ (event.target)?.closest?.(".palette-card");
+    const card =
+      pointerEvent.target instanceof Element
+        ? /** @type {HTMLElement | null} */ (pointerEvent.target.closest(".palette-card"))
+        : null;
     if (!card) {
       return;
     }
 
-    longPressStartPos = { x: event.clientX, y: event.clientY };
+    longPressStartPos = { x: pointerEvent.clientX, y: pointerEvent.clientY };
     longPressTimer = window.setTimeout(() => {
       longPressTimer = null;
       longPressStartPos = null;
@@ -1401,35 +1568,40 @@ function bindCollectionUiEvents() {
     }, 500);
   });
 
-  collectionGrid?.addEventListener("pointermove", (event) => {
+  bindCollectionEventListener(collectionGrid, "pointermove", (event) => {
+    const pointerEvent = /** @type {PointerEvent} */ (event);
     if (!longPressTimer || !longPressStartPos) {
       return;
     }
 
-    const dx = event.clientX - longPressStartPos.x;
-    const dy = event.clientY - longPressStartPos.y;
+    const dx = pointerEvent.clientX - longPressStartPos.x;
+    const dy = pointerEvent.clientY - longPressStartPos.y;
     if (dx * dx + dy * dy > 64) {
       clearLongPress();
     }
   });
 
-  collectionGrid?.addEventListener("pointerup", clearLongPress);
-  collectionGrid?.addEventListener("pointercancel", clearLongPress);
+  bindCollectionEventListener(collectionGrid, "pointerup", clearLongPress);
+  bindCollectionEventListener(collectionGrid, "pointercancel", clearLongPress);
 
-  collectionGrid?.addEventListener("contextmenu", (event) => {
-    if (isSelectMode || longPressTimer !== null) {
+  bindCollectionEventListener(collectionGrid, "contextmenu", (event) => {
+    if (selectionState.isActive() || longPressTimer !== null) {
       event.preventDefault();
     }
   });
 
-  collectionGrid?.addEventListener(
+  bindCollectionEventListener(
+    collectionGrid,
     "click",
     (event) => {
-      if (!isSelectMode) {
+      if (!selectionState.isActive()) {
         return;
       }
 
-      const card = /** @type {HTMLElement} */ (event.target)?.closest?.(".palette-card");
+      const card =
+        event.target instanceof Element
+          ? /** @type {HTMLElement | null} */ (event.target.closest(".palette-card"))
+          : null;
       if (!card) {
         return;
       }
@@ -1442,12 +1614,7 @@ function bindCollectionUiEvents() {
         return;
       }
 
-      const result = applySelectionModeCardClick({
-        paletteId,
-        selectedIds,
-        suppressNextClick: suppressNextSelectionClick,
-      });
-      suppressNextSelectionClick = result.suppressNextClick;
+      const result = selectionState.applyCardClick(paletteId);
 
       if (result.toggled) {
         card.classList.toggle("is-selected", result.isSelected);
@@ -1455,19 +1622,23 @@ function bindCollectionUiEvents() {
 
       syncSelectionBar();
     },
-    true,
+    { capture: true },
   );
 
-  subscribeSharedPanelClosing("collection", () => {
-    clearModerationSyncLoop();
-    closePaletteViewerOverlay();
-    activeDayVirtualizer?.destroy();
-    activeDayVirtualizer = null;
-  });
-
-  subscribeAppSettings(handleCollectionSettingsChange);
+  collectionLifecycle.registerCleanup(
+    subscribeSharedPanelClosing("collection", handleCollectionPanelClosing),
+  );
+  collectionLifecycle.registerCleanup(subscribeAppSettings(handleCollectionSettingsChange));
   syncCollectionPanelChrome();
 }
 
-initializeDeleteOutbox();
 bindCollectionUiEvents();
+
+export function destroyCollectionUi() {
+  if (collectionLifecycle.isDestroyed()) {
+    return false;
+  }
+
+  closeSharedPanel("collection");
+  return collectionLifecycle.destroy();
+}

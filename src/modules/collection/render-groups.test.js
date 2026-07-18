@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { createDayGroup } from "./render-groups.js";
 import { FakeElement, installFakeDom } from "../test-support/fake-dom.js";
@@ -128,5 +128,93 @@ describe("createDayGroup", () => {
     expect(collapseEvents).toEqual([{ dayId: "day-2026-03-12", isCollapsed: true }]);
     expect(dayElement.classList.contains("is-collapsed")).toBe(true);
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("hydrates large days in bounded batches without dropping cards", async () => {
+    const palettes = Array.from({ length: 30 }, (_value, index) => createPalette(index + 1));
+    const mountedIds = [];
+    const { element: dayElement, mountContent } = createDayGroup({
+      dayGroup: {
+        ...createDayGroupFixture(),
+        paletteCount: palettes.length,
+        palettes,
+      },
+      createPaletteCard,
+      isDayCollapsed: () => false,
+      onCardMount: (card) => mountedIds.push(Number(card.dataset.paletteId)),
+      onDayCollapsedChange() {},
+      revealDurationMs: 280,
+      revealStaggerMs: 42,
+      viewMode: "list",
+    });
+
+    mountContent();
+    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(3);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(30);
+    expect(mountedIds).toHaveLength(30);
+  });
+
+  test("cancels pending card batches when a virtualized day unmounts", async () => {
+    const palettes = Array.from({ length: 30 }, (_value, index) => createPalette(index + 1));
+    const unmountedIds = [];
+    const {
+      element: dayElement,
+      mountContent,
+      unmountContent,
+    } = createDayGroup({
+      dayGroup: {
+        ...createDayGroupFixture(),
+        paletteCount: palettes.length,
+        palettes,
+      },
+      createPaletteCard,
+      isDayCollapsed: () => false,
+      onCardUnmount: (card) => unmountedIds.push(Number(card.dataset.paletteId)),
+      onDayCollapsedChange() {},
+      revealDurationMs: 280,
+      revealStaggerMs: 42,
+      viewMode: "list",
+    });
+
+    mountContent();
+    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(3);
+    unmountContent(5_000);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(0);
+    expect(unmountedIds).toEqual([1, 2, 3]);
+  });
+
+  test("cancels a pending expansion reveal when the day unmounts", () => {
+    restoreDom();
+    restoreDom = installFakeDom({ prefersReducedMotion: false });
+    const setTimeout = mock(() => 83);
+    const clearTimeout = mock(() => {});
+    globalThis.window.setTimeout = setTimeout;
+    globalThis.window.clearTimeout = clearTimeout;
+    const {
+      element: dayElement,
+      mountContent,
+      unmountContent,
+    } = createDayGroup({
+      dayGroup: createDayGroupFixture(),
+      createPaletteCard,
+      isDayCollapsed: () => true,
+      onDayCollapsedChange() {},
+      revealDurationMs: 280,
+      revealStaggerMs: 42,
+      viewMode: "list",
+    });
+
+    mountContent();
+    dayElement.querySelector(".collection-day-toggle")?.click();
+    expect(setTimeout).toHaveBeenCalledTimes(1);
+    expect(dayElement.querySelectorAll(".is-revealing")).toHaveLength(3);
+
+    unmountContent(5_000);
+    expect(clearTimeout).toHaveBeenCalledWith(83);
+    expect(dayElement.querySelectorAll(".is-revealing")).toHaveLength(0);
   });
 });

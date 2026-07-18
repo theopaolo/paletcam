@@ -1,6 +1,7 @@
 import { html, LitElement } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { t } from "../../i18n.js";
+import { settleToastEntry } from "./toast-settlement.js";
 
 const DEFAULT_TOAST_DURATION = 1200;
 const DEFAULT_UNDO_DURATION = 5000;
@@ -121,6 +122,7 @@ class ToastHostElement extends LitElement {
       actionLabel: typeof options.actionLabel === "string" ? options.actionLabel : t("toast.undo"),
       onAction: typeof options.onUndo === "function" ? options.onUndo : undefined,
       onExpire: typeof options.onExpire === "function" ? options.onExpire : undefined,
+      onDismiss: typeof options.onDismiss === "function" ? options.onDismiss : undefined,
     };
 
     this._interruptStandardToastIfNeeded();
@@ -167,9 +169,19 @@ class ToastHostElement extends LitElement {
   }
 
   _cloneEntryForQueue(entry) {
-    const { actionLabel, details, duration, message, onAction, onExpire, type, variant } = entry;
+    const {
+      actionLabel,
+      details,
+      duration,
+      message,
+      onAction,
+      onDismiss,
+      onExpire,
+      type,
+      variant,
+    } = entry;
     return this._createEntry(
-      { actionLabel, details, duration, message, onAction, onExpire, type, variant },
+      { actionLabel, details, duration, message, onAction, onDismiss, onExpire, type, variant },
       entry.id,
     );
   }
@@ -230,6 +242,7 @@ class ToastHostElement extends LitElement {
     }
     entry.closeReason = reason;
     entry.phase = "closing";
+    settleToastEntry(entry, reason);
     this.requestUpdate();
     this._scheduleDismiss(entry);
   }
@@ -467,12 +480,6 @@ class ToastHostElement extends LitElement {
 
     this._clearEntryTimers(entry);
     this._dispatchToastEvent("toast-dismiss", entry, entry.closeReason);
-
-    if (entry.closeReason === "action") {
-      entry.onAction?.();
-    } else if (entry.closeReason === "timeout") {
-      entry.onExpire?.();
-    }
 
     this.requestUpdate();
     this._showNextStandardToast();

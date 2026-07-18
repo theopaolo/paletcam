@@ -10,9 +10,14 @@ const palettePolaroidRendererModuleUrl = new URL("./palette-polaroid-renderer.js
   .href;
 
 const originalNavigator = globalThis.navigator;
+const originalDocument = globalThis.document;
+const originalWindow = globalThis.window;
+const originalCreateObjectUrl = URL.createObjectURL;
+const originalRevokeObjectUrl = URL.revokeObjectURL;
 let resetPreviewAssetCacheForTests = null;
 
 async function loadPalettePreviewAssets({
+  hydratedPreviewBlobs = { gallery: null, viewer: null },
   storedPreviewBlobs = { gallery: null, viewer: null },
   renderedPreviewBlobs = {
     gallery: new Blob(["gallery-preview"], { type: "image/webp" }),
@@ -23,6 +28,16 @@ async function loadPalettePreviewAssets({
 } = {}) {
   const ensurePaletteMasterPhotoBlob = mock(async () => masterPhotoBlob);
   const ensureSavedPalettePreviewBlob = mock(async (palette, variant = "viewer") => {
+    const hydratedPreviewBlob = hydratedPreviewBlobs[variant] ?? null;
+    if (hydratedPreviewBlob instanceof Blob) {
+      if (variant === "gallery") {
+        palette.previewGalleryBlob = hydratedPreviewBlob;
+      } else {
+        palette.previewViewerBlob = hydratedPreviewBlob;
+      }
+      return hydratedPreviewBlob;
+    }
+
     const renderedPreviewBlob = renderedPreviewBlobs[variant] ?? null;
     if (variant === "gallery") {
       palette.previewGalleryBlob = renderedPreviewBlob;
@@ -47,6 +62,16 @@ async function loadPalettePreviewAssets({
       ? palette.previewViewerBlob
       : storedPreviewBlobs.viewer;
   });
+  const invalidateSavedPalettePreviewBlob = mock(async (palette, variant = "viewer") => {
+    if (variant === "gallery") {
+      delete palette.previewGalleryBlob;
+      delete palette.previewGalleryFooterLabel;
+    } else {
+      delete palette.previewViewerBlob;
+      delete palette.previewViewerFooterLabel;
+    }
+    return true;
+  });
 
   mock.module(paletteStorageModuleUrl, () => ({
     ensurePaletteMasterPhotoBlob,
@@ -58,6 +83,16 @@ async function loadPalettePreviewAssets({
   }));
 
   const hydratePalettePreviewBlobFromIdb = mock(async (palette, variant = "viewer") => {
+    const hydratedPreviewBlob = hydratedPreviewBlobs[variant] ?? null;
+    if (hydratedPreviewBlob instanceof Blob) {
+      if (variant === "gallery") {
+        palette.previewGalleryBlob = hydratedPreviewBlob;
+      } else {
+        palette.previewViewerBlob = hydratedPreviewBlob;
+      }
+      return hydratedPreviewBlob;
+    }
+
     if (variant === "gallery") {
       return palette?.previewGalleryBlob instanceof Blob ? palette.previewGalleryBlob : null;
     }
@@ -69,6 +104,7 @@ async function loadPalettePreviewAssets({
     getPalettePreviewFingerprint,
     getStoredPalettePreviewBlob,
     hydratePalettePreviewBlobFromIdb,
+    invalidateSavedPalettePreviewBlob,
     renderSavedPalettePreviewBlob,
   }));
   const palettePreviewAssets = await import(
@@ -80,6 +116,8 @@ async function loadPalettePreviewAssets({
     ensurePaletteMasterPhotoBlob,
     ensureSavedPalettePreviewBlob,
     getStoredPalettePreviewBlob,
+    hydratePalettePreviewBlobFromIdb,
+    invalidateSavedPalettePreviewBlob,
     palettePreviewAssets,
     renderSavedPalettePreviewBlob,
     renderPalettePolaroidBlob,
@@ -98,6 +136,18 @@ afterEach(() => {
       value: originalNavigator,
     });
   }
+  if (originalDocument === undefined) {
+    delete globalThis.document;
+  } else {
+    globalThis.document = originalDocument;
+  }
+  if (originalWindow === undefined) {
+    delete globalThis.window;
+  } else {
+    globalThis.window = originalWindow;
+  }
+  URL.createObjectURL = originalCreateObjectUrl;
+  URL.revokeObjectURL = originalRevokeObjectUrl;
 });
 
 describe("getPaletteViewerPreviewAsset", () => {
@@ -148,6 +198,44 @@ describe("getPaletteViewerPreviewAsset", () => {
 });
 
 describe("getPaletteGalleryPreviewAsset", () => {
+  test("does not repopulate a disposed cache entry when a pending render settles", async () => {
+    let resolvePreview;
+    const preview = new Blob(["late-gallery"], { type: "image/webp" });
+    const { ensureSavedPalettePreviewBlob, palettePreviewAssets } =
+      await loadPalettePreviewAssets();
+    ensureSavedPalettePreviewBlob.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreview = resolve;
+        }),
+    );
+    const palette = { id: 9, hasPhotoAsset: true };
+
+    const pendingAsset = palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
+    palettePreviewAssets.disposePalettePreviewAsset(palette);
+    resolvePreview(preview);
+
+    await expect(pendingAsset).resolves.toEqual({ blob: preview, source: null });
+    expect(palettePreviewAssets.getStoredPaletteGalleryPreviewAssetSync(palette)).toBeNull();
+
+    ensureSavedPalettePreviewBlob.mockResolvedValue(preview);
+    await palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
+    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledTimes(2);
+  });
+
+  test("hydrates a persisted gallery preview before rendering from the master photo", async () => {
+    const hydratedPreviewBlob = new Blob(["persisted-gallery"], { type: "image/webp" });
+    const { ensureSavedPalettePreviewBlob, palettePreviewAssets } = await loadPalettePreviewAssets({
+      hydratedPreviewBlobs: { gallery: hydratedPreviewBlob, viewer: null },
+    });
+    const palette = { id: 10, hasPhotoAsset: true };
+
+    const asset = await palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
+
+    expect(asset).toEqual({ blob: hydratedPreviewBlob, source: null });
+    expect(ensureSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "gallery");
+  });
+
   test("persists the requested gallery preview variant when only the master photo exists", async () => {
     const renderedPreviewBlob = new Blob(["gallery-rendered-preview"], { type: "image/webp" });
 
@@ -169,7 +257,8 @@ describe("getPaletteGalleryPreviewAsset", () => {
   });
 
   test("refreshPaletteGalleryAsset clears cached gallery preview state", async () => {
-    const { palettePreviewAssets } = await loadPalettePreviewAssets();
+    const { invalidateSavedPalettePreviewBlob, palettePreviewAssets } =
+      await loadPalettePreviewAssets();
     const palette = {
       id: 12,
       hasPhotoAsset: true,
@@ -178,10 +267,11 @@ describe("getPaletteGalleryPreviewAsset", () => {
     };
 
     await palettePreviewAssets.getPaletteGalleryPreviewAsset(palette);
-    palettePreviewAssets.refreshPaletteGalleryAsset(palette, palette.id);
+    await palettePreviewAssets.refreshPaletteGalleryAsset(palette, palette.id);
 
     expect(palette.photoBlob).toBe(null);
-    expect(palette.previewGalleryBlob).toBe(null);
+    expect(palette.previewGalleryBlob).toBeUndefined();
+    expect(invalidateSavedPalettePreviewBlob).toHaveBeenCalledWith(palette, "gallery");
   });
 });
 
@@ -290,5 +380,39 @@ describe("sharePalettePolaroidImage", () => {
     expect(share).toHaveBeenCalledTimes(1);
     expect(share.mock.calls[0][0].files[0].type).toBe("image/jpeg");
     expect(share.mock.calls[0][0].files[0].name).toBe("palette-31.jpg");
+  });
+});
+
+describe("download lifecycle", () => {
+  test("terminal cleanup cancels revocation timers and revokes each object URL once", async () => {
+    const clearTimeout = mock(() => {});
+    const setTimeout = mock(() => 73);
+    const click = mock(() => {});
+    const createObjectURL = mock(() => "blob:palette-download");
+    const revokeObjectURL = mock(() => {});
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: { userAgent: "Desktop" },
+    });
+    globalThis.window = { clearTimeout, setTimeout };
+    globalThis.document = {
+      createElement: () => ({ click, download: "", href: "" }),
+    };
+    URL.createObjectURL = createObjectURL;
+    URL.revokeObjectURL = revokeObjectURL;
+
+    const { palettePreviewAssets } = await loadPalettePreviewAssets();
+    await expect(
+      palettePreviewAssets.downloadBlob(new Blob(["photo"]), "palette.webp"),
+    ).resolves.toBe(true);
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(setTimeout).toHaveBeenCalledTimes(1);
+    palettePreviewAssets.disposePalettePreviewDownloads();
+    palettePreviewAssets.disposePalettePreviewDownloads();
+
+    expect(clearTimeout).toHaveBeenCalledWith(73);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:palette-download");
   });
 });

@@ -409,7 +409,12 @@ function getPaletteRalDetails(palette) {
   };
 }
 
-function fitTextToWidth(context, text, { maxWidth, maxFontSize, minFontSize, fontWeight } = {}) {
+/**
+ * @param {CanvasRenderingContext2D} context
+ * @param {string} text
+ * @param {{ maxWidth: number, maxFontSize: number, minFontSize: number, fontWeight: string | number }} options
+ */
+function fitTextToWidth(context, text, { maxWidth, maxFontSize, minFontSize, fontWeight }) {
   let fontSize = Math.max(minFontSize, maxFontSize);
 
   for (; fontSize > minFontSize; fontSize -= 1) {

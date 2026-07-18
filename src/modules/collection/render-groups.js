@@ -1,6 +1,11 @@
 import { toRgbCss } from "../color-format.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const CARD_MOUNT_BATCH_SIZE = Object.freeze({
+  grid: Object.freeze({ initial: 12, subsequent: 48 }),
+  list: Object.freeze({ initial: 3, subsequent: 24 }),
+  swatch: Object.freeze({ initial: 24, subsequent: 72 }),
+});
 
 function clampColorChannel(channel) {
   return Math.max(0, Math.min(255, Math.round(channel)));
@@ -85,12 +90,12 @@ function setDayCollapsed(daySection, toggleButton, isCollapsed) {
 function animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs }) {
   const shouldReduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   if (shouldReduceMotion) {
-    return;
+    return () => {};
   }
 
   const cards = [...daySection.querySelectorAll(".palette-card")];
   if (cards.length === 0) {
-    return;
+    return () => {};
   }
 
   cards.forEach((card, index) => {
@@ -104,7 +109,7 @@ function animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs }) 
     card.classList.add("is-revealing");
   });
 
-  window.setTimeout(
+  const timeoutId = window.setTimeout(
     () => {
       cards.forEach((card) => {
         card.classList.remove("is-revealing");
@@ -112,17 +117,57 @@ function animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs }) 
     },
     revealDurationMs + revealStaggerMs * cards.length,
   );
+  return () => {
+    window.clearTimeout(timeoutId);
+    cards.forEach((card) => {
+      card.classList.remove("is-revealing");
+    });
+  };
 }
 
-function createDayCards(dayGroup, createPaletteCard, viewMode) {
+function scheduleCardBatch(callback) {
+  if (typeof window.requestIdleCallback === "function") {
+    const requestId = window.requestIdleCallback(callback, { timeout: 200 });
+    return () => window.cancelIdleCallback?.(requestId);
+  }
+
+  const timeoutId = window.setTimeout(callback, 0);
+  return () => window.clearTimeout(timeoutId);
+}
+
+function createDayCards(dayGroup, createPaletteCard, viewMode, onCardMount) {
   const container = document.createElement("div");
   container.className = viewMode === "list" ? "collection-day-cards" : "collection-day-grid";
+  const batchSizes = CARD_MOUNT_BATCH_SIZE[viewMode] ?? CARD_MOUNT_BATCH_SIZE.list;
+  let nextPaletteIndex = 0;
+  let cancelScheduledBatch = null;
 
-  dayGroup.palettes.forEach((palette) => {
-    container.appendChild(createPaletteCard(palette));
-  });
+  const appendNextBatch = () => {
+    cancelScheduledBatch = null;
+    const batchSize = nextPaletteIndex === 0 ? batchSizes.initial : batchSizes.subsequent;
+    const batch = dayGroup.palettes
+      .slice(nextPaletteIndex, nextPaletteIndex + batchSize)
+      .map((palette) => createPaletteCard(palette));
+    nextPaletteIndex += batch.length;
+    container.append(...batch);
+    batch.forEach((card) => {
+      onCardMount?.(card);
+    });
 
-  return container;
+    if (nextPaletteIndex < dayGroup.palettes.length) {
+      cancelScheduledBatch = scheduleCardBatch(appendNextBatch);
+    }
+  };
+
+  appendNextBatch();
+
+  return {
+    cancel() {
+      cancelScheduledBatch?.();
+      cancelScheduledBatch = null;
+    },
+    container,
+  };
 }
 
 /**
@@ -133,6 +178,8 @@ function createDayCards(dayGroup, createPaletteCard, viewMode) {
  * @param {(dayId: string, collapsed: boolean) => void} config.onDayCollapsedChange
  * @param {number} config.revealDurationMs
  * @param {number} config.revealStaggerMs
+ * @param {(card: HTMLElement) => void} [config.onCardMount]
+ * @param {(card: HTMLElement) => void} [config.onCardUnmount]
  * @param {"list" | "grid" | "swatch"} [config.viewMode]
  * @returns {{
  *   element: HTMLElement,
@@ -148,6 +195,8 @@ export function createDayGroup({
   onDayCollapsedChange,
   revealDurationMs,
   revealStaggerMs,
+  onCardMount,
+  onCardUnmount,
   viewMode = "list",
 }) {
   const isCollapsible = viewMode !== "swatch";
@@ -188,9 +237,12 @@ export function createDayGroup({
   contentContainer.id = contentId;
 
   daySection.append(dayToggle, cover, contentContainer);
+  let cancelDayExpansion = () => {};
 
   if (isCollapsible) {
     dayToggle.addEventListener("click", () => {
+      cancelDayExpansion();
+      cancelDayExpansion = () => {};
       const nextCollapsedState = !daySection.classList.contains("is-collapsed");
       setDayCollapsed(daySection, dayToggle, nextCollapsedState);
       onDayCollapsedChange?.(dayGroup.id, nextCollapsedState);
@@ -199,7 +251,10 @@ export function createDayGroup({
         return;
       }
 
-      animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs });
+      cancelDayExpansion = animateDayExpansion(daySection, {
+        revealDurationMs,
+        revealStaggerMs,
+      });
     });
 
     setDayCollapsed(daySection, dayToggle, isDayCollapsed(dayGroup.id));
@@ -209,16 +264,27 @@ export function createDayGroup({
   }
 
   let lastMeasuredHeight = 0;
+  let cancelCardMount = null;
 
   const mountContent = () => {
+    cancelCardMount?.();
     contentContainer.style.minHeight = "";
-    contentContainer.appendChild(createDayCards(dayGroup, createPaletteCard, viewMode));
+    const dayCards = createDayCards(dayGroup, createPaletteCard, viewMode, onCardMount);
+    cancelCardMount = dayCards.cancel;
+    contentContainer.appendChild(dayCards.container);
   };
 
   const unmountContent = (preMeasuredHeight) => {
+    cancelDayExpansion();
+    cancelDayExpansion = () => {};
+    cancelCardMount?.();
+    cancelCardMount = null;
     const height = preMeasuredHeight ?? contentContainer.offsetHeight;
     if (height > 0) {
       lastMeasuredHeight = height;
+    }
+    if (typeof onCardUnmount === "function") {
+      contentContainer.querySelectorAll(".palette-card").forEach(onCardUnmount);
     }
     contentContainer.replaceChildren();
     if (lastMeasuredHeight > 0) {

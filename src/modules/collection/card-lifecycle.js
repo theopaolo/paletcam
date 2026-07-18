@@ -95,8 +95,12 @@ export function createCollectionCardLifecycle({
   }
 
   function restoreCardFromSnapshot(card, snapshot) {
-    if (!collectionGrid || card.isConnected) {
-      return;
+    if (!collectionGrid) {
+      return false;
+    }
+
+    if (card.isConnected) {
+      return true;
     }
 
     removeEmptyMessage();
@@ -104,7 +108,7 @@ export function createCollectionCardLifecycle({
     const { parent, nextSibling } = snapshot;
     if (!parent || !parent.isConnected) {
       void reloadCollectionUi();
-      return;
+      return false;
     }
 
     if (nextSibling && nextSibling.parentElement === parent) {
@@ -114,6 +118,7 @@ export function createCollectionCardLifecycle({
     }
 
     syncDayStateFromCardContainer(parent);
+    return true;
   }
 
   return {

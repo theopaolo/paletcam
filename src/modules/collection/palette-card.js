@@ -15,6 +15,58 @@ const MAX_CONCURRENT_PREVIEW_LOADS = 6;
 const LAZY_PREVIEW_SETTLE_MS = 120;
 const LOADER_REVEAL_DELAY_MS = 140;
 const LOADER_FADE_OUT_MS = 220;
+const paletteCardDisposers = new WeakMap();
+const previewObserverPools = new WeakMap();
+
+function observePreviewTarget(target, { root, rootMargin }, callback) {
+  const IntersectionObserverCtor = window.IntersectionObserver;
+  if (!IntersectionObserverCtor) return () => {};
+
+  const owner = root ?? window;
+  let rootPools = previewObserverPools.get(owner);
+  if (!rootPools) {
+    rootPools = new Map();
+    previewObserverPools.set(owner, rootPools);
+  }
+
+  let pool = rootPools.get(rootMargin);
+  if (!pool || pool.ctor !== IntersectionObserverCtor) {
+    pool?.observer.disconnect();
+    const callbacks = new Map();
+    const observer = new IntersectionObserverCtor(
+      (entries) => {
+        entries.forEach((entry) => {
+          callbacks.get(entry.target)?.(entry);
+        });
+      },
+      { root, rootMargin },
+    );
+    pool = { callbacks, ctor: IntersectionObserverCtor, observer };
+    rootPools.set(rootMargin, pool);
+  }
+
+  pool.callbacks.set(target, callback);
+  pool.observer.observe(target);
+  let isObserving = true;
+  return () => {
+    if (!isObserving) return;
+    isObserving = false;
+    pool.observer.unobserve?.(target);
+    pool.callbacks.delete(target);
+    if (pool.callbacks.size === 0) {
+      pool.observer.disconnect();
+      rootPools.delete(rootMargin);
+    }
+  };
+}
+
+export function disposePaletteCard(card) {
+  const dispose = paletteCardDisposers.get(card);
+  if (!dispose) return false;
+  paletteCardDisposers.delete(card);
+  dispose();
+  return true;
+}
 
 function buildPaletteBloomBackground(palette) {
   const colors = Array.isArray(palette?.colors) ? palette.colors : [];
@@ -62,6 +114,7 @@ let nextPreviewLoadOrder = 0;
 const pendingPreviewStarts = [];
 let hasScheduledPreviewFlush = false;
 let activePreviewLoadCount = 0;
+let cancelScheduledPreviewFlush = () => {};
 
 function isCardConnected(card) {
   return card.isConnected !== false;
@@ -73,15 +126,19 @@ function schedulePreviewFlush() {
   }
 
   hasScheduledPreviewFlush = true;
-
-  const schedule =
-    typeof window.requestAnimationFrame === "function"
-      ? window.requestAnimationFrame.bind(window)
-      : (callback) => window.setTimeout(callback, 0);
-
-  schedule(() => {
+  const runFlush = () => {
+    cancelScheduledPreviewFlush = () => {};
     flushPendingPreviewStarts();
-  });
+  };
+
+  if (typeof window.requestAnimationFrame === "function") {
+    const requestId = window.requestAnimationFrame(runFlush);
+    cancelScheduledPreviewFlush = () => window.cancelAnimationFrame?.(requestId);
+    return;
+  }
+
+  const timeoutId = window.setTimeout(runFlush, 0);
+  cancelScheduledPreviewFlush = () => window.clearTimeout(timeoutId);
 }
 
 function flushPendingPreviewStarts() {
@@ -108,9 +165,24 @@ function flushPendingPreviewStarts() {
 }
 
 function schedulePreviewStart(start, order) {
-  pendingPreviewStarts.push({ start, order });
+  const queuedStart = { start, order };
+  pendingPreviewStarts.push(queuedStart);
 
   schedulePreviewFlush();
+  return () => {
+    const queuedIndex = pendingPreviewStarts.indexOf(queuedStart);
+    if (queuedIndex < 0) {
+      return false;
+    }
+
+    pendingPreviewStarts.splice(queuedIndex, 1);
+    if (pendingPreviewStarts.length === 0 && hasScheduledPreviewFlush) {
+      cancelScheduledPreviewFlush();
+      cancelScheduledPreviewFlush = () => {};
+      hasScheduledPreviewFlush = false;
+    }
+    return true;
+  };
 }
 
 function bindLazyPreviewLoad({
@@ -133,8 +205,10 @@ function bindLazyPreviewLoad({
   let previewSettleTimeout = 0;
   let loaderRevealTimeout = 0;
   let loaderFadeOutTimeout = 0;
-  let observer = null;
+  let stopObservingPreview = () => {};
+  let cancelQueuedPreviewStart = () => false;
   let hasRetriedBlobLoad = false;
+  let isDisposed = false;
 
   previewLoader.hidden = true;
 
@@ -235,7 +309,7 @@ function bindLazyPreviewLoad({
 
         hasRetriedBlobLoad = true;
         previewAssetPromise = undefined;
-        refreshPaletteGalleryAsset(palette, paletteId);
+        await refreshPaletteGalleryAsset(palette, paletteId);
         hasStartedPreviewLoad = false;
         previewImage.hidden = true;
         previewImage.removeAttribute("src");
@@ -286,7 +360,7 @@ function bindLazyPreviewLoad({
   };
 
   const startPreviewLoad = ({ force = false } = {}) => {
-    if (hasStartedPreviewLoad) {
+    if (isDisposed || hasStartedPreviewLoad) {
       return Promise.resolve();
     }
 
@@ -295,36 +369,53 @@ function bindLazyPreviewLoad({
       return Promise.resolve();
     }
 
-    observer?.disconnect();
+    stopObservingPreview();
     clearPreviewSettleTimeout();
     hasQueuedPreviewLoad = false;
+    cancelQueuedPreviewStart = () => false;
     hasStartedPreviewLoad = true;
     return loadPreviewIntoCard();
   };
 
   const queuePreviewLoad = () => {
-    if (hasStartedPreviewLoad || hasQueuedPreviewLoad) {
+    if (isDisposed || hasStartedPreviewLoad || hasQueuedPreviewLoad) {
       return;
     }
 
     hasQueuedPreviewLoad = true;
-    schedulePreviewStart(startPreviewLoad, nextPreviewLoadOrder++);
+    cancelQueuedPreviewStart = schedulePreviewStart(startPreviewLoad, nextPreviewLoadOrder++);
   };
 
-  trigger.addEventListener("click", () => {
+  const handleTriggerClick = () => {
     startPreviewLoad({ force: true });
-    void onOpenViewer?.(paletteId);
-  });
+    void onOpenViewer?.(paletteId, trigger);
+  };
+  trigger.addEventListener("click", handleTriggerClick);
+
+  const dispose = () => {
+    if (isDisposed) return;
+    isDisposed = true;
+    cancelQueuedPreviewStart();
+    cancelQueuedPreviewStart = () => false;
+    hasQueuedPreviewLoad = false;
+    stopObservingPreview();
+    clearPreviewSettleTimeout();
+    clearLoaderRevealTimeout();
+    clearLoaderFadeOutTimeout();
+    trigger.removeEventListener("click", handleTriggerClick);
+  };
 
   if (tryRenderCachedAsset()) {
-    return;
+    return dispose;
   }
 
   const IntersectionObserverCtor = window.IntersectionObserver;
   if (IntersectionObserverCtor) {
-    observer = new IntersectionObserverCtor(
-      (entries) => {
-        isPreviewIntersecting = entries.some((entry) => entry.isIntersecting);
+    stopObservingPreview = observePreviewTarget(
+      observeTarget,
+      { root: scrollRoot, rootMargin },
+      (entry) => {
+        isPreviewIntersecting = entry.isIntersecting;
         clearPreviewSettleTimeout();
 
         if (!isPreviewIntersecting) {
@@ -338,21 +429,19 @@ function bindLazyPreviewLoad({
           }
         }, LAZY_PREVIEW_SETTLE_MS);
       },
-      { root: scrollRoot, rootMargin },
     );
-
-    observer.observe(observeTarget);
-    return;
+    return dispose;
   }
 
   isPreviewIntersecting = true;
   queuePreviewLoad();
+  return dispose;
 }
 
 /**
  * @param {object} config
  * @param {Palette} config.palette
- * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
+ * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
  * @param {Element | null} [config.scrollRoot]
  */
 export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) {
@@ -363,6 +452,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 
   const trigger = document.createElement("button");
   trigger.type = "button";
+  trigger.id = `palette-${palette.id}-trigger`;
   trigger.className = "palette-card-trigger";
   trigger.setAttribute("aria-label", t("viewer.openCapture"));
 
@@ -386,7 +476,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
     card.appendChild(ralIndicator);
   }
 
-  bindLazyPreviewLoad({
+  const dispose = bindLazyPreviewLoad({
     card,
     palette,
     trigger,
@@ -397,6 +487,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
     onOpenViewer,
     paletteId: palette.id,
   });
+  paletteCardDisposers.set(card, dispose);
 
   return card;
 }
@@ -404,7 +495,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 /**
  * @param {object} config
  * @param {Palette} config.palette
- * @param {(paletteId: number) => void | Promise<void>} [config.onOpenViewer]
+ * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
  * @param {Element | null} [config.scrollRoot]
  */
 export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
@@ -452,7 +543,7 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
     card.appendChild(ralIndicator);
   }
 
-  bindLazyPreviewLoad({
+  const dispose = bindLazyPreviewLoad({
     card,
     palette,
     trigger,
@@ -465,6 +556,7 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
     observeTarget: mediaTile,
     rootMargin: SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN,
   });
+  paletteCardDisposers.set(card, dispose);
 
   return card;
 }
