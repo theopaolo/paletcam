@@ -371,6 +371,42 @@ describe("palette-storage/json-transfer", () => {
     expect(palette.captureCropRect).toBeNull();
   });
 
+  test("accepts bounded legacy palettes with more than seven colors", async () => {
+    const legacyColors = Array.from({ length: 14 }, (_, index) => ({
+      r: index,
+      g: index + 1,
+      b: index + 2,
+    }));
+    const legacyBackup = JSON.stringify({
+      version: 2,
+      palettes: [
+        {
+          timestamp: "2026-02-01T12:51:25.787Z",
+          colors: legacyColors,
+          photoBlob: JPEG_DATA_URL,
+        },
+      ],
+    });
+
+    await expect(deserializePalettesFromImport(legacyBackup)).resolves.toEqual([
+      expect.objectContaining({ colors: legacyColors }),
+    ]);
+
+    const excessiveColorsBackup = JSON.stringify({
+      version: 2,
+      palettes: [
+        {
+          timestamp: "2026-02-01T12:51:25.787Z",
+          colors: Array.from({ length: 17 }, () => ({ r: 1, g: 2, b: 3 })),
+          photoBlob: JPEG_DATA_URL,
+        },
+      ],
+    });
+    await expect(deserializePalettesFromImport(excessiveColorsBackup)).rejects.toThrow(
+      "Invalid palette colors in backup.",
+    );
+  });
+
   test("rejects malformed palette fields at the import boundary", async () => {
     const validPalette = {
       timestamp: "2026-04-30T10:00:00.000Z",
@@ -388,7 +424,7 @@ describe("palette-storage/json-transfer", () => {
     await expect(importPalette({ colors: [] })).rejects.toThrow("Invalid palette colors");
     await expect(
       importPalette({
-        colors: Array.from({ length: 8 }, (_, index) => ({ r: index, g: 2, b: 3 })),
+        colors: Array.from({ length: 17 }, (_, index) => ({ r: index, g: 2, b: 3 })),
       }),
     ).rejects.toThrow("Invalid palette colors");
     await expect(importPalette({ colors: [{ r: 256, g: 2, b: 3 }] })).rejects.toThrow(

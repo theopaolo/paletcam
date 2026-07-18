@@ -84,7 +84,8 @@ export a backup and verify that it contains photo data.
 
 The current version-2 format accepts Blob backups up to 768 MiB, with at most
 32 MiB per JSON palette entry, 16 MiB per decoded photo, 512 MiB decoded photos
-in total, 12 megapixels per photo, and 2,000 palettes. Blob import is incremental
+in total, 12 megapixels per photo, 16 colors per legacy palette, and 2,000
+palettes. Blob import is incremental
 and worker batches are acknowledged only after durable staging. Blob export uses
 the same restorable limits; the whole-string compatibility API remains capped at
 32 MiB. Record peak memory on representative low-memory devices before release.

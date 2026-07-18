@@ -19,7 +19,10 @@ const PALETTE_PREVIEW_FIELD_KEYS = Object.freeze([
   "previewViewerBlob",
   "previewViewerFooterLabel",
 ]);
-const STORED_PALETTE_MAX_COLORS = 7;
+// Imported legacy backups can contain more colors than the current capture UI.
+// Keep the durable read boundary aligned with the bounded import contract so
+// those palettes remain readable after they have been restored.
+const STORED_PALETTE_MAX_COLORS = 16;
 const STORED_PALETTE_MAX_REMOTE_ID_LENGTH = 256;
 const STORED_PALETTE_MAX_RAL_CODE_LENGTH = 64;
 const STORED_PALETTE_MAX_RAL_NAME_LENGTH = 160;

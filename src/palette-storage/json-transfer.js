@@ -28,7 +28,10 @@ export const PALETTE_IMPORT_MAX_COUNT = 2_000;
 export const PALETTE_IMPORT_MAX_PHOTO_BYTES = 16 * 1024 * 1024;
 export const PALETTE_IMPORT_MAX_TOTAL_PHOTO_BYTES = 512 * 1024 * 1024;
 export const PALETTE_IMPORT_MAX_PHOTO_PIXELS = 12_000_000;
-export const PALETTE_IMPORT_MAX_COLORS = 7;
+// Backups produced before the bounded schema could contain more swatches than
+// the current 3–7 color capture control. Preserve those historical palettes
+// without widening the live capture range or accepting unbounded arrays.
+export const PALETTE_IMPORT_MAX_COLORS = 16;
 const PALETTE_IMPORT_MAX_REMOTE_ID_LENGTH = 256;
 const REMOTE_OWNER_ACCOUNT_KEY_PATTERN = /^account:[a-f0-9]{16}$/;
 const PALETTE_IMPORT_MAX_RAL_CODE_LENGTH = 64;

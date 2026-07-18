@@ -101,7 +101,7 @@ test("stored palette parser rejects malformed authoritative metadata", () => {
     { ...validRecord, id: "10" },
     { ...validRecord, timestamp: "not-a-date" },
     { ...validRecord, colors: [] },
-    { ...validRecord, colors: Array.from({ length: 8 }, () => ({ r: 1, g: 2, b: 3 })) },
+    { ...validRecord, colors: Array.from({ length: 17 }, () => ({ r: 1, g: 2, b: 3 })) },
     { ...validRecord, colors: [{ r: 256, g: 2, b: 3 }] },
     { ...validRecord, captureAspectRatio: "16:9" },
     {
@@ -124,6 +124,22 @@ test("stored palette parser rejects malformed authoritative metadata", () => {
   for (const invalidRecord of invalidRecords) {
     expect(parseStoredPaletteMetadataRecord(invalidRecord)).toBeNull();
   }
+});
+
+test("stored palette parser preserves bounded legacy color collections", () => {
+  const legacyColors = Array.from({ length: 14 }, (_, index) => ({
+    r: index,
+    g: index + 1,
+    b: index + 2,
+  }));
+
+  expect(
+    parseStoredPaletteMetadataRecord({
+      id: 12,
+      timestamp: "2026-02-01T12:51:25.787Z",
+      colors: legacyColors,
+    }),
+  ).toMatchObject({ colors: legacyColors });
 });
 
 test("stored palette parser keeps legacy blank remote state as normalized null values", () => {

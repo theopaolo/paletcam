@@ -17,6 +17,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Database schema advances to version 7. Versions 1–6 upgrade forward in bounded transactions; production rollback must use a forward fix rather than an older app that cannot open the newest schema.
 - Backup schema remains version 2. Existing valid version-2 backups remain compatible; unsupported or unsafe files fail before writes.
 - Incremental backup import/export now accepts a 768 MiB JSON file containing up to 512 MiB of decoded photos, allowing large photo collections without materializing the complete backup in memory.
+- Legacy backups with up to 16 colors per palette can be restored without changing the current seven-color capture range.
 - Debug pages and the full reference image corpus are preprod/dev-only and are never added to service-worker caches.
 - Backup failures now provide separate invalid-file, conflict, interrupted, quota, database, serialization, integrity, and file-handoff recovery guidance with identifier-free metrics.
 - The log-service container runs as the unprivileged `bun` user; production rejects the published example credentials and separately rate-limits authenticated dashboard routes.
