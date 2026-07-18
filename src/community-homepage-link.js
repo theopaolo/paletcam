@@ -1,7 +1,9 @@
 import * as communityApi from "./community-api.js";
-import { getCommunityAccessToken } from "./community-session.js";
-import { buildCommunityUrl, COMMUNITY_BASE_URL } from "./config.js";
+import { getCommunityAccessToken, subscribeCommunitySession } from "./community-session.js";
+import { buildCommunityUrl } from "./config.js";
 import { clientLog } from "./modules/client-log.js";
+
+const MAGIC_LINK_MIN_VALIDITY_MS = 1_000;
 
 /**
  * Open a URL in the user's real (system default) browser.
@@ -35,25 +37,62 @@ function defaultOpenExternal(url) {
  *
  * @param {object} options
  * @param {string} options.token
- * @param {(args: { token: string, redirect?: string }) => Promise<{ magic_link?: string }>} options.requestMagicLink
+ * @param {(args: { token: string, redirect?: string, signal?: AbortSignal }) => Promise<{ magic_link?: string, expires_at?: string }>} options.requestMagicLink
  * @param {string} options.fallbackUrl
- * @returns {Promise<string>}
+ * @param {AbortSignal} [options.signal]
+ * @param {() => number} [options.now]
+ * @returns {Promise<{url: string, expiresAtMs: number}>}
  */
-export async function resolveCommunityHomepageUrl({ token, requestMagicLink, fallbackUrl }) {
+async function resolveCommunityHomepageDestination({
+  token,
+  requestMagicLink,
+  fallbackUrl,
+  signal,
+  now = Date.now,
+}) {
   if (!token) {
-    return fallbackUrl;
+    return { url: fallbackUrl, expiresAtMs: 0 };
   }
 
   try {
-    const payload = await requestMagicLink({ token });
+    const payload = await requestMagicLink({ token, ...(signal ? { signal } : {}) });
     const magicLink = typeof payload?.magic_link === "string" ? payload.magic_link.trim() : "";
-    return magicLink || fallbackUrl;
+    const expiresAtMs = Date.parse(payload?.expires_at || "");
+    if (
+      !magicLink ||
+      !Number.isFinite(expiresAtMs) ||
+      expiresAtMs <= now() + MAGIC_LINK_MIN_VALIDITY_MS
+    ) {
+      return { url: fallbackUrl, expiresAtMs: 0 };
+    }
+
+    try {
+      const target = new URL(magicLink);
+      const fallback = new URL(fallbackUrl);
+      if (target.protocol !== "https:" || target.origin !== fallback.origin) {
+        return { url: fallbackUrl, expiresAtMs: 0 };
+      }
+    } catch {
+      return { url: fallbackUrl, expiresAtMs: 0 };
+    }
+
+    return { url: magicLink, expiresAtMs };
   } catch (error) {
-    clientLog("Failed to generate community magic link.", {
-      originalError: error?.message || String(error),
-    });
-    return fallbackUrl;
+    if (error?.name !== "AbortError" && !signal?.aborted) {
+      clientLog("Failed to generate community magic link.", {
+        errorName: error?.name ?? "Error",
+      });
+    }
+    return { url: fallbackUrl, expiresAtMs: 0 };
   }
+}
+
+/**
+ * @param {Parameters<typeof resolveCommunityHomepageDestination>[0]} options
+ * @returns {Promise<string>}
+ */
+export async function resolveCommunityHomepageUrl(options) {
+  return (await resolveCommunityHomepageDestination(options)).url;
 }
 
 /**
@@ -69,7 +108,10 @@ export async function resolveCommunityHomepageUrl({ token, requestMagicLink, fal
  * @param {object} [options]
  * @param {HTMLAnchorElement | null} [options.link]
  * @param {() => string} [options.getToken]
- * @param {(args: { token: string, redirect?: string }) => Promise<{ magic_link?: string }>} [options.requestMagicLink]
+ * @param {(args: { token: string, redirect?: string, signal?: AbortSignal }) => Promise<{ magic_link?: string, expires_at?: string }>} [options.requestMagicLink]
+ * @param {(listener: (session: CommunitySession | null) => void) => () => void} [options.subscribeSession]
+ * @param {() => number} [options.now]
+ * @returns {() => void}
  */
 export function initCommunityHomepageLink(options = {}) {
   const {
@@ -78,36 +120,110 @@ export function initCommunityHomepageLink(options = {}) {
     ),
     getToken = getCommunityAccessToken,
     requestMagicLink = (args) => communityApi.requestCommunityMagicLink(args),
+    subscribeSession = subscribeCommunitySession,
+    now = Date.now,
   } = options;
 
   if (!link) {
-    return;
+    return () => {};
   }
 
   link.target = "_blank";
   link.rel = "noopener noreferrer";
 
-  let pending = false;
+  const fallbackUrl = buildCommunityUrl("/");
+  let generation = 0;
+  let pendingToken = "";
+  let requestAbortController = null;
+  /** @type {ReturnType<typeof globalThis.setTimeout> | 0} */
+  let expiryTimer = 0;
+  let destroyed = false;
+
+  const clearExpiryTimer = () => {
+    if (expiryTimer) {
+      globalThis.clearTimeout(expiryTimer);
+      expiryTimer = 0;
+    }
+  };
+
+  const resetLink = () => {
+    generation += 1;
+    requestAbortController?.abort();
+    requestAbortController = null;
+    pendingToken = "";
+    clearExpiryTimer();
+    link.href = fallbackUrl;
+  };
+
   const prefetchMagicLink = () => {
     const token = getToken();
-    if (!token || pending) {
+    if (!token) {
+      resetLink();
+      return;
+    }
+    if (destroyed || pendingToken === token) {
       return;
     }
 
-    pending = true;
-    const fallbackUrl = link.href || COMMUNITY_BASE_URL;
-    resolveCommunityHomepageUrl({ token, requestMagicLink, fallbackUrl })
-      .then((url) => {
+    resetLink();
+    const requestGeneration = generation;
+    const controller = new AbortController();
+    requestAbortController = controller;
+    pendingToken = token;
+    resolveCommunityHomepageDestination({
+      token,
+      requestMagicLink,
+      fallbackUrl,
+      signal: controller.signal,
+      now,
+    })
+      .then(({ url, expiresAtMs }) => {
+        if (
+          destroyed ||
+          controller.signal.aborted ||
+          requestGeneration !== generation ||
+          getToken() !== token
+        ) {
+          return;
+        }
         link.href = url;
+        if (url === fallbackUrl) {
+          return;
+        }
+
+        // The resolver already validated expiry. Reset shortly after the
+        // capability expires even when the session itself is unchanged.
+        if (Number.isFinite(expiresAtMs)) {
+          const delayMs = Math.min(Math.max(0, expiresAtMs - now()), 2_147_000_000);
+          expiryTimer = globalThis.setTimeout(resetLink, delayMs);
+        }
       })
       .finally(() => {
-        pending = false;
+        if (requestAbortController === controller) {
+          requestAbortController = null;
+          pendingToken = "";
+        }
       });
   };
 
   link.addEventListener("pointerenter", prefetchMagicLink);
   link.addEventListener("pointerdown", prefetchMagicLink);
   link.addEventListener("focus", prefetchMagicLink);
+
+  const unsubscribeSession = subscribeSession(() => resetLink());
+  resetLink();
+
+  return () => {
+    if (destroyed) {
+      return;
+    }
+    destroyed = true;
+    resetLink();
+    unsubscribeSession();
+    link.removeEventListener("pointerenter", prefetchMagicLink);
+    link.removeEventListener("pointerdown", prefetchMagicLink);
+    link.removeEventListener("focus", prefetchMagicLink);
+  };
 }
 
 /**
@@ -123,8 +239,9 @@ export function initCommunityHomepageLink(options = {}) {
  * @param {object} [options]
  * @param {string} [options.path] Relative community path to land on (default "/").
  * @param {() => string} [options.getToken]
- * @param {(args: { token: string, redirect?: string }) => Promise<{ magic_link?: string }>} [options.requestMagicLink]
+ * @param {(args: { token: string, redirect?: string, signal?: AbortSignal }) => Promise<{ magic_link?: string, expires_at?: string }>} [options.requestMagicLink]
  * @param {(url: string) => void} [options.openExternal]
+ * @param {() => number} [options.now]
  * @returns {() => void}
  */
 export function createCommunityAutoLoginOpener({
@@ -132,22 +249,32 @@ export function createCommunityAutoLoginOpener({
   getToken = getCommunityAccessToken,
   requestMagicLink = (args) => communityApi.requestCommunityMagicLink(args),
   openExternal = defaultOpenExternal,
+  now = Date.now,
 } = {}) {
   const fallbackUrl = buildCommunityUrl(path);
   let targetUrl = fallbackUrl;
+  let targetToken = "";
+  let targetExpiresAtMs = 0;
 
   const token = getToken();
   if (token) {
-    resolveCommunityHomepageUrl({
+    resolveCommunityHomepageDestination({
       token,
       requestMagicLink: (args) => requestMagicLink({ ...args, redirect: path }),
       fallbackUrl,
-    }).then((url) => {
-      targetUrl = url;
+      now,
+    }).then(({ url, expiresAtMs }) => {
+      if (getToken() === token) {
+        targetUrl = url;
+        targetToken = url === fallbackUrl ? "" : token;
+        targetExpiresAtMs = expiresAtMs;
+      }
     });
   }
 
   return () => {
-    openExternal(targetUrl);
+    const hasCurrentCapability =
+      targetToken && getToken() === targetToken && now() < targetExpiresAtMs;
+    openExternal(hasCurrentCapability ? targetUrl : fallbackUrl);
   };
 }

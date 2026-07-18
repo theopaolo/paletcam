@@ -18,9 +18,24 @@ export function getAuthTokenOrThrow() {
   return token;
 }
 
-export function mapApiError(error) {
+/**
+ * @param {any} error
+ * @param {{expectedToken?: string}} [options]
+ */
+export function mapApiError(error, { expectedToken = "" } = {}) {
+  if (error?.cause?.name === "AbortError" || error?.payload?.failureKind === "aborted") {
+    return createCommunityServiceError("Request was cancelled.", {
+      code: "REQUEST_CANCELLED",
+      cause: error,
+    });
+  }
+
   if (Number(error?.status) === 401) {
-    clearCommunitySession();
+    // A response belongs to the bearer capability that originated its request.
+    // Never let a late 401 from an older request clear a newer login.
+    if (expectedToken && getCommunityAccessToken() === expectedToken) {
+      clearCommunitySession();
+    }
     return createCommunityServiceError("Authentication expired.", {
       code: "AUTH_EXPIRED",
       cause: error,

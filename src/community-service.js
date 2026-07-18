@@ -2,6 +2,7 @@ export {
   confirmAccountDeletion,
   getCurrentCommunitySession,
   logoutCommunity,
+  retryPendingAccountDeletionCleanup,
   sendAccountDeletionCode,
   sendCommunityLoginOtp,
   subscribeCommunitySession,
@@ -14,7 +15,9 @@ export {
 export {
   cleanupPaletteRemoteCatch,
   cleanupRemoteCatch,
+  isCommunityPublicationSessionCurrent,
   publishPaletteToCommunityFeed,
+  reconcilePublicationRecoveryForCurrentSession,
   unpublishPaletteFromCommunityFeed,
 } from "./community-service/publication.js";
 export { syncPublishedPalettesModerationStatus } from "./community-service/moderation-sync.js";

@@ -1,66 +1,204 @@
-const SESSION_STORAGE_KEY = "paletcam:community:session:v1";
+import { COMMUNITY_API_CONTRACT_LIMITS } from "./community-api-contract.js";
 
+const SESSION_STORAGE_KEY = "paletcam:community:session:v1";
+const LOGOUT_TOMBSTONE_VALUE = '{"cleared":true}';
+
+/** @param {unknown} value */
 function normalizeEmail(value) {
-  if (typeof value !== "string") {
+  if (
+    typeof value !== "string" ||
+    value.length > COMMUNITY_API_CONTRACT_LIMITS.userEmailCharacters
+  ) {
     return "";
   }
 
   return value.trim().toLowerCase();
 }
 
+/** @param {unknown} value */
+function isRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+/**
+ * @param {unknown} candidate
+ * @returns {CommunitySession | null}
+ */
 function normalizeSession(candidate) {
-  const token = typeof candidate?.token === "string" ? candidate.token.trim() : "";
+  if (!isRecord(candidate)) {
+    return null;
+  }
+  const candidateRecord = /** @type {Record<string, unknown>} */ (candidate);
+  const rawToken = candidateRecord.token;
+  const token =
+    typeof rawToken === "string" &&
+    rawToken.length <= COMMUNITY_API_CONTRACT_LIMITS.loginTokenCharacters
+      ? rawToken.trim()
+      : "";
   if (!token) {
     return null;
   }
 
-  const user =
-    candidate?.user && typeof candidate.user === "object"
-      ? {
-          id: String(candidate.user.id ?? ""),
-          name: typeof candidate.user.name === "string" ? candidate.user.name.trim() : "",
-          email: normalizeEmail(candidate.user.email),
-        }
-      : null;
+  let user = null;
+  if (isRecord(candidateRecord.user)) {
+    const userRecord = /** @type {Record<string, unknown>} */ (candidateRecord.user);
+    const rawId = userRecord.id;
+    if (
+      rawId !== undefined &&
+      typeof rawId !== "string" &&
+      !(typeof rawId === "number" && Number.isFinite(rawId))
+    ) {
+      return null;
+    }
+    const id =
+      typeof rawId === "string" || (typeof rawId === "number" && Number.isFinite(rawId))
+        ? String(rawId).trim()
+        : "";
+    const rawName = userRecord.name;
+    if (rawName !== undefined && typeof rawName !== "string") {
+      return null;
+    }
+    const name =
+      typeof rawName === "string" &&
+      rawName.length <= COMMUNITY_API_CONTRACT_LIMITS.userNameCharacters
+        ? rawName.trim()
+        : "";
+    const rawUserEmail = userRecord.email;
+    if (rawUserEmail !== undefined && typeof rawUserEmail !== "string") {
+      return null;
+    }
+    const email = normalizeEmail(rawUserEmail);
+    if (
+      id.length > COMMUNITY_API_CONTRACT_LIMITS.remoteIdCharacters ||
+      (typeof rawName === "string" &&
+        rawName.length > COMMUNITY_API_CONTRACT_LIMITS.userNameCharacters) ||
+      (typeof rawUserEmail === "string" && !email && rawUserEmail.trim())
+    ) {
+      return null;
+    }
+    user = { id, name, email };
+  }
 
-  const email = normalizeEmail(candidate?.email || user?.email);
+  const rawEmail = candidateRecord.email;
+  if (rawEmail !== undefined && typeof rawEmail !== "string") {
+    return null;
+  }
+  const email = normalizeEmail(rawEmail || user?.email);
+  if (typeof rawEmail === "string" && !email && rawEmail.trim()) {
+    return null;
+  }
 
   return { token, email, user };
 }
 
-function readStoredSession() {
-  try {
-    const rawValue = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!rawValue) {
-      return null;
-    }
+/**
+ * @param {CommunitySession | null} value
+ * @returns {CommunitySession | null}
+ */
+function cloneSession(value) {
+  if (!value) {
+    return null;
+  }
 
-    return normalizeSession(JSON.parse(rawValue));
+  return {
+    token: value.token,
+    email: value.email,
+    user: value.user ? { ...value.user } : null,
+  };
+}
+
+/** @param {CommunitySession | null} left @param {CommunitySession | null} right */
+export function communitySessionsEqual(left, right) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.token === right.token &&
+    left.email === right.email &&
+    left.user?.id === right.user?.id &&
+    left.user?.name === right.user?.name &&
+    left.user?.email === right.user?.email
+  );
+}
+
+function getLocalStorage() {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** @param {string | null} rawValue @returns {CommunitySession | null} */
+function parseStoredSessionValue(rawValue) {
+  if (!rawValue) {
+    return null;
+  }
+  return normalizeSession(JSON.parse(rawValue));
+}
+
+/** @returns {CommunitySession | null | undefined} */
+function readStoredSession() {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const rawValue = storage.getItem(SESSION_STORAGE_KEY);
+    return parseStoredSessionValue(rawValue);
   } catch (error) {
     console.warn("Unable to read community session:", error);
     return undefined;
   }
 }
 
+/** @param {CommunitySession | null} session */
 function persistSession(session) {
-  try {
-    if (!session) {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      return;
-    }
+  const storage = getLocalStorage();
+  if (!storage) {
+    return false;
+  }
 
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  if (!session) {
+    let tombstoneWritten = false;
+    try {
+      storage.setItem(SESSION_STORAGE_KEY, LOGOUT_TOMBSTONE_VALUE);
+      tombstoneWritten = true;
+    } catch (error) {
+      console.warn("Unable to invalidate community session:", error);
+    }
+    try {
+      storage.removeItem(SESSION_STORAGE_KEY);
+      return true;
+    } catch (error) {
+      console.warn("Unable to remove community session:", error);
+      return tombstoneWritten;
+    }
+  }
+
+  try {
+    storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    return true;
   } catch (error) {
     console.warn("Unable to persist community session:", error);
+    return false;
   }
 }
 
 const initialStoredSession = readStoredSession();
+/** @type {CommunitySession | null} */
 let session = initialStoredSession === undefined ? null : initialStoredSession;
+let storageRefreshSuppressed = false;
+/** @type {Set<(session: CommunitySession | null) => void>} */
 const listeners = new Set();
 
 function notifyListeners() {
-  const snapshot = getCommunitySession();
+  const snapshot = cloneSession(session);
   listeners.forEach((listener) => {
     try {
       listener(snapshot);
@@ -71,11 +209,48 @@ function notifyListeners() {
 }
 
 function refreshSessionFromStorage() {
+  if (storageRefreshSuppressed) return;
   const storedSession = readStoredSession();
-  if (storedSession !== undefined) {
-    session = storedSession;
-  }
+  if (storedSession === undefined || communitySessionsEqual(session, storedSession)) return;
+
+  session = storedSession;
+  notifyListeners();
 }
+
+/** @param {StorageEvent} event */
+function handleSessionStorageEvent(event) {
+  if (event?.key !== SESSION_STORAGE_KEY) {
+    return;
+  }
+
+  const storage = getLocalStorage();
+  if (event.storageArea && storage && event.storageArea !== storage) {
+    return;
+  }
+
+  let nextSession;
+  try {
+    nextSession = parseStoredSessionValue(event.newValue);
+  } catch (error) {
+    // A corrupted remote-tab write must not leave an old bearer capability
+    // active in this tab. Fail closed and notify consumers as a logout.
+    console.warn("Unable to synchronize community session:", error);
+    nextSession = null;
+  }
+
+  // A real cross-tab write supersedes a same-tab failed-clear guard. A null
+  // event confirms logout; a valid session event represents an explicit login.
+  storageRefreshSuppressed = false;
+
+  if (communitySessionsEqual(session, nextSession)) {
+    return;
+  }
+
+  session = nextSession;
+  notifyListeners();
+}
+
+globalThis.addEventListener?.("storage", handleSessionStorageEvent);
 
 /** @returns {CommunitySession | null} */
 export function getCommunitySession() {
@@ -85,11 +260,7 @@ export function getCommunitySession() {
     return null;
   }
 
-  return {
-    token: session.token,
-    email: session.email,
-    user: session.user ? { ...session.user } : null,
-  };
+  return cloneSession(session);
 }
 
 export function getCommunityAccessToken() {
@@ -102,21 +273,22 @@ export function getCommunityAccessToken() {
  * @returns {CommunitySession | null}
  */
 export function setCommunitySession(nextSession) {
-  session = normalizeSession(nextSession);
-  persistSession(session);
-  notifyListeners();
+  const nextNormalizedSession = normalizeSession(nextSession);
+  const changed = !communitySessionsEqual(session, nextNormalizedSession);
+  session = nextNormalizedSession;
+  storageRefreshSuppressed = !persistSession(session);
+  if (changed) {
+    notifyListeners();
+  }
   return getCommunitySession();
 }
 
 export function clearCommunitySession() {
-  if (!session) {
-    persistSession(null);
-    return;
-  }
-
+  const changed = Boolean(session);
   session = null;
-  persistSession(null);
-  notifyListeners();
+  storageRefreshSuppressed = !persistSession(null);
+  if (changed) notifyListeners();
+  return !storageRefreshSuppressed;
 }
 
 /**

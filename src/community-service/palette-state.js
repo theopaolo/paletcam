@@ -12,6 +12,13 @@ export function applyPaletteRemoteState(palette, patch) {
 
   if (Object.hasOwn(patch, "remoteCatchId")) {
     palette.remoteCatchId = patch.remoteCatchId || null;
+    if (!palette.remoteCatchId && !Object.hasOwn(patch, "remoteOwnerAccountKey")) {
+      palette.remoteOwnerAccountKey = null;
+    }
+  }
+
+  if (Object.hasOwn(patch, "remoteOwnerAccountKey")) {
+    palette.remoteOwnerAccountKey = patch.remoteOwnerAccountKey || null;
   }
 
   if (Object.hasOwn(patch, "moderationStatus")) {

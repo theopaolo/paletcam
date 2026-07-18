@@ -17,6 +17,12 @@ function getDeleteAccountErrorKey(error) {
       return "delete.error.authExpired";
     case "MISSING_CODE":
       return "delete.error.missingCode";
+    case "CODE_TOO_LONG":
+      return "delete.error.codeTooLong";
+    case "COMMUNITY_ACCOUNT_IDENTITY_REQUIRED":
+      return "delete.error.identityRequired";
+    case "ACCOUNT_DELETION_RECOVERY_UNAVAILABLE":
+      return "delete.error.recoveryUnavailable";
     default:
       return "";
   }
@@ -96,14 +102,15 @@ async function requestDeletionCode(refs) {
   setDeleteAccountBusy(refs, true);
 
   try {
-    await sendAccountDeletionCode();
+    await sendAccountDeletionCode({ signal: refs.requestSignal });
     setDeleteAccountVerifyStepVisible(refs, true);
     setDeleteAccountHintMessage(refs.deleteAccountHint, t("delete.hint.codeSent"));
     refs.deleteAccountCodeInput?.focus();
     showToast(t("delete.toast.codeSent"), { duration: 1400 });
   } catch (error) {
+    if (error?.code === "REQUEST_CANCELLED") return;
     clientLog("Failed to send account deletion code.", {
-      message: error?.message,
+      errorName: error?.name ?? "Error",
       status: error?.status,
     });
     setDeleteAccountHintMessage(
@@ -138,13 +145,14 @@ async function confirmDeletion(refs) {
   setDeleteAccountBusy(refs, true);
 
   try {
-    await confirmAccountDeletion({ code });
+    await confirmAccountDeletion({ code, signal: refs.requestSignal });
     resetDeleteAccountPanel(refs);
     closeSharedPanel("delete-account");
     showToast(t("delete.toast.success"), { duration: 2000 });
   } catch (error) {
+    if (error?.code === "REQUEST_CANCELLED") return;
     clientLog("Failed to confirm account deletion.", {
-      message: error?.message,
+      errorName: error?.name ?? "Error",
       status: error?.status,
     });
     setDeleteAccountHintMessage(
@@ -171,6 +179,7 @@ function syncDeleteAccountButtonVisibility(refs, session) {
 }
 
 export function initDeleteAccountUi() {
+  const lifecycleController = new AbortController();
   const communityDeleteAccountButton = /** @type {HTMLButtonElement | null} */ (
     document.getElementById("communityDeleteAccountButton")
   );
@@ -195,29 +204,53 @@ export function initDeleteAccountUi() {
     deleteAccountCodeInput,
     deleteAccountConfirmButton,
     deleteAccountHint,
+    requestSignal: lifecycleController.signal,
   };
 
-  communityDeleteAccountButton?.addEventListener("click", () => {
-    resetDeleteAccountPanel(refs);
-    openSharedPanel("delete-account");
-  });
+  communityDeleteAccountButton?.addEventListener(
+    "click",
+    () => {
+      resetDeleteAccountPanel(refs);
+      openSharedPanel("delete-account");
+    },
+    { signal: lifecycleController.signal },
+  );
 
-  deleteAccountRequestCodeButton?.addEventListener("click", () => {
-    void requestDeletionCode(refs);
-  });
+  deleteAccountRequestCodeButton?.addEventListener(
+    "click",
+    () => {
+      void requestDeletionCode(refs);
+    },
+    { signal: lifecycleController.signal },
+  );
 
-  deleteAccountConfirmButton?.addEventListener("click", () => {
-    void confirmDeletion(refs);
-  });
+  deleteAccountConfirmButton?.addEventListener(
+    "click",
+    () => {
+      void confirmDeletion(refs);
+    },
+    { signal: lifecycleController.signal },
+  );
 
-  deleteAccountCodeInput?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") {
-      return;
-    }
+  deleteAccountCodeInput?.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Enter") {
+        return;
+      }
 
-    event.preventDefault();
-    void confirmDeletion(refs);
-  });
+      event.preventDefault();
+      void confirmDeletion(refs);
+    },
+    { signal: lifecycleController.signal },
+  );
 
-  subscribeCommunitySession((session) => syncDeleteAccountButtonVisibility(refs, session));
+  const unsubscribeSession = subscribeCommunitySession((session) =>
+    syncDeleteAccountButtonVisibility(refs, session),
+  );
+
+  return () => {
+    lifecycleController.abort();
+    unsubscribeSession();
+  };
 }

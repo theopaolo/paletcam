@@ -3,15 +3,24 @@ import {
   fetchCatchModerationStatuses,
   normalizeCatchStatus,
 } from "../community-api.js";
-import { getCommunityAccessToken } from "../community-session.js";
-import { getSavedPalettes, updatePaletteRemoteState } from "../palette-storage.js";
+import { getCommunitySession } from "../community-session.js";
+import {
+  deriveCommunityAccountKey,
+  paletteRemoteOwnerMatchesSession,
+} from "../community-account-key.js";
+import { bulkUpdateOwnedPaletteRemoteStates, getSavedPalettes } from "../palette-storage.js";
 import { mapApiError } from "./errors.js";
 import { getPaletteRemoteCatchId } from "./palette-state.js";
 
-/** @returns {Promise<ModerationSyncResult>} */
-export async function syncPublishedPalettesModerationStatus() {
-  const token = getCommunityAccessToken();
-  if (!token) {
+/**
+ * @param {{signal?: AbortSignal}} [options]
+ * @returns {Promise<ModerationSyncResult>}
+ */
+export async function syncPublishedPalettesModerationStatus({ signal } = {}) {
+  const session = getCommunitySession();
+  const token = String(session?.token || "").trim();
+  const ownerAccountKey = deriveCommunityAccountKey(session);
+  if (!token || !ownerAccountKey) {
     return {
       pendingCount: 0,
       updatedCount: 0,
@@ -20,7 +29,10 @@ export async function syncPublishedPalettesModerationStatus() {
 
   const palettes = await getSavedPalettes();
   const publishedPalettes = palettes.filter((palette) => {
-    return Boolean(getPaletteRemoteCatchId(palette));
+    return (
+      Boolean(getPaletteRemoteCatchId(palette)) &&
+      paletteRemoteOwnerMatchesSession(palette, session)
+    );
   });
 
   if (publishedPalettes.length === 0) {
@@ -38,9 +50,10 @@ export async function syncPublishedPalettesModerationStatus() {
     result = await fetchCatchModerationStatuses({
       token,
       remoteCatchIds,
+      signal,
     });
   } catch (error) {
-    throw mapApiError(error);
+    throw mapApiError(error, { expectedToken: token });
   }
 
   const { statuses, deletedIds } = result;
@@ -49,10 +62,10 @@ export async function syncPublishedPalettesModerationStatus() {
   );
   const deletedIdSet = new Set(deletedIds);
 
-  let updatedCount = 0;
   let pendingCount = 0;
   const nowIso = new Date().toISOString();
-  const updateOperations = [];
+  const remoteStateUpdates = [];
+  const checkTimestampUpdates = [];
 
   publishedPalettes.forEach((palette) => {
     const remoteCatchId = getPaletteRemoteCatchId(palette);
@@ -60,14 +73,21 @@ export async function syncPublishedPalettesModerationStatus() {
 
     if (deletedIdSet.has(remoteCatchId)) {
       if (currentStatus !== CATCH_MODERATION_STATUSES.PRIVATE) {
-        updatedCount += 1;
-        updateOperations.push(
-          updatePaletteRemoteState(palette.id, {
+        remoteStateUpdates.push({
+          id: palette.id,
+          expectedRemoteCatchId: remoteCatchId,
+          patch: {
             moderationStatus: CATCH_MODERATION_STATUSES.PRIVATE,
             moderationUpdatedAt: nowIso,
             lastModerationCheckAt: nowIso,
-          }),
-        );
+          },
+        });
+      } else {
+        checkTimestampUpdates.push({
+          id: palette.id,
+          expectedRemoteCatchId: remoteCatchId,
+          patch: { lastModerationCheckAt: nowIso },
+        });
       }
       return;
     }
@@ -80,20 +100,31 @@ export async function syncPublishedPalettesModerationStatus() {
     }
 
     if (nextStatus === currentStatus) {
+      checkTimestampUpdates.push({
+        id: palette.id,
+        expectedRemoteCatchId: remoteCatchId,
+        patch: { lastModerationCheckAt: nowIso },
+      });
       return;
     }
 
-    updatedCount += 1;
-    updateOperations.push(
-      updatePaletteRemoteState(palette.id, {
+    remoteStateUpdates.push({
+      id: palette.id,
+      expectedRemoteCatchId: remoteCatchId,
+      patch: {
         moderationStatus: nextStatus,
         moderationUpdatedAt: nowIso,
         lastModerationCheckAt: nowIso,
-      }),
-    );
+      },
+    });
   });
 
-  await Promise.all(updateOperations);
+  const updatedCount = await bulkUpdateOwnedPaletteRemoteStates(remoteStateUpdates, {
+    ownerAccountKey,
+  });
+  if (checkTimestampUpdates.length > 0) {
+    await bulkUpdateOwnedPaletteRemoteStates(checkTimestampUpdates, { ownerAccountKey });
+  }
 
   return {
     pendingCount,
