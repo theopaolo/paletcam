@@ -1,0 +1,1090 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "assets/img/01.jpg",
+      "bytes": 184559,
+      "sha256": "89b92805d9b95efa0969ed76e62d37678217eb358823ead030a87dcbda565440"
+    },
+    {
+      "path": "assets/img/02.jpg",
+      "bytes": 45651,
+      "sha256": "90d29acd431094e1b945e1225ed2b976e7078f78bd454e7b95c048277039723c"
+    },
+    {
+      "path": "assets/img/03.jpg",
+      "bytes": 785606,
+      "sha256": "cf5250d444aa62d939168285afcb099cb8ba0cd21831875cda7585295a1c1b30"
+    },
+    {
+      "path": "assets/img/04.jpg",
+      "bytes": 231672,
+      "sha256": "60ade408a4fcf4c2121bd19a92006f02d831bac634b8202dddf1ce9d1385eaad"
+    },
+    {
+      "path": "assets/img/05.jpg",
+      "bytes": 94273,
+      "sha256": "bf7157ec708baacdc5159d7990d4e58be1f1736d62f1acde540e2e02d2fb5625"
+    },
+    {
+      "path": "assets/img/06.jpg",
+      "bytes": 53570,
+      "sha256": "08681af8b8a5be9b05426cad4de7bd11cc1f8fb1cae49eb2e63382d9c6dd39b5"
+    },
+    {
+      "path": "assets/img/07.jpg",
+      "bytes": 565002,
+      "sha256": "86df9388698c83ffa29b0ee809d08703b6faf37713b7f994ba364333125996b9"
+    },
+    {
+      "path": "assets/img/08.jpg",
+      "bytes": 951540,
+      "sha256": "d768747cec4fffca9b380e23da210cfb9f162e6157f80fe2d9df6b6d5da7d2af"
+    },
+    {
+      "path": "assets/img/09.jpg",
+      "bytes": 307168,
+      "sha256": "a7ab02c85fecee1a106d6de3231f2c1a8370753935093bf1c63664d493d63890"
+    },
+    {
+      "path": "assets/img/10.jpg",
+      "bytes": 145785,
+      "sha256": "11db8a530f002cdc979ff8f876e50f0800f75f53c20c375e4d39729a963f9c60"
+    },
+    {
+      "path": "assets/img/11.jpg",
+      "bytes": 45599,
+      "sha256": "aa6a195f79e15576578e989063685254f233bbe92b096fad3be905747737eb0a"
+    },
+    {
+      "path": "assets/img/12.jpg",
+      "bytes": 132540,
+      "sha256": "821e4629f4bc29f3be612f41fc4cbdb0fe491c3709ba4f4e461b155e71e2105f"
+    },
+    {
+      "path": "assets/img/13.jpg",
+      "bytes": 69525,
+      "sha256": "548250ca91440c0054ad92f96e677014e04c548fb7937ad0c8353de4c9788477"
+    },
+    {
+      "path": "assets/img/14.jpg",
+      "bytes": 561983,
+      "sha256": "b5202a658ef09132ed348dd3c67fbd4bf2db8eda44d3fe57833b29a5325c5415"
+    },
+    {
+      "path": "assets/img/15.webp",
+      "bytes": 300638,
+      "sha256": "16521333071798ffd0e284a416399c5f4aed035354e37a0613710dd591087907"
+    },
+    {
+      "path": "assets/img/16.jpg",
+      "bytes": 118902,
+      "sha256": "badf98a2df2dd3a836b80ff28a0ec06c684d22b4f132bda5e8ffc972f76ce966"
+    },
+    {
+      "path": "assets/img/17.jpg",
+      "bytes": 893698,
+      "sha256": "613b1b498e8ff50a125d73f168c96d6d8bbfac645e13dc6cea31fad041cf1fe4"
+    },
+    {
+      "path": "assets/img/18.jpg",
+      "bytes": 363601,
+      "sha256": "67d72600886e835ea1dee066128160f8f193440d6bef6e4125c861598ab648d7"
+    },
+    {
+      "path": "assets/img/19.jpg",
+      "bytes": 267555,
+      "sha256": "629cb76496d51832f2ed05b815b1c4ce749fd5272660122ecd61d25bd97c2b87"
+    },
+    {
+      "path": "assets/img/20.jpg",
+      "bytes": 456295,
+      "sha256": "b84f35ed70e9d8578deea985511bca12c3dd86ff05f0cc7f78cf98b733e5f5d0"
+    },
+    {
+      "path": "assets/img/21.png",
+      "bytes": 11841,
+      "sha256": "c2e028532f5e547532006771171fdfdef3f469ca61cdaed6e45e77c59131e5fa"
+    },
+    {
+      "path": "assets/img/22.jpg",
+      "bytes": 211976,
+      "sha256": "8945872b8bea3e5060cf5370861b1fc38498edca8cda10c5f1f793003b3dd68c"
+    },
+    {
+      "path": "assets/img/23.jpg",
+      "bytes": 566698,
+      "sha256": "ebf440ec63da8e9e68de217f441e330e08763657d2a328e8dc99633fdf6ca061"
+    },
+    {
+      "path": "assets/img/24.jpg",
+      "bytes": 61841,
+      "sha256": "742fcca5a07973bca2fcab793500d76fe1852eb1949b1f712fc8d5b4a69fbfc3"
+    },
+    {
+      "path": "assets/img/25.jpg",
+      "bytes": 114417,
+      "sha256": "e53fa392b72cacb5489be23f18a73289341830187bb1e851f70c1751fcd48223"
+    },
+    {
+      "path": "assets/img/26.jpg",
+      "bytes": 69557,
+      "sha256": "fa8c999705af36a5a0c9d4ea2b385773c22279468a6759216c6c4bd32ca5d0b5"
+    },
+    {
+      "path": "assets/img/27.jpg",
+      "bytes": 203992,
+      "sha256": "749e3936c1e43f5287315a3cb2477a59f6f2c00963db43031474457ef4a741eb"
+    },
+    {
+      "path": "assets/img/28.png",
+      "bytes": 426075,
+      "sha256": "5fd4cc8e40e725d4220ba04a35d763725d9330cc66506960c59625a1a4d62782"
+    },
+    {
+      "path": "assets/img/29.jpg",
+      "bytes": 173600,
+      "sha256": "7b3a7173403c0342efcb39f3883d09c1072bde99e16a3c8c917da4c821201ffd"
+    },
+    {
+      "path": "assets/img/30.jpg",
+      "bytes": 112265,
+      "sha256": "22d7d4316276f48ab1443904a910da8d9ebc50c040da060197314e7ec1614ef2"
+    },
+    {
+      "path": "assets/img/31.jpg",
+      "bytes": 58149,
+      "sha256": "689b007e3c2c04653a32d3774fc7c43328ebaad464116792ef7b34b5dd7a5bf6"
+    },
+    {
+      "path": "assets/img/32.jpg",
+      "bytes": 88334,
+      "sha256": "b131bca1e3979d8754d1453f46bd9c1f448452fdb48753e4365eb304fb2a15e8"
+    },
+    {
+      "path": "assets/img/33.jpg",
+      "bytes": 232597,
+      "sha256": "8379d88bbc601e72e9a18033e72cd75eaf1e8b5a54a8c34b68a1864a06c44b19"
+    },
+    {
+      "path": "assets/img/34.webp",
+      "bytes": 347492,
+      "sha256": "eabfffffc7228249bddea23ae689efea60eed5f462ecda2d401a995b1e935e75"
+    },
+    {
+      "path": "assets/img/35.jpg",
+      "bytes": 217578,
+      "sha256": "89d068390ace5e5c0fda816f8d67b962d29052b1bd04517ab54ae275a71148d6"
+    },
+    {
+      "path": "assets/img/36.jpg",
+      "bytes": 287348,
+      "sha256": "324165c0f4b68b9e370660f3b5f4b58ee6c818e759437dfaca59b5a7c8c72329"
+    },
+    {
+      "path": "assets/img/37.jpg",
+      "bytes": 221961,
+      "sha256": "871e4284141466fdc8ed43104ca3a548c88395502e760772e8b466199e680a8e"
+    },
+    {
+      "path": "assets/img/fish.jpeg",
+      "bytes": 1053568,
+      "sha256": "ef72b7b0eea3acc64c982a01c75aaa58ef879b7cbf0b72fb528b240b47bba9ac"
+    },
+    {
+      "path": "assets/img/FkQ6jgAWIAAmNhk.jpeg",
+      "bytes": 359277,
+      "sha256": "e782f20d0e59060c3422482f445fb488d65a1d1578d86f570929cf70b598608e"
+    },
+    {
+      "path": "assets/img/FkQ7mdOXgAEDcNH.jpeg",
+      "bytes": 355139,
+      "sha256": "1c6fbd712b5b59c67af4eff0d0e9ca15eb3b0ad9ddcd0095704caf7fbf33c8ba"
+    },
+    {
+      "path": "assets/img/FkQ7yZeWYAA9pXG.jpeg",
+      "bytes": 609156,
+      "sha256": "201126a21694ead2ee97775da5ec46c58df97cdb6ee9ace3014d1c9b5813725a"
+    },
+    {
+      "path": "assets/img/G_UfRD_XMAArYyU.jpeg",
+      "bytes": 347262,
+      "sha256": "6ee7562a6c2db3cdbe6ea91f7094483a707f8b691e898ef69f33c2aee84a1b1a"
+    },
+    {
+      "path": "assets/img/G_UfREAXIAAi_pO.jpeg",
+      "bytes": 417807,
+      "sha256": "a1eb44d2ccbb722793d610688e2541bf7a864e5167c17a07d484f8894b4517c4"
+    },
+    {
+      "path": "assets/img/herbert-arnould.jpeg",
+      "bytes": 243507,
+      "sha256": "91ff3c670b1bbbcda2adb27cbdaa29b720c6738cee824766496f8a151668366f"
+    },
+    {
+      "path": "assets/img/hermann-corrodi-gang-der-m-nche-zum-bergkloster-athos.jpg",
+      "bytes": 5660148,
+      "sha256": "ac8aa89ea2d5fb8f84f48df6227d4c31cf1b3f78608d2be9eab1d29e93ed0dfb"
+    },
+    {
+      "path": "assets/img/image.png",
+      "bytes": 4026181,
+      "sha256": "15ab323bf64cb7746eba197f9316a07208f01fc75b1a870c90ba779220f1eca7"
+    },
+    {
+      "path": "assets/img/morts-thriumphans.jpeg",
+      "bytes": 87486,
+      "sha256": "a3e8f16eb719ca05bbf2b4225813a743bd896988a840da95022fc603ffc00d1b"
+    },
+    {
+      "path": "assets/img/northern-lights.jpeg",
+      "bytes": 171192,
+      "sha256": "ce7ecf80e38e7e7d55bf6b70ff89d5fb833eed4bed953ce7e016bdd87151f6ba"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/391px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15774.webp",
+      "bytes": 109208,
+      "sha256": "7f9ef0306ca5c81694a8ab2f809fab01aa7472861c491b79d2014f241214ab25"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/406px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15889.webp",
+      "bytes": 109994,
+      "sha256": "49e9cf94a92454a28b6154d8308e673c17016f6d8fc8f60360720a83943a50fb"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/410px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15891.webp",
+      "bytes": 118668,
+      "sha256": "1e870a081cdeb9d468936a1ecaedd23eeb3b60061c1631d1171c65bd79363d06"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/412px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15888.webp",
+      "bytes": 121624,
+      "sha256": "ebe67e1fc10b36d783ddeea09e43f3fdef88af3b8428d9a03a27b838337826cb"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/415px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15879.webp",
+      "bytes": 84812,
+      "sha256": "08bae18284822bb940f637176abd4d62284eeabddaa32ee3542d840451089eb6"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/418px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15909.webp",
+      "bytes": 99824,
+      "sha256": "d5ec7b487b20ef16fbb2613622663334d2c8afa7a8171488e7726c525658897a"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/425px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15890.webp",
+      "bytes": 115954,
+      "sha256": "4c1724e2411a60d7992c36e2a2597a33767bbd3f7d1e5a4c4f004a4693cc7f19"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/436px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15887.webp",
+      "bytes": 121220,
+      "sha256": "bace9a57b27e2dd576e0ec1e0e1634444df0c2bc85e259a52f78d21e1a2072c4"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/436px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15895.webp",
+      "bytes": 116682,
+      "sha256": "3a831514b741a3554e48702f32869c37c63ad727acce6049a1ab5ed2bfb02338"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/436px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA16022.webp",
+      "bytes": 124028,
+      "sha256": "b6e449a8bd02cf7f3941e424db941a28ea45ae20cd5533424513cc2503658a15"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/439px-15th-century_painters_-_Folio_of_a_Breviary_-_WGA15893.webp",
+      "bytes": 115214,
+      "sha256": "e5889d781ebd3136aec6fe43dbd44ed6e3a789de59f6777e726ed53ce9d70d5a"
+    },
+    {
+      "path": "assets/img/sets/15th century Breviaries/Varie_Hours_-_Supper_at_Bethany_-_WGA15892.webp",
+      "bytes": 170890,
+      "sha256": "d20dd71e2933317c82ef4c5bfb46b2fa814d3384fcb3ac89e0810cd38884d4ea"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00001.webp",
+      "bytes": 371064,
+      "sha256": "91b14a364699b2b688d377f9772b4f4aea5ba28c468e9dc97a57c2f04be476f7"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00002.webp",
+      "bytes": 448958,
+      "sha256": "18b05f33e4a93b384818ad81130ec8407265cbbfaab598ed29bc32e34238bc8b"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00010.webp",
+      "bytes": 385912,
+      "sha256": "8004dc6ed59578624565aa4d30c31c6549442374eae3a86c4ddf8dae9554b5dd"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00013.webp",
+      "bytes": 352832,
+      "sha256": "7c56b422e543780e84e0c1a3a1a294d844d808a1b52d4e03b499fc39e3ac0539"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00014.webp",
+      "bytes": 337718,
+      "sha256": "b67965856c0747c27128152cacbae44104a096fadceca79cea70edb149843e4e"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00015.webp",
+      "bytes": 340146,
+      "sha256": "10c9baa8268bb8bfa087e3e39c579adf6c1154414d6eb591209ff40dd72606f6"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00016.webp",
+      "bytes": 366572,
+      "sha256": "2f7a49cf894fad38d609e9d376e6f6e185f9c843455a64ed32317c90c256c160"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00017.webp",
+      "bytes": 348726,
+      "sha256": "577878b2540824ff2e851ef942165882494d46a1cf196a32f5808382204dbd34"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00018.webp",
+      "bytes": 356956,
+      "sha256": "871c1fd259d096ffb126ae2d060dfa6de13c114f59b3a81ec77deb7d3b22a114"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00021.webp",
+      "bytes": 328934,
+      "sha256": "b1ea43e31cec2f8f2cc01eaae7a7ccd588f9b4e59f2c721879c1fd4fd1519ce4"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00022.webp",
+      "bytes": 394416,
+      "sha256": "108f2d284681e76c80678cd87d90366aa236724437dd114e20da3f834a03ad4d"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00024.webp",
+      "bytes": 310672,
+      "sha256": "5b2bf01febe2c1881656d70b1d5ca095800ce602d18cdc4b4997e5fcc36f2aca"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00025.webp",
+      "bytes": 353310,
+      "sha256": "e1be0069494fbf109247d46db92cde0be166064d15212013f66d7f1212ad8c47"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00028.webp",
+      "bytes": 376782,
+      "sha256": "abfdb208fb1e095ab5d0cb2c8d843d349e3730c2153ac9ccd186786fcd49c24d"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00030.webp",
+      "bytes": 341930,
+      "sha256": "5906c4ae79429edd0a5b87f5cfab4652ef905f7be467e57f1b22b6a9399a20e7"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00035.webp",
+      "bytes": 437998,
+      "sha256": "c8353575fcb6ff1fc4fbaafda316564f966dd06ab028d9115c1333f87da5012c"
+    },
+    {
+      "path": "assets/img/sets/19th-Century Vision of the Year 2000/En_lan_2000_00069.webp",
+      "bytes": 392816,
+      "sha256": "dd491873ef29e93d53dc337c7c37cdb918f0a7e37f043cc899a9381e376c9585"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0006.webp",
+      "bytes": 733474,
+      "sha256": "c19e79d7bd649664aea7ac813cdb6dcbec3fc3c06ad55b3132f1c45fddc32989"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0014.webp",
+      "bytes": 601738,
+      "sha256": "81fa7d529d30388436a76cef80914f38888b21d56366256c08bc311fc239cbfa"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0018.webp",
+      "bytes": 719922,
+      "sha256": "239ca67d5480994d457f8f9362e22b3607c5a8d47d6350032b1fc45beaf969d9"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0028.webp",
+      "bytes": 695776,
+      "sha256": "2d3b9f2bf7c576502c43d09410bab06759707ec4d94e8588adf40b15e53982a9"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0034.webp",
+      "bytes": 710962,
+      "sha256": "35aaf19c35cff78fcc7032462574f61a0d003f8a09053ee4830ea8e8a2791142"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0038.webp",
+      "bytes": 556404,
+      "sha256": "29a016b0cde7f91f51858ede4cef1989b459527e83d31d88e8240071f28176c1"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0044.webp",
+      "bytes": 739112,
+      "sha256": "6e092c687938563213dea9c7b41bb99d4a20f59d13808f759906ea134f710e68"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0048.webp",
+      "bytes": 518450,
+      "sha256": "ad0da5482d1120ddb9b929bf7dd63623e6fe746f237d318ce0a03fb82e349e4a"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0052.webp",
+      "bytes": 232488,
+      "sha256": "4eb58bf4b01a60ba5a4f7bb817bf8649986a9523ec1be93de3a09134d93af366"
+    },
+    {
+      "path": "assets/img/sets/Anton Seder/gri_33125013920190_0056.webp",
+      "bytes": 505018,
+      "sha256": "50bd4f52425c9d11da379c3844d638ea16cfc1d8d605596c14131d04dcc4324f"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819508293_ffb530328b_c.webp",
+      "bytes": 64598,
+      "sha256": "e1eb90ba05f55596d68648df56b9a367f438268452cd6c5cf66a063e600c5b71"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819508393_cdf2171145_c.webp",
+      "bytes": 47804,
+      "sha256": "a865f9a1005f558329c378c76fbac4c187269595042c4341cdc6d7355b31f4cb"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819508478_53e486eb08_c.webp",
+      "bytes": 51020,
+      "sha256": "d0a6b8197971b2bfe681b49b8f13a2130b74ead9ee7df5e82a04a5a697094e07"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819508768_52c6646067_c.webp",
+      "bytes": 55596,
+      "sha256": "47915b70e35d048c87c284ca1fc975f04077f76f0253f836fab879f791acce21"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819508833_e4a41caee9_c.webp",
+      "bytes": 53718,
+      "sha256": "4b430ac003ecdeac0be4458ecccb084faec738a8f8cfee157a17ce761fb75d2d"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819508883_d578883585_c.webp",
+      "bytes": 79686,
+      "sha256": "d45c51029807ce76f8d27dee77acbd91149ef7aee855ced1afcc2745644912e2"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819508903_ca271e645e_c.webp",
+      "bytes": 52492,
+      "sha256": "a6fdf7218e7af79659ec04f92fcc233aac4302448cdfd0f0e5866f7bdc778fca"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819867981_ffbdf53eeb_c.webp",
+      "bytes": 62036,
+      "sha256": "053b14fd023a11e0b48843aaf2240b0a362fe93e0df0df4b181a8d205f62d526"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819868086_667f6163c6_b.webp",
+      "bytes": 123806,
+      "sha256": "a1a122dcbd206edc47ca994b62ecbc660ce33f04c31e3f7aa7f2aadcc30332d6"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819868116_382676cd97_c.webp",
+      "bytes": 44822,
+      "sha256": "a218891b519ceada9ba0440a5f741f270a8e1ce817858ec7552ab3eeb81912ba"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819868191_cfabdc6700_c.webp",
+      "bytes": 93280,
+      "sha256": "2e5a6c696ceac0ba33c6fec13aad24a70f77645080401c6a353474a6308c8070"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48819868321_e28b953d9e_c.webp",
+      "bytes": 64662,
+      "sha256": "e8d38d823edf15867688fb7c88abc8f11e27ab38091dddc145d2382e2458500c"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48820020417_9fed354777_c.webp",
+      "bytes": 53468,
+      "sha256": "df4589334a00c2c7e4322911c6f16bcfcbd66ed21a74fda6f58f18b7544b25c9"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48820020507_152c8ddc74_c.webp",
+      "bytes": 73152,
+      "sha256": "ca8db37584ae2b393f9c7a0d76d1cc6c141dbddc7ee453617efa290c8a7b86a3"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48820020567_1e3cb11c82_c.webp",
+      "bytes": 52870,
+      "sha256": "d667fa30d1d15255cbb89fda7712fe69d40dfc8080499d7131e0caaa6f68c6b2"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48820020847_182d70cf6d_c.webp",
+      "bytes": 74922,
+      "sha256": "475e464afdaffe1c04c6b3cb0ac070920c2c8c3c1c45c2fe527d149450b9f723"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48820020952_947e08e1fa_b.webp",
+      "bytes": 121414,
+      "sha256": "7efe111ef1533bcbdc63d6ec7792d559d8657cff20645e0267c6745678467db4"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48820021007_c3261e60c6_b.webp",
+      "bytes": 119704,
+      "sha256": "f1ec38371f65d4d1d3d5582cc530de6858291fb31e5f3aa39b86ee62e64e16f9"
+    },
+    {
+      "path": "assets/img/sets/Augustus Jansson/48820021047_712cb25cd7_c.webp",
+      "bytes": 56616,
+      "sha256": "e1ef5f53076b39e9cb70585f903c8ffce807c56e31426f89670e7256ab620779"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29518892920_8e6b7e03d3_b.webp",
+      "bytes": 45706,
+      "sha256": "98faaef52cdb5fd8b56710c24f6186403c41b391c27e55f59ddcb02feb5d0128"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29518893040_b40d936dfd_b.webp",
+      "bytes": 26360,
+      "sha256": "6099047af1bd04b08b66c7a3fb1d6bcb9a14726f861fc82c878c97e693db2ef4"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29728782031_effd0e35f0_b.webp",
+      "bytes": 39410,
+      "sha256": "1b474959719909a53fc15abafa435ecbe32c8d472222048d40d4811bb26f1cdf"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29728782041_fe83a96292_b.webp",
+      "bytes": 45366,
+      "sha256": "ca5799e101532f9ef01c5c458bf749976796fac70fe61460cb667a4400c9128d"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29728782381_8152c9890e_b.webp",
+      "bytes": 32720,
+      "sha256": "d94f7d242f87e108241e3c4a7c15b6a50d07107cd2e2bca112ce6cd4169edaa2"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29728782451_d9f281c0a5_b.webp",
+      "bytes": 31820,
+      "sha256": "cd9ec5f929ce27e64fbbc5215ac6d191c56b12b1083e88d7f1ab294b1f620717"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29728782521_5254761c4d_b.webp",
+      "bytes": 40674,
+      "sha256": "1b0225bfbef1065c9a7cd24db0d5b9d827efe9ee79e4992e59d6635aa723e1c5"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29775803636_0dde27d532_b.webp",
+      "bytes": 32804,
+      "sha256": "74ac796e0731f3484152bccdca12222445ea2d35165bf8c244227259da5b0cde"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29775803796_76a77e32a0_b.webp",
+      "bytes": 41590,
+      "sha256": "3a2a24a0b4d572d057f6159df97a798c89c27f784786c3deac18a8f700580040"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29775803906_baf0d22f0f_b.webp",
+      "bytes": 29420,
+      "sha256": "49ada1fd9927a1630e886ab7969378e76c3fb5143bd5d41d4951e5c6b2d15c7b"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29775804096_aedce778d0_b.webp",
+      "bytes": 33472,
+      "sha256": "cfdf37b4075babace8c837c9885513bcc420dcd46aa49f21d3996c987b246a43"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29811468995_7d94af4d3d_b.webp",
+      "bytes": 38582,
+      "sha256": "f2add911f3831402a0903ac6d4990d73b977ce9dbd1815e64c9a33bd856d5e47"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29811469485_679954a290_b.webp",
+      "bytes": 31894,
+      "sha256": "818d6303c2af1e1835dd8ee1f9fa1193cf08600d693be9f5d621870cb942c08f"
+    },
+    {
+      "path": "assets/img/sets/Cacti/29811469665_1c648d956a_b.webp",
+      "bytes": 53362,
+      "sha256": "89c7fc7499ede024a27807889aebf568d86732c5f582bfd2d5a57f561a5facfd"
+    },
+    {
+      "path": "assets/img/sets/Franz Wilhelm Junghuhn/01-RP-P-2018-1019-edit.webp",
+      "bytes": 1593482,
+      "sha256": "e0cfd3da96578aec038dc78d1fd2eecbd702eb704bba5cd9ff4afbafaf33c03e"
+    },
+    {
+      "path": "assets/img/sets/Franz Wilhelm Junghuhn/02-RP-P-2018-1025-edit.webp",
+      "bytes": 142880,
+      "sha256": "94c9534b6707aa3ad7c28616fe0fbe22524e8dd3c588e1b5510eaacd699d6f94"
+    },
+    {
+      "path": "assets/img/sets/Franz Wilhelm Junghuhn/04-RP-P-2018-1021-edit.webp",
+      "bytes": 2620730,
+      "sha256": "0ffa9701bc0817cf01fc2cf9f0a6ce03b027b94e283e66988db28da7794cbbe9"
+    },
+    {
+      "path": "assets/img/sets/Franz Wilhelm Junghuhn/05-RP-P-2018-1022-edit.webp",
+      "bytes": 107786,
+      "sha256": "4d004d82673808f37fb60cc134970658b08ef46a42dc31370b1e9f6fc9363995"
+    },
+    {
+      "path": "assets/img/sets/Franz Wilhelm Junghuhn/09-RP-P-2018-1020-edit.webp",
+      "bytes": 2877804,
+      "sha256": "b609d66d28df43bf4b7b9ddb162dc74ae0e4c113815203485aeb191279c54de8"
+    },
+    {
+      "path": "assets/img/sets/Franz Wilhelm Junghuhn/11-border-faked.webp",
+      "bytes": 2370314,
+      "sha256": "5e2da3bf25f3ded7e0911951d982be11ab74deda89032a7143e7ed0c0d30f727"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/415px-Fuggerorum_et_Fuggerarum_imagines_-_001r.webp",
+      "bytes": 90180,
+      "sha256": "ee27f8b17e325e6d6088a101f29825830ce49ca67abc746aee6f5e8d26dca3f2"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/415px-Fuggerorum_et_Fuggerarum_imagines_-_004r.webp",
+      "bytes": 76508,
+      "sha256": "c8c072413cb7eea482f753cce943889d2f49c8a753f420d9b8c50c659cffa3bc"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/415px-Fuggerorum_et_Fuggerarum_imagines_-_008r.webp",
+      "bytes": 81424,
+      "sha256": "b27e124f4f3ac688bd64c9800bae7dc79f308b3ed7f933cf64c6fd951bd8ff58"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/416px-Fuggerorum_et_Fuggerarum_imagines_-_011r.webp",
+      "bytes": 83266,
+      "sha256": "f7e93906e93a6f20f48bab78cc763ece62766aa084f3eb440a04d36db8abcec6"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/416px-Fuggerorum_et_Fuggerarum_imagines_-_014br.webp",
+      "bytes": 72634,
+      "sha256": "84f1a65a56a3973eb6f46429441822d19b312fe7afb45f357ddb4660c0c91f20"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/416px-Fuggerorum_et_Fuggerarum_imagines_-_023r.webp",
+      "bytes": 74186,
+      "sha256": "09fb8c7eef27d1771771036da637c6359009fbbeb0a44861ba2aa219182a5f05"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/416px-Fuggerorum_et_Fuggerarum_imagines_-_024r.webp",
+      "bytes": 83964,
+      "sha256": "6ee6ca4cd646625b6468864c6ae4abe384a6d15763eba07e682c52cfa4d91b88"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/418px-Fuggerorum_et_Fuggerarum_imagines_-_101r.webp",
+      "bytes": 73340,
+      "sha256": "c007ea4889cfd27f14fad58258776a5eb810f9dab1e807af657bfa13af99df64"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/423px-Fuggerorum_et_Fuggerarum_imagines_-_036r.webp",
+      "bytes": 74370,
+      "sha256": "48fbb8ac50220329daef3a75b575ae994c0f97029b129a23776be17b0da97a83"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/423px-Fuggerorum_et_Fuggerarum_imagines_-_039r.webp",
+      "bytes": 70588,
+      "sha256": "5fc90ae21624490ed42d4a2900d750fbf19d089764556c4a5c92a484703170df"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/423px-Fuggerorum_et_Fuggerarum_imagines_-_045r.webp",
+      "bytes": 67914,
+      "sha256": "741686750986eaa2f8b6d0ca5f618edd3d49d09dcf9d32d33588bfdc4d471c92"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/425px-Fuggerorum_et_Fuggerarum_imagines_-_057r.webp",
+      "bytes": 67402,
+      "sha256": "ec95b3ee7ec393d2cd546e05112c08eed636ff69224ed6c53c0c2eb16b939c48"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/425px-Fuggerorum_et_Fuggerarum_imagines_-_061r.webp",
+      "bytes": 72726,
+      "sha256": "00ef0cbf754484c554c0053071efa0e6303c46a8099eb43b4a74863b5666c6e7"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/425px-Fuggerorum_et_Fuggerarum_imagines_-_081r.webp",
+      "bytes": 88508,
+      "sha256": "6b5e8c244509936de03513f0c909b0beb2771de29bc333cf0d96220e606d95da"
+    },
+    {
+      "path": "assets/img/sets/Fugger Family/425px-Fuggerorum_et_Fuggerarum_imagines_-_086r.webp",
+      "bytes": 91756,
+      "sha256": "aeaec491508fb668abbb073cf9b4dd4d926dc35dae2f8d58bc5608cd5e47a917"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/21740369754_a3392193db_c.webp",
+      "bytes": 88920,
+      "sha256": "da292b0e561ad078bc389d55a9e66c55b81692743790f281a36ba7ff20c47665"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/21740369944_15b1cb8b5a_c.webp",
+      "bytes": 27250,
+      "sha256": "117903aac1b24abbdc1ed1b6cab9fe02b26eb0ec423a6737924e80a1d50ee4c7"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/22175116020_2daf56eff6_b.webp",
+      "bytes": 71880,
+      "sha256": "e4c8553b1cd951657a6ac6d1883b5430e61001df4468bc8396157704dfcbbc5e"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/22175404368_777aeb6602_c.webp",
+      "bytes": 41024,
+      "sha256": "620a3589377ccfb9a710da550d766f87a6031ad820ff6ef5f75a46bc38b82233"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/22176286179_8e5b55d7c7_c.webp",
+      "bytes": 35590,
+      "sha256": "1e78f9095748bd7771d8658164ad971f2030a58cec56bb6c51b71f0362875189"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/22199531220_b53bf24c1e_c.webp",
+      "bytes": 59542,
+      "sha256": "fb7105166225cdb1450407c52251d8b8a8eaef5a5dadf99ea5cf41324f92309c"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/22363150445_0bfce280ae_c.webp",
+      "bytes": 46924,
+      "sha256": "83c9cd68476c6b886f4edd8ec39439fb907dc6b4a86e264ce06c279882625698"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/22373842081_e9b57bf707_b.webp",
+      "bytes": 99494,
+      "sha256": "4551c08d8014c3b6dda2c8aad0d09718fab4a8d901aa8ffefa3d008b91048d2f"
+    },
+    {
+      "path": "assets/img/sets/Harry Kellar/22374392582_2205001448_c.webp",
+      "bytes": 143176,
+      "sha256": "2deb1d3c4cd14fbefa599ff34baaf3789f54595dc9ff3c8e76d3fb3b72fefd88"
+    },
+    {
+      "path": "assets/img/sets/Jean Baptiste Vérany/mollusques-0157.webp",
+      "bytes": 347492,
+      "sha256": "eabfffffc7228249bddea23ae689efea60eed5f462ecda2d401a995b1e935e75"
+    },
+    {
+      "path": "assets/img/sets/Jean Baptiste Vérany/mollusques-0171.webp",
+      "bytes": 596498,
+      "sha256": "e1becc2936d79a342c70c379096e3f032cbf73e3038897a4ae269ee14b1b097a"
+    },
+    {
+      "path": "assets/img/sets/Jean Baptiste Vérany/mollusques-0175.webp",
+      "bytes": 416642,
+      "sha256": "e99c80888d79b4f0fb113c2879cc4d0f1adb12b22df17c54fe54a1f6515df88b"
+    },
+    {
+      "path": "assets/img/sets/Jean Baptiste Vérany/mollusques-0189.webp",
+      "bytes": 309928,
+      "sha256": "432b5119bcc3954e4b6a05a646fc9ccd13cfb4d1bca65f5c1aa7849ad006937d"
+    },
+    {
+      "path": "assets/img/sets/Jean Baptiste Vérany/mollusques-0191.webp",
+      "bytes": 218178,
+      "sha256": "cd427c4d8084cb9639318d904f0c32179aa7f998f73794ec1d3283ec7e8e83af"
+    },
+    {
+      "path": "assets/img/sets/Jean Baptiste Vérany/mollusques-0197.webp",
+      "bytes": 363596,
+      "sha256": "aa70e228b5153a7dfdcf99e420be0c948282d4f83426380982e0881e6a58d37e"
+    },
+    {
+      "path": "assets/img/sets/Jean Baptiste Vérany/mollusques-0227.webp",
+      "bytes": 323424,
+      "sha256": "3122f2f66c0b1b22ad89c0a38199c35cd75965e15593f700d2e9e10b0a99918a"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/31880038298_2ace8d00eb_c.webp",
+      "bytes": 117116,
+      "sha256": "04f7ff7dc531ba862ee273bdfe85bb6a3ce011c250c08fcd41e7059498cdd722"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/31880051608_33afd6208a_c.webp",
+      "bytes": 147620,
+      "sha256": "00da32c656e768fd64329becb1a598e1e77de19eed211b9bf99b48956ceff074"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/43934087070_9edc0165e4_c.webp",
+      "bytes": 92572,
+      "sha256": "abd44e9c0edff76df8c069a87b720993aa08b3a5622f4fff67358b21b6a813f1"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/43934092210_536d853d54_c.webp",
+      "bytes": 120338,
+      "sha256": "df60043cb57f298483db46d595cae7edfc3ba99fcead2ac356f70d1649897e7a"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/43934094820_221126f573_c.webp",
+      "bytes": 93960,
+      "sha256": "8c4de309db46dbace0b53e2e59ea426959520129265008ffd4b3723347e53631"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/44838023135_f0bfbd7e0a_c.webp",
+      "bytes": 164156,
+      "sha256": "0f78a6d53d9e693c7570c48c57fe3833d1dd546b603b4ff6136720336606a447"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/44838026915_e2b8dc6eb5_c.webp",
+      "bytes": 69992,
+      "sha256": "e6fe6cb00870037adca20729a1a9008c7d9641804a13a60244447303ccfe517c"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/44838029455_ce617a1c72_c.webp",
+      "bytes": 163238,
+      "sha256": "bd3d1c973f9488f6a25c4728e0141c67a6a014721ebfe380912e1ad0169020e1"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/45026762004_48a74e7b34_c.webp",
+      "bytes": 92696,
+      "sha256": "4382ec1baeff48945713a706b64e6a5912e4f2d8d21d7fb29a10b0a754906652"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/45026763264_71c6d5f791_c.webp",
+      "bytes": 129184,
+      "sha256": "87124350902f657652ff17bc1126029b79cd33af5b6f9cf8622bcb760ab6f699"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/45026764984_ff1f170c64_c.webp",
+      "bytes": 174014,
+      "sha256": "cf65f0090dabcc175f1ea2bd5a95d8be8e22bf44b31becdb50040d4ebb8460eb"
+    },
+    {
+      "path": "assets/img/sets/Kay Nielsen/45701383592_6a942678fa_c.webp",
+      "bytes": 135730,
+      "sha256": "e72c997ac1763c2fb8de41057480218ce615249cd3b474f0a10f8d09d693a30d"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00021.webp",
+      "bytes": 213424,
+      "sha256": "a95ccb7cca1a0e0c82ed5b4b2485b643c7e5991912af5e180bb59c31f88f78ba"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00023.webp",
+      "bytes": 416040,
+      "sha256": "e640d04f8d5010130fa194f3ded48afb0335c55ccb40719a82d10d9ff0129450"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00025.webp",
+      "bytes": 592488,
+      "sha256": "1924451a7a375894507e346b0057917175c99f4b3572b1a6bcbc7d7bcdfff70a"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00031.webp",
+      "bytes": 536112,
+      "sha256": "2b291c3a4dd18aecc2a11faf2cb0d314b1c6bc867a99cec8f586ee99ee5cd701"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00035.webp",
+      "bytes": 598864,
+      "sha256": "d1cfd6beaa92717bec90e74f1c4ecdf3209b9ad24eadfe77345f961ae6006c15"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00039.webp",
+      "bytes": 246226,
+      "sha256": "0e84537ec355cc8114cea33ec774ea782314300b319ec0f53e082583e12297a1"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00043.webp",
+      "bytes": 612822,
+      "sha256": "56e874dbc582125940f4205a88c4fde839a9907ea812c33b772d7988a922e2ab"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00045.webp",
+      "bytes": 269394,
+      "sha256": "0b758f7ee13c919a5e4a0d0a93623fd44c4c7bca93fd51397a1c1764b85db55a"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00047.webp",
+      "bytes": 190030,
+      "sha256": "d1c8c2181e608e9d1ecb3ff0b83fbb2004493dc0cf3e62b6c259a35f645795e9"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00051.webp",
+      "bytes": 668044,
+      "sha256": "1cc382e0c8f152edcacfac55676cf25d3f6396fefaeb88fd9c805ab127e280fe"
+    },
+    {
+      "path": "assets/img/sets/Madamme B/madame-b-album-00053.webp",
+      "bytes": 775978,
+      "sha256": "d0f0a67d916ba0cfc69ef4a9b440ebdb09c2d56b1c9e3175c2df220c699d0754"
+    },
+    {
+      "path": "assets/img/sets/Maria Sibylla Merian/Merian_Metamorphosis_00002.webp",
+      "bytes": 2764306,
+      "sha256": "79cf49bfb7eb5ab5e6c8d22ea38b457a97ed10322c685643fcc1b0b4f2a341bd"
+    },
+    {
+      "path": "assets/img/sets/Maria Sibylla Merian/Merian_Metamorphosis_00036.webp",
+      "bytes": 1722532,
+      "sha256": "2edd00420f19505d9b8b956e5a8022c6de7afa08510c576a49b6514a7943f345"
+    },
+    {
+      "path": "assets/img/sets/Maria Sibylla Merian/Merian_Metamorphosis_00037.webp",
+      "bytes": 1301354,
+      "sha256": "2e37c7becffc35aaac8045fb71510d551386a5ef8c577c3d19c9c375c30fb4fe"
+    },
+    {
+      "path": "assets/img/sets/Maria Sibylla Merian/Merian_Metamorphosis_00038.webp",
+      "bytes": 1187120,
+      "sha256": "b4e3b35987191e062b0b847d765d5451b858ae7e840262ebc924c5f575babe99"
+    },
+    {
+      "path": "assets/img/sets/Maria Sibylla Merian/Merian_Metamorphosis_00039.webp",
+      "bytes": 1792582,
+      "sha256": "f7f237f127720f7617ff1505ecc1a040b975df957859c283413202648a670d13"
+    },
+    {
+      "path": "assets/img/sets/Maria Sibylla Merian/Merian_Metamorphosis_00040.webp",
+      "bytes": 1466594,
+      "sha256": "687a87aa0746268f8dd57ba1aa91f58f7366a1aba0203531fae6f996f88489f0"
+    },
+    {
+      "path": "assets/img/sets/Maria Sibylla Merian/Merian_Metamorphosis_00042.webp",
+      "bytes": 1467666,
+      "sha256": "d3cd7c49f9da17edd88a222d5d2a6a26b4d10941f1887538966b9ddbeb34a0e1"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/1lede-0007.webp",
+      "bytes": 447030,
+      "sha256": "638df00e86563aa73116e2ad924d368238440b6664cf6002b8db60075a064e40"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/1lede-0029.webp",
+      "bytes": 248356,
+      "sha256": "488786933491205127b3b399a29b2f79c65efb9d101fa513d6a1949595fd9c68"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/2lede-0031.webp",
+      "bytes": 256430,
+      "sha256": "3dc9be1dafdfdeb8e651ea3c084a0666a842b8ca08f3f7731f21ca96a16ba541"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/2lede-0071.webp",
+      "bytes": 210072,
+      "sha256": "2d66c12cd63b28f8d5ce153ae0448c44e5c807da90e9ad09cf8319b029cf4c75"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/2lede-0141.webp",
+      "bytes": 203974,
+      "sha256": "fd8f127d33f9b0ccbc1e98f4505e6dcb32c97f3315abca889580c50bfbc1f1ae"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/3lede-0019.webp",
+      "bytes": 329514,
+      "sha256": "0b68f531cfec09f92c3082041b9b64546b91df99349ef67a9d4a21db1b719d9a"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/3lede-0105.webp",
+      "bytes": 559398,
+      "sha256": "e43e3bc825ddc7239141447d70eee2df2eedb03db49727f9756108696cfc0ebb"
+    },
+    {
+      "path": "assets/img/sets/Martin Frobenius Ledermüller/3lede-0255.webp",
+      "bytes": 401852,
+      "sha256": "5064c71078351b750557b5272971ee10190273f2a951d040d44e75f7ae8493a1"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/26462886089_c018229544_o.webp",
+      "bytes": 109180,
+      "sha256": "78782db0c5656f82d972875e095c08d506924bb438d2478f25eb6ec2fe45dde0"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/26462916159_b7de5acc9f_o.webp",
+      "bytes": 125644,
+      "sha256": "9a15ff3a45de513d488f623dd4b6b805cee2a462f15b0052d630770b265a68a2"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/26462919449_cb2d1c0a44_o.webp",
+      "bytes": 73890,
+      "sha256": "76c422f3f3ca4ce69613fb719eeb0c8fe53e7ad2aa1ba742d84c059961aa776a"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/37528186614_8d87141d1b_o.webp",
+      "bytes": 86514,
+      "sha256": "ad7bd7ba5bff848c0a892181cc17ee8749f8f24d03c728efe78466679cf4f56a"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/37528193034_4d5e6fe624_o.webp",
+      "bytes": 114154,
+      "sha256": "a216abcfd77df7b9735c52cb5994769b8f48a1dd663a1ce9cc6c83b55d8982da"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/37528196074_45a2d99986_o.webp",
+      "bytes": 96432,
+      "sha256": "a7b1e053d484020428aae559488a36d2c14aeaf8bfe831ba070521634e685d44"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/37528199364_3129e1852d_o.webp",
+      "bytes": 104264,
+      "sha256": "86efd7dbb14a204caeea08a698fd7bc17f8aa79f9842fe7d47374a83ebf316e3"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/38184350186_6bfc46979e_o.webp",
+      "bytes": 102948,
+      "sha256": "727edd7e55e7b7003620bc78bfb6a7a8bdf52945758c9e5e34b2f71e097e958e"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/38207263222_2f07a68364_o.webp",
+      "bytes": 94148,
+      "sha256": "300c1cba86763525c67b37b3329a06ac73f61adfe218dca25c9b17968e5040cf"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/38207281692_e23f20eae1_o.webp",
+      "bytes": 99098,
+      "sha256": "d39fd52bcb91b439f1299f934cef3de100e9231846e69c8358bfcceb123ac977"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/38207285022_4dfff2407b_o.webp",
+      "bytes": 130378,
+      "sha256": "81ad61e3cf7702af3b72678317c8dc79ddbb7e9dc8da9a5d8a02ffd1c684b8c8"
+    },
+    {
+      "path": "assets/img/sets/Model Book of Calligraphy/38207287852_ee0e8d2371_o.webp",
+      "bytes": 94042,
+      "sha256": "b233577c7ac3c13c067c9420734a5a50bf66b960761e711808c6ce4b26183072"
+    },
+    {
+      "path": "assets/img/sets/Yoshitoshi/8576803177_100fd3bd77_c.webp",
+      "bytes": 100086,
+      "sha256": "aee5af022f797a8be7153d6137db9ad14b903ffe6e10ec08edc56ddf6b91e0e5"
+    },
+    {
+      "path": "assets/img/sets/Yoshitoshi/8576808865_d03bd9ddd5_c.webp",
+      "bytes": 97442,
+      "sha256": "2db6fc82eec8499e0dee8f11c40a877060d3f6e3cccca73055a914ae5205af7e"
+    },
+    {
+      "path": "assets/img/sets/Yoshitoshi/8577903512_b97e2fd41d_c.webp",
+      "bytes": 125092,
+      "sha256": "e0de4c7de5043b73af681870294230dca278f9972c4ff4d8ff7d6ff151e85997"
+    },
+    {
+      "path": "assets/img/sets/Yoshitoshi/8577906600_bf146cd3f1_c.webp",
+      "bytes": 82084,
+      "sha256": "bd2e95f6b9ebfe85bd0eefe4e84edc398c87c8a95e15e10b5d40462d08e1f306"
+    },
+    {
+      "path": "assets/img/sets/Yoshitoshi/8577908820_7937254e62_c.webp",
+      "bytes": 109300,
+      "sha256": "df8b3ca41de6159b20b1a31f0086d7a2135a0f252a93cd74da73c000d1fafea7"
+    },
+    {
+      "path": "assets/img/sets/Yoshitoshi/8577909216_89b2de3385_c.webp",
+      "bytes": 142752,
+      "sha256": "e62cf144ef88126fc147effbc4480ac2047aee5d3d67a1d9aafcca05f58eda4b"
+    },
+    {
+      "path": "assets/img/sets/Yoshitoshi/8577909576_45b8a7a103_c.webp",
+      "bytes": 117024,
+      "sha256": "8337b2103c460b4e1d796ae2ce8b50b4240621cba6a2cbfefeee7f82f3a161fe"
+    },
+    {
+      "path": "assets/img/sleepingcat.jpeg",
+      "bytes": 172289,
+      "sha256": "5425792e8cb79b64b11fe04e767f35d96d7159ebc7a31d8edf86eff958df1037"
+    },
+    {
+      "path": "assets/img/winters-night.jpeg",
+      "bytes": 165227,
+      "sha256": "367ee7b429ed19bba8408efca30affbdccc4f72980298971a5c526240e85a85e"
+    }
+  ],
+  "totals": {
+    "files": 216,
+    "bytes": 76239782,
+    "sha256": "3aacdb646d5255b84bfbcb2f696cbe115076dcc0e63c9e491f11e466d60f8a5e"
+  }
+}
