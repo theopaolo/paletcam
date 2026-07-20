@@ -236,7 +236,29 @@ describe("community deletion cleanup outbox", () => {
     expect((await outboxDb.dump()).map((entry) => entry.remoteCatchId).sort()).toEqual([
       "remote-1",
       "remote-2",
+      "unbound",
     ]);
+    const unboundEntry = (await outboxDb.dump()).find((entry) => entry.remoteCatchId === "unbound");
+    expect(unboundEntry?.accountKey).toBe(accountKeyFor(DEFAULT_SESSION));
+  });
+
+  test("keeps unbound legacy jobs journaled until a session can claim them", async () => {
+    const { cleanupRemoteCatch, localStorageMock, module, triggerSession } =
+      await loadCommunityDeleteOutbox({
+        initialLegacyEntries: [{ remoteCatchId: "legacy-unbound" }],
+        session: null,
+      });
+
+    await module.prepareDeleteOutbox();
+    expect(localStorageMock.dump(OUTBOX_STORAGE_KEY)).not.toBeNull();
+    expect(cleanupRemoteCatch).not.toHaveBeenCalled();
+
+    module.initializeDeleteOutbox();
+    await triggerSession(DEFAULT_SESSION);
+    expect(await waitForCondition(() => localStorageMock.dump(OUTBOX_STORAGE_KEY) === null)).toBe(
+      true,
+    );
+    expect(cleanupRemoteCatch).toHaveBeenCalledWith("legacy-unbound");
   });
 
   test("discards corrupt current-store rows while valid normalized rows still flush", async () => {

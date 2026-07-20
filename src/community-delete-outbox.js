@@ -92,9 +92,12 @@ function getRetryDelayMs(attemptCount) {
   return Math.min(RETRY_MAX_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** exponent);
 }
 
-function normalizeOutboxEntry(candidate) {
+function normalizeOutboxEntry(candidate, { fallbackAccountKey = "" } = {}) {
   const remoteCatchId = normalizeRemoteCatchId(candidate?.remoteCatchId);
-  const accountKey = normalizeAccountKey(candidate?.accountKey);
+  // The pre-account outbox schema stored no account binding; such entries are
+  // claimed by the fallback (current session) account.
+  const accountKey =
+    normalizeAccountKey(candidate?.accountKey) || normalizeAccountKey(fallbackAccountKey);
   if (!remoteCatchId || !accountKey) {
     return null;
   }
@@ -237,35 +240,42 @@ function reportDiscardedInvalidOutboxEntries(discardedCount) {
   });
 }
 
-function readLegacyOutbox() {
+function readLegacyOutbox({ fallbackAccountKey = "" } = {}) {
+  const emptyOutbox = { entries: [], unclaimedCount: 0 };
   try {
     const rawValue = globalThis.localStorage?.getItem(COMMUNITY_DELETE_OUTBOX_STORAGE_KEY);
     if (!rawValue) {
-      return [];
+      return emptyOutbox;
     }
     const parsed = JSON.parse(rawValue);
     if (!Array.isArray(parsed)) {
-      return [];
+      return emptyOutbox;
     }
 
     const entriesByKey = new Map();
+    let unclaimedCount = 0;
     for (const candidate of parsed) {
-      const entry = normalizeOutboxEntry(candidate);
+      const entry = normalizeOutboxEntry(candidate, { fallbackAccountKey });
       if (entry && !entriesByKey.has(entry.key)) {
         entriesByKey.set(entry.key, entry);
+      }
+      if (!entry && normalizeRemoteCatchId(candidate?.remoteCatchId)) {
+        unclaimedCount += 1;
       }
       if (entriesByKey.size >= MAX_OUTBOX_ENTRIES) {
         break;
       }
     }
-    return [...entriesByKey.values()];
+    return { entries: [...entriesByKey.values()], unclaimedCount };
   } catch (_error) {
-    return [];
+    return emptyOutbox;
   }
 }
 
+/** @returns {Promise<boolean>} whether the legacy journal was fully migrated */
 async function migrateLegacyOutbox() {
-  const legacyEntries = readLegacyOutbox();
+  const legacyOutbox = readLegacyOutbox({ fallbackAccountKey: getSessionAccountKey() });
+  const legacyEntries = legacyOutbox.entries;
   let discardedCount = 0;
   await db.transaction("rw", db.communityDeleteOutbox, async () => {
     const currentOutbox = await readValidatedCurrentOutboxInTransaction();
@@ -282,18 +292,31 @@ async function migrateLegacyOutbox() {
   });
   reportDiscardedInvalidOutboxEntries(discardedCount);
 
+  // Entries without an account binding can only be claimed by a signed-in
+  // session; keep the legacy journal so a later migration can adopt them.
+  if (legacyOutbox.unclaimedCount > 0) {
+    return false;
+  }
+
   try {
     globalThis.localStorage?.removeItem(COMMUNITY_DELETE_OUTBOX_STORAGE_KEY);
   } catch (_error) {
     // The durable records are already committed; a later migration is idempotent.
   }
+  return true;
 }
 
 function ensureLegacyOutboxMigrated() {
-  legacyMigrationPromise ??= migrateLegacyOutbox().catch((error) => {
-    legacyMigrationPromise = null;
-    throw error;
-  });
+  legacyMigrationPromise ??= migrateLegacyOutbox()
+    .then((migrationComplete) => {
+      if (!migrationComplete) {
+        legacyMigrationPromise = null;
+      }
+    })
+    .catch((error) => {
+      legacyMigrationPromise = null;
+      throw error;
+    });
   return legacyMigrationPromise;
 }
 

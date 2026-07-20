@@ -224,6 +224,23 @@ describe("palette import staging", () => {
     expect(palettes.get(101)).not.toHaveProperty("photoBlob");
   });
 
+  test("reports a broken palette's absolute position across staged batches", async () => {
+    const { module, staging } = await loadStagingModule();
+    const sessionId = await module.beginImportSession({ nowMs: 1_000 });
+    await module.stageImportBatch(sessionId, [createImportedPalette(0), createImportedPalette(1)], {
+      nowMs: 2_000,
+    });
+
+    await expect(
+      module.stageImportBatch(
+        sessionId,
+        [createImportedPalette(2), { ...createImportedPalette(3), photoBlob: null }],
+        { nowMs: 3_000 },
+      ),
+    ).rejects.toThrow("Cannot import palette 4 without photo data.");
+    expect(staging.size).toBe(2);
+  });
+
   test("rolls back every live row when the final asset copy fails", async () => {
     const { assets, metadata, module, palettes, staging } = await loadStagingModule({
       failAssetPutAt: 2,

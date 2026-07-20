@@ -74,15 +74,12 @@ export async function deletePalette(
             );
           }
 
+          // Palettes published before ownership tracking store no owner; the
+          // authenticated deleting account claims their remote cleanup, like
+          // the unpublish path's legacy-ownership recovery.
           const remoteOwnerAccountKey = normalizeRemoteOwnerAccountKey(
             storedPalette.remoteOwnerAccountKey,
           );
-          if (!remoteOwnerAccountKey) {
-            throw createPaletteDeletionError(
-              "The palette's publishing account cannot be verified.",
-              "REMOTE_CLEANUP_OWNER_UNKNOWN",
-            );
-          }
           if (remoteOwnerAccountKey && remoteOwnerAccountKey !== capturedAccountKey) {
             throw createPaletteDeletionError(
               "The palette belongs to a different community account.",

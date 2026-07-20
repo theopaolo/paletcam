@@ -152,14 +152,17 @@ export async function stageImportBatch(sessionId, palettes, { nowMs = Date.now()
       `A palette import batch cannot exceed ${PALETTE_IMPORT_STAGING_BATCH_SIZE} palettes.`,
     );
   }
-  palettes.forEach(assertNormalizedPalette);
-
   return db.transaction("rw", db.paletteStorageMetadata, db.paletteImportStaging, async () => {
     const marker = assertOwnedSession(
       await db.paletteStorageMetadata.get(ACTIVE_IMPORT_MARKER_KEY),
       sessionId,
     );
     const firstOrdinal = marker.stagedCount;
+    // Validate against the session-wide ordinal so errors name the palette's
+    // absolute position in the backup, not its index within this batch.
+    palettes.forEach((palette, index) => {
+      assertNormalizedPalette(palette, firstOrdinal + index);
+    });
     const stagingRecords = palettes.map((palette, index) => ({
       sessionId,
       ordinal: firstOrdinal + index,

@@ -191,17 +191,24 @@ describe("transactional palette deletion", () => {
     expect(state.previews.size).toBe(2);
   });
 
-  test("refuses destructive cleanup for a legacy remote link with no verified owner", async () => {
+  test("lets the deleting account claim cleanup for a legacy remote link with no stored owner", async () => {
     const { deletionOptions, module, reserveDeleteRetryInCurrentTransaction, state } =
       await loadDeletionModule({
         palette: { id: 7, remoteCatchId: "legacy-remote" },
       });
 
-    await expect(module.deletePalette(7, deletionOptions)).rejects.toMatchObject({
-      code: "REMOTE_CLEANUP_OWNER_UNKNOWN",
+    await expect(module.deletePalette(7, deletionOptions)).resolves.toEqual({
+      remoteCatchId: "legacy-remote",
+      remoteCleanupQueued: true,
     });
-    expect(reserveDeleteRetryInCurrentTransaction).not.toHaveBeenCalled();
-    expect(state.palettes.has(7)).toBe(true);
+    expect(reserveDeleteRetryInCurrentTransaction).toHaveBeenCalledWith({
+      accountKey: "account:0123456789abcdef",
+      remoteCatchId: "legacy-remote",
+    });
+    expect(state.outbox.size).toBe(1);
+    expect(state.palettes.size).toBe(0);
+    expect(state.assets.size).toBe(0);
+    expect(state.previews.size).toBe(0);
   });
 
   test("refuses deletion when the stored remote owner differs from the active account", async () => {
