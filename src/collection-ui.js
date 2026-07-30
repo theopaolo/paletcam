@@ -21,6 +21,10 @@ import { clientLog } from "./modules/client-log.js";
 import { createCollectionCardLifecycle } from "./modules/collection/card-lifecycle.js";
 import { runBoundedBulkDeletion } from "./modules/collection/bulk-deletion.js";
 import { runBulkPublication } from "./modules/collection/bulk-publication.js";
+import {
+  createCollectionFilterState,
+  isPaletteFavorite,
+} from "./modules/collection/collection-filter.js";
 import { createCollectionLifecycle } from "./modules/collection/collection-lifecycle.js";
 import { PALETTE_DELETED_EVENT } from "./modules/collection/collection-events.js";
 import { createCollectionLoadCoordinator } from "./modules/collection/collection-load-coordinator.js";
@@ -38,6 +42,7 @@ import {
   createPaletteCard,
   createSwatchCard,
   disposePaletteCard,
+  setPaletteCardFavoriteState,
 } from "./modules/collection/palette-card.js";
 import { createPaletteDeletionUseCase } from "./modules/collection/palette-deletion.js";
 import {
@@ -65,7 +70,12 @@ import {
   subscribeSharedPanelClosing,
 } from "./modules/panels/panel-manager.js";
 import { dismissToast, showToast, showUndoToast } from "./modules/toast-ui.js";
-import { deletePalette, getSavedPaletteById, getSavedPalettes } from "./palette-storage.js";
+import {
+  deletePalette,
+  getSavedPaletteById,
+  getSavedPalettes,
+  setPaletteFavorites,
+} from "./palette-storage.js";
 
 const collectionView = createCollectionView(document);
 const {
@@ -76,10 +86,12 @@ const {
   viewSwatchButton: collectionViewSwatchButton,
   collapseAllButton: collectionCollapseAllButton,
   filterPublishedButton: collectionFilterPublishedButton,
+  filterFavoritesButton: collectionFilterFavoritesButton,
   selectionBar: collectionSelectionBar,
   selectionCount: collectionSelectionCount,
   selectionCancelButton: collectionSelectionCancel,
   selectionDeleteButton: collectionSelectionDelete,
+  selectionFavoriteButton: collectionSelectionFavorite,
   selectionExportButton: collectionSelectionExport,
   selectionPublishButton: collectionSelectionPublish,
   selectionUnpublishButton: collectionSelectionUnpublish,
@@ -93,7 +105,14 @@ const selectionState = createCollectionSelectionState();
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
 let currentLocale = getAppSettings().locale;
-let currentFilter = null;
+const collectionFilters = createCollectionFilterState({
+  published: (palette) => getPalettePublicationAction(palette) === "unpublish",
+  favorites: isPaletteFavorite,
+});
+const collectionFilterButtons = new Map([
+  ["published", collectionFilterPublishedButton],
+  ["favorites", collectionFilterFavoritesButton],
+]);
 let longPressTimer = null;
 let longPressStartPos = null;
 let activeDayVirtualizer = null;
@@ -258,7 +277,7 @@ function releaseCollectionResources() {
   pendingDeletionIds.clear();
   collapsedDayIds.clear();
   selectionState.exit();
-  currentFilter = null;
+  collectionFilters.clear();
 }
 
 collectionLifecycle.registerCleanup(releaseCollectionResources);
@@ -309,10 +328,7 @@ function canPublishPalette(palette) {
 }
 
 function getDisplayPalettes() {
-  if (currentFilter === "published") {
-    return currentPalettes.filter((p) => getPalettePublicationAction(p) === "unpublish");
-  }
-  return currentPalettes;
+  return collectionFilters.apply(currentPalettes);
 }
 
 function isPalettePendingDeletion(paletteId) {
@@ -366,15 +382,24 @@ function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
     collectionCollapseAllButton.title = collapseAllLabel;
   }
 
-  if (collectionFilterPublishedButton instanceof HTMLButtonElement) {
-    const publishedCount = currentPalettes.filter(
-      (p) => getPalettePublicationAction(p) === "unpublish",
-    ).length;
-    const isFilterActive = currentFilter === "published";
-    collectionFilterPublishedButton.hidden = publishedCount === 0 && !isFilterActive;
-    collectionFilterPublishedButton.classList.toggle("is-active", isFilterActive);
-    collectionFilterPublishedButton.dataset.count = String(publishedCount);
-  }
+  syncCollectionFilterChips();
+}
+
+function syncCollectionFilterChips() {
+  collectionFilterButtons.forEach((button, filterName) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    const matchCount = collectionFilters.count(currentPalettes, filterName);
+    const isFilterActive = collectionFilters.isActive(filterName);
+    // An active chip stays visible even at zero so the empty list is explained
+    // by a control the reader can still switch off.
+    button.hidden = matchCount === 0 && !isFilterActive;
+    button.classList.toggle("is-active", isFilterActive);
+    button.setAttribute("aria-pressed", String(isFilterActive));
+    button.dataset.count = String(matchCount);
+  });
 }
 
 function syncCollectionPanelChrome(dayGroups = getCurrentDayGroups()) {
@@ -625,6 +650,71 @@ async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = fal
   }
 }
 
+/**
+ * Mutates the loaded records in place on purpose: the open viewer session and the
+ * day virtualizer hold these same objects, so one write keeps every reader
+ * coherent without rebuilding the list.
+ * @param {number[]} paletteIds @param {string | null} favoritedAt
+ */
+function applyFavoriteToLoadedPalettes(paletteIds, favoritedAt) {
+  const updatedIds = new Set(paletteIds);
+  currentPalettes.forEach((palette) => {
+    if (updatedIds.has(palette.id)) {
+      palette.favoritedAt = favoritedAt;
+    }
+  });
+}
+
+/** @param {number[]} updatedIds @param {boolean} isFavorite */
+function syncCollectionUiAfterFavoriteChange(updatedIds, isFavorite) {
+  // Unstarring under an active favourites filter drops the card out of view, so
+  // the list has to be rebuilt rather than patched in place.
+  if (!isFavorite && collectionFilters.isActive("favorites")) {
+    renderCollectionUi(currentPalettes);
+    return;
+  }
+
+  updatedIds.forEach((paletteId) => {
+    setPaletteCardFavoriteState(getCollectionCardByPaletteId(paletteId), isFavorite);
+  });
+  syncCollectionFilterChips();
+}
+
+/** @param {Array<number>} paletteIds @param {boolean} isFavorite */
+async function commitPaletteFavorites(paletteIds, isFavorite) {
+  if (paletteIds.length === 0) {
+    return false;
+  }
+
+  try {
+    const { favoritedAt, updatedIds } = await setPaletteFavorites(paletteIds, isFavorite);
+    if (updatedIds.length === 0) {
+      return false;
+    }
+
+    applyFavoriteToLoadedPalettes(updatedIds, favoritedAt);
+    syncCollectionUiAfterFavoriteChange(updatedIds, isFavorite);
+    return true;
+  } catch (error) {
+    reportAppError(error, { logMessage: "Failed to update palette favorites." });
+    showToast(
+      t("collection.favorite.failed"),
+      createErrorToastOptions(error, { variant: "error", duration: 1800 }),
+    );
+    return false;
+  }
+}
+
+/** @param {number} paletteId @param {boolean} isFavorite */
+async function handleToggleFavorite(paletteId, isFavorite) {
+  const numericPaletteId = Number(paletteId);
+  if (!Number.isFinite(numericPaletteId)) {
+    return false;
+  }
+
+  return commitPaletteFavorites([numericPaletteId], isFavorite);
+}
+
 async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) {
   if (selectionState.isActive()) {
     return;
@@ -655,6 +745,8 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
         onExportVerso: handleExportPaletteVerso,
         onPublish: (palette) => handlePublishPalette(palette, getPalettePublicationAction(palette)),
         onDelete: handleDeletePalette,
+        onToggleFavorite: (palette) =>
+          handleToggleFavorite(palette.id, !isPaletteFavorite(palette)),
       },
       {
         canOpen: () =>
@@ -674,6 +766,7 @@ function createCollectionPaletteCard(palette) {
   return createPaletteCard({
     palette,
     onOpenViewer: openCollectionPaletteViewer,
+    onToggleFavorite: handleToggleFavorite,
     scrollRoot: collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null,
   });
 }
@@ -773,10 +866,13 @@ function renderCollectionUi(palettes) {
   collectionGrid.dataset.viewMode = currentCollectionViewMode;
 
   if (displayPalettes.length === 0) {
+    const emptyMessage = collectionFilters.hasActive()
+      ? t("collection.emptyFiltered")
+      : t("collection.empty");
     collectionGrid.innerHTML = `
       <div class="collection-empty">
         <div class="collection-empty-bloom" aria-hidden="true"></div>
-        <p class="empty-message">${t("collection.empty")}</p>
+        <p class="empty-message">${emptyMessage}</p>
       </div>
     `;
     syncCollectionPanelChrome([]);
@@ -1134,6 +1230,19 @@ function syncSelectionBar() {
     collectionSelectionDelete.disabled = count === 0;
   }
 
+  if (collectionSelectionFavorite instanceof HTMLButtonElement) {
+    // One button, two meanings: it unstars only when every selected capture is
+    // already starred, so a mixed selection always resolves to "star them all".
+    const shouldUnfavorite = selected.length > 0 && selected.every(isPaletteFavorite);
+    collectionSelectionFavorite.disabled = selected.length === 0;
+    collectionSelectionFavorite.dataset.favoriteAction = shouldUnfavorite
+      ? "unfavorite"
+      : "favorite";
+    collectionSelectionFavorite.textContent = shouldUnfavorite
+      ? t("collection.select.unfavorite")
+      : t("collection.select.favorite");
+  }
+
   if (collectionSelectionExport instanceof HTMLButtonElement) {
     collectionSelectionExport.disabled = !selected.some(canExportPalette);
   }
@@ -1304,6 +1413,14 @@ async function handleSelectionDelete() {
     operation: deletionOperation,
     actionLabel: t("collection.select.cancel"),
   });
+}
+
+async function handleSelectionFavorite() {
+  const selected = selectionState.getSelected(getDisplayPalettes());
+  const shouldUnfavorite = selected.length > 0 && selected.every(isPaletteFavorite);
+  const paletteIds = selected.map((palette) => palette.id);
+  exitSelectMode();
+  await commitPaletteFavorites(paletteIds, !shouldUnfavorite);
 }
 
 async function handleSelectionExport() {
@@ -1515,12 +1632,14 @@ function bindCollectionUiEvents() {
     handleCollapseAllDays();
   });
 
-  bindCollectionEventListener(collectionFilterPublishedButton, "click", () => {
-    currentFilter = currentFilter === "published" ? null : "published";
-    if (selectionState.isActive()) {
-      exitSelectMode();
-    }
-    renderCollectionUi(currentPalettes);
+  collectionFilterButtons.forEach((filterButton, filterName) => {
+    bindCollectionEventListener(filterButton, "click", () => {
+      collectionFilters.toggle(filterName);
+      if (selectionState.isActive()) {
+        exitSelectMode();
+      }
+      renderCollectionUi(currentPalettes);
+    });
   });
 
   bindCollectionEventListener(collectionSelectionCancel, "click", () => {
@@ -1529,6 +1648,10 @@ function bindCollectionUiEvents() {
 
   bindCollectionEventListener(collectionSelectionDelete, "click", () => {
     void handleSelectionDelete();
+  });
+
+  bindCollectionEventListener(collectionSelectionFavorite, "click", () => {
+    void handleSelectionFavorite();
   });
 
   bindCollectionEventListener(collectionSelectionExport, "click", () => {
@@ -1549,10 +1672,15 @@ function bindCollectionUiEvents() {
       return;
     }
 
-    const card =
-      pointerEvent.target instanceof Element
-        ? /** @type {HTMLElement | null} */ (pointerEvent.target.closest(".palette-card"))
-        : null;
+    if (!(pointerEvent.target instanceof Element)) {
+      return;
+    }
+
+    if (pointerEvent.target.closest(".palette-card-favorite")) {
+      return;
+    }
+
+    const card = /** @type {HTMLElement | null} */ (pointerEvent.target.closest(".palette-card"));
     if (!card) {
       return;
     }

@@ -1,0 +1,122 @@
+/* The favourite star, shared by collection cards, the viewer action bar, and the
+   toolbar filter chip. One SVG carries both an outline and a filled path; only
+   the opacity changes on toggle, so the star never re-flows mid-animation. */
+
+.favorite-icon-outline,
+.favorite-icon-fill {
+  fill: currentcolor;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.favorite-icon-fill {
+  opacity: 0;
+}
+
+[aria-pressed="true"] .favorite-icon-outline {
+  opacity: 0;
+}
+
+[aria-pressed="true"] .favorite-icon-fill {
+  opacity: 1;
+}
+
+/* ── Card star ── */
+
+.palette-card-favorite {
+  position: absolute;
+  top: var(--space-8);
+  left: var(--space-8);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgb(0 0 0 / 42%);
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  /* Idle stars stay legible but quiet so a grid of captures does not read as a
+     wall of controls; a starred one comes forward. */
+  opacity: 0.55;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+
+.palette-card-favorite svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.palette-card-favorite:hover,
+.palette-card-favorite:focus-visible {
+  opacity: 1;
+}
+
+.palette-card-favorite:active {
+  transform: scale(0.9);
+}
+
+.palette-card.is-favorite .palette-card-favorite {
+  color: var(--color-accent);
+  opacity: 1;
+}
+
+/* Select mode owns the whole card surface: the star must not swallow the tap
+   that toggles a selection. */
+.collection-grid.is-select-mode .palette-card-favorite {
+  pointer-events: none;
+}
+
+/* ── Swatch-row marker (state only, no control) ── */
+
+.palette-card-favorite--marker {
+  top: var(--space-4);
+  left: var(--space-4);
+  width: 1.25rem;
+  height: 1.25rem;
+  background: none;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.palette-card-favorite--marker svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 65%));
+}
+
+.palette-card-favorite--marker .favorite-icon-outline {
+  opacity: 0;
+}
+
+.palette-card-favorite--marker .favorite-icon-fill {
+  opacity: 1;
+}
+
+/* ── Viewer action ── */
+
+.palette-viewer-actions .panel-icon-button.palette-action-favorite {
+  --panel-icon-button-size: 2.5rem;
+}
+
+.palette-viewer-actions .palette-action-favorite[aria-pressed="true"] {
+  color: var(--color-accent);
+}
+
+/* ── Toolbar filter chip ── */
+
+.collection-filter-button--icon {
+  padding-inline: var(--space-8) var(--space-4);
+  gap: var(--space-4);
+}
+
+.collection-filter-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  fill: currentcolor;
+  flex-shrink: 0;
+}

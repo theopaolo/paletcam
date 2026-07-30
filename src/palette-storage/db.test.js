@@ -128,11 +128,12 @@ describe("palette database migrations", () => {
     expect(palettesById.get(1).hasPhotoAsset).toBe(true);
   });
 
-  test("version 7 declares owner binding, preview, maintenance, outbox, and staging stores", () => {
-    expect(db.verno).toBe(7);
+  test("version 8 declares favorite, owner binding, preview, maintenance, outbox, and staging stores", () => {
+    expect(db.verno).toBe(8);
     expect(db.table("palettes").schema.indexes.map((index) => index.src)).toContain(
       "remoteOwnerAccountKey",
     );
+    expect(db.table("palettes").schema.indexes.map((index) => index.src)).toContain("favoritedAt");
     expect(db.table("palettePreviews").schema.primKey.src).toBe("[paletteId+variant]");
     expect(db.table("palettePreviews").schema.indexes.map((index) => index.src)).toContain(
       "paletteId",

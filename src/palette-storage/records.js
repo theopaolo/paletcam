@@ -282,6 +282,7 @@ export function parseStoredPaletteMetadataRecord(candidate) {
   const postedAt = parseStoredOptionalIsoString(candidate.postedAt);
   const moderationUpdatedAt = parseStoredOptionalIsoString(candidate.moderationUpdatedAt);
   const lastModerationCheckAt = parseStoredOptionalIsoString(candidate.lastModerationCheckAt);
+  const favoritedAt = parseStoredOptionalIsoString(candidate.favoritedAt);
   const rawRemoteCatchId =
     typeof candidate.remoteCatchId === "string" ? candidate.remoteCatchId.trim() : null;
   const hasValidRemoteCatchId =
@@ -320,6 +321,7 @@ export function parseStoredPaletteMetadataRecord(candidate) {
     postedAt === undefined ||
     moderationUpdatedAt === undefined ||
     lastModerationCheckAt === undefined ||
+    favoritedAt === undefined ||
     (candidate.hasPhotoAsset !== undefined && typeof candidate.hasPhotoAsset !== "boolean")
   ) {
     return null;
@@ -340,6 +342,7 @@ export function parseStoredPaletteMetadataRecord(candidate) {
     postedAt,
     moderationUpdatedAt,
     lastModerationCheckAt,
+    favoritedAt,
     hasPhotoAsset: candidate.hasPhotoAsset === true,
   });
 }
@@ -376,6 +379,7 @@ export function normalizeStoredPaletteRecord(
     postedAt: normalizeIsoString(palette?.postedAt),
     moderationUpdatedAt: normalizeIsoString(palette?.moderationUpdatedAt),
     lastModerationCheckAt: normalizeIsoString(palette?.lastModerationCheckAt),
+    favoritedAt: normalizeIsoString(palette?.favoritedAt),
     previewFooterLabel: normalizePreviewFooterLabel(palette?.previewFooterLabel),
     hasPhotoAsset: Boolean(
       palette?.hasPhotoAsset || photoBlob instanceof Blob || palette?.photoBlob instanceof Blob,
@@ -441,6 +445,7 @@ export function createPaletteMetadataRecord({
   postedAt = null,
   moderationUpdatedAt = null,
   lastModerationCheckAt = null,
+  favoritedAt = null,
   polaroidRenderSettings = null,
   hasPhotoAsset = false,
 }) {
@@ -461,6 +466,7 @@ export function createPaletteMetadataRecord({
     postedAt: normalizeIsoString(postedAt),
     moderationUpdatedAt: normalizeIsoString(moderationUpdatedAt),
     lastModerationCheckAt: normalizeIsoString(lastModerationCheckAt),
+    favoritedAt: normalizeIsoString(favoritedAt),
     hasPhotoAsset: Boolean(hasPhotoAsset),
   };
 

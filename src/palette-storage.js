@@ -8,6 +8,7 @@ export {
   getSavedPaletteById,
   getSavedPalettes,
   savePalette,
+  setPaletteFavorites,
   updatePaletteRemoteState,
 } from "./palette-storage/core.js";
 export { deletePalette } from "./palette-storage/deletion.js";

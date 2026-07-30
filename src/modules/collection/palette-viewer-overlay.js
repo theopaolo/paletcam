@@ -7,6 +7,8 @@ import {
   subscribeSharedPanelClosed,
   subscribeSharedPanelClosing,
 } from "../panels/panel-manager.js";
+import { isPaletteFavorite } from "./collection-filter.js";
+import { FAVORITE_ICON_MARKUP } from "./favorite-icon.js";
 import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
 import { runSessionBoundAction } from "./session-bound-action.js";
 
@@ -27,6 +29,9 @@ const cameraButton = /** @type {HTMLButtonElement | null} */ (
 );
 const deleteButton = /** @type {HTMLButtonElement | null} */ (
   document.getElementById("catchDetailsDeleteButton")
+);
+const favoriteButton = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("catchDetailsFavoriteButton")
 );
 const metaContainer = document.getElementById("catchDetailsMeta");
 const metaDate = document.getElementById("catchDetailsMetaDate");
@@ -78,6 +83,10 @@ function getPublishButtonCopy() {
 }
 
 function getActionIconMarkup(iconName) {
+  if (iconName === "favorite") {
+    return FAVORITE_ICON_MARKUP;
+  }
+
   if (iconName === "export") {
     return `
       <svg viewBox="0 0 256 256" aria-hidden="true">
@@ -231,6 +240,19 @@ function syncPublishButtonCopy() {
   syncPublishButtonGlow();
 }
 
+function syncFavoriteButton() {
+  if (!favoriteButton) {
+    return;
+  }
+
+  const isFavorite = isPaletteFavorite(getActivePalette());
+  favoriteButton.setAttribute("aria-pressed", String(isFavorite));
+  hydrateViewerActionButton(favoriteButton, {
+    label: isFavorite ? t("viewer.action.unfavoriteAria") : t("viewer.action.favoriteAria"),
+    iconName: "favorite",
+  });
+}
+
 function syncActionButtons() {
   if (shareButton) {
     shareButton.disabled = isBusy || !getCapability("canShare");
@@ -250,6 +272,12 @@ function syncActionButtons() {
 
   if (deleteButton) {
     deleteButton.disabled = isBusy || !getCapability("canDelete");
+  }
+
+  if (favoriteButton) {
+    const hideFavoriteButton = typeof activeSession?.onToggleFavorite !== "function";
+    favoriteButton.hidden = hideFavoriteButton;
+    favoriteButton.disabled = hideFavoriteButton || isBusy;
   }
 }
 
@@ -296,6 +324,7 @@ function syncViewerMeta() {
 
 function syncViewerChrome() {
   syncPublishButtonCopy();
+  syncFavoriteButton();
   syncActionButtons();
   syncViewerMeta();
 }
@@ -815,6 +844,7 @@ function handleLocaleChange() {
     iconName: "delete",
   });
   syncPublishButtonCopy();
+  syncFavoriteButton();
   syncSlideCopy();
   syncViewerMeta();
 }
@@ -863,6 +893,13 @@ function bindViewerPanelEvents() {
     },
     { signal },
   );
+  favoriteButton?.addEventListener(
+    "click",
+    () => {
+      void runAction("onToggleFavorite");
+    },
+    { signal },
+  );
   cameraButton?.addEventListener(
     "click",
     () => {
@@ -895,6 +932,7 @@ export function openPaletteViewerOverlay({
   onExportVerso,
   onPublish,
   onDelete,
+  onToggleFavorite,
   getPublishAction,
   canShare,
   canExport,
@@ -929,6 +967,7 @@ export function openPaletteViewerOverlay({
     onExportVerso,
     onPublish,
     onDelete,
+    onToggleFavorite,
     getPublishAction,
     canShare,
     canExport,

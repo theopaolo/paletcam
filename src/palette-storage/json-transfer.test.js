@@ -34,6 +34,57 @@ describe("palette-storage/json-transfer", () => {
     expect(maximumEncodedPhotoBytes + 10 * 1024 * 1024).toBeLessThan(PALETTE_IMPORT_MAX_JSON_BYTES);
   });
 
+  test("keeps favorites device-local by excluding them from the exported file", async () => {
+    const json = await serializePalettesForExport([
+      {
+        id: 42,
+        timestamp: "2026-04-30T10:00:00.000Z",
+        colors: [{ r: 12, g: 34, b: 56 }],
+        photoBlob: JPEG_BLOB,
+        favoritedAt: "2026-04-30T09:30:00.000Z",
+      },
+    ]);
+
+    expect("favoritedAt" in JSON.parse(json).palettes[0]).toBe(false);
+    expect(json).not.toContain('"favoritedAt"');
+  });
+
+  test("never restores a favorite carried by a backup file", async () => {
+    const [imported] = await deserializePalettesFromImport(
+      JSON.stringify({
+        version: 2,
+        palettes: [
+          {
+            timestamp: "2026-04-30T10:00:00.000Z",
+            colors: [{ r: 12, g: 34, b: 56 }],
+            photoBlob: JPEG_DATA_URL,
+            favoritedAt: "2026-04-30T09:30:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    expect(imported.favoritedAt).toBeNull();
+  });
+
+  test("rejects a malformed favorite timestamp instead of importing it", async () => {
+    await expect(
+      deserializePalettesFromImport(
+        JSON.stringify({
+          version: 2,
+          palettes: [
+            {
+              timestamp: "2026-04-30T10:00:00.000Z",
+              colors: [{ r: 12, g: 34, b: 56 }],
+              photoBlob: JPEG_DATA_URL,
+              favoritedAt: "not-a-date",
+            },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(/favorite date/);
+  });
+
   test("serializes palettes without persisted ids or preview-only fields", async () => {
     const json = await serializePalettesForExport([
       {
@@ -70,6 +121,7 @@ describe("palette-storage/json-transfer", () => {
     expect("previewFooterLabel" in payload.palettes[0]).toBe(false);
     expect("hasPhotoAsset" in payload.palettes[0]).toBe(false);
     for (const field of [
+      "favoritedAt",
       "remoteCatchId",
       "remoteOwnerAccountKey",
       "moderationStatus",
@@ -313,6 +365,7 @@ describe("palette-storage/json-transfer", () => {
       captureMode: "ral",
       ralMatch: { code: "RAL 1000", name: "Green beige", r: 205, g: 186, b: 136, deltaE: 1.5 },
       polaroidRenderSettings: { footerLabel: "Studio", showColorNames: true },
+      favoritedAt: null,
       remoteCatchId: null,
       remoteOwnerAccountKey: null,
       moderationStatus: null,

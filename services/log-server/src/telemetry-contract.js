@@ -182,6 +182,10 @@ const EVENT_FIELDS = Object.freeze({
     errorName: "error-name",
     status: "http-status",
   },
+  "Failed to update palette favorites.": {
+    errorCode: "error-code",
+    errorName: "error-name",
+  },
   "Failed to update palette publication in bulk.": {
     action: "publication-action",
     errorCode: "error-code",

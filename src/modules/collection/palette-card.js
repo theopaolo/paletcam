@@ -2,6 +2,8 @@ import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
 import { reportAppError } from "../error-reporting.js";
 import { loadImageElementBlobSource } from "../image-element-loader.js";
+import { isPaletteFavorite } from "./collection-filter.js";
+import { FAVORITE_ICON_MARKUP } from "./favorite-icon.js";
 import {
   getPaletteGalleryPreviewAsset,
   getPalettePreviewDebugInfo,
@@ -95,6 +97,68 @@ function createSelectionIndicator() {
   el.className = "palette-card-select-indicator";
   el.setAttribute("aria-hidden", "true");
   return el;
+}
+
+/** @param {HTMLElement} button @param {boolean} isFavorite */
+function applyFavoriteButtonState(button, isFavorite) {
+  button.setAttribute("aria-pressed", String(isFavorite));
+  button.setAttribute(
+    "aria-label",
+    isFavorite ? t("collection.favorite.remove") : t("collection.favorite.add"),
+  );
+}
+
+/**
+ * Reflects a new favourite state on an already-rendered card.
+ * @param {Element | null} card @param {boolean} isFavorite
+ */
+export function setPaletteCardFavoriteState(card, isFavorite) {
+  if (!card) {
+    return false;
+  }
+
+  card.classList.toggle("is-favorite", isFavorite);
+  const button = card.querySelector("button.palette-card-favorite");
+  if (button instanceof HTMLElement) {
+    applyFavoriteButtonState(button, isFavorite);
+  }
+  return true;
+}
+
+/**
+ * Swatch rows are too small to host a reliable tap target, so they carry a
+ * state marker instead of a control. The star stays reachable from the viewer
+ * and from bulk selection.
+ */
+function createFavoriteMarker() {
+  const marker = document.createElement("span");
+  marker.className = "palette-card-favorite palette-card-favorite--marker";
+  marker.setAttribute("aria-hidden", "true");
+  marker.innerHTML = FAVORITE_ICON_MARKUP;
+  return marker;
+}
+
+/**
+ * @param {Palette} palette
+ * @param {((paletteId: number, isFavorite: boolean) => unknown) | undefined} onToggleFavorite
+ */
+function createFavoriteButton(palette, onToggleFavorite) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "palette-card-favorite";
+  button.innerHTML = FAVORITE_ICON_MARKUP;
+  applyFavoriteButtonState(button, isPaletteFavorite(palette));
+
+  button.addEventListener("click", (event) => {
+    // The card trigger and the grid's select-mode handler both listen higher up;
+    // starring must not open the viewer or toggle a selection.
+    event.preventDefault();
+    event.stopPropagation();
+    const nextFavorite = button.getAttribute("aria-pressed") !== "true";
+    void onToggleFavorite?.(palette.id, nextFavorite);
+  });
+
+  return button;
 }
 
 function createPublicationBadge(palette) {
@@ -442,11 +506,13 @@ function bindLazyPreviewLoad({
  * @param {object} config
  * @param {Palette} config.palette
  * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
+ * @param {(paletteId: number, isFavorite: boolean) => unknown} [config.onToggleFavorite]
  * @param {Element | null} [config.scrollRoot]
  */
-export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) {
+export function createPaletteCard({ palette, onOpenViewer, onToggleFavorite, scrollRoot = null }) {
   const card = document.createElement("div");
   card.className = "palette-card";
+  card.classList.toggle("is-favorite", isPaletteFavorite(palette));
   card.dataset.paletteId = String(palette.id);
   applyPaletteBloomToCard(card, palette);
 
@@ -467,7 +533,12 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   previewLoader.setAttribute("aria-hidden", "true");
 
   trigger.append(previewImage, previewLoader);
-  card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
+  card.append(
+    trigger,
+    createFavoriteButton(palette, onToggleFavorite),
+    createPublicationBadge(palette),
+    createSelectionIndicator(),
+  );
 
   if (palette.captureMode === "ral") {
     const ralIndicator = document.createElement("span");
@@ -501,6 +572,7 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
   const card = document.createElement("div");
   card.className = "palette-card palette-card--swatch";
+  card.classList.toggle("is-favorite", isPaletteFavorite(palette));
   card.dataset.paletteId = String(palette.id);
   card.style.setProperty("--palette-card-span", String(Math.max(2, palette.colors.length + 1)));
 
@@ -523,7 +595,10 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
   previewLoader.className = "palette-card-loader";
   previewLoader.setAttribute("aria-hidden", "true");
 
-  mediaTile.append(previewImage, previewLoader);
+  // Swatch cards are `display: contents`, so the card itself is not a box and
+  // cannot anchor an absolutely-positioned child. The media tile is the row's
+  // only real positioned element, so the marker rides there.
+  mediaTile.append(previewImage, previewLoader, createFavoriteMarker());
   trigger.appendChild(mediaTile);
 
   palette.colors.forEach((color) => {

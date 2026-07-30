@@ -237,3 +237,17 @@ db.version(7)
         }
       });
   });
+
+// `favoritedAt` holds an ISO string, never a boolean: IndexedDB rejects booleans
+// as index keys. Unfavorited records keep it `null`, which leaves them out of the
+// index entirely — so the index doubles as the favourites-only, most-recently-
+// starred-first query path. No upgrade callback is needed because every read goes
+// through `normalizeStoredPaletteRecord`, which defaults the field to `null`.
+db.version(8).stores({
+  palettes: "++id, timestamp, remoteCatchId, remoteOwnerAccountKey, moderationStatus, favoritedAt",
+  paletteAssets: "&paletteId",
+  palettePreviews: "[paletteId+variant], paletteId",
+  paletteStorageMetadata: "&key",
+  communityDeleteOutbox: "&key, accountKey, [accountKey+nextAttemptAt], leaseExpiresAt",
+  paletteImportStaging: "[sessionId+ordinal], sessionId",
+});

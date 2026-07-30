@@ -7,10 +7,12 @@
  * @property {HTMLElement | null} viewSwatchButton
  * @property {HTMLElement | null} collapseAllButton
  * @property {HTMLElement | null} filterPublishedButton
+ * @property {HTMLElement | null} filterFavoritesButton
  * @property {HTMLElement | null} selectionBar
  * @property {HTMLElement | null} selectionCount
  * @property {HTMLElement | null} selectionCancelButton
  * @property {HTMLElement | null} selectionDeleteButton
+ * @property {HTMLElement | null} selectionFavoriteButton
  * @property {HTMLElement | null} selectionExportButton
  * @property {HTMLElement | null} selectionPublishButton
  * @property {HTMLElement | null} selectionUnpublishButton
@@ -28,10 +30,12 @@ export function createCollectionView(documentRef) {
     viewSwatchButton: documentRef.getElementById("collectionViewSwatchButton"),
     collapseAllButton: documentRef.getElementById("collectionCollapseAllButton"),
     filterPublishedButton: documentRef.getElementById("collectionFilterPublishedButton"),
+    filterFavoritesButton: documentRef.getElementById("collectionFilterFavoritesButton"),
     selectionBar: documentRef.getElementById("collectionSelectionBar"),
     selectionCount: documentRef.getElementById("collectionSelectionCount"),
     selectionCancelButton: documentRef.getElementById("collectionSelectionCancel"),
     selectionDeleteButton: documentRef.getElementById("collectionSelectionDelete"),
+    selectionFavoriteButton: documentRef.getElementById("collectionSelectionFavorite"),
     selectionExportButton: documentRef.getElementById("collectionSelectionExport"),
     selectionPublishButton: documentRef.getElementById("collectionSelectionPublish"),
     selectionUnpublishButton: documentRef.getElementById("collectionSelectionUnpublish"),

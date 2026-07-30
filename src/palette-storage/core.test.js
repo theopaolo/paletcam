@@ -120,6 +120,58 @@ afterEach(() => {
 });
 
 describe("palette-storage/core", () => {
+  test("stars every existing palette in one transaction and reports the applied timestamp", async () => {
+    const { bulkUpdate, module, transaction } = await loadCoreModule({
+      storedPalettes: [
+        { id: 7, timestamp: "2026-05-01T10:00:00.000Z", colors: [] },
+        { id: 9, timestamp: "2026-05-02T10:00:00.000Z", colors: [] },
+      ],
+    });
+
+    const result = await module.setPaletteFavorites([7, 9], true);
+
+    expect(transaction).toHaveBeenCalled();
+    expect(result.updatedIds).toEqual([7, 9]);
+    expect(typeof result.favoritedAt).toBe("string");
+    expect(bulkUpdate.mock.calls[0][0]).toEqual([
+      { key: 7, changes: { favoritedAt: result.favoritedAt } },
+      { key: 9, changes: { favoritedAt: result.favoritedAt } },
+    ]);
+  });
+
+  test("unstarring clears the timestamp so the record leaves the favorites index", async () => {
+    const { bulkUpdate, module } = await loadCoreModule({
+      storedPalettes: [{ id: 7, timestamp: "2026-05-01T10:00:00.000Z", colors: [] }],
+    });
+
+    const result = await module.setPaletteFavorites([7], false);
+
+    expect(result.favoritedAt).toBeNull();
+    expect(bulkUpdate.mock.calls[0][0]).toEqual([{ key: 7, changes: { favoritedAt: null } }]);
+  });
+
+  test("skips missing palettes instead of failing a stale selection", async () => {
+    const { bulkUpdate, module } = await loadCoreModule({
+      storedPalettes: [{ id: 7, timestamp: "2026-05-01T10:00:00.000Z", colors: [] }],
+    });
+
+    const result = await module.setPaletteFavorites([7, 404], true);
+
+    expect(result.updatedIds).toEqual([7]);
+    expect(bulkUpdate.mock.calls[0][0]).toEqual([
+      { key: 7, changes: { favoritedAt: result.favoritedAt } },
+    ]);
+  });
+
+  test("writes nothing when no selected palette still exists", async () => {
+    const { bulkUpdate, module } = await loadCoreModule({ storedPalettes: [] });
+
+    const result = await module.setPaletteFavorites([404], true);
+
+    expect(result.updatedIds).toEqual([]);
+    expect(bulkUpdate).not.toHaveBeenCalled();
+  });
+
   test("keeps collection reads read-only when legacy render settings are missing", async () => {
     const { bulkPut, module, update } = await loadCoreModule({
       storedPalettes: [

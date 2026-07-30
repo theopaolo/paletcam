@@ -52,6 +52,7 @@ const VALID_MODERATION_STATUSES = new Set(["TO_MODERATE", "PUBLIC", "REJECTED", 
 const VALID_IMPORTED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const OMITTED_EXPORT_FIELDS = [
   "id",
+  "favoritedAt",
   "previewGalleryBlob",
   "previewGalleryFooterLabel",
   "previewViewerBlob",
@@ -576,8 +577,10 @@ function normalizeImportedPalette(entry, { maxPhotoBytes, maxPhotoPixels }) {
     throw new Error("Invalid remote owner account key in palette backup.");
   }
 
-  // Keep validating legacy authority metadata even though it is not trusted or
-  // restored. This preserves a strict, deterministic import boundary.
+  // Keep validating device-local and legacy authority metadata even though none
+  // of it is trusted or restored. This preserves a strict, deterministic import
+  // boundary: a malformed file still fails closed instead of being half-read.
+  normalizeOptionalIsoString(entry.favoritedAt, "favorite date");
   normalizeOptionalIsoString(entry.postedAt, "posted date");
   normalizeOptionalIsoString(entry.moderationUpdatedAt, "moderation update date");
   normalizeOptionalIsoString(entry.lastModerationCheckAt, "moderation check date");
@@ -613,6 +616,10 @@ function normalizeImportedPalette(entry, { maxPhotoBytes, maxPhotoPixels }) {
               ? { showColorNames: polaroidRenderSettings.showColorNames }
               : {}),
           },
+    // Favourites are a device-local shortlist, not part of the capture. They are
+    // neither written to a backup nor read back from one, so importing the same
+    // file on another device never disturbs the favourites already there.
+    favoritedAt: null,
     // A backup is portable user data, not proof that the importing browser's
     // current account owns a server-side catch. Validate legacy fields above so
     // malformed files still fail closed, then deliberately remove publication

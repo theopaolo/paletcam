@@ -23,6 +23,7 @@ import {
 } from "./records.js";
 
 const MAX_BULK_REMOTE_STATE_UPDATES = 2_000;
+const MAX_BULK_FAVORITE_UPDATES = 2_000;
 const MAX_REPORTED_INVALID_PALETTE_RECORDS = 2_000;
 const INVALID_PALETTE_REPORT_THROTTLE_MS = 60_000;
 
@@ -321,6 +322,53 @@ export async function updatePaletteRemoteState(id, patch = {}) {
       includeClientLog: false,
     });
     throw new Error("Unable to update palette remote state.", { cause: error });
+  }
+}
+
+/**
+ * Stars or unstars a bounded set of palettes in one transaction. Missing records
+ * are skipped rather than throwing, so a stale selection stays harmless.
+ * @param {Array<number | string>} paletteIds
+ * @param {boolean} isFavorite
+ * @returns {Promise<{favoritedAt: string | null, updatedIds: number[]}>}
+ */
+export async function setPaletteFavorites(paletteIds, isFavorite) {
+  if (!Array.isArray(paletteIds)) {
+    throw new TypeError("Palette favorite updates must be an array.");
+  }
+  if (paletteIds.length > MAX_BULK_FAVORITE_UPDATES) {
+    throw new RangeError(
+      `Palette favorite updates support at most ${MAX_BULK_FAVORITE_UPDATES} entries.`,
+    );
+  }
+
+  const keys = [...new Set(paletteIds.map((paletteId) => getPaletteIdOrThrow(paletteId)))];
+  const favoritedAt = isFavorite ? new Date().toISOString() : null;
+  if (keys.length === 0) {
+    return { favoritedAt, updatedIds: [] };
+  }
+
+  try {
+    /** @type {number[]} */
+    let updatedIds = [];
+    await db.transaction("rw", db.palettes, async () => {
+      const currentRows = await db.palettes.bulkGet(keys);
+      const existingKeys = keys.filter((_key, index) => currentRows[index] !== undefined);
+      if (existingKeys.length === 0) {
+        return;
+      }
+
+      await db.palettes.bulkUpdate(existingKeys.map((key) => ({ key, changes: { favoritedAt } })));
+      updatedIds = existingKeys;
+    });
+    return { favoritedAt, updatedIds };
+  } catch (error) {
+    recordIndexedDbFailure("update", error);
+    reportAppError(error, {
+      consoleMessage: "Failed to update palette favorites:",
+      includeClientLog: false,
+    });
+    throw new Error("Unable to update palette favorites.", { cause: error });
   }
 }
 

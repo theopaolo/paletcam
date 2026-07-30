@@ -69,6 +69,8 @@ interface Palette {
   postedAt: string | null;
   moderationUpdatedAt: string | null;
   lastModerationCheckAt: string | null;
+  /** ISO timestamp of when the capture was starred, or `null` when it is not a favourite. */
+  favoritedAt: string | null;
 }
 
 type PalettePreviewVariant = "gallery" | "viewer";
@@ -627,6 +629,7 @@ interface PaletteViewerOpenOptions {
   onExportVerso?: (palette: Palette) => void | Promise<void>;
   onPublish?: (palette: Palette) => void | Promise<void>;
   onDelete?: (palette: Palette) => void | Promise<void>;
+  onToggleFavorite?: (palette: Palette) => unknown;
   getPublishAction?: (palette: Palette) => PublicationAction;
   canShare?: (palette: Palette) => boolean;
   canExport?: (palette: Palette) => boolean;
