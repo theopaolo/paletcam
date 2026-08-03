@@ -1,5 +1,6 @@
 import { ensurePaletteMasterPhotoBlob } from "../../palette-storage.js";
 import { isIOSDevice } from "../platform.js";
+import { embedPaletteMetadata } from "./palette-image-metadata.js";
 import { hasPaletteMasterPhoto, renderPalettePolaroidBlob } from "./palette-polaroid-renderer.js";
 import {
   ensureSavedPalettePreviewBlob,
@@ -237,13 +238,17 @@ export function getStoredPaletteGalleryPreviewAssetSync(palette) {
   return asset;
 }
 
+/**
+ * Only the leaving copies carry the palette packet — stored previews are
+ * re-rendered from the record anyway, so metadata there would be dead weight.
+ */
 async function renderHighQualityPalettePolaroidBlob(palette) {
   const masterPhotoBlob = await ensurePaletteMasterPhotoBlob(palette);
   if (!(masterPhotoBlob instanceof Blob)) {
     return null;
   }
 
-  return renderPalettePolaroidBlob(
+  const blob = await renderPalettePolaroidBlob(
     { ...palette, photoBlob: masterPhotoBlob },
     {
       maxWidth: POLAROID_EXPORT_MAX_WIDTH,
@@ -251,6 +256,8 @@ async function renderHighQualityPalettePolaroidBlob(palette) {
       quality: POLAROID_EXPORT_QUALITY,
     },
   );
+
+  return embedPaletteMetadata(blob, palette?.colors);
 }
 
 /**

@@ -11,6 +11,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Versioned, size-bounded palette backup import/export with image-container validation and transactional rollback.
 - An exact SHA-256 manifest for the complete 216-image preprod reference corpus and a cardinality-enforced preprod PWA report.
 - Bounded streaming reads across active and rotated daily log segments, plus persistent-volume readiness reporting for the log service.
+- Exported images carry their palette as an XMP packet — a JSON array of hex colours and nothing else — so another application reads the colours from the file instead of sampling pixels. The packet rides in the WebP `XMP ` chunk, the JPEG `APP1` segment, or the PNG `iTXt` chunk depending on the export. The app only writes it, never reads it back. See `docs/palette-image-metadata.md`. Stored previews stay untouched, and platforms that re-encode on upload still strip it.
 - Favourite captures, marked from the viewer or a multi-selection, with a toolbar filter that narrows the collection to starred captures. Gallery cards mark the state with a gold frame rather than an icon, so the grid gains no extra control. Favourites are device-local: they are never written to a backup and never restored from one, so importing a file leaves the shortlist on each device untouched.
 
 ### Changed

@@ -1,5 +1,6 @@
 import { toColorNameHex } from "../color-name-api.js";
 import { toRgbCss } from "../color-format.js";
+import { embedPaletteMetadata } from "./palette-image-metadata.js";
 
 /**
  * Sanzo Wada inspired palette verso: a cross plate for 2-4 colors, a
@@ -382,7 +383,9 @@ export async function renderPaletteVersoBlob(palette, names = []) {
     drawStripesExport(context, versoData);
   }
 
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), "image/png");
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob((result) => resolve(result), "image/png");
   });
+
+  return embedPaletteMetadata(blob, palette?.colors);
 }
