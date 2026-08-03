@@ -84,7 +84,6 @@ const {
   viewListButton: collectionViewListButton,
   viewGridButton: collectionViewGridButton,
   viewSwatchButton: collectionViewSwatchButton,
-  collapseAllButton: collectionCollapseAllButton,
   filterPublishedButton: collectionFilterPublishedButton,
   filterFavoritesButton: collectionFilterFavoritesButton,
   selectionBar: collectionSelectionBar,
@@ -113,6 +112,11 @@ const collectionFilterButtons = new Map([
   ["published", collectionFilterPublishedButton],
   ["favorites", collectionFilterFavoritesButton],
 ]);
+const collectionViewOptions = [
+  { mode: "list", button: collectionViewListButton, labelKey: "collection.view.listAria" },
+  { mode: "grid", button: collectionViewGridButton, labelKey: "collection.view.gridAria" },
+  { mode: "swatch", button: collectionViewSwatchButton, labelKey: "collection.view.swatchAria" },
+];
 let longPressTimer = null;
 let longPressStartPos = null;
 let activeDayVirtualizer = null;
@@ -349,38 +353,29 @@ function setCollectionPanelTitle(title) {
 }
 
 function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
-  const isListView = currentCollectionViewMode === "list";
-  const isSwatchView = currentCollectionViewMode === "swatch";
-  const dayIds = getCollectionDayIds(dayGroups);
-  const hasCollapsibleDays = !isSwatchView && dayIds.length > 0;
-  const areAllDaysCollapsed = areAllCollectionDaysCollapsed(dayGroups, collapsedDayIds);
-  const collapseAllLabel = areAllDaysCollapsed
+  const hasCollapsibleDays =
+    currentCollectionViewMode !== "swatch" && getCollectionDayIds(dayGroups).length > 0;
+  const collapseAllLabel = areAllCollectionDaysCollapsed(dayGroups, collapsedDayIds)
     ? t("collection.expandAll")
     : t("collection.collapseAll");
 
-  if (collectionViewListButton instanceof HTMLButtonElement) {
-    collectionViewListButton.setAttribute("aria-pressed", String(isListView));
-    collectionViewListButton.classList.toggle("is-active", isListView);
-  }
+  collectionViewOptions.forEach(({ mode, button, labelKey }) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
 
-  if (collectionViewGridButton instanceof HTMLButtonElement) {
-    const isActive = currentCollectionViewMode === "grid";
-    collectionViewGridButton.setAttribute("aria-pressed", String(isActive));
-    collectionViewGridButton.classList.toggle("is-active", isActive);
-  }
+    const isActive = currentCollectionViewMode === mode;
+    button.setAttribute("aria-pressed", String(isActive));
+    button.classList.toggle("is-active", isActive);
 
-  if (collectionViewSwatchButton instanceof HTMLButtonElement) {
-    collectionViewSwatchButton.setAttribute("aria-pressed", String(isSwatchView));
-    collectionViewSwatchButton.classList.toggle("is-active", isSwatchView);
-  }
-
-  if (collectionCollapseAllButton instanceof HTMLButtonElement) {
-    collectionCollapseAllButton.hidden = isSwatchView;
-    collectionCollapseAllButton.disabled = !hasCollapsibleDays;
-    collectionCollapseAllButton.classList.toggle("is-expand-mode", areAllDaysCollapsed);
-    collectionCollapseAllButton.setAttribute("aria-label", collapseAllLabel);
-    collectionCollapseAllButton.title = collapseAllLabel;
-  }
+    // Pressing the option already in use folds or unfolds the day groups, so
+    // that is what it announces; the labels are recomputed here rather than
+    // read back from the markup, which lets a locale change refresh them.
+    const label =
+      isActive && hasCollapsibleDays ? `${t(labelKey)} — ${collapseAllLabel}` : t(labelKey);
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  });
 
   syncCollectionFilterChips();
 }
@@ -665,7 +660,11 @@ function applyFavoriteToLoadedPalettes(paletteIds, favoritedAt) {
   });
 }
 
-/** @param {number[]} updatedIds @param {boolean} isFavorite */
+/**
+ * Cards show the state as a hairline frame, never as a control, so a change only
+ * has to retint the affected cards and the filter chip.
+ * @param {number[]} updatedIds @param {boolean} isFavorite
+ */
 function syncCollectionUiAfterFavoriteChange(updatedIds, isFavorite) {
   // Unstarring under an active favourites filter drops the card out of view, so
   // the list has to be rebuilt rather than patched in place.
@@ -766,7 +765,6 @@ function createCollectionPaletteCard(palette) {
   return createPaletteCard({
     palette,
     onOpenViewer: openCollectionPaletteViewer,
-    onToggleFavorite: handleToggleFavorite,
     scrollRoot: collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null,
   });
 }
@@ -966,6 +964,26 @@ function handleCollectionSettingsChange(settings) {
 
   syncCollectionPanelChrome();
   refreshPaletteViewerOverlay();
+}
+
+/**
+ * The view switch is the toolbar's only icon control, so the option already in
+ * use carries the collapse-all a separate chevron used to own: tapping it folds
+ * every day group, tapping again unfolds. Swatch view has no day groups, so a
+ * repeat tap there does nothing.
+ * @param {string} viewMode
+ */
+function handleCollectionViewOptionClick(viewMode) {
+  if (currentCollectionViewMode !== viewMode) {
+    updateAppSettings({ collectionViewMode: viewMode });
+    return;
+  }
+
+  if (viewMode === "swatch") {
+    return;
+  }
+
+  handleCollapseAllDays();
 }
 
 function handleCollapseAllDays() {
@@ -1616,20 +1634,10 @@ function bindCollectionUiEvents() {
     return;
   }
 
-  bindCollectionEventListener(collectionViewListButton, "click", () => {
-    updateAppSettings({ collectionViewMode: "list" });
-  });
-
-  bindCollectionEventListener(collectionViewGridButton, "click", () => {
-    updateAppSettings({ collectionViewMode: "grid" });
-  });
-
-  bindCollectionEventListener(collectionViewSwatchButton, "click", () => {
-    updateAppSettings({ collectionViewMode: "swatch" });
-  });
-
-  bindCollectionEventListener(collectionCollapseAllButton, "click", () => {
-    handleCollapseAllDays();
+  collectionViewOptions.forEach(({ mode, button }) => {
+    bindCollectionEventListener(button, "click", () => {
+      handleCollectionViewOptionClick(mode);
+    });
   });
 
   collectionFilterButtons.forEach((filterButton, filterName) => {
@@ -1673,10 +1681,6 @@ function bindCollectionUiEvents() {
     }
 
     if (!(pointerEvent.target instanceof Element)) {
-      return;
-    }
-
-    if (pointerEvent.target.closest(".palette-card-favorite")) {
       return;
     }
 

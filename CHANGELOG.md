@@ -11,12 +11,13 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Versioned, size-bounded palette backup import/export with image-container validation and transactional rollback.
 - An exact SHA-256 manifest for the complete 216-image preprod reference corpus and a cardinality-enforced preprod PWA report.
 - Bounded streaming reads across active and rotated daily log segments, plus persistent-volume readiness reporting for the log service.
-- Favourite captures, marked from a card, the viewer, or a multi-selection, with a toolbar filter that narrows the collection to starred captures. Favourites are device-local: they are never written to a backup and never restored from one, so importing a file leaves the shortlist on each device untouched.
+- Favourite captures, marked from the viewer or a multi-selection, with a toolbar filter that narrows the collection to starred captures. Gallery cards mark the state with a gold frame rather than an icon, so the grid gains no extra control. Favourites are device-local: they are never written to a backup and never restored from one, so importing a file leaves the shortlist on each device untouched.
 
 ### Changed
 
 - Database schema advances to version 8. Versions 1–7 upgrade forward in bounded transactions; production rollback must use a forward fix rather than an older app that cannot open the newest schema. Version 8 only adds a sparse `favoritedAt` index to `palettes`, so no records are rewritten.
 - Collection filtering moved behind a composable filter state, so the published and favourites chips narrow the list together instead of one replacing the other.
+- The collection toolbar holds a single row on a phone instead of two stacked ones: the collapse-all button is gone, and pressing the view option already in use folds or unfolds every day group instead. Day headers still fold one group at a time, and swatch view, which has no groups, ignores the repeat press.
 - Backup schema remains version 2. Existing valid version-2 backups remain compatible; unsupported or unsafe files fail before writes.
 - Incremental backup import/export now accepts a 768 MiB JSON file containing up to 512 MiB of decoded photos, allowing large photo collections without materializing the complete backup in memory.
 - Legacy backups with up to 16 colors per palette can be restored without changing the current seven-color capture range.

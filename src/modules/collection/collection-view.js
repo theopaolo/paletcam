@@ -5,7 +5,6 @@
  * @property {HTMLElement | null} viewListButton
  * @property {HTMLElement | null} viewGridButton
  * @property {HTMLElement | null} viewSwatchButton
- * @property {HTMLElement | null} collapseAllButton
  * @property {HTMLElement | null} filterPublishedButton
  * @property {HTMLElement | null} filterFavoritesButton
  * @property {HTMLElement | null} selectionBar
@@ -28,7 +27,6 @@ export function createCollectionView(documentRef) {
     viewListButton: documentRef.getElementById("collectionViewListButton"),
     viewGridButton: documentRef.getElementById("collectionViewGridButton"),
     viewSwatchButton: documentRef.getElementById("collectionViewSwatchButton"),
-    collapseAllButton: documentRef.getElementById("collectionCollapseAllButton"),
     filterPublishedButton: documentRef.getElementById("collectionFilterPublishedButton"),
     filterFavoritesButton: documentRef.getElementById("collectionFilterFavoritesButton"),
     selectionBar: documentRef.getElementById("collectionSelectionBar"),

@@ -1,5 +1,7 @@
-/* The favourite star, shared by collection cards, the viewer action bar, and the
-   toolbar filter chip. One SVG carries both an outline and a filled path; only
+/* The favourite star, shared by the viewer action bar and the toolbar filter
+   chip, plus the hairline frame that marks a starred capture in the gallery.
+   Gallery cards carry no icon: a grid of captures should read as images, not as
+   a wall of controls. One SVG carries both an outline and a filled path; only
    the opacity changes on toggle, so the star never re-flows mid-animation. */
 
 .favorite-icon-outline,
@@ -20,81 +22,38 @@
   opacity: 1;
 }
 
-/* ── Card star ── */
+/* ── Gallery card frame ── */
 
-.palette-card-favorite {
+/* The frame is the only signal a starred capture gets in the grid, so it runs
+   at full strength: a 1px line at partial opacity vanished against the white
+   card edge while scrolling.
+
+   Swatch cards are `display: contents`, so a pseudo-element on the card would
+   become a stray grid cell. Their frame goes on the media tile, the row's only
+   real box. */
+.palette-card:not(.palette-card--swatch).is-favorite::after,
+.palette-card--swatch.is-favorite .palette-swatch-media::after {
+  content: "";
   position: absolute;
-  top: var(--space-8);
-  left: var(--space-8);
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: rgb(0 0 0 / 42%);
-  color: var(--color-text-primary);
-  cursor: pointer;
-
-  /* Idle stars stay legible but quiet so a grid of captures does not read as a
-     wall of controls; a starred one comes forward. */
-  opacity: 0.55;
-  transition:
-    opacity var(--duration-fast) var(--easing-standard),
-    transform var(--duration-fast) var(--easing-standard);
-}
-
-.palette-card-favorite svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.palette-card-favorite:hover,
-.palette-card-favorite:focus-visible {
-  opacity: 1;
-}
-
-.palette-card-favorite:active {
-  transform: scale(0.9);
-}
-
-.palette-card.is-favorite .palette-card-favorite {
-  color: var(--color-accent);
-  opacity: 1;
-}
-
-/* Select mode owns the whole card surface: the star must not swallow the tap
-   that toggles a selection. */
-.collection-grid.is-select-mode .palette-card-favorite {
+  inset: 0;
+  z-index: 2;
+  border: 2px solid var(--color-accent);
   pointer-events: none;
 }
 
-/* ── Swatch-row marker (state only, no control) ── */
-
-.palette-card-favorite--marker {
-  top: var(--space-4);
-  left: var(--space-4);
-  width: 1.25rem;
-  height: 1.25rem;
-  background: none;
-  pointer-events: none;
-  opacity: 0;
-}
-
-.palette-card-favorite--marker svg {
-  width: 0.75rem;
-  height: 0.75rem;
-  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 65%));
-}
-
-.palette-card-favorite--marker .favorite-icon-outline {
-  opacity: 0;
-}
-
-.palette-card-favorite--marker .favorite-icon-fill {
-  opacity: 1;
+/* Where the mask is available the same hairline carries the metal gradient, so
+   it catches light down its length instead of reading as a flat rule. Guarded
+   because without the mask the gradient would fill the card, not its edge. */
+@supports (mask-composite: exclude) {
+  .palette-card:not(.palette-card--swatch).is-favorite::after,
+  .palette-card--swatch.is-favorite .palette-swatch-media::after {
+    border-color: transparent;
+    background: var(--gradient-accent-metal) border-box;
+    mask:
+      linear-gradient(#000 0 0) padding-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
 }
 
 /* ── Viewer action ── */

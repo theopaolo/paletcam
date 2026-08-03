@@ -44,7 +44,6 @@ describe("collection view factory", () => {
       "collectionViewListButton",
       "collectionViewGridButton",
       "collectionViewSwatchButton",
-      "collectionCollapseAllButton",
       "collectionFilterPublishedButton",
       "collectionFilterFavoritesButton",
       "collectionSelectionBar",

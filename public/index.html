@@ -163,24 +163,6 @@
         <div class="collection-panel-footer">
           <div class="collection-panel-toolbar toolbar">
             <button
-              class="panel-icon-button panel-icon-button--toolbar collection-collapse-button"
-              id="collectionCollapseAllButton"
-              type="button"
-              aria-label="Tout replier"
-              data-i18n-aria-label="collection.collapseAll"
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" fill="none">
-                <path
-                  d="M3.5 7.2 8 2.9l4.5 4.3M3.5 13.1 8 8.8l4.5 4.3"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-
-            <button
               class="collection-toolbar-button collection-filter-button collection-filter-button--icon panel-action-button"
               id="collectionFilterFavoritesButton"
               type="button"
@@ -209,6 +191,8 @@
               Publiées
             </button>
 
+            <!-- Re-tapping the option already in use folds or unfolds every day
+                 group, which is why there is no separate collapse-all control. -->
             <div
               class="collection-view-switch"
               role="group"
