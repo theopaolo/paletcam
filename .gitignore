@@ -1,4 +1,5 @@
 node_modules/
+design/
 .release-gate-receipt.json
 dist/
 .DS_Store
