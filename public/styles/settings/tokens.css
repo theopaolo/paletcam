@@ -162,4 +162,8 @@
   /* === Motion === */
   --duration-fast: 0.2s;
   --easing-standard: ease;
+
+  /* Symmetric curve for motion that leaves and lands at rest, where the fast
+     start of --easing-standard reads as a snap (the catch flip). */
+  --easing-in-out: ease-in-out;
 }

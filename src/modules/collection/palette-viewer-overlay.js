@@ -33,6 +33,9 @@ const deleteButton = /** @type {HTMLButtonElement | null} */ (
 const favoriteButton = /** @type {HTMLButtonElement | null} */ (
   document.getElementById("catchDetailsFavoriteButton")
 );
+const flipButton = /** @type {HTMLButtonElement | null} */ (
+  document.getElementById("catchDetailsFlipButton")
+);
 const metaContainer = document.getElementById("catchDetailsMeta");
 const metaDate = document.getElementById("catchDetailsMetaDate");
 const metaPosition = document.getElementById("catchDetailsMetaPosition");
@@ -152,6 +155,14 @@ function getActivePalette() {
   }
 
   return activeSession.palettes[activeSession.activeIndex] ?? null;
+}
+
+function getActiveSlideState() {
+  if (!activeSession) {
+    return null;
+  }
+
+  return activeSession.slideStates.get(activeSession.activeIndex) ?? null;
 }
 
 function getPublishAction(palette = getActivePalette()) {
@@ -322,10 +333,25 @@ function syncViewerMeta() {
   }
 }
 
+/* One flip control drives whichever slide is on screen; it mirrors that
+   slide's state, and hides for captures that have no verso (RAL, mono). */
+function syncFlipButton() {
+  if (!flipButton) {
+    return;
+  }
+
+  const slideState = getActiveSlideState();
+  const canFlip = typeof slideState?.toggleFlip === "function";
+  flipButton.hidden = !canFlip;
+  flipButton.disabled = !canFlip;
+  flipButton.setAttribute("aria-pressed", String(Boolean(slideState?.isFlipped)));
+}
+
 function syncViewerChrome() {
   syncPublishButtonCopy();
   syncFavoriteButton();
   syncActionButtons();
+  syncFlipButton();
   syncViewerMeta();
 }
 
@@ -368,10 +394,21 @@ async function buildSlideVerso(slideState, palette) {
   slideState.versoBuildState = "built";
 }
 
+/* Restart the dip that pulls the card back while it turns; dropping the class
+   and reading a layout box in between makes back-to-back taps replay it. */
+function playFlipDip(flip) {
+  flip.classList.remove("is-turning");
+  void flip.offsetWidth;
+  flip.classList.add("is-turning");
+}
+
 function setSlideFlipped(slideState, isFlipped) {
   slideState.isFlipped = isFlipped;
   slideState.flip.classList.toggle("is-flipped", isFlipped);
   slideState.flip.setAttribute("aria-pressed", String(isFlipped));
+  if (slideState === getActiveSlideState()) {
+    syncFlipButton();
+  }
 }
 
 function createSlideState(palette, index) {
@@ -405,21 +442,6 @@ function createSlideState(palette, index) {
   flip.append(rectoFace, versoFace);
   slide.appendChild(flip);
 
-  if (canPaletteFlip(palette)) {
-    const flipHint = document.createElement("span");
-    flipHint.className = "palette-viewer-flip-hint";
-    flipHint.setAttribute("aria-hidden", "true");
-    flipHint.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m17 2 4 4-4 4"></path>
-        <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
-        <path d="m7 22-4-4 4-4"></path>
-        <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
-      </svg>
-    `;
-    slide.appendChild(flipHint);
-  }
-
   const slideState = {
     index,
     paletteId: palette.id,
@@ -432,14 +454,18 @@ function createSlideState(palette, index) {
     versoBuildState: canPaletteFlip(palette) ? "idle" : "unavailable",
     loadState: canLoadPreview(palette) ? "idle" : "unavailable",
     requestId: 0,
+    /** @type {(() => void) | null} set only when the palette has a verso */
+    toggleFlip: null,
   };
 
   if (canPaletteFlip(palette)) {
-    flip.addEventListener("click", () => {
+    slideState.toggleFlip = () => {
       flip.classList.remove("is-peeking");
+      playFlipDip(flip);
       void buildSlideVerso(slideState, palette);
       setSlideFlipped(slideState, !slideState.isFlipped);
-    });
+    };
+    flip.addEventListener("click", slideState.toggleFlip);
   } else {
     flip.disabled = true;
   }
@@ -588,6 +614,33 @@ function syncSlideCopy() {
   });
 }
 
+/* Build the back face while the slide sits idle. Left to the first tap, the
+   verso module import and the color-name lookup would land in the middle of
+   the turn and cost it frames. */
+function warmActiveVerso() {
+  const session = activeSession;
+  const slideState = getActiveSlideState();
+  const palette = getActivePalette();
+  if (!slideState || !palette || slideState.versoBuildState !== "idle") {
+    return;
+  }
+
+  const runWarmup = () => {
+    if (activeSession !== session || getActiveSlideState() !== slideState) {
+      return;
+    }
+
+    void buildSlideVerso(slideState, palette);
+  };
+
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(runWarmup, { timeout: 500 });
+    return;
+  }
+
+  window.setTimeout(runWarmup, 0);
+}
+
 function preloadNearbySlides() {
   if (!activeSession) {
     return;
@@ -602,15 +655,14 @@ function preloadNearbySlides() {
   const preloadId = pendingAdjacentPreloadId;
 
   void activeLoad.finally(() => {
-    if (
-      activeSession !== session ||
-      pendingAdjacentPreloadId !== preloadId ||
-      nextIndex >= session.palettes.length
-    ) {
+    if (activeSession !== session || pendingAdjacentPreloadId !== preloadId) {
       return;
     }
 
-    void loadSlideAsset(nextIndex);
+    warmActiveVerso();
+    if (nextIndex < session.palettes.length) {
+      void loadSlideAsset(nextIndex);
+    }
   });
 
   if (previousIndex < 0) {
@@ -637,7 +689,7 @@ function preloadNearbySlides() {
 }
 
 function playFlipPeekHint() {
-  const slideState = activeSession?.slideStates?.get(activeSession.activeIndex);
+  const slideState = getActiveSlideState();
   if (!slideState || slideState.flip.disabled || slideState.isFlipped) {
     return;
   }
@@ -747,6 +799,7 @@ function resetViewerFrame() {
     viewerTrack.scrollLeft = 0;
   }
 
+  syncFlipButton();
   syncViewerMeta();
 }
 
@@ -843,6 +896,7 @@ function handleLocaleChange() {
     label: t("viewer.action.deleteAria"),
     iconName: "delete",
   });
+  flipButton?.setAttribute("aria-label", t("viewer.flipAria"));
   syncPublishButtonCopy();
   syncFavoriteButton();
   syncSlideCopy();
@@ -869,7 +923,7 @@ function bindViewerPanelEvents() {
   exportButton?.addEventListener(
     "click",
     () => {
-      const slideState = activeSession?.slideStates?.get(activeSession.activeIndex);
+      const slideState = getActiveSlideState();
       if (slideState?.isFlipped && typeof activeSession?.onExportVerso === "function") {
         void runAction("onExportVerso");
         return;
@@ -897,6 +951,13 @@ function bindViewerPanelEvents() {
     "click",
     () => {
       void runAction("onToggleFavorite");
+    },
+    { signal },
+  );
+  flipButton?.addEventListener(
+    "click",
+    () => {
+      getActiveSlideState()?.toggleFlip?.();
     },
     { signal },
   );

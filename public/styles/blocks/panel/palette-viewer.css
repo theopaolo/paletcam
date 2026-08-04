@@ -141,6 +141,7 @@
 }
 
 .palette-viewer-frame {
+  position: relative;
   min-height: 0;
   width: 100%;
   overflow: hidden;
