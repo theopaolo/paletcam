@@ -312,15 +312,6 @@ function createConfigFixture() {
   const balanceTab = createButton("configTabBalance", { "data-config-tab": "balance" });
   tabList.append(colorsTab, balanceTab);
 
-  const presetRow = new FakeElement("div");
-  const presetButtons = Object.fromEntries(
-    ["faithful", "tonal", "pop", "accents"].map((presetId) => {
-      const button = createButton("", { "data-config-preset": presetId });
-      presetRow.appendChild(button);
-      return [presetId, button];
-    }),
-  );
-
   const colorsPanel = createPanel("configPanelColors", "colors");
   const balancePanel = createPanel("configPanelBalance", "balance");
   balancePanel.hidden = true;
@@ -347,7 +338,7 @@ function createConfigFixture() {
   const footer = new FakeElement("div");
   footer.append(undoButton, redoButton, resetButton);
 
-  drawer.append(tabList, presetRow, colorsPanel, balancePanel, footer);
+  drawer.append(tabList, colorsPanel, balancePanel, footer);
 
   const toggleSection = new FakeElement("section");
   const toggleButton = createButton("", {
@@ -370,7 +361,6 @@ function createConfigFixture() {
     colorsPanel,
     colorsTab,
     drawer,
-    presetButtons,
     redoButton,
     root,
     spreadInput: spread.input,
@@ -502,43 +492,6 @@ describe("mountConfigPanel", () => {
     expect(getAppSettings().hybrid.tone).toBe(1);
     expect(fixture.toneLabels.getAttribute("data-active-index")).toBe("3");
     expect(fixture.undoButton.disabled).toBe(false);
-
-    cleanup();
-  });
-
-  test("applies preset bundles and marks the matching chip active", () => {
-    const fixture = createConfigFixture();
-    const fakeDocument = new FakeEventTarget();
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: fakeDocument,
-    });
-
-    const cleanup = mountConfigPanel({
-      root: fixture.root,
-      toggleButton: fixture.toggleButton,
-      toggleSection: fixture.toggleSection,
-    });
-
-    expect(fixture.presetButtons.faithful.getAttribute("aria-pressed")).toBe("true");
-
-    fixture.presetButtons.tonal.click();
-
-    const hybrid = getAppSettings().hybrid;
-    expect(hybrid.tone).toBe(0.6);
-    expect(hybrid.rarityStrength).toBe(0);
-    expect(hybrid.spreadStrength).toBe(0.15);
-    expect(hybrid.repulsionRadius).toBe(0.03);
-    expect(hybrid.loyaltyStrength).toBe(0.6);
-    expect(fixture.presetButtons.tonal.getAttribute("aria-pressed")).toBe("true");
-    expect(fixture.presetButtons.faithful.getAttribute("aria-pressed")).toBe("false");
-    expect(fixture.toneInput.value).toBe("1");
-    expect(fixture.toneLabels.getAttribute("data-active-index")).toBe("1");
-
-    fixture.undoButton.click();
-
-    expect(getAppSettings().hybrid.rarityStrength).toBe(0.2);
-    expect(fixture.presetButtons.faithful.getAttribute("aria-pressed")).toBe("true");
 
     cleanup();
   });

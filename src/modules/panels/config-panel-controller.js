@@ -7,12 +7,7 @@ import {
 import { t } from "../../i18n.js";
 import { areAlgorithmSettingsEqual, cloneAlgorithmSettings } from "../algorithm-settings.js";
 import { createAlgorithmSettingsHistory } from "./algorithm-settings-history.js";
-import {
-  HYBRID_PRESETS,
-  HYBRID_STEPPED_CONTROLS,
-  findMatchingPresetId,
-  nearestStepIndex,
-} from "./perceptual-tuning.js";
+import { HYBRID_STEPPED_CONTROLS, nearestStepIndex } from "./perceptual-tuning.js";
 import { createRangeControl } from "./settings-range-control.js";
 
 const TAB_IDS = ["colors", "balance"];
@@ -31,9 +26,6 @@ function getConfigDom(root) {
     drawer: queryById(root, "configDrawer"),
     originBadgesToggle: /** @type {HTMLInputElement | null} */ (
       queryById(root, "configOriginBadgesToggle")
-    ),
-    presetButtons: /** @type {HTMLButtonElement[]} */ (
-      Array.from(root.querySelectorAll("[data-config-preset]"))
     ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
@@ -262,16 +254,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     syncHistoryButtons();
   }
 
-  function syncPresetChips(settings) {
-    const activePresetId = findMatchingPresetId(settings.hybrid);
-
-    dom.presetButtons.forEach((button) => {
-      const isActive = button.getAttribute("data-config-preset") === activePresetId;
-      button.setAttribute("aria-pressed", String(isActive));
-      button.classList.toggle("is-active", isActive);
-    });
-  }
-
   function createHybridSteppedControl({ controlKey, shellId, inputId }) {
     const control = HYBRID_STEPPED_CONTROLS[controlKey];
     const labelsElement = root.querySelector(`[data-config-step-labels="${controlKey}"]`);
@@ -348,7 +330,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       control.renderFromSettings(settings);
     });
     syncOriginBadgesToggle(settings);
-    syncPresetChips(settings);
     syncDrawerAvailability(settings);
     syncConfigToggleButton();
     syncHistoryButtons();
@@ -391,21 +372,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
 
     updateAppSettings({
       originBadgesEnabled: dom.originBadgesToggle.checked,
-    });
-  });
-  dom.presetButtons.forEach((button) => {
-    on(button, "click", () => {
-      const presetId = button.getAttribute("data-config-preset");
-      const preset = HYBRID_PRESETS.find((candidate) => candidate.id === presetId);
-      if (!preset || findMatchingPresetId(getAppSettings().hybrid) === presetId) {
-        return;
-      }
-
-      beginAlgorithmInteraction();
-      applyAlgorithmSettings((snapshot) => {
-        Object.assign(snapshot.hybrid, preset.hybrid);
-      });
-      commitAlgorithmInteraction();
     });
   });
   rangeControls.forEach(bindSliderControl);

@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  HYBRID_PRESETS,
-  HYBRID_STEPPED_CONTROLS,
-  findMatchingPresetId,
-  nearestStepIndex,
-} from "./perceptual-tuning.js";
+import { HYBRID_STEPPED_CONTROLS, nearestStepIndex } from "./perceptual-tuning.js";
 
 const DEFAULT_HYBRID = {
   repulsionRadius: 0.08,
@@ -43,33 +38,5 @@ describe("nearestStepIndex", () => {
     expect(nearestStepIndex(HYBRID_STEPPED_CONTROLS.tone, { tone: 0.7 })).toBe(1);
     expect(nearestStepIndex(HYBRID_STEPPED_CONTROLS.spread, { spreadStrength: 0.9 })).toBe(3);
     expect(nearestStepIndex(HYBRID_STEPPED_CONTROLS.loyalty, {})).toBe(0);
-  });
-});
-
-describe("findMatchingPresetId", () => {
-  test("recognizes every preset bundle", () => {
-    for (const preset of HYBRID_PRESETS) {
-      expect(findMatchingPresetId({ ...preset.hybrid })).toBe(preset.id);
-    }
-  });
-
-  test("the faithful preset matches the default hybrid settings", () => {
-    expect(findMatchingPresetId(DEFAULT_HYBRID)).toBe("faithful");
-  });
-
-  test("returns null for custom mixes", () => {
-    expect(findMatchingPresetId({ ...DEFAULT_HYBRID, tone: 1 })).toBe(null);
-    expect(findMatchingPresetId(undefined)).toBe(null);
-  });
-
-  test("every preset value sits on a detent", () => {
-    for (const preset of HYBRID_PRESETS) {
-      for (const control of Object.values(HYBRID_STEPPED_CONTROLS)) {
-        const index = nearestStepIndex(control, preset.hybrid);
-        for (const [key, value] of Object.entries(control.steps[index])) {
-          expect(preset.hybrid[key]).toBe(value);
-        }
-      }
-    }
   });
 });

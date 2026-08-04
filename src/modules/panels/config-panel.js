@@ -1,7 +1,7 @@
 import { html, LitElement } from "lit";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
-import { HYBRID_PRESETS, HYBRID_STEPPED_CONTROLS } from "./perceptual-tuning.js";
+import { HYBRID_STEPPED_CONTROLS } from "./perceptual-tuning.js";
 
 function renderHybridSteppedField({ controlKey, shellId, inputId }) {
   const control = HYBRID_STEPPED_CONTROLS[controlKey];
@@ -80,25 +80,6 @@ class ConfigPanel extends LitElement {
         aria-hidden="true"
         hidden
       >
-        <div
-          class="config-preset-row"
-          role="group"
-          aria-label=${t("config.presets.aria")}
-        >
-          ${HYBRID_PRESETS.map(
-            (preset) => html`
-              <button
-                class="config-preset-chip"
-                type="button"
-                data-config-preset=${preset.id}
-                aria-pressed="false"
-              >
-                ${t(`config.presets.${preset.id}`)}
-              </button>
-            `,
-          )}
-        </div>
-
         <div class="config-drawer-tabs" role="tablist" aria-label=${t("config.tabsAria")}>
           <button
             class="config-drawer-tab"

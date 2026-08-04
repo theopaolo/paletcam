@@ -127,38 +127,6 @@ config-panel.is-open .config-drawer {
   --config-icon-url: url("/icons/arrow-counterclock.svg");
 }
 
-/* ── Perceptual preset chips ── */
-
-.config-preset-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.config-preset-chip {
-  appearance: none;
-  padding: var(--space-8) var(--space-4);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-ink);
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    color 0.14s var(--easing-standard),
-    background-color 0.14s var(--easing-standard),
-    border-color 0.14s var(--easing-standard);
-}
-
-.config-preset-chip[aria-pressed="true"] {
-  border-color: var(--color-accent-strong);
-  background: var(--color-accent-dim);
-  color: var(--color-camera-accent);
-}
-
 .config-drawer-panels {
   display: grid;
 }
