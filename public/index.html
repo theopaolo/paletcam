@@ -95,27 +95,13 @@
         </div>
       </div>
 
-      <section class="config-section">
-        <button
-          class="btn-overlay-control btn-config"
-          type="button"
-          aria-label="Ouvrir la configuration"
-          data-i18n-aria-label="capture.configOpen"
-        >
-          <span class="btn-config-icon" aria-hidden="true"></span>
-          <span class="btn-config-label" data-i18n="capture.configLabel"
-            >Config</span
-          >
-        </button>
-      </section>
-
       <section
         class="capture-mode-section"
         aria-label="Mode de capture"
         data-i18n-aria-label="capture.modeSection"
       >
         <button
-          class="btn-capture-mode-toggle"
+          class="btn-capture-mode-toggle camera-chip"
           type="button"
           data-capture-mode="palette"
         >
@@ -135,11 +121,22 @@
           aria-label="Nombre de couleurs : 4"
         />
         <div class="swatch-meta">
-          <span class="swatch-scale-label swatch-scale-label-min">3</span>
           <span class="swatch-count-indicator" aria-live="polite"
             >4 couleurs</span
           >
-          <span class="swatch-scale-label swatch-scale-label-max">7</span>
+          <section class="config-section">
+            <button
+              class="btn-overlay-control btn-config"
+              type="button"
+              aria-label="Ouvrir la configuration"
+              data-i18n-aria-label="capture.configOpen"
+            >
+              <span class="btn-config-icon" aria-hidden="true"></span>
+              <span class="btn-config-label" data-i18n="capture.configLabel"
+                >Config</span
+              >
+            </button>
+          </section>
         </div>
       </div>
     </div>

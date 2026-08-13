@@ -10,19 +10,18 @@ config-panel {
   position: absolute;
   left: var(--space-8);
   right: var(--space-8);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
   display: grid;
   gap: var(--space-control-padding);
   max-height: calc(100% - 4rem);
   overflow-y: auto;
-  padding: var(--space-control-gap) calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
+  padding: var(--space-control-gap)
+    calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
     calc(var(--space-control-gap) + env(safe-area-inset-bottom, 0px))
     calc(var(--space-control-gap) + env(safe-area-inset-left, 0px));
   border: 1px solid rgb(255 255 255 / 8%);
   border-radius: var(--space-control-gap);
-  background:
-    var(--gradient-surface-panel),
-    var(--color-surface-overlay);
+  background: var(--gradient-surface-panel), var(--color-surface-overlay);
   pointer-events: auto;
 }
 
@@ -82,7 +81,6 @@ config-panel.is-open .config-drawer {
   color: var(--color-accent-active);
   border-bottom-color: var(--color-accent-active);
 }
-
 
 .config-drawer-tab-label,
 .config-drawer-action-label {
@@ -202,7 +200,11 @@ config-panel.is-open .config-drawer {
       var(--color-accent) var(--config-fill),
       transparent var(--config-fill)
     ),
-    repeating-linear-gradient(to right, rgb(255 255 255 / 40%) 0 2px, transparent 2px 7px);
+    repeating-linear-gradient(
+      to right,
+      rgb(255 255 255 / 40%) 0 2px,
+      transparent 2px 7px
+    );
   background-size:
     100% 100%,
     100% var(--space-16),
@@ -269,16 +271,26 @@ config-panel.is-open .config-drawer {
   text-align: end;
 }
 
-.config-drawer-panel .config-step-labels[data-active-index="0"] span:nth-child(1),
-.config-drawer-panel .config-step-labels[data-active-index="1"] span:nth-child(2),
-.config-drawer-panel .config-step-labels[data-active-index="2"] span:nth-child(3),
-.config-drawer-panel .config-step-labels[data-active-index="3"] span:nth-child(4) {
+.config-drawer-panel
+  .config-step-labels[data-active-index="0"]
+  span:nth-child(1),
+.config-drawer-panel
+  .config-step-labels[data-active-index="1"]
+  span:nth-child(2),
+.config-drawer-panel
+  .config-step-labels[data-active-index="2"]
+  span:nth-child(3),
+.config-drawer-panel
+  .config-step-labels[data-active-index="3"]
+  span:nth-child(4) {
   color: var(--color-camera-accent);
   font-weight: 600;
 }
 
 /* Invisible thumb: the comb is the readout, the finger just scrubs */
-.config-drawer-panel .config-drawer-slider input[type="range"]::-webkit-slider-thumb {
+.config-drawer-panel
+  .config-drawer-slider
+  input[type="range"]::-webkit-slider-thumb {
   width: var(--space-24);
   height: var(--space-16);
   margin-top: 0;
@@ -288,21 +300,31 @@ config-panel.is-open .config-drawer {
   box-shadow: none;
 }
 
-.config-drawer-panel .config-drawer-slider input[type="range"]::-webkit-slider-thumb:active,
-.config-drawer-panel .config-drawer-slider.is-active input[type="range"]::-webkit-slider-thumb,
-.config-drawer-panel .config-drawer-slider.is-dragging input[type="range"]::-webkit-slider-thumb {
+.config-drawer-panel
+  .config-drawer-slider
+  input[type="range"]::-webkit-slider-thumb:active,
+.config-drawer-panel
+  .config-drawer-slider.is-active
+  input[type="range"]::-webkit-slider-thumb,
+.config-drawer-panel
+  .config-drawer-slider.is-dragging
+  input[type="range"]::-webkit-slider-thumb {
   transform: none;
   box-shadow: none;
 }
 
-.config-drawer-panel .config-drawer-slider input[type="range"]::-moz-range-track {
+.config-drawer-panel
+  .config-drawer-slider
+  input[type="range"]::-moz-range-track {
   height: var(--space-16);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.config-drawer-panel .config-drawer-slider input[type="range"]::-moz-range-thumb {
+.config-drawer-panel
+  .config-drawer-slider
+  input[type="range"]::-moz-range-thumb {
   width: var(--space-24);
   height: var(--space-16);
   border: none;
@@ -311,9 +333,15 @@ config-panel.is-open .config-drawer {
   box-shadow: none;
 }
 
-.config-drawer-panel .config-drawer-slider input[type="range"]::-moz-range-thumb:active,
-.config-drawer-panel .config-drawer-slider.is-active input[type="range"]::-moz-range-thumb,
-.config-drawer-panel .config-drawer-slider.is-dragging input[type="range"]::-moz-range-thumb {
+.config-drawer-panel
+  .config-drawer-slider
+  input[type="range"]::-moz-range-thumb:active,
+.config-drawer-panel
+  .config-drawer-slider.is-active
+  input[type="range"]::-moz-range-thumb,
+.config-drawer-panel
+  .config-drawer-slider.is-dragging
+  input[type="range"]::-moz-range-thumb {
   transform: none;
   box-shadow: none;
 }
@@ -351,7 +379,7 @@ config-panel.is-open .config-drawer {
   + .panel-form-checkbox-box
   + .panel-form-checkbox-label {
   color: var(--color-text-warning);
-  font-size: .75rem;
+  font-size: 0.75rem;
   font-weight: 400;
   text-transform: unset;
 }

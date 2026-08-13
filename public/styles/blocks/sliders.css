@@ -75,6 +75,12 @@
   line-height: 1;
 }
 
+/* Column 1 stays empty so the count keeps its optical centre while the config
+   button occupies the mirrored column on the right. */
+.sliders-container .swatch-count-indicator {
+  grid-column: 2;
+}
+
 .swatch-slider::before {
   content: "";
   position: absolute;

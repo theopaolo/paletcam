@@ -299,11 +299,15 @@
   min-height: 44px;
 }
 
+/* Rides in the swatch slider's meta row, right of the centred colour count,
+   so it no longer overlays the palette ribbon's last swatch. Flex, not block:
+   an inline-flex button would sit on the parent's text baseline and reserve
+   descender space beneath it. */
 .config-section {
-  position: absolute;
-  bottom: var(--space-8);
-  right: var(--space-8);
-  z-index: 4;
+  display: flex;
+  grid-column: 3;
+  justify-self: end;
+  padding-top: var(--space-control-gap);
 }
 
 /* Lives inside the camera viewport frame (moved there by app.js) so it
@@ -316,37 +320,6 @@
   z-index: 7;
   padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + var(--space-8)) var(--space-8);
   pointer-events: none;
-}
-
-.btn-capture-mode-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4) var(--space-8);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: rgb(10 10 10 / 42%);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  line-height: 1;
-  cursor: pointer;
-  pointer-events: auto;
-  touch-action: none;
-  user-select: none;
-  transition:
-    background-color var(--duration-fast) var(--easing-standard),
-    color var(--duration-fast) var(--easing-standard),
-    border-color var(--duration-fast) var(--easing-standard);
-}
-
-.btn-capture-mode-toggle:active {
-  background: rgb(10 10 10 / 65%);
-}
-
-.btn-capture-mode-toggle[data-capture-mode="ral"] {
-  color: var(--color-camera-accent);
-  border-color: var(--color-accent-strong);
 }
 
 .btn-overlay-control {

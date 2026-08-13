@@ -24,7 +24,6 @@ export function createCaptureController({
   getCaptureMode,
   getOneMoreColor,
   getPaletteExtractionOptions,
-  getPhotoExportQuality,
   getShouldMirrorUserFacingCamera,
   now = () => performance.now(),
   recordMetric = recordOperationalMetric,
@@ -133,7 +132,6 @@ export function createCaptureController({
           fallbackHeight: frameHeight,
           cameraFeed,
           facingMode,
-          photoExportQuality: getPhotoExportQuality(),
           shouldMirrorUserFacing,
           sourceRect: null,
         });

@@ -1,45 +1,48 @@
-.camera-exposure-layer {
+/* Tap-to-meter surface. It sits under the zoom scrubber (z-index 6) and the
+   corner chips (7), so those keep their own taps; everything else on the
+   preview is fair game. */
+.camera-meter-layer {
   position: absolute;
   inset: 0;
   z-index: 5;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding: 0 var(--space-8) calc(env(safe-area-inset-bottom, 0px) + var(--space-8));
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.camera-meter-layer.is-inert {
   pointer-events: none;
 }
 
-.camera-ev-dock {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-8);
-  pointer-events: none;
-}
+.camera-meter-reticle {
+  --camera-reticle-size: 4.5rem;
 
-.camera-ev-overlay {
-  position: relative;
-  width: 42px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-8);
+  position: absolute;
+  width: var(--camera-reticle-size);
+  height: var(--camera-reticle-size);
+  margin: calc(var(--camera-reticle-size) / -2) 0 0 calc(var(--camera-reticle-size) / -2);
+  border: 1px solid var(--color-camera-accent);
   pointer-events: none;
   opacity: 0;
-  transform: translateY(var(--space-16));
+  transform: scale(1.25);
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+    opacity var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
 }
 
-.camera-exposure-layer.is-visible .camera-ev-overlay {
+.camera-meter-reticle.is-visible {
   opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+  transform: scale(1);
 }
 
-.camera-ev-value {
+/* Reading the value matters more than the frame once a drag is under way. */
+.camera-meter-reticle.is-adjusting {
+  border-color: var(--color-accent-strong);
+}
+
+.camera-meter-ev {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + var(--space-8));
   min-width: 3.7ch;
   padding: var(--space-4) var(--space-8);
   border-radius: var(--radius-pill);
@@ -52,129 +55,17 @@
   line-height: 1;
   text-align: center;
   letter-spacing: -0.02em;
-}
-
-.camera-ev-rail {
-  position: relative;
-  width: 22px;
-  height: 146px;
-  border-radius: 0;
-  background: rgb(10 10 10 / 38%);
-  pointer-events: auto;
-  touch-action: none;
-}
-
-.camera-ev-rail::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: var(--space-8);
-  bottom: var(--space-8);
-  width: 1px;
-  background: var(--color-border-strong);
-  transform: translateX(-50%);
-}
-
-.camera-ev-zero-line {
-  position: absolute;
-  left: var(--space-8);
-  right: var(--space-8);
-  top: 50%;
-  height: 1px;
-  background: var(--color-camera-accent);
   transform: translateY(-50%);
-}
-
-.camera-ev-thumb {
-  position: absolute;
-  left: 50%;
-  width: 14px;
-  height: 14px;
-  border: none;
-  border-radius: 0;
-  background: var(--color-camera-readout-bg);
-  transform: translate(-50%, -50%);
-}
-
-.camera-ev-reset {
-  min-width: 1.4rem;
-  min-height: 1.2rem;
-  padding: 0;
-  border: 1px solid var(--color-border-default);
-  background: rgb(10 10 10 / 56%);
-  color: var(--color-text-secondary);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    color 0.18s ease,
-    opacity 0.18s ease;
-}
-
-.camera-ev-reset.is-active {
-  border-color: rgb(255 224 109 / 34%);
-  background: var(--color-accent-dim);
-  color: rgb(255 236 166 / 96%);
-}
-
-.camera-ev-reset.is-zero {
-  opacity: 0.96;
-}
-
-.camera-ev-reset:disabled {
-  cursor: default;
-}
-
-.camera-ev-indicator {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 5.8ch;
-  padding: var(--space-4) var(--space-8);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: rgb(10 10 10 / 42%);
-  color: var(--color-text-muted);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  user-select: none;
   opacity: 0;
-  transform: translateY(var(--space-8));
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-  pointer-events: auto;
-  touch-action: none;
+  transition: opacity var(--duration-fast) var(--easing-standard);
 }
 
-.camera-ev-indicator:active {
-  background: rgb(10 10 10 / 65%);
+.camera-meter-reticle.is-readout-flipped .camera-meter-ev {
+  left: auto;
+  right: calc(100% + var(--space-8));
 }
 
-.camera-ev-indicator.is-offset {
-  color: var(--color-camera-accent);
-  border-color: var(--color-accent-strong);
-}
-
-.camera-ev-indicator.is-open {
-  color: var(--color-text-primary);
-}
-
-.camera-ev-indicator.is-visible {
+.camera-meter-reticle.is-adjusting .camera-meter-ev,
+.camera-meter-reticle.is-offset .camera-meter-ev {
   opacity: 1;
-  transform: translateY(0);
 }

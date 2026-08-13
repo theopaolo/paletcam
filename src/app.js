@@ -5,10 +5,6 @@ import { renderOutputSwatches } from "./modules/camera-ui.js";
 import { reportAppError } from "./modules/error-reporting.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
 import { createCameraGridUiController } from "./modules/camera-grid-ui.js";
-import {
-  createPhotoQualityUiController,
-  PHOTO_QUALITY_EXPORT_VALUES,
-} from "./modules/photo-quality-ui.js";
 import { createCaptureMicroInteractions } from "./modules/micro-interactions.js";
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudBridge } from "./modules/performance-hud-bridge.js";
@@ -110,8 +106,6 @@ let swatchCount = Number(swatchSlider?.value) || 4;
 let currentCaptureMode = "palette";
 let oneMoreColor = Boolean(getAppSettings().oneMoreColor);
 let originBadgesEnabled = Boolean(getAppSettings().originBadgesEnabled);
-let photoExportQuality =
-  PHOTO_QUALITY_EXPORT_VALUES[getAppSettings().photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
 let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let hybridSettings = { ...getAppSettings().hybrid };
 let lastCameraViewportLayout = null;
@@ -283,7 +277,6 @@ function applyAppSettings({
   performanceHudEnabled,
   oneMoreColor: nextOneMoreColor,
   originBadgesEnabled: nextOriginBadgesEnabled,
-  photoQualityMode,
   medianCut,
   hybrid,
 }) {
@@ -295,9 +288,6 @@ function applyAppSettings({
 
   oneMoreColor = Boolean(nextOneMoreColor);
   originBadgesEnabled = Boolean(nextOriginBadgesEnabled);
-  photoExportQuality =
-    PHOTO_QUALITY_EXPORT_VALUES[photoQualityMode] ?? PHOTO_QUALITY_EXPORT_VALUES.hd;
-  photoQualityUi?.syncMode(photoQualityMode);
   performanceHud.setEnabled(performanceHudEnabled);
   medianCutExtractionSettings = { ...medianCut };
   hybridSettings = { ...hybrid };
@@ -359,7 +349,6 @@ function setPreviewExpanded(shouldExpand) {
 
 let zoomUi = null;
 let exposureUi = null;
-let photoQualityUi = null;
 let gridUi = null;
 
 /** @param {ErrorLike | null | undefined} error */
@@ -423,7 +412,6 @@ captureController = createCaptureController({
   getCaptureMode: () => currentCaptureMode,
   getOneMoreColor: () => oneMoreColor,
   getPaletteExtractionOptions,
-  getPhotoExportQuality: () => photoExportQuality,
   getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
 });
 
@@ -437,12 +425,6 @@ exposureUi = createExposureUiController({
   overlayHost: cameraViewportFrame,
 });
 
-photoQualityUi = createPhotoQualityUiController({
-  overlayHost: cameraViewportFrame,
-  onModeChange: (mode) =>
-    updateAppSettings({ photoQualityMode: /** @type {"sd" | "hd" | "fhd"} */ (mode) }),
-});
-
 gridUi = createCameraGridUiController({
   overlayHost: cameraViewportFrame,
 });
@@ -452,7 +434,6 @@ const panelCameraUi = createPanelCameraUiController({
   configPanel,
   zoomUi,
   exposureUi,
-  photoQualityUi,
   gridUi,
 });
 
@@ -574,7 +555,6 @@ function initializeApp() {
   collectionEntryController.bindEvents();
   zoomUi.bindEvents();
   exposureUi.bindEvents();
-  photoQualityUi.bindEvents();
   gridUi.bindEvents();
   bindRotationEvents();
   swatchSliderUi.bindEvents();
@@ -609,7 +589,6 @@ function initializeApp() {
 
   zoomUi.initialize();
   exposureUi.initialize();
-  photoQualityUi.initialize(getAppSettings().photoQualityMode);
   gridUi.initialize();
   swatchSliderUi.initialize(swatchCount);
   cameraLifecycleController?.syncActionAvailability();
@@ -651,19 +630,8 @@ function bindCaptureEvents() {
     captureMicroInteractions.pulseCaptureButton,
   );
   bindManagedEventListener(captureButton, "click", handleCaptureButtonClick);
-  bindManagedEventListener(cameraViewportFrame, "pointerdown", (event) => {
-    const overlayRect = paletteOriginsOverlay.getBoundingClientRect();
-    if (overlayRect.width <= 0 || overlayRect.height <= 0) {
-      return;
-    }
-
-    const normalizedX = (event.clientX - overlayRect.left) / overlayRect.width;
-    const normalizedY = (event.clientY - overlayRect.top) / overlayRect.height;
-    if (livePreviewController?.toggleOriginFreezeAt(normalizedX, normalizedY)) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  });
+  // Tapping the preview meters the exposure there (see exposure-ui.js), so
+  // pinning a colour is done from the palette strip below instead.
   bindManagedEventListener(paletteCanvas, "pointerdown", (event) => {
     const paletteRect = paletteCanvas?.getBoundingClientRect();
     if (!paletteRect || paletteRect.width <= 0) {
@@ -718,7 +686,6 @@ function destroyApp() {
   swatchSliderUi.destroy?.();
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
-  photoQualityUi?.destroy?.();
   gridUi?.destroy?.();
   panelCameraUi.destroy();
   collectionEntryController.destroy();

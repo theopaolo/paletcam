@@ -51,10 +51,6 @@ function createUiHarness() {
       hide: mock(() => {}),
       show: mock(() => {}),
     },
-    photoQualityUi: {
-      hide: mock(() => {}),
-      show: mock(() => {}),
-    },
     zoomUi: {
       setDisabled: mock(() => {}),
       syncCapabilities: mock(() => {}),
@@ -88,7 +84,7 @@ describe("panel camera UI controller", () => {
     expect(video.srcObject).toBe(stream);
     expect(video.parentElement).toBe(documentHarness.documentRef.body);
     expect(ui.zoomUi.setDisabled).toHaveBeenCalledTimes(1);
-    expect(ui.photoQualityUi.hide).toHaveBeenCalledTimes(1);
+    expect(ui.gridUi.hide).toHaveBeenCalledTimes(1);
     await Promise.resolve();
     expect(video.play).toHaveBeenCalledTimes(1);
 
@@ -97,7 +93,7 @@ describe("panel camera UI controller", () => {
     expect(video.srcObject).toBeNull();
     expect(video.remove).toHaveBeenCalledTimes(1);
     expect(ui.zoomUi.syncCapabilities).toHaveBeenCalledTimes(1);
-    expect(ui.photoQualityUi.show).toHaveBeenCalledTimes(1);
+    expect(ui.gridUi.show).toHaveBeenCalledTimes(1);
   });
 
   test("keeps controls hidden until every camera-obscuring drawer closes", () => {

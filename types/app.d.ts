@@ -153,7 +153,6 @@ interface AppSettings {
   performanceHudEnabled: boolean;
   oneMoreColor: boolean;
   originBadgesEnabled: boolean;
-  photoQualityMode: "sd" | "hd" | "fhd";
   polaroidFooterLabel: string;
   medianCut: MedianCutSettings;
   hybrid: HybridSettings;
@@ -167,7 +166,6 @@ interface AppSettingsPatch {
   performanceHudEnabled?: boolean;
   oneMoreColor?: boolean;
   originBadgesEnabled?: boolean;
-  photoQualityMode?: "sd" | "hd" | "fhd";
   polaroidFooterLabel?: string;
   medianCut?: Partial<MedianCutSettings>;
   hybrid?: Partial<HybridSettings>;

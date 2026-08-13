@@ -3,8 +3,10 @@ import { clampValue, createScrubberValue } from "./camera-scrubber-value.js";
 
 const DEFAULT_EXPOSURE_STEP = 0.1;
 const DEFAULT_HIDE_DELAY_MS = 1800;
-const OVERLAY_RAIL_HEIGHT_PX = 146;
-const OVERLAY_RAIL_PADDING_PX = 12;
+/* A drag across this share of the preview height covers the whole EV range. */
+const DRAG_SPAN_RATIO = 0.6;
+/* Under this travel the gesture is still a tap, so the EV readout stays out. */
+const DRAG_DEAD_ZONE_PX = 6;
 
 function formatExposureValue(value) {
   if (!Number.isFinite(value)) {
@@ -16,6 +18,10 @@ function formatExposureValue(value) {
 }
 
 /**
+ * Tap the preview to meter there, then slide up or down without lifting to
+ * trade exposure, the way a stock camera app behaves. A fresh tap re-meters
+ * and drops the offset back to zero.
+ *
  * @param {object} [options]
  * @param {CameraController | null} [options.cameraController]
  * @param {HTMLElement | null} [options.overlayHost]
@@ -39,55 +45,31 @@ export function createExposureUiController({
   }
 
   const overlayLayer = document.createElement("div");
-  overlayLayer.className = "camera-exposure-layer";
+  overlayLayer.className = "camera-meter-layer";
+  overlayLayer.setAttribute("aria-label", t("camera.exposure.label"));
 
-  const dock = document.createElement("div");
-  dock.className = "camera-ev-dock";
+  const reticle = document.createElement("div");
+  reticle.className = "camera-meter-reticle";
+  reticle.setAttribute("aria-hidden", "true");
 
-  const overlayPanel = document.createElement("div");
-  overlayPanel.className = "camera-ev-overlay";
-  overlayPanel.setAttribute("aria-hidden", "true");
+  const evReadout = document.createElement("div");
+  evReadout.className = "camera-meter-ev";
+  evReadout.textContent = formatExposureValue(0);
 
-  const valueBadge = document.createElement("div");
-  valueBadge.className = "camera-ev-value";
-  valueBadge.textContent = "0.0";
-
-  const rail = document.createElement("div");
-  rail.className = "camera-ev-rail";
-
-  const zeroLine = document.createElement("div");
-  zeroLine.className = "camera-ev-zero-line";
-
-  const thumb = document.createElement("div");
-  thumb.className = "camera-ev-thumb";
-
-  const resetButton = document.createElement("button");
-  resetButton.className = "camera-ev-reset";
-  resetButton.type = "button";
-  resetButton.textContent = "0";
-  resetButton.setAttribute("aria-label", t("camera.exposure.reset"));
-
-  const passiveIndicator = document.createElement("button");
-  passiveIndicator.className = "camera-ev-indicator";
-  passiveIndicator.type = "button";
-  passiveIndicator.hidden = true;
-  passiveIndicator.textContent = "EV 0.0";
-  passiveIndicator.setAttribute("aria-label", t("camera.exposure.label"));
-
-  rail.append(zeroLine, thumb);
-  overlayPanel.append(valueBadge, rail, resetButton);
-  dock.append(overlayPanel, passiveIndicator);
-  overlayLayer.appendChild(dock);
+  reticle.appendChild(evReadout);
+  overlayLayer.appendChild(reticle);
   overlayHost.appendChild(overlayLayer);
 
   let isBound = false;
-  let isEnabled = false;
-  let hasCapabilities = false;
+  let canAdjustExposure = false;
+  let canMeter = false;
   let activePointerId = null;
+  let dragStartY = 0;
+  let hasLeftDeadZone = false;
   let hideTimeoutId = 0;
+
   const unsubscribeLocaleChange = subscribeLocaleChange(() => {
-    resetButton.setAttribute("aria-label", t("camera.exposure.reset"));
-    passiveIndicator.setAttribute("aria-label", t("camera.exposure.label"));
+    overlayLayer.setAttribute("aria-label", t("camera.exposure.label"));
   });
 
   const exposureValue = createScrubberValue({
@@ -103,10 +85,8 @@ export function createExposureUiController({
     },
     applyToCamera: (nextExposure) => cameraController?.applyExposureCompensation?.(nextExposure),
     onDisplay: (nextExposure) => {
-      valueBadge.textContent = formatExposureValue(nextExposure);
-      updateThumbPosition(nextExposure);
-      updateResetButtonState(nextExposure);
-      syncPassiveIndicator();
+      evReadout.textContent = formatExposureValue(nextExposure);
+      reticle.classList.toggle("is-offset", Math.abs(nextExposure) >= exposureValue.getStep() / 2);
     },
   });
 
@@ -119,111 +99,116 @@ export function createExposureUiController({
     hideTimeoutId = 0;
   }
 
+  function hideReticle() {
+    clearHideTimer();
+    reticle.classList.remove("is-visible");
+    reticle.classList.remove("is-adjusting");
+  }
+
   function scheduleHide() {
     clearHideTimer();
 
-    if (!isEnabled || activePointerId !== null) {
+    if (activePointerId !== null) {
       return;
     }
 
     hideTimeoutId = window.setTimeout(() => {
       hideTimeoutId = 0;
-      overlayLayer.classList.remove("is-visible");
-      syncPassiveIndicator();
+      hideReticle();
     }, hideDelayMs);
   }
 
-  function setVisible(isVisible) {
-    overlayLayer.classList.toggle("is-visible", isVisible && isEnabled);
-    syncPassiveIndicator();
-
-    if (isVisible) {
-      clearHideTimer();
-    }
-  }
-
-  function updateThumbPosition(currentExposure) {
-    const { min, max } = exposureValue.getRange();
-    const range = max - min;
-    const usableHeight = OVERLAY_RAIL_HEIGHT_PX - OVERLAY_RAIL_PADDING_PX * 2;
-    const normalizedValue = range > 0 ? (currentExposure - min) / range : 0.5;
-    const nextTop = OVERLAY_RAIL_PADDING_PX + (1 - normalizedValue) * usableHeight;
-    thumb.style.top = `${nextTop}px`;
-  }
-
-  function updateResetButtonState(currentExposure) {
-    const isZeroExposure = Math.abs(currentExposure) < exposureValue.getStep() / 2;
-    resetButton.hidden = false;
-    resetButton.disabled = isZeroExposure;
-    resetButton.classList.toggle("is-zero", isZeroExposure);
-    resetButton.classList.toggle("is-active", !isZeroExposure);
-  }
-
-  function syncPassiveIndicator() {
-    passiveIndicator.hidden = !isEnabled;
-    passiveIndicator.classList.toggle("is-visible", isEnabled);
-    passiveIndicator.classList.toggle(
-      "is-offset",
-      Math.abs(exposureValue.value) >= exposureValue.getStep() / 2,
-    );
-    passiveIndicator.classList.toggle("is-open", overlayLayer.classList.contains("is-visible"));
-    passiveIndicator.textContent = `EV ${formatExposureValue(exposureValue.value)}`;
-  }
-
-  function resetActiveGesture() {
-    activePointerId = null;
-  }
-
-  function getExposureValueForPointer(event) {
-    const { min, max } = exposureValue.getRange();
-    const railBounds = rail.getBoundingClientRect();
-    const railHeight = railBounds.height || OVERLAY_RAIL_HEIGHT_PX;
-
-    if (railHeight <= 0 || max <= min) {
-      return exposureValue.value;
+  function getNormalizedPoint(event) {
+    const layerBounds = overlayLayer.getBoundingClientRect();
+    if (layerBounds.width <= 0 || layerBounds.height <= 0) {
+      return null;
     }
 
-    const normalizedPosition = clampValue((event.clientY - railBounds.top) / railHeight, 0, 1);
-    return max - normalizedPosition * (max - min);
+    return {
+      x: (event.clientX - layerBounds.left) / layerBounds.width,
+      y: (event.clientY - layerBounds.top) / layerBounds.height,
+    };
   }
 
-  function handleIndicatorPointerDown(event) {
-    if (!isEnabled) {
+  /* Keep the whole square inside the preview even when the tap lands on an
+     edge; the metering point itself still uses the untouched coordinates. */
+  function getReticleAnchor(point) {
+    const layerBounds = overlayLayer.getBoundingClientRect();
+    const halfWidth = (reticle.offsetWidth || 0) / 2;
+    const halfHeight = (reticle.offsetHeight || 0) / 2;
+
+    if (layerBounds.width <= 0 || layerBounds.height <= 0) {
+      return point;
+    }
+
+    return {
+      x: clampValue(point.x, halfWidth / layerBounds.width, 1 - halfWidth / layerBounds.width),
+      y: clampValue(point.y, halfHeight / layerBounds.height, 1 - halfHeight / layerBounds.height),
+    };
+  }
+
+  function placeReticle(point) {
+    const anchor = getReticleAnchor(point);
+    reticle.style.left = `${anchor.x * 100}%`;
+    reticle.style.top = `${anchor.y * 100}%`;
+    // Near the right edge the readout would run off the frame, so it swaps
+    // to the other side of the square.
+    reticle.classList.toggle("is-readout-flipped", anchor.x > 0.7);
+    reticle.classList.add("is-visible");
+    reticle.classList.remove("is-adjusting");
+  }
+
+  function handlePointerDown(event) {
+    if (!canMeter && !canAdjustExposure) {
       return;
     }
 
-    event.preventDefault();
-
-    if (overlayLayer.classList.contains("is-visible")) {
-      overlayLayer.classList.remove("is-visible");
-      syncPassiveIndicator();
-      clearHideTimer();
+    if (event.pointerType === "mouse" && event.button !== 0) {
       return;
     }
 
-    setVisible(true);
-    scheduleHide();
-  }
-
-  function handleRailPointerDown(event) {
-    if (!isEnabled || !hasCapabilities || event.button !== 0) {
+    const point = getNormalizedPoint(event);
+    if (!point) {
       return;
     }
 
     activePointerId = event.pointerId;
+    dragStartY = event.clientY;
+    hasLeftDeadZone = false;
     clearHideTimer();
-    setVisible(true);
-    void exposureValue.apply(getExposureValueForPointer(event));
-    rail.setPointerCapture?.(event.pointerId);
+    placeReticle(point);
+
+    if (canMeter) {
+      void cameraController?.setMeteringPoint?.(point);
+    }
+
+    // Re-metering invalidates the previous offset, so the drag starts at zero.
+    if (canAdjustExposure) {
+      void exposureValue.apply(0);
+    }
+
+    overlayLayer.setPointerCapture?.(event.pointerId);
     event.preventDefault();
   }
 
-  function handleRailPointerMove(event) {
-    if (event.pointerId !== activePointerId || !hasCapabilities) {
+  function handlePointerMove(event) {
+    if (event.pointerId !== activePointerId || !canAdjustExposure) {
       return;
     }
 
-    void exposureValue.apply(getExposureValueForPointer(event));
+    const travel = dragStartY - event.clientY;
+    if (!hasLeftDeadZone && Math.abs(travel) < DRAG_DEAD_ZONE_PX) {
+      return;
+    }
+
+    hasLeftDeadZone = true;
+    reticle.classList.add("is-adjusting");
+
+    const { min, max } = exposureValue.getRange();
+    const layerHeight = overlayLayer.getBoundingClientRect().height;
+    const dragSpan = (layerHeight || 1) * DRAG_SPAN_RATIO;
+
+    void exposureValue.apply((travel / dragSpan) * (max - min));
     event.preventDefault();
   }
 
@@ -232,29 +217,20 @@ export function createExposureUiController({
       return;
     }
 
-    resetActiveGesture();
+    activePointerId = null;
     scheduleHide();
   }
 
-  function handleRailPointerUp(event) {
+  function handlePointerUp(event) {
     finishGesture(event.pointerId);
   }
 
-  function handleRailPointerCancel(event) {
+  function handlePointerCancel(event) {
     finishGesture(event.pointerId);
   }
 
-  function handleRailLostPointerCapture() {
+  function handleLostPointerCapture() {
     finishGesture(null);
-  }
-
-  function handleResetClick(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    clearHideTimer();
-    setVisible(true);
-    void exposureValue.apply(0);
-    scheduleHide();
   }
 
   function bindEvents() {
@@ -262,25 +238,21 @@ export function createExposureUiController({
       return;
     }
 
-    passiveIndicator.addEventListener("pointerdown", handleIndicatorPointerDown);
-    rail.addEventListener("pointerdown", handleRailPointerDown);
-    rail.addEventListener("pointermove", handleRailPointerMove);
-    rail.addEventListener("pointerup", handleRailPointerUp);
-    rail.addEventListener("pointercancel", handleRailPointerCancel);
-    rail.addEventListener("lostpointercapture", handleRailLostPointerCapture);
-    resetButton.addEventListener("click", handleResetClick);
+    overlayLayer.addEventListener("pointerdown", handlePointerDown);
+    overlayLayer.addEventListener("pointermove", handlePointerMove);
+    overlayLayer.addEventListener("pointerup", handlePointerUp);
+    overlayLayer.addEventListener("pointercancel", handlePointerCancel);
+    overlayLayer.addEventListener("lostpointercapture", handleLostPointerCapture);
     isBound = true;
   }
 
   function destroy() {
     if (isBound) {
-      passiveIndicator.removeEventListener("pointerdown", handleIndicatorPointerDown);
-      rail.removeEventListener("pointerdown", handleRailPointerDown);
-      rail.removeEventListener("pointermove", handleRailPointerMove);
-      rail.removeEventListener("pointerup", handleRailPointerUp);
-      rail.removeEventListener("pointercancel", handleRailPointerCancel);
-      rail.removeEventListener("lostpointercapture", handleRailLostPointerCapture);
-      resetButton.removeEventListener("click", handleResetClick);
+      overlayLayer.removeEventListener("pointerdown", handlePointerDown);
+      overlayLayer.removeEventListener("pointermove", handlePointerMove);
+      overlayLayer.removeEventListener("pointerup", handlePointerUp);
+      overlayLayer.removeEventListener("pointercancel", handlePointerCancel);
+      overlayLayer.removeEventListener("lostpointercapture", handleLostPointerCapture);
       isBound = false;
     }
 
@@ -290,40 +262,36 @@ export function createExposureUiController({
   }
 
   function setDisabled() {
-    isEnabled = false;
-    overlayLayer.classList.remove("is-visible");
-    resetActiveGesture();
-    clearHideTimer();
+    canAdjustExposure = false;
+    canMeter = false;
+    activePointerId = null;
+    overlayLayer.classList.add("is-inert");
+    hideReticle();
     exposureValue.reset();
-    resetButton.disabled = true;
-    resetButton.classList.add("is-zero");
-    resetButton.classList.remove("is-active");
-    passiveIndicator.hidden = true;
-    passiveIndicator.classList.remove("is-visible");
-    passiveIndicator.classList.remove("is-offset");
-    passiveIndicator.classList.remove("is-open");
   }
 
   function syncCapabilities() {
     const exposureCapabilities = cameraController?.getExposureCapabilities?.();
     const minExposure = Number(exposureCapabilities?.min);
     const maxExposure = Number(exposureCapabilities?.max);
-    hasCapabilities =
+    canAdjustExposure =
       Number.isFinite(minExposure) && Number.isFinite(maxExposure) && maxExposure > minExposure;
+    canMeter = cameraController?.supportsMeteringPointSelection?.() === true;
 
-    if (!hasCapabilities) {
+    if (!canAdjustExposure) {
       exposureValue.setCapabilities(null);
-      setDisabled();
-      return;
+    } else {
+      exposureValue.setCapabilities({
+        min: minExposure,
+        max: maxExposure,
+        step: Number(exposureCapabilities?.step) || DEFAULT_EXPOSURE_STEP,
+      });
+      exposureValue.confirm(cameraController?.getCurrentExposureCompensation?.() ?? 0);
     }
 
-    exposureValue.setCapabilities({
-      min: minExposure,
-      max: maxExposure,
-      step: Number(exposureCapabilities?.step) || DEFAULT_EXPOSURE_STEP,
-    });
-    isEnabled = true;
-    exposureValue.confirm(cameraController?.getCurrentExposureCompensation?.() ?? 0);
+    // Nothing to drive means nothing to tap, so the layer stops swallowing
+    // pointers over the preview.
+    overlayLayer.classList.toggle("is-inert", !canMeter && !canAdjustExposure);
   }
 
   function handleExposureChange(nextExposure) {
@@ -335,8 +303,7 @@ export function createExposureUiController({
   }
 
   function initialize() {
-    overlayLayer.classList.remove("is-visible");
-    resetButton.hidden = false;
+    hideReticle();
     exposureValue.confirm(cameraController?.getCurrentExposureCompensation?.() ?? 0);
   }
 

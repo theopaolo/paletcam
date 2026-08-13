@@ -41,6 +41,8 @@
   --color-camera-accent: var(--color-accent-soft);
   --color-camera-readout-bg: rgb(247 247 247 / 94%);
   --color-camera-readout-fg: #161616;
+  --color-camera-chip-bg: rgb(10 10 10 / 42%);
+  --color-camera-chip-bg-active: rgb(10 10 10 / 65%);
 
   /* Polaroid exports */
   --color-polaroid-shell-light: #fff;

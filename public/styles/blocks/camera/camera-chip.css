@@ -1,0 +1,39 @@
+/* The small labels overlaying the live preview — GRID, RAL, EV. They share one
+   look; only their placement layer and their active condition differ. */
+
+.camera-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-camera-chip-bg);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard),
+    opacity var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+
+.camera-chip:active {
+  background: var(--color-camera-chip-bg-active);
+}
+
+/* Each chip announces "on" differently — a toggled class, a mode attribute,
+   a non-zero reading — but they all light up the same way. */
+.camera-chip.is-active,
+.camera-chip.is-offset,
+.camera-chip[data-capture-mode="ral"] {
+  color: var(--color-camera-accent);
+  border-color: var(--color-accent-strong);
+}

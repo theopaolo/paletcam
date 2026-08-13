@@ -16,7 +16,7 @@ export function createCameraGridUiController({ overlayHost } = {}) {
   toggleLayer.className = "camera-grid-toggle-layer";
 
   const toggleButton = document.createElement("button");
-  toggleButton.className = "camera-grid-toggle";
+  toggleButton.className = "camera-grid-toggle camera-chip";
   toggleButton.type = "button";
   toggleButton.textContent = "GRID";
 

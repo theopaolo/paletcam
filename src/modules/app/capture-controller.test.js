@@ -97,7 +97,6 @@ describe("capture controller critical-operation ownership", () => {
       getCaptureMode: () => "palette",
       getOneMoreColor: () => false,
       getPaletteExtractionOptions: () => ({}),
-      getPhotoExportQuality: () => 0.9,
       getShouldMirrorUserFacingCamera: () => true,
       recordMetric: mock(() => {}),
     });
@@ -147,7 +146,6 @@ describe("capture controller critical-operation ownership", () => {
       getCaptureMode: () => "palette",
       getOneMoreColor: () => false,
       getPaletteExtractionOptions: () => ({}),
-      getPhotoExportQuality: () => 0.9,
       getShouldMirrorUserFacingCamera: () => false,
       recordMetric: mock(() => {}),
     });
@@ -195,7 +193,6 @@ describe("capture controller critical-operation ownership", () => {
       getCaptureMode: () => "palette",
       getOneMoreColor: () => false,
       getPaletteExtractionOptions: () => ({}),
-      getPhotoExportQuality: () => 0.9,
       getShouldMirrorUserFacingCamera: () => true,
       recordMetric: mock(() => {}),
     });

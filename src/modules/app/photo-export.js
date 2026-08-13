@@ -3,6 +3,9 @@ import { getCenteredAspectCropRect } from "./geometry.js";
 
 const PHOTO_EXPORT_MAX_WIDTH = 2048;
 
+/** Photos always export at full quality; there is no lower-quality mode. */
+export const PHOTO_EXPORT_QUALITY = 0.98;
+
 export function createPhotoExportCanvas({
   fallbackCanvas,
   fallbackWidth,
@@ -87,7 +90,6 @@ export async function exportPhotoBlob({
   facingMode,
   shouldMirrorUserFacing,
   sourceRect = undefined,
-  photoExportQuality,
 }) {
   const photoCanvas = createPhotoExportCanvas({
     fallbackCanvas,
@@ -100,13 +102,13 @@ export async function exportPhotoBlob({
   });
 
   if (!photoCanvas) {
-    return canvasToBlob(fallbackCanvas, "image/jpeg", photoExportQuality);
+    return canvasToBlob(fallbackCanvas, "image/jpeg", PHOTO_EXPORT_QUALITY);
   }
 
-  const webpBlob = await canvasToBlob(photoCanvas, "image/webp", photoExportQuality);
+  const webpBlob = await canvasToBlob(photoCanvas, "image/webp", PHOTO_EXPORT_QUALITY);
   if (webpBlob?.type === "image/webp") {
     return webpBlob;
   }
 
-  return canvasToBlob(photoCanvas, "image/jpeg", photoExportQuality);
+  return canvasToBlob(photoCanvas, "image/jpeg", PHOTO_EXPORT_QUALITY);
 }

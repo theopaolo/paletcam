@@ -72,7 +72,7 @@ The controllers it composes (all in `src/modules/` and `src/modules/app/`):
   iOS interruptions, permission flow.
 - `livePreviewController` — **the heart of the app**; Chapter 3.
 - `captureController` — freezes a frame, extracts the final palette, saves.
-- `zoomUi`, `exposureUi`, `photoQualityUi`, `gridUi` — overlay widgets that
+- `zoomUi`, `exposureUi`, `gridUi` — overlay widgets that
   live inside the camera viewport frame.
 - `performanceHud` — Chapter 8.
 - `swatchSliderUi`, `visualEffects`, `captureMicroInteractions` — small

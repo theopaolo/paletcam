@@ -13,7 +13,6 @@ const HYBRID_TONE_RANGE = { min: 0, max: 1 };
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid", "swatch"]);
 const VALID_LOCALES = new Set(["fr", "en"]);
-const VALID_PHOTO_QUALITY_MODES = new Set(["sd", "hd", "fhd"]);
 const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
 
 const DEFAULT_MEDIAN_CUT_SETTINGS = Object.freeze({
@@ -41,10 +40,6 @@ function normalizeLocale(value) {
   return VALID_LOCALES.has(value) ? value : "fr";
 }
 
-function normalizePhotoQualityMode(value) {
-  return VALID_PHOTO_QUALITY_MODES.has(value) ? value : "hd";
-}
-
 function normalizePolaroidFooterLabel(value) {
   if (typeof value !== "string") {
     return DEFAULT_POLAROID_FOOTER_LABEL;
@@ -61,7 +56,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   performanceHudEnabled: false,
   oneMoreColor: true,
   originBadgesEnabled: true,
-  photoQualityMode: "hd",
   polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
   hybrid: DEFAULT_HYBRID_SETTINGS,
@@ -163,7 +157,6 @@ function normalizeSettings(candidate) {
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),
     originBadgesEnabled: Boolean(candidate?.originBadgesEnabled),
-    photoQualityMode: normalizePhotoQualityMode(candidate?.photoQualityMode),
     polaroidFooterLabel: normalizePolaroidFooterLabel(candidate?.polaroidFooterLabel),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
     hybrid: normalizeHybridSettings(candidate?.hybrid),

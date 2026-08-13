@@ -152,14 +152,6 @@ describe("app-settings performanceHudEnabled", () => {
   });
 });
 
-describe("app-settings photoQualityMode", () => {
-  test("falls back to hd for invalid persisted values", async () => {
-    const { module } = await loadAppSettingsModule({ photoQualityMode: "4k" });
-
-    expect(module.getAppSettings().photoQualityMode).toBe("hd");
-  });
-});
-
 describe("app-settings polaroidFooterLabel", () => {
   test("normalizes blank values back to the default label", async () => {
     const { module } = await loadAppSettingsModule({

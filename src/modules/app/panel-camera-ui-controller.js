@@ -3,7 +3,6 @@ export function createPanelCameraUiController({
   configPanel,
   zoomUi,
   exposureUi,
-  photoQualityUi,
   gridUi,
   documentRef = document,
   windowRef = window,
@@ -58,14 +57,12 @@ export function createPanelCameraUiController({
     if (isConfigDrawerOpen || isSettingsDrawerOpen) {
       zoomUi?.setDisabled();
       exposureUi?.setDisabled();
-      photoQualityUi?.hide();
       gridUi?.hide();
       return;
     }
 
     zoomUi?.syncCapabilities();
     exposureUi?.syncCapabilities();
-    photoQualityUi?.show();
     gridUi?.show();
   }
 

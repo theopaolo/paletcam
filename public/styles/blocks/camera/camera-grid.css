@@ -28,33 +28,3 @@
   pointer-events: none;
 }
 
-.camera-grid-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4) var(--space-8);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: rgb(10 10 10 / 42%);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  line-height: 1;
-  cursor: pointer;
-  pointer-events: auto;
-  touch-action: none;
-  user-select: none;
-  transition:
-    background-color var(--duration-fast) var(--easing-standard),
-    color var(--duration-fast) var(--easing-standard),
-    border-color var(--duration-fast) var(--easing-standard);
-}
-
-.camera-grid-toggle:active {
-  background: rgb(10 10 10 / 65%);
-}
-
-.camera-grid-toggle.is-active {
-  color: var(--color-camera-accent);
-  border-color: var(--color-accent-strong);
-}
