@@ -50,4 +50,17 @@ describe("createColorSmoother", () => {
 
     expect(second.smooth(paletteB, 0.1)).toEqual(paletteB);
   });
+
+  test("can replay the superseded sRGB smoother for the debug harness", () => {
+    const before = createColorSmoother({ colorSpace: "srgb" });
+    const after = createColorSmoother();
+    const red = [{ r: 255, g: 0, b: 0 }];
+    const green = [{ r: 0, g: 255, b: 0 }];
+
+    before.smooth(red, 0.5);
+    after.smooth(red, 0.5);
+
+    expect(before.smooth(green, 0.5)).toEqual([{ r: 192, g: 64, b: 0 }]);
+    expect(after.smooth(green, 0.5)).toEqual([{ r: 237, g: 115, b: 0 }]);
+  });
 });

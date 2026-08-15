@@ -1,4 +1,4 @@
-import { rgbToOklab } from "./color-space-oklch.js";
+import { oklabToRgb, rgbToOklab } from "./color-space-oklch.js";
 
 /**
  * ColorCutQuantizer — median-cut color quantization.
@@ -7,7 +7,9 @@ import { rgbToOklab } from "./color-space-oklch.js";
  * - Builds a histogram of bins
  * - If distinct colors <= maxColors => return them
  * - Else: splits color-space "boxes" (Vboxes) by volume until maxColors
- * - Returns average color of each box weighted by histogram population
+ * - Returns each box's population-weighted OKLab centroid (the boxes are cut
+ *   in RGB for speed/stability; averaging in gamma sRGB would darken/gray
+ *   the mean, so only the centroid is perceptual)
  *
  * Each Swatch also carries a `vividRgb` exemplar — the highest-chroma
  * quantized color in the box (expanded to 8-bit). Consumers that want the
@@ -108,37 +110,38 @@ function modifySignificantOctet(a, dimension, lower, upper) {
 /** ----- Tiny Swatch object (rgb + population + vivid exemplar) ----- */
 class Swatch {
   constructor(rgb, population, vividRgb) {
-    this.rgb = rgb; // 0xFFRRGGBB — population-weighted mean of the box
+    this.rgb = rgb; // 0xFFRRGGBB — population-weighted OKLab centroid of the box
     this.population = population;
     this.vividRgb = vividRgb ?? rgb;
   }
 }
 
 /**
- * OKLab chroma of a 5-bit quantized color, expanded to 8-bit first.
+ * OKLab coordinates of a 5-bit quantized color, expanded to 8-bit first.
  *
- * Chroma is a pure function of the 15-bit code, and live extraction calls
- * this for every distinct color on every frame, so results are cached in a
- * lazily-filled lookup table (-1 marks unset entries; chroma is never
- * negative).
+ * OKLab is a pure function of the 15-bit code, and live extraction touches
+ * every distinct color on every frame, so L/a/b are cached interleaved in a
+ * lazily-filled lookup table (NaN marks unset entries — L is 0 for black, so
+ * a sign sentinel would not work).
+ *
+ * Returns the base index of the entry; read L/a/b at base, base+1, base+2.
  */
-let chromaLut = null;
+let labLut = null;
 
-function quantizedChroma(colorQ) {
-  if (chromaLut === null) {
-    chromaLut = new Float32Array(1 << (QUANTIZE_WORD_WIDTH * 3)).fill(-1);
+function quantizedLabIndex(colorQ) {
+  if (labLut === null) {
+    labLut = new Float32Array((1 << (QUANTIZE_WORD_WIDTH * 3)) * 3).fill(NaN);
   }
 
-  const cached = chromaLut[colorQ];
-  if (cached >= 0) {
-    return cached;
+  const base = colorQ * 3;
+  if (Number.isNaN(labLut[base])) {
+    const rgb888 = approximateToRgb888FromQuant(colorQ);
+    const lab = rgbToOklab(red888(rgb888), green888(rgb888), blue888(rgb888));
+    labLut[base] = lab.L;
+    labLut[base + 1] = lab.a;
+    labLut[base + 2] = lab.b;
   }
-
-  const rgb888 = approximateToRgb888FromQuant(colorQ);
-  const lab = rgbToOklab(red888(rgb888), green888(rgb888), blue888(rgb888));
-  const chroma = Math.hypot(lab.a, lab.b);
-  chromaLut[colorQ] = chroma;
-  return chroma;
+  return base;
 }
 
 // Shared histogram buffer: the quantizer only reads it during construction,
@@ -146,7 +149,8 @@ function quantizedChroma(colorQ) {
 let sharedHistogram = null;
 
 export class ColorCutQuantizer {
-  constructor(pixelsRgb888, maxColors) {
+  constructor(pixelsRgb888, maxColors, { centroidSpace = "oklab" } = {}) {
+    this.centroidSpace = centroidSpace;
     // 32^3 = 32768 bins
     if (sharedHistogram === null) {
       sharedHistogram = new Int32Array(1 << (QUANTIZE_WORD_WIDTH * 3));
@@ -327,9 +331,12 @@ class Vbox {
     const colors = this.q.colors;
     const hist = this.q.histogram;
 
-    let rSum = 0,
+    let lSum = 0,
+      aSum = 0,
+      bSum = 0,
+      rSum = 0,
       gSum = 0,
-      bSum = 0;
+      b8Sum = 0;
     let total = 0;
     let bestQ = -1;
     let bestChroma = -1;
@@ -339,23 +346,41 @@ class Vbox {
       const pop = hist[c];
       total += pop;
 
-      rSum += pop * quantizedRed(c);
-      gSum += pop * quantizedGreen(c);
-      bSum += pop * quantizedBlue(c);
+      const base = quantizedLabIndex(c);
+      lSum += pop * labLut[base];
+      aSum += pop * labLut[base + 1];
+      bSum += pop * labLut[base + 2];
 
-      const chroma = quantizedChroma(c);
+      // Kept solely for the debug harness' faithful “before” comparison.
+      // Production uses the default OKLab centroid.
+      if (this.q.centroidSpace === "srgb") {
+        rSum += pop * quantizedRed(c);
+        gSum += pop * quantizedGreen(c);
+        b8Sum += pop * quantizedBlue(c);
+      }
+
+      const chroma = Math.hypot(labLut[base + 1], labLut[base + 2]);
       if (chroma > bestChroma) {
         bestChroma = chroma;
         bestQ = c;
       }
     }
 
-    const rMean = Math.round(rSum / total);
-    const gMean = Math.round(gSum / total);
-    const bMean = Math.round(bSum / total);
-
     const vividRgb = bestQ >= 0 ? approximateToRgb888FromQuant(bestQ) : undefined;
-    return new Swatch(approximateToRgb888(rMean, gMean, bMean), total, vividRgb);
+    if (this.q.centroidSpace === "srgb") {
+      return new Swatch(
+        approximateToRgb888(
+          Math.round(rSum / total),
+          Math.round(gSum / total),
+          Math.round(b8Sum / total),
+        ),
+        total,
+        vividRgb,
+      );
+    }
+
+    const { r, g, b } = oklabToRgb(lSum / total, aSum / total, bSum / total);
+    return new Swatch(rgb888(r, g, b), total, vividRgb);
   }
 }
 

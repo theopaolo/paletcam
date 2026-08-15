@@ -1,17 +1,42 @@
 import { ColorCutQuantizer } from "./color-cut-quantizer.js";
-import { rgbToOklab } from "./color-space-oklch.js";
+import { oklabToRgb, rgbToOklab } from "./color-space-oklch.js";
 import { packImageDataToArgb8888 } from "./palette-pixel-pack.js";
 
 function argbToRgb(argb) {
   return { r: (argb >>> 16) & 0xff, g: (argb >>> 8) & 0xff, b: argb & 0xff };
 }
 
-function lerpRgb(soft, vivid, t) {
+// Tone blends mean -> vivid in OKLab (Cartesian, so no hue wraparound), like
+// every other perceptual judgment in this selector. Lerping in gamma sRGB
+// instead would darken/gray the midpoint.
+function lerpLab(soft, vivid, t) {
   return {
-    r: Math.round(soft.r + (vivid.r - soft.r) * t),
-    g: Math.round(soft.g + (vivid.g - soft.g) * t),
-    b: Math.round(soft.b + (vivid.b - soft.b) * t),
+    L: soft.L + (vivid.L - soft.L) * t,
+    a: soft.a + (vivid.a - soft.a) * t,
+    b: soft.b + (vivid.b - soft.b) * t,
   };
+}
+
+function toneBlendRgb(candidate, tone) {
+  const lab = lerpLab(candidate, candidate.vividLab, tone);
+  return oklabToRgb(lab.L, lab.a, lab.b);
+}
+
+function toneBlendSrgb(candidate, tone) {
+  return {
+    r: Math.round(candidate.meanRgb.r + (candidate.vividRgb.r - candidate.meanRgb.r) * tone),
+    g: Math.round(candidate.meanRgb.g + (candidate.vividRgb.g - candidate.meanRgb.g) * tone),
+    b: Math.round(candidate.meanRgb.b + (candidate.vividRgb.b - candidate.meanRgb.b) * tone),
+  };
+}
+
+function blendCandidate(candidate, tone, colorMath) {
+  if (colorMath === "srgb") {
+    const rgb = toneBlendSrgb(candidate, tone);
+    return { rgb, lab: rgbToOklab(rgb.r, rgb.g, rgb.b) };
+  }
+  const lab = lerpLab(candidate, candidate.vividLab, tone);
+  return { rgb: oklabToRgb(lab.L, lab.a, lab.b), lab };
 }
 
 function hueGap(hueA, hueB) {
@@ -30,10 +55,13 @@ function buildCandidates(swatches) {
       return {
         meanRgb,
         vividRgb,
+        // Mean Lab is flattened so the candidate itself ducks as a Lab point
+        // (computeLoyalty, lerpLab); vividLab stays nested.
         L: meanLab.L,
         a: meanLab.a,
         b: meanLab.b,
         c: Math.hypot(meanLab.a, meanLab.b),
+        vividLab,
         vividC: Math.hypot(vividLab.a, vividLab.b),
         mass: swatch.population ?? 0,
       };
@@ -126,13 +154,13 @@ function greedySelectChromatic(
   hueRadiusDeg,
   previousLabs,
   loyaltyStrength,
+  colorMath,
 ) {
   if (slots <= 0 || candidates.length === 0) return [];
   const maxChroma = Math.max(...candidates.map((c) => c.vividC)) || 1;
   const maxMass = Math.max(...candidates.map((c) => c.mass)) || 1;
   const available = candidates.map((c) => {
-    const blendedRgb = lerpRgb(c.meanRgb, c.vividRgb, tone);
-    const blendedLab = rgbToOklab(blendedRgb.r, blendedRgb.g, blendedRgb.b);
+    const { rgb: blendedRgb, lab: blendedLab } = blendCandidate(c, tone, colorMath);
     const blendedHue = Math.atan2(blendedLab.b, blendedLab.a) * (180 / Math.PI);
     return {
       ...c,
@@ -211,13 +239,13 @@ function blendedDist(picked, candidate) {
   );
 }
 
-function padToCount(colors, candidates, swatchCount, tone) {
+function padToCount(colors, candidates, swatchCount, tone, colorMath) {
   if (colors.length >= swatchCount) return colors.slice(0, swatchCount);
   const usedKeys = new Set(colors.map((c) => `${c.r},${c.g},${c.b}`));
   const filler = [];
   for (const cand of candidates) {
     if (filler.length + colors.length >= swatchCount) break;
-    const rgb = lerpRgb(cand.meanRgb, cand.vividRgb, tone);
+    const rgb = colorMath === "srgb" ? toneBlendSrgb(cand, tone) : toneBlendRgb(cand, tone);
     const key = `${rgb.r},${rgb.g},${rgb.b}`;
     if (!usedKeys.has(key)) {
       filler.push({ ...rgb, population: Math.round(cand.mass ?? 0) });
@@ -230,34 +258,27 @@ function padToCount(colors, candidates, swatchCount, tone) {
   return [...colors, ...filler].slice(0, swatchCount);
 }
 
-export function selectPaletteHybrid(imageData, width, height, swatchCount, params = {}) {
+/**
+ * Runs the production neutral reservation and perceptual scorer over an
+ * already-built candidate pool. Keeping this stage independent from
+ * median-cut lets the debug lab test candidate generators without silently
+ * changing the selection policy too.
+ */
+export function selectPaletteCandidates(candidates, swatchCount, params = {}) {
   const {
     repulsionRadius = 0.08,
-    maxQuantizerPixels = 40000,
-    quantizedPoolSize = 24,
     spreadStrength = 0.6,
     rarityStrength = 0.2,
     tone = 0.85,
     neutralBalance = "balanced",
     previousColors = [],
     loyaltyStrength = 0.3,
+    // `srgb` exists only so the debug harness can replay the superseded
+    // pipeline exactly. The production default remains perceptual throughout.
+    colorMath = "oklab",
   } = params;
 
   const empty = { colors: [], candidates: [], neutralCount: 0, neutralThreshold: 0 };
-  if (!imageData || width <= 0 || height <= 0) return empty;
-
-  const packed = packImageDataToArgb8888(imageData, width, height, {
-    maxPixels: maxQuantizerPixels,
-  });
-  if (packed.length === 0) return empty;
-
-  const poolSize = Math.max(swatchCount, quantizedPoolSize);
-  // `packed` is a fresh throwaway buffer, so the quantizer may mutate it.
-  const quantizer = new ColorCutQuantizer(packed, poolSize);
-  const swatches = quantizer.getQuantizedColors?.() ?? [];
-  if (swatches.length === 0) return empty;
-
-  const candidates = buildCandidates(swatches);
   if (candidates.length === 0) return empty;
 
   const totalMass = candidates.reduce((sum, c) => sum + c.mass, 0);
@@ -302,6 +323,7 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
     25,
     previousLabs,
     loyaltyStrength,
+    colorMath,
   );
 
   const neutralColors = neutralPicks.map((c) => ({
@@ -310,14 +332,15 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
     population: Math.round(c.bandMass ?? c.mass ?? 0),
   }));
   const chromaticColors = chromaticPicks.map((c) => ({
-    rgb: lerpRgb(c.meanRgb, c.vividRgb, tone),
+    // greedySelectChromatic already blended with the same tone.
+    rgb: c.blendedRgb,
     L: c.L,
     population: Math.round(c.mass ?? 0),
   }));
 
   const sorted = [...neutralColors, ...chromaticColors].sort((x, y) => x.L - y.L);
   let colors = sorted.map((entry) => ({ ...entry.rgb, population: entry.population }));
-  colors = padToCount(colors, [...chromaticCandidates], swatchCount, tone);
+  colors = padToCount(colors, [...chromaticCandidates], swatchCount, tone, colorMath);
 
   return {
     colors,
@@ -325,4 +348,32 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
     neutralCount: neutralPicks.length,
     neutralThreshold,
   };
+}
+
+export function selectPaletteHybrid(imageData, width, height, swatchCount, params = {}) {
+  const {
+    maxQuantizerPixels = 40000,
+    quantizedPoolSize = 24,
+    // `srgb` exists only so the debug harness can replay the superseded
+    // pipeline exactly. The production default remains perceptual throughout.
+    colorMath = "oklab",
+  } = params;
+
+  const empty = { colors: [], candidates: [], neutralCount: 0, neutralThreshold: 0 };
+  if (!imageData || width <= 0 || height <= 0) return empty;
+
+  const packed = packImageDataToArgb8888(imageData, width, height, {
+    maxPixels: maxQuantizerPixels,
+  });
+  if (packed.length === 0) return empty;
+
+  const poolSize = Math.max(swatchCount, quantizedPoolSize);
+  // `packed` is a fresh throwaway buffer, so the quantizer may mutate it.
+  const quantizer = new ColorCutQuantizer(packed, poolSize, {
+    centroidSpace: colorMath === "srgb" ? "srgb" : "oklab",
+  });
+  const swatches = quantizer.getQuantizedColors?.() ?? [];
+  if (swatches.length === 0) return empty;
+
+  return selectPaletteCandidates(buildCandidates(swatches), swatchCount, params);
 }

@@ -69,4 +69,15 @@ describe("ColorCutQuantizer", () => {
     expect(getPopulationTotal(swatches)).toBe(8);
     expectSwatchesWithinRgbRange(swatches);
   });
+
+  test("can replay the superseded sRGB centroid for debug comparisons", () => {
+    const source = [packArgb8888(255, 0, 0), packArgb8888(0, 255, 0)];
+    const before = new ColorCutQuantizer(Int32Array.from(source), 1, {
+      centroidSpace: "srgb",
+    }).getQuantizedColors()[0];
+    const after = new ColorCutQuantizer(Int32Array.from(source), 1).getQuantizedColors()[0];
+
+    expect(unpackRgb888(before.rgb)).toEqual({ r: 128, g: 128, b: 0 });
+    expect(unpackRgb888(after.rgb)).toEqual({ r: 202, g: 164, b: 0 });
+  });
 });
