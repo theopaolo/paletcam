@@ -23,6 +23,7 @@ config-panel {
   border-radius: var(--space-control-gap);
   background: var(--gradient-surface-panel), var(--color-surface-overlay);
   pointer-events: auto;
+  transition: opacity var(--duration-fast) var(--easing-standard);
 }
 
 .config-drawer[hidden] {
@@ -31,6 +32,10 @@ config-panel {
 
 config-panel.is-open .config-drawer {
   animation: config-drawer-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.config-drawer:has(.config-drawer-slider.is-active) {
+  opacity: 0.5;
 }
 
 @keyframes config-drawer-enter {
