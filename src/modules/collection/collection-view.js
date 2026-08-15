@@ -14,7 +14,6 @@
  * @property {HTMLElement | null} selectionFavoriteButton
  * @property {HTMLElement | null} selectionExportButton
  * @property {HTMLElement | null} selectionPublishButton
- * @property {HTMLElement | null} selectionUnpublishButton
  */
 
 /** @param {Document} documentRef @returns {CollectionView} */
@@ -36,7 +35,6 @@ export function createCollectionView(documentRef) {
     selectionFavoriteButton: documentRef.getElementById("collectionSelectionFavorite"),
     selectionExportButton: documentRef.getElementById("collectionSelectionExport"),
     selectionPublishButton: documentRef.getElementById("collectionSelectionPublish"),
-    selectionUnpublishButton: documentRef.getElementById("collectionSelectionUnpublish"),
   };
 }
 

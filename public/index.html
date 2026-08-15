@@ -216,61 +216,92 @@
             id="collectionSelectionBar"
             hidden
           >
-            <span
-              class="collection-selection-count"
-              id="collectionSelectionCount"
-              >0</span
-            >
-            <div class="collection-selection-actions">
-              <button
-                class="collection-selection-action"
-                id="collectionSelectionUnpublish"
-                type="button"
-                data-i18n="collection.select.unpublish"
-              >
-                Retirer
-              </button>
-              <button
-                class="collection-selection-action"
-                id="collectionSelectionPublish"
-                type="button"
-                data-i18n="collection.select.publish"
-              >
-                Publier
-              </button>
-              <button
-                class="collection-selection-action"
-                id="collectionSelectionFavorite"
-                type="button"
-                data-i18n="collection.select.favorite"
-              >
-                Favori
-              </button>
-              <button
-                class="collection-selection-action"
-                id="collectionSelectionExport"
-                type="button"
-                data-i18n="collection.select.export"
-              >
-                Exporter
-              </button>
-              <button
-                class="collection-selection-action collection-selection-action--delete"
-                id="collectionSelectionDelete"
-                type="button"
-                data-i18n="collection.select.delete"
-              >
-                Supprimer
-              </button>
-            </div>
             <button
-              class="collection-selection-cancel"
+              class="collection-selection-exit"
               id="collectionSelectionCancel"
               type="button"
-              data-i18n="collection.select.cancel"
+              aria-label="Annuler la sélection"
+              data-i18n-aria-label="collection.select.cancel"
             >
-              Annuler
+              <span
+                class="collection-selection-exit-icon"
+                aria-hidden="true"
+              ></span>
+              <span
+                class="collection-selection-count"
+                id="collectionSelectionCount"
+                >0</span
+              >
             </button>
+
+            <div class="palette-viewer-actions collection-selection-actions">
+              <button
+                class="panel-icon-button panel-icon-button--viewer-action palette-action-delete"
+                id="collectionSelectionDelete"
+                type="button"
+                aria-label="Supprimer"
+                data-i18n-aria-label="collection.select.delete"
+              >
+                <svg viewBox="0 0 256 256" aria-hidden="true">
+                  <path
+                    d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"
+                  ></path>
+                </svg>
+              </button>
+
+              <button
+                class="panel-icon-button panel-icon-button--viewer-action palette-action-favorite"
+                id="collectionSelectionFavorite"
+                type="button"
+                aria-pressed="false"
+                aria-label="Ajouter aux favoris"
+                data-i18n-aria-label="collection.select.favorite"
+              >
+                <svg class="favorite-icon" viewBox="0 0 256 256" aria-hidden="true">
+                  <path
+                    class="favorite-icon-outline"
+                    d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.36,16.36,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91l24.62-59.6c.08-.17.11-.25.35-.25s.27.08.35.25L152.93,91a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z"
+                  ></path>
+                  <path
+                    class="favorite-icon-fill"
+                    d="M239.2,97.29a16,16,0,0,0-13.81-11L166,81.17,142.72,25.81h0a15.95,15.95,0,0,0-29.44,0L90.07,81.17,30.61,86.32a16,16,0,0,0-9.11,28.06L66.61,153.8,53.09,212.34a16,16,0,0,0,23.84,17.34l51-31,51.11,31a16,16,0,0,0,23.84-17.34l-13.51-58.6,45.1-39.36A16,16,0,0,0,239.2,97.29Z"
+                  ></path>
+                </svg>
+              </button>
+
+              <button
+                class="panel-icon-button panel-icon-button--viewer-action palette-action-publish"
+                id="collectionSelectionPublish"
+                type="button"
+                aria-label="Publier"
+                data-i18n-aria-label="collection.select.publish"
+              >
+                <svg viewBox="0 0 256 256" aria-hidden="true">
+                  <path
+                    d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0ZM93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66Z"
+                  ></path>
+                </svg>
+                <span
+                  class="palette-action-label"
+                  data-i18n="collection.select.publish"
+                  >Publier</span
+                >
+              </button>
+
+              <button
+                class="panel-icon-button panel-icon-button--viewer-action palette-action-export"
+                id="collectionSelectionExport"
+                type="button"
+                aria-label="Exporter"
+                data-i18n-aria-label="collection.select.export"
+              >
+                <svg viewBox="0 0 256 256" aria-hidden="true">
+                  <path
+                    d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"
+                  ></path>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

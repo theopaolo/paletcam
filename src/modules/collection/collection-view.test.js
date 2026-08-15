@@ -53,7 +53,6 @@ describe("collection view factory", () => {
       "collectionSelectionFavorite",
       "collectionSelectionExport",
       "collectionSelectionPublish",
-      "collectionSelectionUnpublish",
     ]);
     expect(view.panel).not.toBeNull();
     expect(view.grid).not.toBeNull();

@@ -93,8 +93,9 @@ const {
   selectionFavoriteButton: collectionSelectionFavorite,
   selectionExportButton: collectionSelectionExport,
   selectionPublishButton: collectionSelectionPublish,
-  selectionUnpublishButton: collectionSelectionUnpublish,
 } = collectionView;
+const collectionSelectionPublishLabel =
+  collectionSelectionPublish?.querySelector(".palette-action-label") ?? null;
 const DELETE_UNDO_DURATION_MS = 5000;
 const CARD_REVEAL_DURATION_MS = 280;
 const CARD_REVEAL_STAGGER_MS = 42;
@@ -1256,9 +1257,12 @@ function syncSelectionBar() {
     collectionSelectionFavorite.dataset.favoriteAction = shouldUnfavorite
       ? "unfavorite"
       : "favorite";
-    collectionSelectionFavorite.textContent = shouldUnfavorite
-      ? t("collection.select.unfavorite")
-      : t("collection.select.favorite");
+    // Filled star = the tap will unstar; the cross-fade rides aria-pressed.
+    collectionSelectionFavorite.setAttribute("aria-pressed", String(shouldUnfavorite));
+    collectionSelectionFavorite.setAttribute(
+      "aria-label",
+      shouldUnfavorite ? t("collection.select.unfavorite") : t("collection.select.favorite"),
+    );
   }
 
   if (collectionSelectionExport instanceof HTMLButtonElement) {
@@ -1266,15 +1270,22 @@ function syncSelectionBar() {
   }
 
   if (collectionSelectionPublish instanceof HTMLButtonElement) {
-    collectionSelectionPublish.disabled = !selected.some(
+    // One button, two meanings, mirroring the favorite toggle: it unpublishes
+    // only when nothing in the selection can still be published.
+    const canPublishAny = selected.some(
       (p) => canPublishPalette(p) && getPalettePublicationAction(p) !== "unpublish",
     );
-  }
-
-  if (collectionSelectionUnpublish instanceof HTMLButtonElement) {
-    collectionSelectionUnpublish.disabled = !selected.some(
-      (p) => getPalettePublicationAction(p) === "unpublish",
-    );
+    const canUnpublishAny = selected.some((p) => getPalettePublicationAction(p) === "unpublish");
+    const publicationAction = !canPublishAny && canUnpublishAny ? "unpublish" : "publish";
+    collectionSelectionPublish.disabled = !canPublishAny && !canUnpublishAny;
+    collectionSelectionPublish.dataset.publicationAction = publicationAction;
+    // The viewer pill's quiet style keys off data-publish-state.
+    collectionSelectionPublish.dataset.publishState = publicationAction;
+    const publicationLabel = t(`collection.select.${publicationAction}`);
+    collectionSelectionPublish.setAttribute("aria-label", publicationLabel);
+    if (collectionSelectionPublishLabel) {
+      collectionSelectionPublishLabel.textContent = publicationLabel;
+    }
   }
 }
 
@@ -1667,11 +1678,11 @@ function bindCollectionUiEvents() {
   });
 
   bindCollectionEventListener(collectionSelectionPublish, "click", () => {
+    if (collectionSelectionPublish?.dataset.publicationAction === "unpublish") {
+      void handleSelectionUnpublish();
+      return;
+    }
     void handleSelectionPublish();
-  });
-
-  bindCollectionEventListener(collectionSelectionUnpublish, "click", () => {
-    void handleSelectionUnpublish();
   });
 
   bindCollectionEventListener(collectionGrid, "pointerdown", (event) => {
