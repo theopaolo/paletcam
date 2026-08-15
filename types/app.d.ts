@@ -131,11 +131,14 @@ interface MedianCutSettings {
   maxQuantizerPixels: number;
 }
 
+type NeutralBalance = "color" | "balanced" | "neutrals";
+
 interface HybridSettings {
   repulsionRadius: number;
   spreadStrength: number;
   rarityStrength: number;
   tone: number;
+  neutralBalance: NeutralBalance;
   loyaltyStrength: number;
 }
 

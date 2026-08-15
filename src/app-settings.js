@@ -10,6 +10,7 @@ const MEDIAN_CUT_MAX_PIXELS_RANGE = { min: 1000, max: 60000 };
 const HYBRID_REPULSION_RADIUS_RANGE = { min: 0, max: 0.2 };
 const HYBRID_STRENGTH_RANGE = { min: 0, max: 1 };
 const HYBRID_TONE_RANGE = { min: 0, max: 1 };
+const VALID_NEUTRAL_BALANCES = new Set(["color", "balanced", "neutrals"]);
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid", "swatch"]);
 const VALID_LOCALES = new Set(["fr", "en"]);
@@ -25,8 +26,13 @@ const DEFAULT_HYBRID_SETTINGS = Object.freeze({
   spreadStrength: 0.6,
   rarityStrength: 0.2,
   tone: 0.9,
+  neutralBalance: "balanced",
   loyaltyStrength: 0.3,
 });
+
+function normalizeNeutralBalance(value) {
+  return VALID_NEUTRAL_BALANCES.has(value) ? value : "balanced";
+}
 
 function normalizeCaptureMode(value) {
   return VALID_CAPTURE_MODES.has(value) ? value : "palette";
@@ -141,6 +147,7 @@ function normalizeHybridSettings(candidate) {
       HYBRID_STRENGTH_RANGE,
     ),
     tone: clampFloatInRange(candidate?.tone, fallback.tone, HYBRID_TONE_RANGE),
+    neutralBalance: normalizeNeutralBalance(candidate?.neutralBalance),
     loyaltyStrength: clampFloatInRange(
       candidate?.loyaltyStrength,
       fallback.loyaltyStrength,
@@ -201,11 +208,14 @@ function loadSettings() {
       ...(storedSettings?.medianCut ?? {}),
     },
     oneMoreColor: DEFAULT_SETTINGS.oneMoreColor,
-    // Selector policy is fixed; Tone remains the only user-facing hybrid
-    // parameter. Ignore retired slider values persisted by older builds.
+    // Ignore retired selector sliders persisted by older builds. Tone and the
+    // discrete neutral policy remain user-facing.
     hybrid: {
       ...DEFAULT_SETTINGS.hybrid,
       ...(storedSettings?.hybrid?.tone == null ? {} : { tone: storedSettings.hybrid.tone }),
+      ...(storedSettings?.hybrid?.neutralBalance == null
+        ? {}
+        : { neutralBalance: storedSettings.hybrid.neutralBalance }),
     },
   });
 }

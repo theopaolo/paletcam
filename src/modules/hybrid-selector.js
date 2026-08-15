@@ -62,31 +62,54 @@ function computeNeutralThreshold(candidates, totalMass) {
 // palette color, so a band doesn't flap between two similarly-clean grays
 // from one extraction to the next.
 const NEUTRAL_LOYALTY_WEIGHT = 0.02;
+const NEUTRAL_POLICIES = Object.freeze({
+  color: Object.freeze({ massFloor: 0.08, slotScale: 0.5 }),
+  balanced: Object.freeze({ massFloor: 0.05, slotScale: 1 }),
+  neutrals: Object.freeze({ massFloor: 0.03, slotScale: 1.35 }),
+});
 
-function pickNeutralBands(neutralCandidates, slots, minBandMass, previousLabs) {
+function pickNeutralBands(neutralCandidates, slots, minBandMass, previousLabs, neutralBalance) {
   if (slots <= 0 || neutralCandidates.length === 0) return [];
   const bands = [
-    { lo: 0, hi: 0.34, items: [] },
-    { lo: 0.34, hi: 0.66, items: [] },
-    { lo: 0.66, hi: 1.01, items: [] },
+    { key: "dark", lo: 0, hi: 0.34, items: [] },
+    { key: "mid", lo: 0.34, hi: 0.66, items: [] },
+    { key: "light", lo: 0.66, hi: 1.01, items: [] },
   ];
   for (const cand of neutralCandidates) {
     const band = bands.find((b) => cand.L >= b.lo && cand.L < b.hi) ?? bands[2];
     band.items.push(cand);
   }
-  const exemplarScore = (c) => c.c - NEUTRAL_LOYALTY_WEIGHT * computeLoyalty(c, previousLabs);
-  return bands
+  const eligible = bands
     .filter((band) => band.items.reduce((sum, c) => sum + c.mass, 0) >= minBandMass)
-    .sort((a, b) => totalMass(b) - totalMass(a))
-    .slice(0, slots)
-    .map((band) => ({
-      ...band.items.reduce((cleanest, c) =>
-        exemplarScore(c) < exemplarScore(cleanest) ? c : cleanest,
-      ),
-      // The exemplar represents the whole lightness band, so its density is
-      // the band's mass, not the single candidate's.
-      bandMass: totalMass(band),
-    }));
+    .sort((a, b) => totalMass(b) - totalMass(a));
+  const ordered =
+    neutralBalance === "neutrals" && slots >= 2
+      ? [
+          ...eligible.filter((band) => band.key !== "mid"),
+          ...eligible.filter((band) => band.key === "mid"),
+        ]
+      : eligible;
+  const exemplarScore = (candidate, band) => {
+    let endpointPenalty = 0;
+    if (neutralBalance === "neutrals" && band.key === "dark") {
+      endpointPenalty = candidate.L * 0.04;
+    } else if (neutralBalance === "neutrals" && band.key === "light") {
+      endpointPenalty = (1 - candidate.L) * 0.04;
+    }
+    return (
+      candidate.c +
+      endpointPenalty -
+      NEUTRAL_LOYALTY_WEIGHT * computeLoyalty(candidate, previousLabs)
+    );
+  };
+  return ordered.slice(0, slots).map((band) => ({
+    ...band.items.reduce((cleanest, c) =>
+      exemplarScore(c, band) < exemplarScore(cleanest, band) ? c : cleanest,
+    ),
+    // The exemplar represents the whole lightness band, so its density is
+    // the band's mass, not the single candidate's.
+    bandMass: totalMass(band),
+  }));
 }
 
 function totalMass(band) {
@@ -215,6 +238,7 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
     spreadStrength = 0.6,
     rarityStrength = 0.2,
     tone = 0.85,
+    neutralBalance = "balanced",
     previousColors = [],
     loyaltyStrength = 0.3,
   } = params;
@@ -244,19 +268,27 @@ export function selectPaletteHybrid(imageData, width, height, swatchCount, param
 
   const neutralFraction = neutralCandidates.reduce((sum, c) => sum + c.mass, 0) / totalMass;
   const maxNeutral = chromaticCandidates.length > 0 ? Math.min(swatchCount - 1, 3) : swatchCount;
-  const requestedNeutral = Math.min(Math.round(swatchCount * neutralFraction), maxNeutral);
+  const neutralPolicy = NEUTRAL_POLICIES[neutralBalance] ?? NEUTRAL_POLICIES.balanced;
+  const proportionalNeutral = Math.round(swatchCount * neutralFraction * neutralPolicy.slotScale);
+  let requestedNeutral = Math.min(proportionalNeutral, maxNeutral);
+  if (neutralBalance === "color" && chromaticCandidates.length > 0) {
+    requestedNeutral = Math.min(requestedNeutral, 1);
+  } else if (neutralBalance === "neutrals" && neutralCandidates.length > 0) {
+    requestedNeutral = Math.max(requestedNeutral, Math.min(2, maxNeutral));
+  }
   const previousLabs = Array.isArray(previousColors)
     ? previousColors
         .filter((color) => color && Number.isFinite(color.r))
         .map((color) => rgbToOklab(color.r, color.g, color.b))
     : [];
 
-  const minBandMass = Math.max(1, totalMass * 0.05);
+  const minBandMass = Math.max(1, totalMass * neutralPolicy.massFloor);
   const neutralPicks = pickNeutralBands(
     neutralCandidates,
     Math.max(0, requestedNeutral),
     minBandMass,
     previousLabs,
+    neutralBalance,
   );
 
   const chromaticSlots = swatchCount - neutralPicks.length;

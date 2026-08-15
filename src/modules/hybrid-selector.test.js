@@ -10,6 +10,8 @@ const RED = { r: 200, g: 40, b: 40 };
 const BLUE = { r: 40, g: 80, b: 200 };
 const YELLOW = { r: 230, g: 200, b: 40 };
 const GRAY = { r: 128, g: 128, b: 128 };
+const BLACK = { r: 0, g: 0, b: 0 };
+const WHITE = { r: 255, g: 255, b: 255 };
 
 /** Frame split into vertical bands, one per color, equal widths. */
 function createBandedFrame(colors) {
@@ -87,6 +89,25 @@ describe("selectPaletteHybrid", () => {
     });
 
     expect(rgbDistance(loyal.colors[0], previousColor)).toBeLessThan(EXTRACTION_TOLERANCE);
+  });
+
+  test("neutral balance can reserve small dark and light anchors", () => {
+    const frame = createBandedFrame([
+      ...Array(3).fill(BLACK),
+      ...Array(3).fill(WHITE),
+      ...Array(58).fill(RED),
+    ]);
+
+    const balanced = selectPaletteHybrid(frame, WIDTH, HEIGHT, 4, {
+      neutralBalance: "balanced",
+    });
+    const neutralForward = selectPaletteHybrid(frame, WIDTH, HEIGHT, 4, {
+      neutralBalance: "neutrals",
+    });
+
+    expect(balanced.neutralCount).toBe(0);
+    expect(neutralForward.neutralCount).toBe(2);
+    expectPaletteCovers(neutralForward.colors, [BLACK, WHITE]);
   });
 
   test("returns an empty palette for degenerate input", () => {

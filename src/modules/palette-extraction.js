@@ -55,6 +55,7 @@ export function extractPaletteColors(
     spreadStrength: hybrid.spreadStrength,
     rarityStrength: hybrid.rarityStrength,
     tone: hybrid.tone,
+    neutralBalance: hybrid.neutralBalance,
     previousColors: hybrid.previousColors,
     loyaltyStrength: hybrid.loyaltyStrength,
   });

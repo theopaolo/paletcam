@@ -56,7 +56,7 @@
             </details>
             <output class="config-drawer-value">46k</output>
             <div
-              class="swatch-slider panel-form-quality-slider config-drawer-slider is-active"
+              class="swatch-slider panel-form-quality-slider config-drawer-slider"
               style="--tick-count: 60; --tick-index: 45; --tick-intervals: 59"
             >
               <input type="range" min="1000" max="60000" value="46000" step="1000" />
@@ -77,6 +77,49 @@
               style="--tick-count: 101; --tick-index: 90; --tick-intervals: 100"
             >
               <input type="range" min="0" max="100" value="90" step="1" />
+            </div>
+          </div>
+
+          <div class="panel-form-field config-drawer-neutral-field">
+            <details class="panel-form-field-header">
+              <summary class="panel-form-label" id="previewNeutralBalanceLabel">
+                Neutral balance
+              </summary>
+              <p class="panel-form-hint">
+                Choose whether palette slots favor chromatic colors or significant dark, gray, and
+                light anchors.
+              </p>
+            </details>
+            <div
+              class="config-drawer-neutral-options"
+              role="radiogroup"
+              aria-labelledby="previewNeutralBalanceLabel"
+            >
+              <label class="config-drawer-neutral-option">
+                <input
+                  class="config-drawer-neutral-input"
+                  type="radio"
+                  name="previewNeutralBalance"
+                />
+                <span class="config-drawer-neutral-label">Color</span>
+              </label>
+              <label class="config-drawer-neutral-option">
+                <input
+                  class="config-drawer-neutral-input"
+                  type="radio"
+                  name="previewNeutralBalance"
+                  checked
+                />
+                <span class="config-drawer-neutral-label">Balanced</span>
+              </label>
+              <label class="config-drawer-neutral-option">
+                <input
+                  class="config-drawer-neutral-input"
+                  type="radio"
+                  name="previewNeutralBalance"
+                />
+                <span class="config-drawer-neutral-label">Neutrals</span>
+              </label>
             </div>
           </div>
         </section>

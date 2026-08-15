@@ -151,6 +151,7 @@ class FakeElement extends FakeEventTarget {
     this.tagName = String(tagName).toUpperCase();
     this.attributes = new Map();
     this.children = [];
+    this.checked = false;
     this.classList = new FakeClassList(this);
     this.dataset = {};
     this.disabled = false;
@@ -294,6 +295,22 @@ function createRangeShell({ shellId, inputId, valueId, min, max, step, value }) 
   return { input, output, shell };
 }
 
+function createNeutralBalanceInputs() {
+  const group = new FakeElement("div");
+  const inputs = Object.fromEntries(
+    ["color", "balanced", "neutrals"].map((value) => {
+      const input = new FakeElement("input");
+      input.setAttribute("class", "config-drawer-neutral-input");
+      input.type = "radio";
+      input.value = value;
+      input.checked = value === "balanced";
+      group.append(input);
+      return [value, input];
+    }),
+  );
+  return { group, inputs };
+}
+
 function createConfigFixture() {
   const root = new FakeElement("config-panel");
   const drawer = new FakeElement("section");
@@ -328,8 +345,9 @@ function createConfigFixture() {
     step: 1,
     value: 90,
   });
+  const neutralBalance = createNeutralBalanceInputs();
 
-  panel.append(analyze.shell, density.shell, tone.shell);
+  panel.append(analyze.shell, density.shell, tone.shell, neutralBalance.group);
 
   const undoButton = createButton("configUndoButton");
   const redoButton = createButton("configRedoButton");
@@ -360,6 +378,7 @@ function createConfigFixture() {
     densityInput: density.input,
     densityOutput: density.output,
     drawer,
+    neutralBalanceInputs: neutralBalance.inputs,
     redoButton,
     root,
     toggleButton,
@@ -432,7 +451,7 @@ describe("mountConfigPanel", () => {
     cleanup();
   });
 
-  test("updates analyze, density, and tone with readable values", () => {
+  test("updates analyze, density, tone, and neutral balance", () => {
     const fixture = createConfigFixture();
     const fakeDocument = new FakeEventTarget();
     Object.defineProperty(globalThis, "document", {
@@ -452,6 +471,7 @@ describe("mountConfigPanel", () => {
     expect(fixture.densityOutput.textContent).toBe("46k");
     expect(fixture.toneInput.value).toBe("90");
     expect(fixture.toneOutput.textContent).toBe("90%");
+    expect(fixture.neutralBalanceInputs.balanced.checked).toBe(true);
 
     fixture.toneInput.dispatch("pointerdown");
     fixture.toneInput.value = "42";
@@ -461,6 +481,41 @@ describe("mountConfigPanel", () => {
     expect(getAppSettings().hybrid.tone).toBe(0.42);
     expect(fixture.toneOutput.textContent).toBe("42%");
     expect(fixture.undoButton.disabled).toBe(false);
+
+    fixture.neutralBalanceInputs.neutrals.checked = true;
+    fixture.neutralBalanceInputs.neutrals.dispatch("change");
+
+    expect(getAppSettings().hybrid.neutralBalance).toBe("neutrals");
+    expect(fixture.neutralBalanceInputs.neutrals.checked).toBe(true);
+
+    cleanup();
+  });
+
+  test("includes neutral balance changes in undo and redo history", () => {
+    const fixture = createConfigFixture();
+    const fakeDocument = new FakeEventTarget();
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: fakeDocument,
+    });
+
+    const cleanup = mountConfigPanel({
+      root: fixture.root,
+      toggleButton: fixture.toggleButton,
+      toggleSection: fixture.toggleSection,
+    });
+
+    fixture.neutralBalanceInputs.neutrals.checked = true;
+    fixture.neutralBalanceInputs.neutrals.dispatch("change");
+    expect(getAppSettings().hybrid.neutralBalance).toBe("neutrals");
+
+    fixture.undoButton.click();
+    expect(getAppSettings().hybrid.neutralBalance).toBe("balanced");
+    expect(fixture.neutralBalanceInputs.balanced.checked).toBe(true);
+
+    fixture.redoButton.click();
+    expect(getAppSettings().hybrid.neutralBalance).toBe("neutrals");
+    expect(fixture.neutralBalanceInputs.neutrals.checked).toBe(true);
 
     cleanup();
   });

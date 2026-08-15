@@ -279,6 +279,12 @@ const fr = {
   "config.production.tone.hint":
     "Une valeur basse rapproche les couleurs et crée une palette plus monochrome ; une valeur haute leur donne plus d'impact.",
   "config.production.tone.aria": "Tonalité : {value}",
+  "config.production.neutralBalance.title": "Tons neutres",
+  "config.production.neutralBalance.hint":
+    "Choisissez si les emplacements favorisent les couleurs chromatiques ou les tons sombres, gris et clairs présents.",
+  "config.production.neutralBalance.color": "Couleurs",
+  "config.production.neutralBalance.balanced": "Équilibré",
+  "config.production.neutralBalance.neutrals": "Neutres",
   "camera.start.notAllowed": "Autorisez l'accès à la caméra pour capturer des palettes.",
   "camera.start.notFound": "Aucune caméra n'a été détectée sur cet appareil.",
   "camera.start.notReadable": "La caméra est déjà utilisée ou momentanément indisponible.",

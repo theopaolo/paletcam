@@ -176,20 +176,30 @@ describe("app-settings polaroidFooterLabel", () => {
 });
 
 describe("app-settings hybrid", () => {
-  test("persists Tone and resets retired selector controls on reload", async () => {
+  test("persists Tone and neutral balance while resetting retired selector controls", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
 
     module.updateAppSettings({
-      hybrid: { rarityStrength: 0.4, tone: 0.42 },
+      hybrid: { neutralBalance: "neutrals", rarityStrength: 0.4, tone: 0.42 },
     });
 
     expect(module.getAppSettings().hybrid.tone).toBe(0.42);
+    expect(module.getAppSettings().hybrid.neutralBalance).toBe("neutrals");
     expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).hybrid.tone).toBe(0.42);
 
     module.resetAppSettingsForTests();
 
     expect(module.getAppSettings().hybrid.tone).toBe(0.42);
+    expect(module.getAppSettings().hybrid.neutralBalance).toBe("neutrals");
     expect(module.getAppSettings().hybrid.rarityStrength).toBe(0.2);
+  });
+
+  test("normalizes an invalid neutral balance to balanced", async () => {
+    const { module } = await loadAppSettingsModule({
+      hybrid: { neutralBalance: "extreme" },
+    });
+
+    expect(module.getAppSettings().hybrid.neutralBalance).toBe("balanced");
   });
 });
 

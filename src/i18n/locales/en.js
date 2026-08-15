@@ -271,6 +271,12 @@ const en = {
   "config.production.tone.hint":
     "Lower values keep colors closer and more monochromatic; higher values make them punchier.",
   "config.production.tone.aria": "Tone: {value}",
+  "config.production.neutralBalance.title": "Neutral balance",
+  "config.production.neutralBalance.hint":
+    "Choose whether palette slots favor chromatic colors or significant dark, gray, and light anchors.",
+  "config.production.neutralBalance.color": "Color",
+  "config.production.neutralBalance.balanced": "Balanced",
+  "config.production.neutralBalance.neutrals": "Neutrals",
   "camera.start.notAllowed": "Allow camera access to capture palettes.",
   "camera.start.notFound": "No camera was detected on this device.",
   "camera.start.notReadable": "The camera is already in use or temporarily unavailable.",

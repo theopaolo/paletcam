@@ -91,4 +91,22 @@ describe("extractPaletteColors", () => {
     expect(vividResult.colors.length).toBe(2);
     expect(softResult.colors).not.toEqual(vividResult.colors);
   });
+
+  test("forwards neutral balance to the selector", () => {
+    const imageData = createRgbaData([
+      ...Array(3).fill([0, 0, 0, 255]),
+      ...Array(3).fill([255, 255, 255, 255]),
+      ...Array(58).fill([210, 45, 45, 255]),
+    ]);
+
+    const balanced = extractPaletteColors(imageData, 64, 1, 4, {
+      hybrid: { neutralBalance: "balanced" },
+    });
+    const neutralForward = extractPaletteColors(imageData, 64, 1, 4, {
+      hybrid: { neutralBalance: "neutrals" },
+    });
+
+    expect(balanced.neutralCount).toBe(0);
+    expect(neutralForward.neutralCount).toBe(2);
+  });
 });

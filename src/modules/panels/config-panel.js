@@ -38,6 +38,12 @@ const TUNING_FIELDS = Object.freeze([
   }),
 ]);
 
+const NEUTRAL_BALANCE_OPTIONS = Object.freeze([
+  Object.freeze({ value: "color", id: "configNeutralColor" }),
+  Object.freeze({ value: "balanced", id: "configNeutralBalanced" }),
+  Object.freeze({ value: "neutrals", id: "configNeutralNeutrals" }),
+]);
+
 function formatTuningValue(controlKey, value) {
   if (controlKey === "density") {
     return `${Math.round(value / 1000)}k`;
@@ -81,6 +87,45 @@ function renderTuningField({ controlKey, shellId, inputId, valueId, min, max, st
   `;
 }
 
+function renderNeutralBalanceControl() {
+  return html`
+    <div class="panel-form-field config-drawer-neutral-field">
+      <details class="panel-form-field-header">
+        <summary class="panel-form-label" id="configNeutralBalanceLabel">
+          ${t("config.production.neutralBalance.title")}
+        </summary>
+        <p class="panel-form-hint">
+          ${t("config.production.neutralBalance.hint")}
+        </p>
+      </details>
+
+      <div
+        class="config-drawer-neutral-options"
+        role="radiogroup"
+        aria-labelledby="configNeutralBalanceLabel"
+      >
+        ${NEUTRAL_BALANCE_OPTIONS.map(
+          ({ value, id }) => html`
+            <label class="config-drawer-neutral-option" for=${id}>
+              <input
+                class="config-drawer-neutral-input"
+                id=${id}
+                type="radio"
+                name="configNeutralBalance"
+                value=${value}
+                ?checked=${value === DEFAULT_ALGORITHM_SETTINGS.hybrid.neutralBalance}
+              />
+              <span class="config-drawer-neutral-label">
+                ${t(`config.production.neutralBalance.${value}`)}
+              </span>
+            </label>
+          `,
+        )}
+      </div>
+    </div>
+  `;
+}
+
 class ConfigPanel extends LitElement {
   createRenderRoot() {
     return this;
@@ -116,6 +161,7 @@ class ConfigPanel extends LitElement {
         <div class="config-drawer-panels">
           <section class="config-drawer-panel" aria-label=${t("config.production.panelAria")}>
             ${TUNING_FIELDS.map(renderTuningField)}
+            ${renderNeutralBalanceControl()}
           </section>
         </div>
 

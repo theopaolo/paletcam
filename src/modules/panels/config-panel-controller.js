@@ -22,6 +22,9 @@ function queryById(root, id) {
 function getConfigDom(root) {
   return {
     drawer: queryById(root, "configDrawer"),
+    neutralBalanceInputs: /** @type {HTMLInputElement[]} */ ([
+      ...root.querySelectorAll(".config-drawer-neutral-input"),
+    ]),
     originBadgesToggle: /** @type {HTMLInputElement | null} */ (
       queryById(root, "configOriginBadgesToggle")
     ),
@@ -149,6 +152,12 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     dom.originBadgesToggle.checked = Boolean(settings.originBadgesEnabled);
   }
 
+  function syncNeutralBalance(settings) {
+    dom.neutralBalanceInputs.forEach((input) => {
+      input.checked = input.value === settings.hybrid.neutralBalance;
+    });
+  }
+
   function syncDrawerAvailability(settings) {
     const isRalMode = settings.captureMode === "ral";
     if (toggleSection) {
@@ -262,6 +271,7 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     rangeControls.forEach((control) => {
       control.renderFromSettings(settings);
     });
+    syncNeutralBalance(settings);
     syncOriginBadgesToggle(settings);
     syncDrawerAvailability(settings);
     syncConfigToggleButton();
@@ -307,6 +317,19 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     });
   });
   rangeControls.forEach(bindSliderControl);
+  dom.neutralBalanceInputs.forEach((input) => {
+    on(input, "change", () => {
+      if (!input.checked || input.value === getAppSettings().hybrid.neutralBalance) {
+        return;
+      }
+
+      beginAlgorithmInteraction();
+      applyAlgorithmSettings((snapshot) => {
+        snapshot.hybrid.neutralBalance = input.value;
+      });
+      commitAlgorithmInteraction();
+    });
+  });
 
   on(dom.undoButton, "click", () => {
     const nextSnapshot = history.undo();
