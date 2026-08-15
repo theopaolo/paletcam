@@ -9,7 +9,7 @@
 .swatch-count-drum {
   position: relative;
   width: var(--space-48);
-  height: var(--space-48);
+  height: 4rem;
   overflow: hidden;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
@@ -35,11 +35,11 @@
   transform: translateY(-50%);
   background: linear-gradient(
     90deg,
-    var(--color-camera-accent) 0 var(--space-4),
-    transparent var(--space-4) calc(100% - var(--space-4)),
-    var(--color-camera-accent) calc(100% - var(--space-4))
+    var(--color-camera-accent) 0 var(--space-8),
+    transparent var(--space-8) calc(100% - var(--space-8)),
+    var(--color-camera-accent) calc(100% - var(--space-8))
   );
-  opacity: 0.55;
+  opacity: 0.8;
   pointer-events: none;
 }
 
@@ -220,12 +220,20 @@
     ),
     linear-gradient(
       to right,
-      transparent calc(var(--tick-highlight-local) - var(--tick-highlight-width)),
-      var(--color-accent-soft) calc(var(--tick-highlight-local) - var(--tick-highlight-width)),
-      var(--color-accent-soft) calc(var(--tick-highlight-local) + var(--tick-highlight-width)),
-      transparent calc(var(--tick-highlight-local) + var(--tick-highlight-width))
+      transparent
+        calc(var(--tick-highlight-local) - var(--tick-highlight-width)),
+      var(--color-accent-soft)
+        calc(var(--tick-highlight-local) - var(--tick-highlight-width)),
+      var(--color-accent-soft)
+        calc(var(--tick-highlight-local) + var(--tick-highlight-width)),
+      transparent
+        calc(var(--tick-highlight-local) + var(--tick-highlight-width))
     ),
-    repeating-linear-gradient(to right, rgb(210 210 210 / 82%) 0 1.25px, transparent 1px 100%),
+    repeating-linear-gradient(
+      to right,
+      rgb(210 210 210 / 82%) 0 1.25px,
+      transparent 1px 100%
+    ),
     linear-gradient(
       to right,
       transparent calc(100% - 1.25px),
@@ -266,7 +274,8 @@
   margin: 0;
   background: var(--gradient-slider-track);
   box-shadow:
-    0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent) inset,
+    0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent)
+      inset,
     inset 0 1px 8px rgb(0 0 0 / 70%),
     0 0 1px rgb(86 86 86);
 }
@@ -280,8 +289,8 @@
   cursor: pointer;
   border: 1px solid var(--color-surface-ink);
   background:
-    linear-gradient(to bottom, rgb(255 255 255 / 50%), rgb(255 255 255 / 2%)) center 1px / 72%
-    1px no-repeat,
+    linear-gradient(to bottom, rgb(255 255 255 / 50%), rgb(255 255 255 / 2%))
+      center 1px / 72% 1px no-repeat,
     repeating-linear-gradient(
       to right,
       rgb(18 18 18 / 65%) 0 1.5px,
@@ -307,7 +316,8 @@
   border: none;
   background: var(--gradient-slider-track);
   box-shadow:
-    0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent) inset,
+    0 -3px 3px color-mix(in srgb, var(--color-surface-raised) 65%, transparent)
+      inset,
     inset 0 1px 8px rgb(0 0 0 / 70%),
     0 0 1px rgb(86 86 86);
 }
@@ -319,8 +329,8 @@
   cursor: pointer;
   border: 1px solid var(--color-surface-ink);
   background:
-    linear-gradient(to bottom, rgb(255 255 255 / 50%), rgb(255 255 255 / 2%)) center 1px / 72%
-    1px no-repeat,
+    linear-gradient(to bottom, rgb(255 255 255 / 50%), rgb(255 255 255 / 2%))
+      center 1px / 72% 1px no-repeat,
     repeating-linear-gradient(
       to right,
       rgb(18 18 18 / 65%) 0 1.5px,

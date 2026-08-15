@@ -12,7 +12,7 @@ config-panel {
   right: var(--space-8);
 
   /* Clears the tune/close chip floating at the strip's bottom-right. */
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 3rem);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
   display: grid;
   gap: var(--space-control-padding);
   max-height: calc(100% - 4rem);
