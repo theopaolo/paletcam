@@ -15,6 +15,7 @@ import {
   tryBeginExclusiveCriticalOperation,
 } from "../critical-operation.js";
 import { isIOSDevice } from "../platform.js";
+import { inspectStorageHealth } from "../storage-health.js";
 import { recordOperationalMetric } from "../operational-metrics.js";
 import { showToast } from "../toast-ui.js";
 import { createSettingsBackupOperationCoordinator } from "./settings-backup-operation.js";
@@ -113,6 +114,15 @@ function getSettingsDom(root) {
     flushDataButton: /** @type {HTMLButtonElement | null} */ (
       queryById(root, "settingsFlushDataButton")
     ),
+    storageStatus: /** @type {HTMLParagraphElement | null} */ (
+      queryById(root, "settingsStorageStatus")
+    ),
+    storageHint: /** @type {HTMLParagraphElement | null} */ (
+      queryById(root, "settingsStorageHint")
+    ),
+    lastBackupStatus: /** @type {HTMLParagraphElement | null} */ (
+      queryById(root, "settingsLastBackupStatus")
+    ),
     importLabel,
     importLabelText: /** @type {HTMLElement | null} */ (
       importLabel?.querySelector(".panel-form-file-label-text") ?? null
@@ -144,6 +154,29 @@ function syncLocaleToggle(dom, settings) {
     btn.setAttribute("aria-pressed", String(active));
     btn.classList.toggle("is-active", active);
   });
+}
+
+function formatLastBackupDate(isoString, locale) {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(isoString));
+  } catch {
+    return isoString;
+  }
+}
+
+function syncLastBackupStatus(dom, settings) {
+  if (!dom.lastBackupStatus) {
+    return;
+  }
+
+  dom.lastBackupStatus.textContent = settings.lastBackupAt
+    ? t("settings.data.lastBackup", {
+        date: formatLastBackupDate(settings.lastBackupAt, settings.locale),
+      })
+    : t("settings.data.lastBackupNever");
 }
 
 function getAvailableTabIds(dom) {
@@ -393,6 +426,7 @@ export function mountSettingsPanel({ root, toggleButton, backupOperations = null
   function renderSettingsUi(settings) {
     syncPolaroidFooterLabelInput(dom, settings);
     syncLocaleToggle(dom, settings);
+    syncLastBackupStatus(dom, settings);
     syncExportButtonState();
     syncImportUi();
     syncSettingsToggleButton();
@@ -579,6 +613,7 @@ export function mountSettingsPanel({ root, toggleButton, backupOperations = null
           : ["application/json"];
         const reportExportSuccess = () => {
           recordExportOutcome("success");
+          updateAppSettings({ lastBackupAt: new Date().toISOString() });
           if (!isMounted) {
             return;
           }
@@ -778,9 +813,31 @@ export function mountSettingsPanel({ root, toggleButton, backupOperations = null
     }
   });
 
+  async function refreshStorageProtectionStatus() {
+    if (!dom.storageStatus) {
+      return;
+    }
+
+    const health = await inspectStorageHealth();
+    if (!isMounted) {
+      return;
+    }
+
+    const isProtected = health.persisted === true;
+    dom.storageStatus.textContent = t(
+      isProtected ? "settings.data.storageProtected" : "settings.data.storageBestEffort",
+    );
+    dom.storageStatus.classList.toggle("is-protected", isProtected);
+    dom.storageStatus.hidden = false;
+    if (dom.storageHint) {
+      dom.storageHint.hidden = isProtected;
+    }
+  }
+
   setActiveTab(activeTabId);
   syncDrawerState();
   renderSettingsUi(getAppSettings());
+  void refreshStorageProtectionStatus();
   const unsubscribe = subscribeAppSettings(renderSettingsUi);
 
   return () => {

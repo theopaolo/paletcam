@@ -55,11 +55,11 @@ const fr = {
   "collection.favorite.failed": "Impossible de mettre à jour les favoris.",
   "collection.select.cancel": "Annuler",
   "collection.select.favorite": "Favori",
-  "collection.select.unfavorite": "Retirer des favoris",
+  "collection.select.unfavorite": "Retirer favori",
   "collection.select.delete": "Supprimer",
   "collection.select.export": "Exporter",
   "collection.select.publish": "Publier",
-  "collection.select.unpublish": "Retirer",
+  "collection.select.unpublish": "Dépublier",
   "collection.empty":
     "Aucune capture pour le moment.\nFermez ce panneau et appuyez sur le bouton central pour capturer votre première palette.",
   "collection.emptyFiltered": "Aucune capture ne correspond aux filtres actifs.",
@@ -196,6 +196,12 @@ const fr = {
   "settings.data.title": "Données",
   "settings.data.body":
     "Exportez vos palettes pour les sauvegarder ou les transférer sur un autre appareil.",
+  "settings.data.storageProtected": "Protégé du nettoyage automatique",
+  "settings.data.storageBestEffort": "Stockage sans garantie — sauvegarde recommandée",
+  "settings.data.storageBestEffortHint":
+    "Installer l'app sur l'écran d'accueil aide le navigateur à conserver vos données, mais seul un export est une vraie sauvegarde.",
+  "settings.data.lastBackup": "Dernière sauvegarde : {date}",
+  "settings.data.lastBackupNever": "Aucune sauvegarde pour l'instant",
   "settings.data.export": "Exporter les palettes",
   "settings.data.exportBusy": "Export en cours…",
   "settings.data.exportPreparing": "Préparation de l'export…",

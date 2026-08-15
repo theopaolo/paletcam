@@ -236,6 +236,14 @@ class SettingsPanel extends LitElement {
             data-settings-tabpanel="data"
             hidden
           >
+            <div class="settings-storage-summary">
+              <p class="settings-storage-status" id="settingsStorageStatus" hidden></p>
+              <p class="settings-storage-hint" id="settingsStorageHint" hidden>
+                ${t("settings.data.storageBestEffortHint")}
+              </p>
+              <p class="settings-storage-hint" id="settingsLastBackupStatus"></p>
+            </div>
+
             <div class="settings-data-actions">
               <button
                 class="settings-action-button"

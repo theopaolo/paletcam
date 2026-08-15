@@ -193,6 +193,12 @@ const en = {
   "settings.polaroid.defaultHint": "Default: colorcatchers.co",
   "settings.data.title": "Data",
   "settings.data.body": "Export your palettes to back them up or move them to another device.",
+  "settings.data.storageProtected": "Protected from automatic cleanup",
+  "settings.data.storageBestEffort": "Best-effort storage — backup recommended",
+  "settings.data.storageBestEffortHint":
+    "Installing the app on your home screen helps the browser keep your data, but only an export is a real backup.",
+  "settings.data.lastBackup": "Last backup: {date}",
+  "settings.data.lastBackupNever": "No backup yet",
   "settings.data.export": "Export palettes",
   "settings.data.exportBusy": "Exporting…",
   "settings.data.exportPreparing": "Preparing export…",

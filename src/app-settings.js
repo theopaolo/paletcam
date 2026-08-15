@@ -55,6 +55,14 @@ function normalizePolaroidFooterLabel(value) {
   return normalizedValue || DEFAULT_POLAROID_FOOTER_LABEL;
 }
 
+function normalizeLastBackupAt(value) {
+  if (typeof value !== "string" || !value) {
+    return null;
+  }
+
+  return Number.isFinite(Date.parse(value)) ? value : null;
+}
+
 const DEFAULT_SETTINGS = Object.freeze({
   captureMode: "palette",
   collectionViewMode: "list",
@@ -63,6 +71,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   oneMoreColor: true,
   originBadgesEnabled: true,
   polaroidFooterLabel: DEFAULT_POLAROID_FOOTER_LABEL,
+  lastBackupAt: null,
   medianCut: DEFAULT_MEDIAN_CUT_SETTINGS,
   hybrid: DEFAULT_HYBRID_SETTINGS,
 });
@@ -165,6 +174,7 @@ function normalizeSettings(candidate) {
     oneMoreColor: Boolean(candidate?.oneMoreColor),
     originBadgesEnabled: Boolean(candidate?.originBadgesEnabled),
     polaroidFooterLabel: normalizePolaroidFooterLabel(candidate?.polaroidFooterLabel),
+    lastBackupAt: normalizeLastBackupAt(candidate?.lastBackupAt),
     medianCut: normalizeMedianCutSettings(candidate?.medianCut),
     hybrid: normalizeHybridSettings(candidate?.hybrid),
   };

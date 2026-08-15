@@ -175,6 +175,27 @@ describe("app-settings polaroidFooterLabel", () => {
   });
 });
 
+describe("app-settings lastBackupAt", () => {
+  test("defaults to null and rejects non-date strings", async () => {
+    const { module } = await loadAppSettingsModule({
+      lastBackupAt: "not-a-date",
+    });
+
+    expect(module.getAppSettings().lastBackupAt).toBeNull();
+  });
+
+  test("persists a valid ISO timestamp", async () => {
+    const { module, localStorageMock } = await loadAppSettingsModule();
+
+    module.updateAppSettings({ lastBackupAt: "2026-08-15T10:00:00.000Z" });
+
+    expect(module.getAppSettings().lastBackupAt).toBe("2026-08-15T10:00:00.000Z");
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).lastBackupAt).toBe(
+      "2026-08-15T10:00:00.000Z",
+    );
+  });
+});
+
 describe("app-settings hybrid", () => {
   test("persists Tone and neutral balance while resetting retired selector controls", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
