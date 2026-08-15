@@ -1,103 +1,242 @@
 /**
- * Standalone harness for inspecting the palette-extraction pipeline in OKLab.
- * Served at /debug-extraction.html. Not part of the app bundle.
+ * Standalone extraction lab for comparing legacy, production, direct-grid,
+ * fully perceptual grid, and grid-to-production palette pipelines.
  */
 
-import { createOklabScatter } from "./modules/debug/oklab-scatter.js";
-import { traceExtraction } from "./modules/debug/extraction-trace.js";
-import { suggestSelectorParams } from "./modules/debug/experimental-selector.js";
 import { createColorSmoother } from "./modules/color-smoothing.js";
+import { rgbToOklab } from "./modules/color-space-oklch.js";
+import {
+  alignPaletteToReference,
+  DEFAULT_LAB_CONFIG,
+  deltaEok,
+  LAB_PRESETS,
+  labConfigFromSearchParams,
+  NEUTRAL_BALANCE_VALUES,
+  normalizeLabConfig,
+  PIPELINES,
+  writeLabConfigToSearchParams,
+} from "./modules/debug/extraction-lab-model.js";
+import { traceExtraction } from "./modules/debug/extraction-trace.js";
+import { createOklabScatter } from "./modules/debug/oklab-scatter.js";
+import { suggestSelectorParams } from "./modules/debug/experimental-selector.js";
 
 const ANALYSIS_MAX_DIM = 480;
 const SMOOTHING_FACTOR = 0.16;
+const CAMERA_FRAME_INTERVAL = 6;
+const CAMERA_TARGET_FPS = 1000 / 10;
+const SCENE_CHANGE_THRESHOLD = 30;
+const SCENE_CHANGE_SAMPLE_STRIDE = 200;
+const RGB_MATCH_THRESHOLD = 32;
+const PIPELINE_IDS = PIPELINES.map((pipeline) => pipeline.id);
 
-const colorSmoother = createColorSmoother();
+const colorSmoothers = Object.fromEntries(
+  PIPELINES.map((pipeline) => [
+    pipeline.id,
+    createColorSmoother(pipeline.id === "before" ? { colorSpace: "srgb" } : undefined),
+  ]),
+);
 
 const els = {
   scatter: document.getElementById("scatter"),
   gallery: document.getElementById("gallery"),
   upload: document.getElementById("image-upload"),
-  swatchCount: document.getElementById("swatch-count"),
-  swatchCountValue: document.getElementById("swatch-count-value"),
-  repulsion: document.getElementById("repulsion-radius"),
-  repulsionValue: document.getElementById("repulsion-value"),
-  selector: document.getElementById("selector"),
+  cameraToggle: document.getElementById("camera-toggle"),
+  pipelineTabs: document.getElementById("pipeline-tabs"),
+  pipelineDescription: document.getElementById("pipeline-description"),
   layerPixels: document.getElementById("layer-pixels"),
   layerCandidates: document.getElementById("layer-candidates"),
   layerSelected: document.getElementById("layer-selected"),
   layerRepulsion: document.getElementById("layer-repulsion"),
-  stats: document.getElementById("stats"),
-  palette: document.getElementById("palette"),
-  sourcePreview: document.getElementById("source-preview"),
-  cameraPreview: document.getElementById("camera-preview"),
-  cameraToggle: document.getElementById("camera-toggle"),
-  sourceFrame: document.getElementById("source-frame"),
-  sourceFrameCanvas: document.getElementById("source-frame-canvas"),
   layerPixelLocations: document.getElementById("layer-pixel-locations"),
-  overlay: document.getElementById("image-overlay"),
-  overlayImg: document.getElementById("image-overlay-img"),
+  preset: document.getElementById("preset"),
+  presetDescription: document.getElementById("preset-description"),
+  tuningToggle: document.getElementById("tuning-toggle"),
+  tuningDrawer: document.getElementById("tuning-drawer"),
+  configSummary: document.getElementById("config-summary"),
+  copySetup: document.getElementById("copy-setup"),
+  resetConfig: document.getElementById("reset-config"),
+  swatchCount: document.getElementById("swatch-count"),
+  swatchCountNumber: document.getElementById("swatch-count-number"),
   poolSize: document.getElementById("pool-size"),
-  poolSizeValue: document.getElementById("pool-size-value"),
+  poolSizeNumber: document.getElementById("pool-size-number"),
   maxPixels: document.getElementById("max-pixels"),
-  maxPixelsValue: document.getElementById("max-pixels-value"),
+  maxPixelsNumber: document.getElementById("max-pixels-number"),
+  repulsion: document.getElementById("repulsion-radius"),
+  repulsionNumber: document.getElementById("repulsion-number"),
   variety: document.getElementById("variety"),
-  varietyValue: document.getElementById("variety-value"),
+  varietyNumber: document.getElementById("variety-number"),
   tone: document.getElementById("tone"),
-  toneValue: document.getElementById("tone-value"),
+  toneNumber: document.getElementById("tone-number"),
+  neutralBalance: document.getElementById("neutral-balance"),
+  neutralBalanceValue: document.getElementById("neutral-balance-value"),
   autoBias: document.getElementById("auto-bias"),
   smoothToggle: document.getElementById("smooth-toggle"),
+  resetView: document.getElementById("reset-view"),
+  workspace: document.querySelector(".workspace"),
+  stats: document.getElementById("stats"),
+  inspector: document.getElementById("inspector"),
+  sourceStage: document.getElementById("source-stage"),
+  sourcePreview: document.getElementById("source-preview"),
+  cameraPreview: document.getElementById("camera-preview"),
+  sourceFrame: document.getElementById("source-frame"),
+  sourceFrameCanvas: document.getElementById("source-frame-canvas"),
+  previewSize: document.getElementById("preview-size"),
+  inspectorSize: document.getElementById("inspector-size"),
+  comparisonSummary: document.getElementById("comparison-summary"),
+  palette: document.getElementById("palette"),
+  configReadout: document.getElementById("config-readout"),
+  statusMessage: document.getElementById("status-message"),
+  overlay: document.getElementById("image-overlay"),
+  overlayImg: document.getElementById("image-overlay-img"),
 };
+
+const configPairs = {
+  swatchCount: [els.swatchCount, els.swatchCountNumber],
+  poolSize: [els.poolSize, els.poolSizeNumber],
+  maxPixels: [els.maxPixels, els.maxPixelsNumber],
+  repulsion: [els.repulsion, els.repulsionNumber],
+  variety: [els.variety, els.varietyNumber],
+  tone: [els.tone, els.toneNumber],
+};
+
+const NEUTRAL_BALANCE_LABELS = Object.freeze({
+  color: "Color",
+  balanced: "Balanced",
+  neutrals: "Neutrals",
+});
 
 const scatter = createOklabScatter(els.scatter);
 const analysisCanvas = document.createElement("canvas");
-const analysisContext = analysisCanvas.getContext("2d", {
-  willReadFrequently: true,
-});
+const analysisContext = analysisCanvas.getContext("2d", { willReadFrequently: true });
+const sourceFrameContext = els.sourceFrameCanvas.getContext("2d");
 
-let lastTrace = null;
+const traces = Object.fromEntries(PIPELINE_IDS.map((id) => [id, null]));
+const traceTimings = Object.fromEntries(PIPELINE_IDS.map((id) => [id, 0]));
+const previousPipelineColors = Object.fromEntries(PIPELINE_IDS.map((id) => [id, []]));
+let activePipelineId = "after";
+let activePreset = "balanced";
 let lastImageData = null;
 let activeThumb = null;
+let activeImageName = null;
+let galleryItems = [];
+let rerunFrame = 0;
+let statusTimer = 0;
 
-// Mirrors the live pipeline's option shape, fed from the tuning sliders.
-function getExtractionOptions() {
-  return {
-    quantizedPoolSize: Number(els.poolSize.value),
-    maxQuantizerPixels: Number(els.maxPixels.value),
-  };
+let cameraStream = null;
+let cameraRafId = 0;
+let cameraLastExtraction = 0;
+let cameraFrame = 0;
+let previousFrameData = null;
+
+const frozenSwatches = Object.fromEntries(PIPELINE_IDS.map((id) => [id, new Map()]));
+
+function resetSmoothers() {
+  for (const smoother of Object.values(colorSmoothers)) smoother.reset();
+  for (const pipelineId of PIPELINE_IDS) previousPipelineColors[pipelineId] = [];
 }
 
-function getDebugOptions() {
-  return {
-    selector: els.selector.value,
-    repulsionRadius: Number(els.repulsion.value), // Distinctness
-    spreadStrength: Number(els.variety.value) / 100, // Variety
-    tone: Number(els.tone.value) / 100,
-    rarityStrength: 0.12, // fixed: a mild accent boost, not a user knob
-  };
+function clearFrozenSwatches() {
+  for (const frozen of Object.values(frozenSwatches)) frozen.clear();
 }
 
-// David's "preset from the image": when Auto is on, derive Variety + Distinctness
-// from the current image so good output needs no manual tuning.
+function getConfig() {
+  const input = {};
+  for (const [key, [, numberInput]] of Object.entries(configPairs)) {
+    input[key] = numberInput.value;
+  }
+  input.neutralBalance = NEUTRAL_BALANCE_VALUES[Number(els.neutralBalance.value)];
+  input.auto = els.autoBias.checked;
+  input.smooth = els.smoothToggle.checked;
+  return normalizeLabConfig(input);
+}
+
+function writeConfigInputs(config) {
+  const normalized = normalizeLabConfig(config);
+  for (const [key, [rangeInput, numberInput]] of Object.entries(configPairs)) {
+    rangeInput.value = String(normalized[key]);
+    numberInput.value = String(normalized[key]);
+  }
+  const neutralIndex = NEUTRAL_BALANCE_VALUES.indexOf(normalized.neutralBalance);
+  els.neutralBalance.value = String(Math.max(0, neutralIndex));
+  els.neutralBalanceValue.value = NEUTRAL_BALANCE_LABELS[normalized.neutralBalance];
+  els.neutralBalance.setAttribute(
+    "aria-valuetext",
+    NEUTRAL_BALANCE_LABELS[normalized.neutralBalance],
+  );
+  els.autoBias.checked = normalized.auto;
+  els.smoothToggle.checked = normalized.smooth;
+}
+
+function setPresetState(key) {
+  activePreset = key;
+  els.preset.value = key;
+  els.presetDescription.textContent =
+    LAB_PRESETS[key]?.description ?? "Manual or shared configuration.";
+}
+
+function markCustom() {
+  setPresetState("custom");
+}
+
+function renderConfigSummary() {
+  const config = getConfig();
+  const density = `${Math.round(config.maxPixels / 1000)}k px`;
+  els.configSummary.textContent =
+    `${config.swatchCount} sw · Analyze ${config.poolSize} · ${density} · ` +
+    `Δ ${config.repulsion.toFixed(3)} · Variety ${config.variety} · Tone ${config.tone} · ` +
+    `Neutral ${NEUTRAL_BALANCE_LABELS[config.neutralBalance]}`;
+}
+
+function updateUrl() {
+  renderConfigSummary();
+  const params = writeLabConfigToSearchParams(getConfig(), new URLSearchParams(location.search));
+  params.set("pipeline", activePipelineId);
+  params.set("preset", activePreset);
+  params.set("preview", els.previewSize.value);
+  params.set("panel", els.inspectorSize.value);
+  if (activeImageName) params.set("image", activeImageName);
+  else params.delete("image");
+  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+}
+
+function setStatus(message, isError = false) {
+  window.clearTimeout(statusTimer);
+  els.statusMessage.textContent = message;
+  els.statusMessage.style.color = isError ? "var(--color-danger-soft)" : "var(--color-text-muted)";
+  if (message) {
+    statusTimer = window.setTimeout(() => {
+      els.statusMessage.textContent = "";
+    }, 3000);
+  }
+}
+
+function applyPreset(key) {
+  const preset = LAB_PRESETS[key] ?? LAB_PRESETS.balanced;
+  writeConfigInputs(preset.config);
+  setPresetState(key in LAB_PRESETS ? key : "balanced");
+  if (preset.config.auto) maybeApplyAutoParams();
+  clearFrozenSwatches();
+  resetSmoothers();
+  updateUrl();
+  scheduleTrace();
+}
+
 function maybeApplyAutoParams() {
   if (!lastImageData || !els.autoBias.checked) return;
   const { variety, distinctness } = suggestSelectorParams(
     lastImageData.data,
     lastImageData.width,
     lastImageData.height,
-    Number(els.maxPixels.value),
+    Number(els.maxPixelsNumber.value),
   );
-  els.variety.value = String(Math.round(variety * 100));
-  els.varietyValue.textContent = els.variety.value;
-  els.repulsion.value = distinctness.toFixed(3);
-  els.repulsionValue.textContent = distinctness.toFixed(3);
-}
-
-function resizeScatter() {
-  const rect = els.scatter.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  els.scatter.width = Math.round(rect.width * dpr);
-  els.scatter.height = Math.round(rect.height * dpr);
-  scatter.render();
+  const varietyValue = String(Math.round(variety * 100));
+  const distinctnessValue = String(
+    normalizeLabConfig({ ...getConfig(), repulsion: distinctness }).repulsion,
+  );
+  els.variety.value = varietyValue;
+  els.varietyNumber.value = varietyValue;
+  els.repulsion.value = distinctnessValue;
+  els.repulsionNumber.value = distinctnessValue;
 }
 
 function getImageData(image) {
@@ -114,31 +253,130 @@ function getImageData(image) {
   };
 }
 
-function buildScene() {
-  if (!lastTrace) return;
-  const radius = Number(els.repulsion.value);
+function tracePipeline(pipelineId, config) {
+  const pipeline = PIPELINES.find((entry) => entry.id === pipelineId);
+  const startedAt = performance.now();
+  const trace = traceExtraction(
+    lastImageData.data,
+    lastImageData.width,
+    lastImageData.height,
+    config.swatchCount,
+    {
+      quantizedPoolSize: config.poolSize,
+      maxQuantizerPixels: config.maxPixels,
+    },
+    {
+      selector: pipeline.selector,
+      colorMath: pipeline.colorMath,
+      toneSpace: pipeline.toneSpace,
+      repulsionRadius: config.repulsion,
+      spreadStrength: config.variety / 100,
+      tone: config.tone / 100,
+      neutralBalance: config.neutralBalance,
+      rarityStrength: 0.12,
+      previousColors: previousPipelineColors[pipelineId],
+    },
+  );
+  traceTimings[pipelineId] = performance.now() - startedAt;
 
+  const rawColors = trace.selected.map((selected) => ({ ...selected.rgb }));
+  previousPipelineColors[pipelineId] = rawColors;
+  if (config.smooth && trace.selected.length > 0) {
+    const smoothed = colorSmoothers[pipelineId].smooth(rawColors, SMOOTHING_FACTOR);
+    trace.selected = trace.selected.map((selected, index) => {
+      const rgb = smoothed[index] ?? selected.rgb;
+      return { ...selected, rgb, oklab: rgbToOklab(rgb.r, rgb.g, rgb.b) };
+    });
+  } else {
+    colorSmoothers[pipelineId].reset();
+  }
+  return trace;
+}
+
+function scheduleTrace() {
+  if (rerunFrame) return;
+  rerunFrame = window.requestAnimationFrame(() => {
+    rerunFrame = 0;
+    rerunTrace();
+  });
+}
+
+function rerunTrace() {
+  if (!lastImageData) return;
+  const config = getConfig();
+  for (const pipelineId of PIPELINE_IDS) {
+    traces[pipelineId] = tracePipeline(pipelineId, config);
+  }
+  renderAll();
+}
+
+function getDisplayedSelection(pipelineId) {
+  const selected = traces[pipelineId]?.selected ?? [];
+  return selected.map((entry, sourceIndex) => {
+    const frozen = frozenSwatches[pipelineId].get(sourceIndex);
+    if (!frozen) return { ...entry, sourceIndex };
+    return {
+      ...entry,
+      sourceIndex,
+      rgb: frozen,
+      oklab: rgbToOklab(frozen.r, frozen.g, frozen.b),
+    };
+  });
+}
+
+function getAlignedSelections() {
+  const after = getDisplayedSelection("after");
+  return Object.fromEntries(
+    PIPELINES.map((pipeline) => [
+      pipeline.id,
+      pipeline.id === "after"
+        ? after
+        : alignPaletteToReference(after, getDisplayedSelection(pipeline.id)),
+    ]),
+  );
+}
+
+function setActivePipeline(pipelineId) {
+  if (!PIPELINE_IDS.includes(pipelineId)) return;
+  activePipelineId = pipelineId;
+  for (const tab of els.pipelineTabs.querySelectorAll("[data-pipeline]")) {
+    tab.setAttribute("aria-selected", String(tab.dataset.pipeline === pipelineId));
+  }
+  const pipeline = PIPELINES.find((entry) => entry.id === pipelineId);
+  els.pipelineDescription.textContent = pipeline?.description ?? "";
+  updateUrl();
+  buildScene();
+  renderStats();
+  renderComparison();
+  renderSourceFrame();
+}
+
+function buildScene() {
+  const trace = traces[activePipelineId];
+  if (!trace) return;
+  const selected = getDisplayedSelection(activePipelineId);
+  const radius = getConfig().repulsion;
   scatter.setScene({
-    points: lastTrace.points,
+    points: trace.points,
     markers: [
       ...(els.layerCandidates.checked
-        ? lastTrace.candidates.map((c) => ({
-            oklab: c.oklab,
-            rgb: c.rgb,
+        ? trace.candidates.map((candidate) => ({
+            oklab: candidate.oklab,
+            rgb: candidate.rgb,
             radius: 4,
           }))
         : []),
       ...(els.layerSelected.checked
-        ? lastTrace.selected.map((s) => ({
-            oklab: s.oklab,
-            rgb: s.rgb,
-            label: s.index,
+        ? selected.map((entry) => ({
+            oklab: entry.oklab,
+            rgb: entry.rgb,
+            label: entry.index,
             radius: 9,
           }))
         : []),
     ],
     spheres: els.layerRepulsion.checked
-      ? lastTrace.selected.map((s) => ({ oklab: s.oklab, radius }))
+      ? selected.map((entry) => ({ oklab: entry.oklab, radius }))
       : [],
     showPoints: els.layerPixels.checked,
     showSpheres: els.layerRepulsion.checked,
@@ -146,115 +384,224 @@ function buildScene() {
   });
 }
 
-function renderStats() {
-  if (!lastTrace) return;
-  const { stats } = lastTrace;
-  const neutralLine =
-    stats.neutralCount != null
-      ? `\nreserved neutrals: ${stats.neutralCount}  •  neutral thr: ${stats.neutralThreshold.toFixed(3)}`
-      : "";
-
-  els.stats.textContent =
-    `Lightness: ${(stats.meanL * 100).toFixed(1)}%  •  ` +
-    `Chroma: ${stats.meanChroma.toFixed(3)}  •  ` +
-    `Spread: ${stats.spread.toFixed(3)}  •  ` +
-    `Sparse: ${stats.sparse ? "Yes" : "No"}\n` +
-    `${stats.pixelCount} pixels  •  ${stats.candidateCount} candidates  •  ` +
-    `${stats.selectedCount} selected  •  repulsion r=${Number(els.repulsion.value).toFixed(3)}` +
-    neutralLine;
-
-  const displayColors = lastTrace.selected.map((s, i) => {
-    const frozen = frozenSwatches.get(i);
-    return { rgb: frozen ?? s.rgb, frozen: Boolean(frozen), index: i };
-  });
-
-  const existing = els.palette.querySelectorAll(".swatch");
-  if (existing.length !== displayColors.length) {
-    els.palette.replaceChildren(...displayColors.map((entry) => buildSwatch(entry.index)));
-  }
-  paintSwatches(displayColors);
+function buildStat(label, value) {
+  const stat = document.createElement("div");
+  stat.className = "stat";
+  const labelElement = document.createElement("span");
+  labelElement.className = "stat-label";
+  labelElement.textContent = label;
+  const valueElement = document.createElement("span");
+  valueElement.className = "stat-value";
+  valueElement.textContent = value;
+  stat.append(labelElement, valueElement);
+  return stat;
 }
 
-function buildSwatch(slotIndex) {
+function renderStats() {
+  const trace = traces[activePipelineId];
+  if (!trace) return;
+  const { stats } = trace;
+  const pipeline = PIPELINES.find((entry) => entry.id === activePipelineId);
+  els.stats.replaceChildren(
+    buildStat("Cloud", `L ${(stats.meanL * 100).toFixed(1)}% · C ${stats.meanChroma.toFixed(3)}`),
+    buildStat("Distribution", `${stats.pixelCount} px · spread ${stats.spread.toFixed(3)}`),
+    buildStat(
+      pipeline?.label ?? activePipelineId,
+      `${stats.candidateCount} candidates · ${stats.selectedCount} selected`,
+    ),
+    buildStat(
+      "Neutral model",
+      stats.neutralCount == null
+        ? "Not reported"
+        : `${stats.neutralCount} reserved · threshold ${stats.neutralThreshold.toFixed(3)}`,
+    ),
+  );
+}
+
+function summarizeDeltas(reference, candidate) {
+  const distances = reference.map((entry, index) => {
+    const compared = candidate[index];
+    return compared ? deltaEok(entry.rgb, compared.rgb) : 0;
+  });
+  return {
+    mean: distances.reduce((sum, distance) => sum + distance, 0) / (distances.length || 1),
+    max: Math.max(0, ...distances),
+  };
+}
+
+function buildPipelineHeading(pipeline) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pipeline-heading";
+  button.classList.toggle("is-active", pipeline.id === activePipelineId);
+  button.title = `Inspect ${pipeline.label} in the scatter plot`;
+  button.addEventListener("click", () => setActivePipeline(pipeline.id));
+
+  const name = document.createElement("span");
+  name.className = "pipeline-name";
+  name.textContent = pipeline.shortLabel;
+  const meta = document.createElement("span");
+  meta.className = "pipeline-meta";
+  const candidates = traces[pipeline.id]?.stats.candidateCount ?? 0;
+  meta.textContent = `${traceTimings[pipeline.id].toFixed(1)} ms · ${candidates} cand.`;
+  button.append(name, meta);
+  return button;
+}
+
+function toggleFreeze(pipelineId, sourceIndex, rgb) {
+  const frozen = frozenSwatches[pipelineId];
+  if (frozen.has(sourceIndex)) frozen.delete(sourceIndex);
+  else frozen.set(sourceIndex, { ...rgb });
+  setActivePipeline(pipelineId);
+}
+
+function buildResultCell(pipelineId, entry, rowIndex, reference) {
   const cell = document.createElement("button");
   cell.type = "button";
-  cell.className = "swatch";
-  cell.dataset.slot = String(slotIndex);
-  cell.addEventListener("click", () => toggleFreeze(slotIndex));
+  cell.className = "result-cell";
+  cell.classList.toggle("is-active-pipeline", pipelineId === activePipelineId);
+  if (!entry) {
+    cell.disabled = true;
+    cell.textContent = "—";
+    return cell;
+  }
+
+  const isFrozen = frozenSwatches[pipelineId].has(entry.sourceIndex);
+  cell.classList.toggle("is-frozen", isFrozen);
+  cell.title = `${isFrozen ? "Unfreeze" : "Freeze"} ${pipelineId} swatch ${rowIndex + 1}`;
+  cell.addEventListener("click", () => toggleFreeze(pipelineId, entry.sourceIndex, entry.rgb));
+
+  const color = document.createElement("span");
+  color.className = "swatch-color";
+  color.style.background = `rgb(${entry.rgb.r} ${entry.rgb.g} ${entry.rgb.b})`;
+
+  const data = document.createElement("span");
+  data.className = "swatch-data";
+  const slot = document.createElement("span");
+  slot.className = "swatch-slot";
+  slot.textContent = `#${rowIndex + 1} · ${entry.rgb.r} ${entry.rgb.g} ${entry.rgb.b}`;
+  const delta = document.createElement("span");
+  delta.className = "swatch-delta";
+  delta.textContent =
+    pipelineId === "after" || !reference
+      ? "Reference"
+      : `ΔEOK ${deltaEok(reference.rgb, entry.rgb).toFixed(3)}`;
+  data.append(slot, delta);
+  cell.append(color, data);
   return cell;
 }
 
-function paintSwatches(displayColors) {
-  els.palette.querySelectorAll(".swatch").forEach((cell, i) => {
-    const entry = displayColors[i];
-    if (!entry) return;
-    const { rgb, frozen } = entry;
-    cell.classList.toggle("is-frozen", frozen);
-    cell.style.background = `rgb(${rgb.r} ${rgb.g} ${rgb.b})`;
-    cell.title = frozen
-      ? `#${i + 1} FROZEN rgb(${rgb.r}, ${rgb.g}, ${rgb.b}) — click to unfreeze`
-      : `#${i + 1} rgb(${rgb.r}, ${rgb.g}, ${rgb.b}) — click to freeze`;
-  });
+function renderComparison() {
+  if (!traces.after) return;
+  const aligned = getAlignedSelections();
+  const deltaSummary = PIPELINES.filter((pipeline) => pipeline.id !== "after")
+    .map((pipeline) => {
+      const delta = summarizeDeltas(aligned.after, aligned[pipeline.id]);
+      return `${pipeline.shortLabel} ${delta.mean.toFixed(3)} / ${delta.max.toFixed(3)}`;
+    })
+    .join(" · ");
+  els.comparisonSummary.textContent = `ΔEOK vs Production, mean / max · ${deltaSummary}. Select a heading to inspect; select a swatch to freeze it.`;
+
+  const fragment = document.createDocumentFragment();
+  for (const pipeline of PIPELINES) fragment.append(buildPipelineHeading(pipeline));
+  const rowCount = Math.max(...PIPELINE_IDS.map((id) => aligned[id].length));
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+    const reference = aligned.after[rowIndex];
+    for (const pipeline of PIPELINES) {
+      fragment.append(
+        buildResultCell(pipeline.id, aligned[pipeline.id][rowIndex], rowIndex, reference),
+      );
+    }
+  }
+  els.palette.replaceChildren(fragment);
 }
 
-const sourceFrameContext = els.sourceFrameCanvas.getContext("2d");
-const RGB_MATCH_THRESHOLD = 32;
-const SOURCE_FRAME_WIDTH = 200;
-const SOURCE_FRAME_HEIGHT = 150;
+function renderConfigReadout() {
+  const config = getConfig();
+  renderConfigSummary();
+  const values = [
+    ["Swatches", config.swatchCount],
+    ["Analyze", config.poolSize],
+    ["Density", config.maxPixels],
+    ["Distinctness", config.repulsion.toFixed(3)],
+    ["Variety", config.variety],
+    ["Tone", config.tone],
+    ["Neutral balance", NEUTRAL_BALANCE_LABELS[config.neutralBalance]],
+    ["Auto", config.auto ? "On" : "Off"],
+    ["Smoothing", config.smooth ? "On" : "Off"],
+  ];
+  const fragment = document.createDocumentFragment();
+  for (const [label, value] of values) {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const description = document.createElement("dd");
+    description.textContent = String(value);
+    row.append(term, description);
+    fragment.append(row);
+  }
+  els.configReadout.replaceChildren(fragment);
+}
+
+function setTuningOpen(isOpen, { restoreFocus = false } = {}) {
+  els.tuningDrawer.hidden = !isOpen;
+  els.tuningToggle.setAttribute("aria-expanded", String(isOpen));
+  els.tuningToggle.title = isOpen ? "Close detailed tuning" : "Open detailed tuning";
+  if (restoreFocus) els.tuningToggle.focus();
+}
 
 function computeSwatchCentroids(imageData, width, height, swatches) {
   if (!imageData || width <= 0 || height <= 0 || swatches.length === 0) {
     return swatches.map(() => null);
   }
-
   const sums = swatches.map(() => ({ x: 0, y: 0, count: 0 }));
   const stride = Math.max(1, Math.floor((width * height) / 8000));
-  for (let i = 0; i < width * height; i += stride) {
-    const r = imageData[i * 4];
-    const g = imageData[i * 4 + 1];
-    const b = imageData[i * 4 + 2];
-    const x = i % width;
-    const y = Math.floor(i / width);
-    for (let s = 0; s < swatches.length; s++) {
-      const sw = swatches[s];
-      const dr = r - sw.r;
-      const dg = g - sw.g;
-      const db = b - sw.b;
+  for (let index = 0; index < width * height; index += stride) {
+    const r = imageData[index * 4];
+    const g = imageData[index * 4 + 1];
+    const b = imageData[index * 4 + 2];
+    const x = index % width;
+    const y = Math.floor(index / width);
+    for (let swatchIndex = 0; swatchIndex < swatches.length; swatchIndex++) {
+      const swatch = swatches[swatchIndex];
+      const dr = r - swatch.r;
+      const dg = g - swatch.g;
+      const db = b - swatch.b;
       if (dr * dr + dg * dg + db * db < RGB_MATCH_THRESHOLD * RGB_MATCH_THRESHOLD) {
-        sums[s].x += x;
-        sums[s].y += y;
-        sums[s].count += 1;
+        sums[swatchIndex].x += x;
+        sums[swatchIndex].y += y;
+        sums[swatchIndex].count += 1;
       }
     }
   }
-
-  return sums.map((s) => {
-    if (s.count === 0) return null;
-    return {
-      x: s.x / s.count / width,
-      y: s.y / s.count / height,
-    };
-  });
+  return sums.map((sum) =>
+    sum.count === 0 ? null : { x: sum.x / sum.count / width, y: sum.y / sum.count / height },
+  );
 }
 
 function renderSourceFrame() {
-  if (!lastImageData || !lastTrace || !els.layerPixelLocations.checked) {
+  if (!lastImageData || !traces[activePipelineId] || !els.layerPixelLocations.checked) {
     els.sourceFrame.hidden = true;
     return;
   }
   els.sourceFrame.hidden = false;
-  const canvas = els.sourceFrameCanvas;
+  const rect = els.sourceStage.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = SOURCE_FRAME_WIDTH * dpr;
-  canvas.height = SOURCE_FRAME_HEIGHT * dpr;
+  const width = Math.max(1, rect.width);
+  const height = Math.max(1, rect.height);
+  const canvas = els.sourceFrameCanvas;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
   sourceFrameContext.setTransform(dpr, 0, 0, dpr, 0, 0);
-  sourceFrameContext.clearRect(0, 0, SOURCE_FRAME_WIDTH, SOURCE_FRAME_HEIGHT);
+  sourceFrameContext.clearRect(0, 0, width, height);
 
-  const swatches = lastTrace.selected.map((s, i) => {
-    const frozen = frozenSwatches.get(i);
-    return frozen ?? s.rgb;
-  });
-
+  const sourceAspect = lastImageData.width / lastImageData.height;
+  const stageAspect = width / height;
+  const displayWidth = sourceAspect > stageAspect ? width : height * sourceAspect;
+  const displayHeight = sourceAspect > stageAspect ? width / sourceAspect : height;
+  const offsetX = (width - displayWidth) / 2;
+  const offsetY = (height - displayHeight) / 2;
+  const swatches = getDisplayedSelection(activePipelineId).map((entry) => entry.rgb);
   const centroids = computeSwatchCentroids(
     lastImageData.data,
     lastImageData.width,
@@ -262,111 +609,65 @@ function renderSourceFrame() {
     swatches,
   );
 
-  for (let i = 0; i < centroids.length; i++) {
-    const c = centroids[i];
-    const sw = swatches[i];
-    if (!c) continue;
-    const px = c.x * SOURCE_FRAME_WIDTH;
-    const py = c.y * SOURCE_FRAME_HEIGHT;
-
+  for (let index = 0; index < centroids.length; index++) {
+    const centroid = centroids[index];
+    if (!centroid) continue;
+    const swatch = swatches[index];
+    const x = offsetX + centroid.x * displayWidth;
+    const y = offsetY + centroid.y * displayHeight;
     sourceFrameContext.beginPath();
-    sourceFrameContext.arc(px, py, 10, 0, Math.PI * 2);
-    sourceFrameContext.fillStyle = `rgb(${sw.r} ${sw.g} ${sw.b})`;
+    sourceFrameContext.arc(x, y, 10, 0, Math.PI * 2);
+    sourceFrameContext.fillStyle = `rgb(${swatch.r} ${swatch.g} ${swatch.b})`;
     sourceFrameContext.fill();
     sourceFrameContext.lineWidth = 2;
     sourceFrameContext.strokeStyle = "#000";
     sourceFrameContext.stroke();
-
     sourceFrameContext.fillStyle = "#fff";
     sourceFrameContext.font = "bold 11px monospace";
     sourceFrameContext.textAlign = "center";
     sourceFrameContext.textBaseline = "middle";
-    sourceFrameContext.fillText(String(i + 1), px, py);
+    sourceFrameContext.fillText(String(index + 1), x, y);
   }
 }
 
-function toggleFreeze(slotIndex) {
-  if (frozenSwatches.has(slotIndex)) {
-    frozenSwatches.delete(slotIndex);
-  } else {
-    const swatch = lastTrace?.selected?.[slotIndex];
-    if (swatch) frozenSwatches.set(slotIndex, { ...swatch.rgb });
-  }
-  renderStats();
-}
-
-function applyFrozenSwatches() {
-  if (frozenSwatches.size === 0 || !lastTrace) return;
-  lastTrace = {
-    ...lastTrace,
-    selected: lastTrace.selected.map((s, i) => {
-      const frozen = frozenSwatches.get(i);
-      return frozen ? { ...s, rgb: frozen } : s;
-    }),
-  };
-}
-
-function computeFrameDelta(currentData, prevData) {
-  if (!prevData || prevData.length !== currentData.length) return Infinity;
-  let sum = 0;
-  let count = 0;
-  for (let i = 0; i < currentData.length; i += SCENE_CHANGE_SAMPLE_STRIDE) {
-    sum += Math.abs(currentData[i] - prevData[i]);
-    sum += Math.abs(currentData[i + 1] - prevData[i + 1]);
-    sum += Math.abs(currentData[i + 2] - prevData[i + 2]);
-    count += 3;
-  }
-  return count > 0 ? sum / count : 0;
-}
-
-function rerunTrace() {
-  if (!lastImageData) return;
-  const swatchCount = Number(els.swatchCount.value);
-  const trace = traceExtraction(
-    lastImageData.data,
-    lastImageData.width,
-    lastImageData.height,
-    swatchCount,
-    getExtractionOptions(),
-    getDebugOptions(),
-  );
-
-  if (els.smoothToggle.checked && trace.selected.length > 0) {
-    const rawColors = trace.selected.map((s) => ({ ...s.rgb }));
-    const smoothed = colorSmoother.smooth(rawColors, SMOOTHING_FACTOR);
-    trace.selected = trace.selected.map((s, i) => ({
-      ...s,
-      rgb: smoothed[i] ?? s.rgb,
-    }));
-  } else {
-    colorSmoother.reset();
-  }
-
-  lastTrace = trace;
-  applyFrozenSwatches();
+function renderAll() {
   buildScene();
   renderStats();
+  renderComparison();
+  renderConfigReadout();
+  renderSourceFrame();
+}
+
+function resizeScatter() {
+  const rect = els.scatter.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  els.scatter.width = Math.round(rect.width * dpr);
+  els.scatter.height = Math.round(rect.height * dpr);
+  scatter.render();
   renderSourceFrame();
 }
 
 function runTrace(image) {
   lastImageData = getImageData(image);
-  colorSmoother.reset();
+  resetSmoothers();
+  clearFrozenSwatches();
   maybeApplyAutoParams();
+  updateUrl();
   rerunTrace();
 }
 
-const CAMERA_FRAME_INTERVAL = 6;
-const CAMERA_TARGET_FPS = 1000 / 10;
-const SCENE_CHANGE_THRESHOLD = 30;
-const SCENE_CHANGE_SAMPLE_STRIDE = 200;
-
-let cameraStream = null;
-let cameraRafId = 0;
-let cameraLastExtraction = 0;
-let cameraFrame = 0;
-let previousFrameData = null;
-const frozenSwatches = new Map();
+function computeFrameDelta(currentData, previousData) {
+  if (!previousData || previousData.length !== currentData.length) return Infinity;
+  let sum = 0;
+  let count = 0;
+  for (let index = 0; index < currentData.length; index += SCENE_CHANGE_SAMPLE_STRIDE) {
+    sum += Math.abs(currentData[index] - previousData[index]);
+    sum += Math.abs(currentData[index + 1] - previousData[index + 1]);
+    sum += Math.abs(currentData[index + 2] - previousData[index + 2]);
+    count += 3;
+  }
+  return count > 0 ? sum / count : 0;
+}
 
 async function startCamera() {
   if (cameraStream) return;
@@ -378,16 +679,14 @@ async function startCamera() {
     });
   } catch {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     } catch (error) {
-      els.stats.textContent = `Camera unavailable: ${error?.message ?? error}`;
+      setStatus(`Camera unavailable: ${error?.message ?? error}`, true);
       return;
     }
   }
   cameraStream = stream;
+  activeImageName = null;
   els.cameraPreview.srcObject = stream;
   await els.cameraPreview.play().catch(() => {});
   els.cameraPreview.hidden = false;
@@ -396,25 +695,24 @@ async function startCamera() {
   els.cameraToggle.setAttribute("aria-pressed", "true");
   cameraFrame = 0;
   cameraLastExtraction = 0;
+  updateUrl();
   cameraRafId = window.requestAnimationFrame(tickCamera);
 }
 
 function stopCamera() {
-  if (cameraRafId) {
-    window.cancelAnimationFrame(cameraRafId);
-    cameraRafId = 0;
-  }
+  if (cameraRafId) window.cancelAnimationFrame(cameraRafId);
+  cameraRafId = 0;
   if (cameraStream) {
     for (const track of cameraStream.getTracks()) track.stop();
-    cameraStream = null;
   }
+  cameraStream = null;
   els.cameraPreview.srcObject = null;
   els.cameraPreview.hidden = true;
   els.cameraToggle.textContent = "Camera";
   els.cameraToggle.setAttribute("aria-pressed", "false");
   previousFrameData = null;
-  frozenSwatches.clear();
-  colorSmoother.reset();
+  clearFrozenSwatches();
+  resetSmoothers();
 }
 
 function tickCamera(now) {
@@ -427,7 +725,6 @@ function tickCamera(now) {
 
   const video = els.cameraPreview;
   if (!video.videoWidth || !video.videoHeight) return;
-
   const scale = Math.min(1, ANALYSIS_MAX_DIM / Math.max(video.videoWidth, video.videoHeight));
   const width = Math.max(1, Math.round(video.videoWidth * scale));
   const height = Math.max(1, Math.round(video.videoHeight * scale));
@@ -435,33 +732,31 @@ function tickCamera(now) {
   analysisCanvas.height = height;
   analysisContext.drawImage(video, 0, 0, width, height);
   const frameData = analysisContext.getImageData(0, 0, width, height).data;
-  const delta = computeFrameDelta(frameData, previousFrameData);
-  if (delta > SCENE_CHANGE_THRESHOLD && frozenSwatches.size > 0) {
-    frozenSwatches.clear();
+  if (computeFrameDelta(frameData, previousFrameData) > SCENE_CHANGE_THRESHOLD) {
+    clearFrozenSwatches();
   }
   previousFrameData = frameData;
   lastImageData = { data: frameData, width, height };
   rerunTrace();
 }
 
-function loadImage(src) {
+function loadImage(src, name = null) {
   stopCamera();
+  activeImageName = name;
   els.sourcePreview.src = src;
   els.sourcePreview.hidden = false;
   els.overlayImg.src = src;
   const image = new Image();
   image.crossOrigin = "anonymous";
   image.onload = () => runTrace(image);
-  image.onerror = () => {
-    els.stats.textContent = `Failed to load image: ${src}`;
-  };
+  image.onerror = () => setStatus(`Failed to load image: ${src}`, true);
   image.src = src;
 }
 
 function setActiveThumb(thumb) {
   activeThumb?.classList.remove("is-active");
   activeThumb = thumb;
-  thumb?.classList.add("is-active");
+  activeThumb?.classList.add("is-active");
 }
 
 const CURATED_DEBUG_IMAGES = new Set([
@@ -477,156 +772,245 @@ const CURATED_DEBUG_IMAGES = new Set([
   "morts-thriumphans.jpeg",
 ]);
 
-async function buildGallery() {
+function activateGalleryItem(index) {
+  const item = galleryItems[index];
+  if (!item) return;
+  setActiveThumb(item.thumb);
+  loadImage(item.url, item.name);
+  item.thumb.scrollIntoView({ block: "nearest" });
+}
+
+async function buildGallery(requestedImage) {
   let entries = [];
   try {
     entries = await (await fetch("/debug/images.json")).json();
   } catch {
-    els.stats.textContent = "Could not load image manifest (/debug/images.json).";
+    setStatus("Could not load image manifest (/debug/images.json).", true);
     return;
   }
-
-  // Filter to the curated 10. Loose top-level images only (no sets/).
   entries = entries.filter((entry) => !entry.set && CURATED_DEBUG_IMAGES.has(entry.name));
-
   if (entries.length === 0) {
-    els.stats.textContent = "No images found in public/assets/img.";
+    setStatus("No images found in public/assets/img.", true);
     return;
   }
-
-  // Keep a stable, curated order (matches CURATED_DEBUG_IMAGES insertion).
   const order = [...CURATED_DEBUG_IMAGES];
-  entries.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
-
-  const fragment = document.createDocumentFragment();
-  let firstThumb = null;
-  let firstSrc = null;
+  entries.sort((left, right) => order.indexOf(left.name) - order.indexOf(right.name));
 
   const grid = document.createElement("div");
   grid.className = "gallery-grid";
-  for (const item of entries) {
+  galleryItems = entries.map((item, index) => {
     const thumb = document.createElement("button");
     thumb.type = "button";
     thumb.className = "thumb";
-    thumb.title = item.name;
-
-    const img = document.createElement("img");
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.src = item.url;
-    img.alt = item.name;
-    thumb.append(img);
-
-    thumb.addEventListener("click", () => {
-      setActiveThumb(thumb);
-      loadImage(item.url);
-    });
-
+    thumb.title = `${item.name} · image ${index + 1} of ${entries.length}`;
+    const image = document.createElement("img");
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.src = item.url;
+    image.alt = item.name;
+    thumb.append(image);
+    thumb.addEventListener("click", () => activateGalleryItem(index));
     grid.append(thumb);
-    if (!firstThumb) {
-      firstThumb = thumb;
-      firstSrc = item.url;
-    }
-  }
-  fragment.append(grid);
-
-  els.gallery.replaceChildren(fragment);
-
-  if (firstThumb) {
-    setActiveThumb(firstThumb);
-    loadImage(firstSrc);
-  }
+    return { ...item, thumb };
+  });
+  els.gallery.replaceChildren(grid);
+  const initialIndex = Math.max(
+    0,
+    galleryItems.findIndex((item) => item.name === requestedImage),
+  );
+  activateGalleryItem(initialIndex);
 }
 
-// --- wiring ---
-els.sourcePreview.addEventListener("click", () => {
+function bindConfigPair(key, rangeInput, numberInput) {
+  rangeInput.addEventListener("input", () => {
+    numberInput.value = rangeInput.value;
+    if (key === "repulsion" || key === "variety") els.autoBias.checked = false;
+    if (key === "maxPixels" && els.autoBias.checked) maybeApplyAutoParams();
+    markCustom();
+    clearFrozenSwatches();
+    resetSmoothers();
+    updateUrl();
+    scheduleTrace();
+  });
+
+  const applyNumberValue = () => {
+    if (!numberInput.value || !numberInput.validity.valid) return;
+    const config = normalizeLabConfig({ ...getConfig(), [key]: numberInput.value });
+    rangeInput.value = String(config[key]);
+    numberInput.value = String(config[key]);
+    if (key === "repulsion" || key === "variety") els.autoBias.checked = false;
+    if (key === "maxPixels" && els.autoBias.checked) maybeApplyAutoParams();
+    markCustom();
+    clearFrozenSwatches();
+    resetSmoothers();
+    updateUrl();
+    scheduleTrace();
+  };
+
+  numberInput.addEventListener("input", applyNumberValue);
+  numberInput.addEventListener("blur", () => {
+    if (!numberInput.value || !numberInput.validity.valid) {
+      numberInput.value = rangeInput.value;
+    }
+  });
+}
+
+function applyNeutralBalance() {
+  const index = Math.max(
+    0,
+    Math.min(NEUTRAL_BALANCE_VALUES.length - 1, Number(els.neutralBalance.value)),
+  );
+  const value = NEUTRAL_BALANCE_VALUES[index];
+  const label = NEUTRAL_BALANCE_LABELS[value];
+  els.neutralBalanceValue.value = label;
+  els.neutralBalance.setAttribute("aria-valuetext", label);
+  markCustom();
+  clearFrozenSwatches();
+  resetSmoothers();
+  updateUrl();
+  scheduleTrace();
+}
+
+function applyWorkspaceSize() {
+  document.documentElement.style.setProperty("--lab-source-height", `${els.previewSize.value}px`);
+  document.documentElement.style.setProperty(
+    "--lab-inspector-width",
+    `${els.inspectorSize.value}px`,
+  );
+  updateUrl();
+  window.requestAnimationFrame(resizeScatter);
+}
+
+function initializeFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const hasSharedConfig = [
+    "swatchCount",
+    "poolSize",
+    "maxPixels",
+    "repulsion",
+    "variety",
+    "tone",
+    "neutralBalance",
+    "auto",
+    "smooth",
+  ].some((key) => params.has(key));
+  const requestedPreset = params.get("preset");
+  const requestedPresetConfig = requestedPreset ? LAB_PRESETS[requestedPreset]?.config : null;
+  writeConfigInputs(
+    hasSharedConfig
+      ? labConfigFromSearchParams(params)
+      : (requestedPresetConfig ?? DEFAULT_LAB_CONFIG),
+  );
+  setPresetState(
+    requestedPreset && (requestedPreset in LAB_PRESETS || requestedPreset === "custom")
+      ? requestedPreset
+      : hasSharedConfig
+        ? "custom"
+        : "balanced",
+  );
+
+  const pipeline = params.get("pipeline");
+  if (PIPELINE_IDS.includes(pipeline)) activePipelineId = pipeline;
+  const preview = Math.max(160, Math.min(420, Number(params.get("preview")) || 260));
+  const panel = Math.max(320, Math.min(800, Number(params.get("panel")) || 576));
+  els.previewSize.value = String(preview);
+  els.inspectorSize.value = String(panel);
+  applyWorkspaceSize();
+  setActivePipeline(activePipelineId);
+  return params.get("image");
+}
+
+// Source and camera.
+els.sourceStage.addEventListener("click", () => {
+  if (els.sourcePreview.hidden) return;
   els.overlay.hidden = false;
 });
 els.overlay.addEventListener("click", () => {
   els.overlay.hidden = true;
 });
-
 els.upload.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
   setActiveThumb(null);
   loadImage(URL.createObjectURL(file));
 });
-
 els.cameraToggle.addEventListener("click", () => {
   if (cameraStream) stopCamera();
   else startCamera();
 });
 
-els.swatchCount.addEventListener("input", () => {
-  els.swatchCountValue.textContent = els.swatchCount.value;
-  frozenSwatches.clear();
-  colorSmoother.reset();
-  rerunTrace();
+// Pipeline and plot controls.
+els.pipelineTabs.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-pipeline]");
+  if (button) setActivePipeline(button.dataset.pipeline);
 });
-
-els.repulsion.addEventListener("input", () => {
-  els.repulsionValue.textContent = Number(els.repulsion.value).toFixed(3);
-  // The radius IS the Distinctness control, so re-trace; a manual move counts
-  // as an override, so turn Auto off.
-  els.autoBias.checked = false;
-  rerunTrace();
-});
-
-els.selector.addEventListener("change", () => {
-  colorSmoother.reset();
-  maybeApplyAutoParams();
-  rerunTrace();
-});
-
-// New-mode controls.
-els.variety.addEventListener("input", () => {
-  els.varietyValue.textContent = els.variety.value;
-  els.autoBias.checked = false; // manual override
-  rerunTrace();
-});
-els.tone.addEventListener("input", () => {
-  els.toneValue.textContent = els.tone.value;
-  rerunTrace();
-});
-els.autoBias.addEventListener("change", () => {
-  if (els.autoBias.checked) maybeApplyAutoParams();
-  rerunTrace();
-});
-
-// Tuning sliders mirror the live app's controls; re-trace live so their
-// effect on candidates and selection is visible.
-for (const [slider, valueEl] of [
-  [els.poolSize, els.poolSizeValue],
-  [els.maxPixels, els.maxPixelsValue],
-]) {
-  slider.addEventListener("input", () => {
-    valueEl.textContent = slider.value;
-    rerunTrace();
-  });
-}
-
+els.resetView.addEventListener("click", () => scatter.resetView());
 for (const toggle of [
   els.layerPixels,
   els.layerCandidates,
   els.layerSelected,
   els.layerRepulsion,
-  els.layerPixelLocations,
 ]) {
-  toggle.addEventListener("change", () => {
-    if (toggle === els.layerPixelLocations) {
-      renderSourceFrame();
-    } else {
-      buildScene();
-    }
-  });
+  toggle.addEventListener("change", buildScene);
 }
+els.layerPixelLocations.addEventListener("change", renderSourceFrame);
 
+// Configuration.
+els.preset.addEventListener("change", () => applyPreset(els.preset.value));
+els.tuningToggle.addEventListener("click", () => {
+  setTuningOpen(els.tuningToggle.getAttribute("aria-expanded") !== "true");
+});
+for (const [key, pair] of Object.entries(configPairs)) bindConfigPair(key, ...pair);
+els.neutralBalance.addEventListener("input", applyNeutralBalance);
+els.autoBias.addEventListener("change", () => {
+  if (els.autoBias.checked) maybeApplyAutoParams();
+  markCustom();
+  resetSmoothers();
+  updateUrl();
+  scheduleTrace();
+});
+els.smoothToggle.addEventListener("change", () => {
+  markCustom();
+  resetSmoothers();
+  updateUrl();
+  scheduleTrace();
+});
+els.copySetup.addEventListener("click", async () => {
+  updateUrl();
+  try {
+    await navigator.clipboard.writeText(location.href);
+    setStatus("Setup link copied.");
+  } catch {
+    setStatus("Clipboard unavailable. Copy the URL from the address bar.", true);
+  }
+});
+els.resetConfig.addEventListener("click", () => applyPreset("balanced"));
+els.workspace.addEventListener("pointerdown", () => setTuningOpen(false));
+
+// Workspace geometry.
+els.previewSize.addEventListener("input", applyWorkspaceSize);
+els.inspectorSize.addEventListener("input", applyWorkspaceSize);
 window.addEventListener("resize", resizeScatter);
+new ResizeObserver(() => renderSourceFrame()).observe(els.sourceStage);
 
+// Keyboard shortcuts are intentionally limited to non-form focus.
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && els.tuningToggle.getAttribute("aria-expanded") === "true") {
+    setTuningOpen(false, { restoreFocus: true });
+    return;
+  }
+  if (event.target.closest("input, select, button")) return;
+  if (event.key >= "1" && event.key <= String(PIPELINE_IDS.length)) {
+    setActivePipeline(PIPELINE_IDS[Number(event.key) - 1]);
+    return;
+  }
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    const currentIndex = galleryItems.findIndex((item) => item.thumb === activeThumb);
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    activateGalleryItem((currentIndex + direction + galleryItems.length) % galleryItems.length);
+  }
+});
+
+const requestedImage = initializeFromUrl();
 resizeScatter();
-els.swatchCountValue.textContent = els.swatchCount.value;
-els.repulsionValue.textContent = Number(els.repulsion.value).toFixed(3);
-els.varietyValue.textContent = els.variety.value;
-els.toneValue.textContent = els.tone.value;
-buildGallery();
+buildGallery(requestedImage);

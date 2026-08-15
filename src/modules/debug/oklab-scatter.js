@@ -205,14 +205,16 @@ export function createOklabScatter(canvas) {
 
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
-  canvas.addEventListener("dblclick", () => {
+  function resetView() {
     yaw = DEFAULT_YAW;
     pitch = DEFAULT_PITCH;
     zoom = 1;
     panX = 0;
     panY = 0;
     scheduleRender();
-  });
+  }
+
+  canvas.addEventListener("dblclick", resetView);
 
   canvas.addEventListener(
     "wheel",
@@ -224,5 +226,5 @@ export function createOklabScatter(canvas) {
     { passive: false },
   );
 
-  return { setScene, render: scheduleRender };
+  return { setScene, render: scheduleRender, resetView };
 }

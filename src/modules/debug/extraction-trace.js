@@ -9,7 +9,7 @@
 
 import { rgbToOklab } from "../color-space-oklch.js";
 import { packImageDataToArgb8888 } from "../palette-pixel-pack.js";
-import { selectPaletteExperimental } from "./experimental-selector.js";
+import { selectPaletteExperimental, selectPaletteGridHybrid } from "./experimental-selector.js";
 import { selectPaletteHybrid } from "../hybrid-selector.js";
 
 function argbToRgb(argb) {
@@ -128,10 +128,27 @@ export function traceExtraction(
       spreadStrength: debugOptions.spreadStrength,
       rarityStrength: debugOptions.rarityStrength,
       tone: debugOptions.tone,
+      neutralBalance: debugOptions.neutralBalance,
+      toneSpace: debugOptions.toneSpace,
       maxQuantizerPixels,
     });
     candidates = result.clusters.map((cluster) =>
       withOklab(cluster.rgb, { population: cluster.mass }),
+    );
+    selected = result.colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
+    extraStats = { neutralCount: result.neutralCount, neutralThreshold: result.neutralThreshold };
+  } else if (debugOptions.selector === "grid-hybrid") {
+    const result = selectPaletteGridHybrid(imageData, width, height, swatchCount, {
+      repulsionRadius: debugOptions.repulsionRadius,
+      spreadStrength: debugOptions.spreadStrength,
+      rarityStrength: debugOptions.rarityStrength,
+      tone: debugOptions.tone,
+      neutralBalance: debugOptions.neutralBalance,
+      previousColors: debugOptions.previousColors,
+      maxQuantizerPixels,
+    });
+    candidates = result.gridCandidates.map((candidate) =>
+      withOklab(candidate.meanRgb, { population: candidate.mass }),
     );
     selected = result.colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
     extraStats = { neutralCount: result.neutralCount, neutralThreshold: result.neutralThreshold };
@@ -145,8 +162,11 @@ export function traceExtraction(
       spreadStrength: debugOptions.spreadStrength,
       rarityStrength: debugOptions.rarityStrength,
       tone: debugOptions.tone,
+      neutralBalance: debugOptions.neutralBalance,
       maxQuantizerPixels,
       quantizedPoolSize: quantizedPoolSize,
+      colorMath: debugOptions.colorMath,
+      previousColors: debugOptions.previousColors,
     });
     candidates = result.candidates.map((c) => withOklab(c.meanRgb, { population: c.mass }));
     selected = result.colors.map((rgb, index) => withOklab(rgb, { index: index + 1 }));
