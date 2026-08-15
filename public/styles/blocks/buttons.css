@@ -299,10 +299,15 @@
   min-height: 44px;
 }
 
-/* Sits opposite the discrete color-count drum in the compact camera rail. */
+/* Floats over the palette strip's bottom-right corner (inside
+   .capture-palette-stage), under the config drawer that opens above it;
+   hides with the strip in RAL mode. */
 .config-section {
+  position: absolute;
+  right: var(--space-8);
+  bottom: var(--space-8);
+  z-index: 7;
   display: flex;
-  margin-inline-start: auto;
 }
 
 /* Lives inside the camera viewport frame (moved there by app.js) so it

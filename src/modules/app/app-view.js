@@ -23,7 +23,7 @@
  * @property {HTMLElement | null} ralLiveSwatchCode
  * @property {HTMLElement | null} ralLiveSwatchName
  * @property {HTMLElement | null} ralLiveSwatchQuality
- * @property {HTMLElement | null} slidersContainer
+ * @property {HTMLElement | null} swatchCountControl
  * @property {Element | null} captureModeSection
  * @property {HTMLElement | null} configPanel
  * @property {HTMLButtonElement | null} viewCollectionButton
@@ -74,8 +74,8 @@ export function createAppView(documentRef) {
     ralLiveSwatchCode: documentRef.getElementById("ralLiveSwatchCode"),
     ralLiveSwatchName: documentRef.getElementById("ralLiveSwatchName"),
     ralLiveSwatchQuality: documentRef.getElementById("ralLiveSwatchQuality"),
-    slidersContainer: /** @type {HTMLElement | null} */ (
-      documentRef.querySelector(".sliders-container")
+    swatchCountControl: /** @type {HTMLElement | null} */ (
+      documentRef.querySelector(".swatch-count-control")
     ),
     captureModeSection: documentRef.querySelector(".capture-mode-section"),
     configPanel: /** @type {HTMLElement | null} */ (documentRef.querySelector("config-panel")),

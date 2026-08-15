@@ -1,30 +1,15 @@
-.sliders-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-16);
-  min-height: var(--space-48);
-  padding: var(--space-4) var(--space-16);
-  border-top: 1px solid var(--color-border-subtle);
-  background: var(--gradient-slider-shell);
-  box-shadow: var(--shadow-control-inset);
-}
-
+/* Sits in the shutter row (.btn-containers), next to the mini-output. */
 .swatch-count-control {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
-  min-width: 0;
+  flex-shrink: 0;
+  margin-inline-start: var(--space-8);
 }
 
 .swatch-count-drum {
   position: relative;
-  display: grid;
-  grid-template-rows: var(--space-8) var(--space-24) var(--space-8);
-  place-items: center;
-  align-content: center;
   width: var(--space-48);
-  min-height: var(--space-48);
+  height: var(--space-48);
   overflow: hidden;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
@@ -35,6 +20,48 @@
   cursor: ns-resize;
   touch-action: none;
   user-select: none;
+}
+
+/* Fixed reading index: two accent notches marking the counter line, like the
+   index mark on a hardware dial. */
+.swatch-count-drum::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    var(--color-camera-accent) 0 var(--space-4),
+    transparent var(--space-4) calc(100% - var(--space-4)),
+    var(--color-camera-accent) calc(100% - var(--space-4))
+  );
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.swatch-count-drum.is-dragging::before,
+.swatch-count-drum.is-rolling::before,
+.swatch-count-drum.is-settling::before {
+  opacity: 1;
+}
+
+/* Cylindrical shading: the reel surface curves away at the top and bottom. */
+.swatch-count-drum::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 45%),
+    transparent 26% 74%,
+    rgb(0 0 0 / 45%)
+  );
+  pointer-events: none;
 }
 
 .swatch-count-drum:focus-visible {
@@ -48,21 +75,73 @@
   box-shadow: var(--shadow-accent-outline), var(--shadow-control-inset);
 }
 
+/* Full-height window: the neighbor numbers peek at the edges and dissolve
+   into the fade mask, which is the drag affordance (no chevrons). */
 .swatch-drum-window {
   display: block;
+  container-type: size;
   width: 100%;
-  height: var(--space-24);
+  height: 100%;
   overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 15%),
+    black 30% 70%,
+    rgb(0 0 0 / 15%)
+  );
   pointer-events: none;
 }
 
 .swatch-drum-track {
+  /* Centers the current row (row 2 of 3) inside the window regardless of
+     window height; JS offsets from --drum-center during drag and roll. */
+  --drum-center: calc(-33.3333% + (100cqh - var(--space-24)) / 2);
+
   display: grid;
   grid-auto-rows: var(--space-24);
   width: 100%;
-  transform: translate3d(0, -33.3333%, 0);
-  transition: transform var(--duration-fast) var(--easing-in-out);
+  transform: translate3d(0, var(--drum-center), 0);
+  transition: transform var(--duration-settle) var(--easing-spring);
   will-change: transform;
+
+  /* Ruler ticks in the side gutters, scrolling with the reel: one major tick
+     aligned with each number row, minor ticks between (24px row, 6px pitch). */
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 11px,
+      var(--color-border-strong) 11px 12px,
+      transparent 12px 24px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 11px,
+      var(--color-border-strong) 11px 12px,
+      transparent 12px 24px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 2px,
+      var(--color-border-default) 2px 3px,
+      transparent 3px 6px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 2px,
+      var(--color-border-default) 2px 3px,
+      transparent 3px 6px
+    );
+  background-repeat: no-repeat;
+  background-size:
+    7px 100%,
+    7px 100%,
+    4px 100%,
+    4px 100%;
+  background-position:
+    0 0,
+    100% 0,
+    0 0,
+    100% 0;
 }
 
 .swatch-drum-number {
@@ -78,50 +157,15 @@
 
 .swatch-drum-previous,
 .swatch-drum-next {
-  opacity: 0.35;
+  opacity: 0.55;
+  transform: scaleY(0.8);
 }
 
 .swatch-count-drum.is-dragging .swatch-drum-previous,
 .swatch-count-drum.is-dragging .swatch-drum-next,
 .swatch-count-drum.is-rolling .swatch-drum-previous,
 .swatch-count-drum.is-rolling .swatch-drum-next {
-  opacity: 0.75;
-}
-
-.swatch-drum-chevron {
-  width: var(--space-8);
-  height: var(--space-8);
-  opacity: 0.66;
-  pointer-events: none;
-}
-
-.swatch-drum-chevron::before {
-  content: "";
-  display: block;
-  width: var(--space-4);
-  height: var(--space-4);
-  border-top: 1px solid currentcolor;
-  border-left: 1px solid currentcolor;
-}
-
-.swatch-drum-chevron-up::before {
-  transform: translate(calc(var(--space-4) / 2), calc(var(--space-4) / 2)) rotate(45deg);
-}
-
-.swatch-drum-chevron-down::before {
-  transform: translate(calc(var(--space-4) / 2), 0) rotate(225deg);
-}
-
-.swatch-count-label {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  line-height: 1;
-}
-
-.sliders-container .btn-config {
-  min-height: var(--space-48);
-  padding-inline: var(--space-16);
+  opacity: 0.8;
 }
 
 /* ── Skeuomorphic Swatch Slider ── */

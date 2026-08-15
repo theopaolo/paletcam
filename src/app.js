@@ -9,6 +9,7 @@ import { createCaptureMicroInteractions } from "./modules/micro-interactions.js"
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudBridge } from "./modules/performance-hud-bridge.js";
 import { createSwatchCountDrumUiController } from "./modules/swatch-count-drum-ui.js";
+import { shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
 import { initializeStorageHealth } from "./modules/storage-health.js";
@@ -78,7 +79,7 @@ const {
   ralLiveSwatchQuality,
   ralReticle,
   rotateButton,
-  slidersContainer,
+  swatchCountControl,
   swatchCountDrum,
   viewCollectionButton,
 } = appView;
@@ -257,7 +258,7 @@ function syncCaptureMode(mode) {
   document.body.classList.toggle("is-ral-mode", isRal);
   if (ralReticle) ralReticle.hidden = !isRal;
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
-  if (slidersContainer) slidersContainer.hidden = isRal;
+  if (swatchCountControl) swatchCountControl.hidden = isRal;
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
 
   syncCameraViewportLayout();
@@ -520,6 +521,8 @@ function handleCaptureButtonClick(event) {
     return;
   }
 
+  unlockUiFeedback();
+  shutterFeedback();
   void captureController?.captureCurrentFrame();
 }
 

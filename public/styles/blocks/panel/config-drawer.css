@@ -10,7 +10,9 @@ config-panel {
   position: absolute;
   left: var(--space-8);
   right: var(--space-8);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+
+  /* Clears the tune/close chip floating at the strip's bottom-right. */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 3rem);
   display: grid;
   gap: var(--space-control-padding);
   max-height: calc(100% - 4rem);
@@ -35,7 +37,7 @@ config-panel.is-open .config-drawer {
 }
 
 .config-drawer:has(.config-drawer-slider.is-active) {
-  opacity: 0.5;
+  opacity: 0.1;
 }
 
 @keyframes config-drawer-enter {
@@ -236,10 +238,11 @@ config-panel.is-open .config-drawer {
   box-shadow: none;
 }
 
+/* Title on its own row, compact segmented control underneath. */
 .config-drawer-panel .config-drawer-neutral-field {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-4);
   padding-top: 0;
 }
 
@@ -248,31 +251,15 @@ config-panel.is-open .config-drawer {
 }
 
 .config-drawer-panel .config-drawer-neutral-options {
-  grid-area: 1 / 2;
+  grid-area: 2 / 1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  min-height: var(--space-48);
+  grid-template-columns: repeat(3, auto);
+  width: fit-content;
+  min-height: var(--space-32);
   overflow: hidden;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
   background: var(--gradient-control-surface);
-}
-
-.config-drawer-panel
-  .config-drawer-neutral-field:has(.panel-form-field-header[open]) {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.config-drawer-panel
-  .config-drawer-neutral-field:has(.panel-form-field-header[open])
-  .panel-form-field-header {
-  grid-area: 1 / 1;
-}
-
-.config-drawer-panel
-  .config-drawer-neutral-field:has(.panel-form-field-header[open])
-  .config-drawer-neutral-options {
-  grid-area: 2 / 1;
 }
 
 .config-drawer-neutral-option {
@@ -299,7 +286,7 @@ config-panel.is-open .config-drawer {
   display: grid;
   place-items: center;
   min-width: 0;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-4) var(--space-16);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: 600;

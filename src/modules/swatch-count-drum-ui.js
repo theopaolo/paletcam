@@ -1,10 +1,20 @@
 import { t } from "../i18n.js";
+import { boundaryFeedback, detentFeedback, unlockUiFeedback } from "./ui-feedback.js";
 
-const DRAG_COMMIT_THRESHOLD_PX = 12;
-const DRAG_PREVIEW_LIMIT_PX = 24;
+/** Finger travel that crosses one detent (value step). */
+const DETENT_PX = 28;
+/** Track row height in px; finger travel maps to track travel by this ratio. */
+const TRACK_ROW_PX = 24;
+const FINGER_TO_TRACK_RATIO = TRACK_ROW_PX / DETENT_PX;
+/** Damping applied to drag travel past the min/max end stops. */
+const RUBBER_BAND_FACTOR = 0.25;
+/** Damped overtravel beyond which the end-stop thunk fires. */
+const BOUNDARY_FEEDBACK_PX = 6;
 const TAP_SLOP_PX = 4;
-const ROLL_DURATION_MS = 200;
-const CENTERED_TRACK_TRANSFORM = "translate3d(0, -33.3333%, 0)";
+/** Must cover the CSS roll/settle transition, plus a small buffer. */
+const ROLL_DURATION_MS = 280;
+/** Track centering lives in CSS (--drum-center); JS only offsets from it. */
+const CENTERED_TRACK_TRANSFORM = "translate3d(0, var(--drum-center, -33.3333%), 0)";
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -13,6 +23,24 @@ function clamp(value, min, max) {
 function readNumericValue(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/* Capture calls can throw InvalidPointerId when the browser already released
+   the pointer (cancel races); the gesture logic must survive that. */
+function capturePointer(element, pointerId) {
+  try {
+    element?.setPointerCapture?.(pointerId);
+  } catch {
+    /* noop */
+  }
+}
+
+function releasePointer(element, pointerId) {
+  try {
+    element?.releasePointerCapture?.(pointerId);
+  } catch {
+    /* noop */
+  }
 }
 
 /**
@@ -97,7 +125,7 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
       globalThis.window?.clearTimeout(rollTimeout);
       rollTimeout = 0;
     }
-    swatchCountDrum?.classList.remove("is-rolling");
+    swatchCountDrum?.classList.remove("is-rolling", "is-settling");
     renderTrack();
     resetTrackPosition();
   }
@@ -112,9 +140,29 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     swatchCountDrum?.classList.add("is-rolling");
     track.style.transition = "";
     void track.offsetHeight;
-    track.style.transform = direction > 0 ? "translate3d(0, -66.6667%, 0)" : "translate3d(0, 0, 0)";
+    track.style.transform = `translate3d(0, calc(var(--drum-center, -33.3333%) ${direction > 0 ? "-" : "+"} 33.3333%), 0)`;
 
     rollTimeout = globalThis.window?.setTimeout(finishRoll, ROLL_DURATION_MS) ?? 0;
+  }
+
+  function settleToCenter() {
+    if (!track || prefersReducedMotion()) {
+      finishRoll();
+      return;
+    }
+
+    swatchCountDrum?.classList.add("is-settling");
+    track.style.transition = "";
+    track.style.transform = CENTERED_TRACK_TRANSFORM;
+    rollTimeout = globalThis.window?.setTimeout(finishRoll, ROLL_DURATION_MS) ?? 0;
+  }
+
+  /** Commit a value reached mid-drag: numbers rebase, no roll animation. */
+  function applyValue(nextValue) {
+    currentValue = nextValue;
+    renderTrack();
+    syncAccessibleValue();
+    onSwatchCountChange?.(currentValue);
   }
 
   function setValue(nextValue, { animate = true } = {}) {
@@ -129,6 +177,7 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     currentValue = normalizedValue;
     syncAccessibleValue();
     onSwatchCountChange?.(currentValue);
+    detentFeedback();
 
     if (animate) {
       animateRoll(direction);
@@ -143,22 +192,6 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     return setValue(currentValue + direction, options);
   }
 
-  function setDragPreview(deltaY) {
-    if (!track) {
-      return;
-    }
-
-    let dampedDelta = clamp(deltaY, -DRAG_PREVIEW_LIMIT_PX, DRAG_PREVIEW_LIMIT_PX);
-    const isPastUpperBoundary = currentValue >= max && dampedDelta < 0;
-    const isPastLowerBoundary = currentValue <= min && dampedDelta > 0;
-    if (isPastUpperBoundary || isPastLowerBoundary) {
-      dampedDelta *= 0.25;
-    }
-
-    track.style.transition = "none";
-    track.style.transform = `translate3d(0, calc(-33.3333% + ${dampedDelta}px), 0)`;
-  }
-
   function endPointerGesture(event, { cancelled = false } = {}) {
     if (!activePointer || event.pointerId !== activePointer.id) {
       return;
@@ -167,27 +200,16 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     const gesture = activePointer;
     activePointer = null;
     swatchCountDrum?.classList.remove("is-dragging");
-    swatchCountDrum?.releasePointerCapture?.(event.pointerId);
+    releasePointer(swatchCountDrum, event.pointerId);
 
-    if (cancelled) {
-      resetTrackPosition();
-      return;
-    }
-
-    const deltaY = event.clientY - gesture.startY;
-    if (Math.abs(deltaY) >= DRAG_COMMIT_THRESHOLD_PX) {
-      step(deltaY < 0 ? 1 : -1);
-      return;
-    }
-
-    if (!gesture.moved) {
+    if (!cancelled && !gesture.moved) {
       const bounds = swatchCountDrum?.getBoundingClientRect();
       const midpoint = bounds ? bounds.top + bounds.height / 2 : gesture.startY;
       step(event.clientY <= midpoint ? 1 : -1);
       return;
     }
 
-    resetTrackPosition();
+    settleToCenter();
   }
 
   function handlePointerDown(event) {
@@ -195,14 +217,17 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
       return;
     }
 
+    unlockUiFeedback();
     finishRoll();
     activePointer = {
+      committedSteps: 0,
+      hitBoundary: false,
       id: event.pointerId,
       moved: false,
       startY: event.clientY,
     };
     swatchCountDrum.classList.add("is-dragging");
-    swatchCountDrum.setPointerCapture?.(event.pointerId);
+    capturePointer(swatchCountDrum, event.pointerId);
     event.preventDefault();
   }
 
@@ -211,9 +236,41 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
       return;
     }
 
-    const deltaY = event.clientY - activePointer.startY;
-    activePointer.moved ||= Math.abs(deltaY) > TAP_SLOP_PX;
-    setDragPreview(deltaY);
+    const gesture = activePointer;
+    // Upward-positive travel: dragging up rolls higher numbers into view.
+    const travel = gesture.startY - event.clientY;
+    gesture.moved ||= Math.abs(travel) > TAP_SLOP_PX;
+
+    const baseValue = clamp(currentValue - gesture.committedSteps, min, max);
+    const rawSteps = Math.round(travel / DETENT_PX);
+    const targetValue = clamp(baseValue + rawSteps, min, max);
+    const steps = targetValue - baseValue;
+    if (steps !== gesture.committedSteps) {
+      gesture.committedSteps = steps;
+      applyValue(targetValue);
+      detentFeedback();
+    }
+
+    if (!track) {
+      return;
+    }
+
+    let remainder = travel - steps * DETENT_PX;
+    const pastUpperStop = currentValue >= max && remainder > 0;
+    const pastLowerStop = currentValue <= min && remainder < 0;
+    if (pastUpperStop || pastLowerStop) {
+      remainder *= RUBBER_BAND_FACTOR;
+      if (!gesture.hitBoundary && Math.abs(remainder) > BOUNDARY_FEEDBACK_PX) {
+        gesture.hitBoundary = true;
+        boundaryFeedback();
+      }
+    } else {
+      gesture.hitBoundary = false;
+    }
+
+    const trackOffsetPx = -remainder * FINGER_TO_TRACK_RATIO;
+    track.style.transition = "none";
+    track.style.transform = `translate3d(0, calc(var(--drum-center, -33.3333%) + ${trackOffsetPx}px), 0)`;
   }
 
   function handlePointerUp(event) {
@@ -222,28 +279,6 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
 
   function handlePointerCancel(event) {
     endPointerGesture(event, { cancelled: true });
-  }
-
-  function handleKeyDown(event) {
-    const stepByKey = {
-      ArrowDown: -1,
-      ArrowLeft: -1,
-      ArrowRight: 1,
-      ArrowUp: 1,
-      PageDown: -1,
-      PageUp: 1,
-    }[event.key];
-
-    if (stepByKey) {
-      event.preventDefault();
-      step(stepByKey, { animate: false });
-      return;
-    }
-
-    if (event.key === "Home" || event.key === "End") {
-      event.preventDefault();
-      setValue(event.key === "Home" ? min : max, { animate: false });
-    }
   }
 
   function on(element, eventName, handler) {
@@ -260,7 +295,6 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     on(swatchCountDrum, "pointermove", handlePointerMove);
     on(swatchCountDrum, "pointerup", handlePointerUp);
     on(swatchCountDrum, "pointercancel", handlePointerCancel);
-    on(swatchCountDrum, "keydown", handleKeyDown);
     isBound = true;
   }
 
