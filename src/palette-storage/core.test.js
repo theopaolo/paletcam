@@ -134,8 +134,14 @@ describe("palette-storage/core", () => {
     expect(result.updatedIds).toEqual([7, 9]);
     expect(typeof result.favoritedAt).toBe("string");
     expect(bulkUpdate.mock.calls[0][0]).toEqual([
-      { key: 7, changes: { favoritedAt: result.favoritedAt } },
-      { key: 9, changes: { favoritedAt: result.favoritedAt } },
+      {
+        key: 7,
+        changes: { favoritedAt: result.favoritedAt, backupDirtyAt: expect.any(String) },
+      },
+      {
+        key: 9,
+        changes: { favoritedAt: result.favoritedAt, backupDirtyAt: expect.any(String) },
+      },
     ]);
   });
 
@@ -147,7 +153,9 @@ describe("palette-storage/core", () => {
     const result = await module.setPaletteFavorites([7], false);
 
     expect(result.favoritedAt).toBeNull();
-    expect(bulkUpdate.mock.calls[0][0]).toEqual([{ key: 7, changes: { favoritedAt: null } }]);
+    expect(bulkUpdate.mock.calls[0][0]).toEqual([
+      { key: 7, changes: { favoritedAt: null, backupDirtyAt: expect.any(String) } },
+    ]);
   });
 
   test("skips missing palettes instead of failing a stale selection", async () => {
@@ -159,7 +167,10 @@ describe("palette-storage/core", () => {
 
     expect(result.updatedIds).toEqual([7]);
     expect(bulkUpdate.mock.calls[0][0]).toEqual([
-      { key: 7, changes: { favoritedAt: result.favoritedAt } },
+      {
+        key: 7,
+        changes: { favoritedAt: result.favoritedAt, backupDirtyAt: expect.any(String) },
+      },
     ]);
   });
 
@@ -356,6 +367,7 @@ describe("palette-storage/core", () => {
           remoteOwnerAccountKey: "account:0123456789abcdef",
           moderationStatus: "PUBLIC",
           moderationUpdatedAt: "2026-07-13T08:00:00.000Z",
+          backupDirtyAt: expect.any(String),
         },
       },
       {
@@ -363,6 +375,7 @@ describe("palette-storage/core", () => {
         changes: {
           postedAt: null,
           lastModerationCheckAt: null,
+          backupDirtyAt: expect.any(String),
         },
       },
     ]);
@@ -432,6 +445,7 @@ describe("palette-storage/core", () => {
         changes: {
           moderationStatus: "PUBLIC",
           lastModerationCheckAt: "2026-07-13T10:00:00.000Z",
+          backupDirtyAt: expect.any(String),
         },
       },
     ]);
@@ -485,6 +499,7 @@ describe("palette-storage/core", () => {
           postedAt: null,
           moderationUpdatedAt: null,
           lastModerationCheckAt: null,
+          backupDirtyAt: expect.any(String),
         },
       },
       {
@@ -496,6 +511,7 @@ describe("palette-storage/core", () => {
           postedAt: null,
           moderationUpdatedAt: null,
           lastModerationCheckAt: null,
+          backupDirtyAt: expect.any(String),
         },
       },
     ]);

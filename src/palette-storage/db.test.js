@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  applyBackupLedgerDefaults,
   applyPaletteRemoteStateDefaults,
   createVersion3MigrationRecords,
   createVersion4MigrationRecords,
@@ -128,12 +129,20 @@ describe("palette database migrations", () => {
     expect(palettesById.get(1).hasPhotoAsset).toBe(true);
   });
 
-  test("version 8 declares favorite, owner binding, preview, maintenance, outbox, and staging stores", () => {
-    expect(db.verno).toBe(8);
+  test("version 9 declares favorite, owner binding, backup, preview, maintenance, outbox, and staging stores", () => {
+    expect(db.verno).toBe(9);
     expect(db.table("palettes").schema.indexes.map((index) => index.src)).toContain(
       "remoteOwnerAccountKey",
     );
     expect(db.table("palettes").schema.indexes.map((index) => index.src)).toContain("favoritedAt");
+    expect(db.table("palettes").schema.indexes.map((index) => index.src)).toContain(
+      "backupDirtyAt",
+    );
+    const backupUidIndex = db
+      .table("palettes")
+      .schema.indexes.find((index) => index.name === "backupUid");
+    expect(backupUidIndex?.unique).toBe(true);
+    expect(db.table("backupTombstones").schema.primKey.src).toBe("backupUid");
     expect(db.table("palettePreviews").schema.primKey.src).toBe("[paletteId+variant]");
     expect(db.table("palettePreviews").schema.indexes.map((index) => index.src)).toContain(
       "paletteId",
@@ -327,5 +336,36 @@ describe("palette database migrations", () => {
       { paletteId: 2, variant: "gallery", blob: galleryBlob, footerLabel: "gallery-v1" },
     ]);
     expect(Object.hasOwn(palettesById.get(2), "previewGalleryBlob")).toBe(false);
+  });
+
+  test("version 9 stamps missing backup identity and marks pre-existing rows dirty", () => {
+    const palette = { id: 7, timestamp: "2025-01-01T00:00:00.000Z", colors: [] };
+
+    applyBackupLedgerDefaults(palette, {
+      nowIso: "2026-08-15T10:00:00.000Z",
+      generateUid: () => "generated-uid",
+    });
+
+    expect(palette.backupUid).toBe("generated-uid");
+    expect(palette.backupDirtyAt).toBe("2026-08-15T10:00:00.000Z");
+    expect(palette.backupUploadedAt).toBeNull();
+  });
+
+  test("version 9 keeps an existing backup identity and upload state intact", () => {
+    const palette = {
+      id: 7,
+      backupUid: "existing-uid",
+      backupDirtyAt: "2026-08-01T00:00:00.000Z",
+      backupUploadedAt: "2026-07-01T00:00:00.000Z",
+    };
+
+    applyBackupLedgerDefaults(palette, {
+      nowIso: "2026-08-15T10:00:00.000Z",
+      generateUid: () => "generated-uid",
+    });
+
+    expect(palette.backupUid).toBe("existing-uid");
+    expect(palette.backupDirtyAt).toBe("2026-08-01T00:00:00.000Z");
+    expect(palette.backupUploadedAt).toBe("2026-07-01T00:00:00.000Z");
   });
 });

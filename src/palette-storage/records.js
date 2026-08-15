@@ -35,6 +35,35 @@ const STORED_PALETTE_MAX_FOOTER_LABEL_LENGTH = 160;
  */
 /** @typedef {Partial<Palette> & Pick<Palette, "timestamp" | "colors">} PaletteMetadataInput */
 
+const BACKUP_UID_MAX_LENGTH = 64;
+
+/**
+ * Stable identity for the private backup server. Falls back to getRandomValues
+ * because `crypto.randomUUID` requires a secure context some WebViews lack.
+ */
+export function createBackupUid() {
+  const randomUuid = globalThis.crypto?.randomUUID?.();
+  if (typeof randomUuid === "string" && randomUuid) {
+    return randomUuid;
+  }
+
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+export function normalizeBackupUid(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized && normalized.length <= BACKUP_UID_MAX_LENGTH ? normalized : null;
+}
+
 export function normalizeRemoteCatchId(value) {
   if (value === null || value === undefined) {
     return null;
@@ -283,6 +312,14 @@ export function parseStoredPaletteMetadataRecord(candidate) {
   const moderationUpdatedAt = parseStoredOptionalIsoString(candidate.moderationUpdatedAt);
   const lastModerationCheckAt = parseStoredOptionalIsoString(candidate.lastModerationCheckAt);
   const favoritedAt = parseStoredOptionalIsoString(candidate.favoritedAt);
+  const backupDirtyAt = parseStoredOptionalIsoString(candidate.backupDirtyAt);
+  const backupUploadedAt = parseStoredOptionalIsoString(candidate.backupUploadedAt);
+  const backupUid =
+    candidate.backupUid === undefined || candidate.backupUid === null
+      ? null
+      : normalizeBackupUid(candidate.backupUid);
+  const hasValidBackupUid =
+    candidate.backupUid === undefined || candidate.backupUid === null || backupUid !== null;
   const rawRemoteCatchId =
     typeof candidate.remoteCatchId === "string" ? candidate.remoteCatchId.trim() : null;
   const hasValidRemoteCatchId =
@@ -322,6 +359,9 @@ export function parseStoredPaletteMetadataRecord(candidate) {
     moderationUpdatedAt === undefined ||
     lastModerationCheckAt === undefined ||
     favoritedAt === undefined ||
+    backupDirtyAt === undefined ||
+    backupUploadedAt === undefined ||
+    !hasValidBackupUid ||
     (candidate.hasPhotoAsset !== undefined && typeof candidate.hasPhotoAsset !== "boolean")
   ) {
     return null;
@@ -343,6 +383,9 @@ export function parseStoredPaletteMetadataRecord(candidate) {
     moderationUpdatedAt,
     lastModerationCheckAt,
     favoritedAt,
+    backupUid,
+    backupDirtyAt,
+    backupUploadedAt,
     hasPhotoAsset: candidate.hasPhotoAsset === true,
   });
 }
@@ -380,6 +423,9 @@ export function normalizeStoredPaletteRecord(
     moderationUpdatedAt: normalizeIsoString(palette?.moderationUpdatedAt),
     lastModerationCheckAt: normalizeIsoString(palette?.lastModerationCheckAt),
     favoritedAt: normalizeIsoString(palette?.favoritedAt),
+    backupUid: normalizeBackupUid(palette?.backupUid),
+    backupDirtyAt: normalizeIsoString(palette?.backupDirtyAt),
+    backupUploadedAt: normalizeIsoString(palette?.backupUploadedAt),
     previewFooterLabel: normalizePreviewFooterLabel(palette?.previewFooterLabel),
     hasPhotoAsset: Boolean(
       palette?.hasPhotoAsset || photoBlob instanceof Blob || palette?.photoBlob instanceof Blob,
@@ -448,6 +494,9 @@ export function createPaletteMetadataRecord({
   favoritedAt = null,
   polaroidRenderSettings = null,
   hasPhotoAsset = false,
+  backupUid = null,
+  backupDirtyAt = null,
+  backupUploadedAt = null,
 }) {
   /** @type {PaletteMetadataRecord} */
   const record = {
@@ -467,6 +516,12 @@ export function createPaletteMetadataRecord({
     moderationUpdatedAt: normalizeIsoString(moderationUpdatedAt),
     lastModerationCheckAt: normalizeIsoString(lastModerationCheckAt),
     favoritedAt: normalizeIsoString(favoritedAt),
+    // Every inserted record carries backup identity and starts dirty: nothing
+    // is on the backup server until the flush loop uploads it. Restore passes
+    // explicit values to preserve a palette's server identity.
+    backupUid: normalizeBackupUid(backupUid) ?? createBackupUid(),
+    backupDirtyAt: normalizeIsoString(backupDirtyAt) ?? new Date().toISOString(),
+    backupUploadedAt: normalizeIsoString(backupUploadedAt),
     hasPhotoAsset: Boolean(hasPhotoAsset),
   };
 

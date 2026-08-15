@@ -71,6 +71,18 @@ interface Palette {
   lastModerationCheckAt: string | null;
   /** ISO timestamp of when the capture was starred, or `null` when it is not a favourite. */
   favoritedAt: string | null;
+  /** Stable identity on the private backup server; assigned at creation, backfilled by the v9 migration. */
+  backupUid?: string | null;
+  /** ISO timestamp of the last change awaiting backup upload, or `null` when clean (indexed like `favoritedAt`). */
+  backupDirtyAt?: string | null;
+  /** ISO timestamp of the last successful backup upload, or `null` before the first one. */
+  backupUploadedAt?: string | null;
+}
+
+/** Pending server-side deletion for a palette that was removed locally. */
+interface BackupTombstoneRecord {
+  backupUid: string;
+  deletedAt: string;
 }
 
 type PalettePreviewVariant = "gallery" | "viewer";
@@ -157,6 +169,8 @@ interface AppSettings {
   oneMoreColor: boolean;
   originBadgesEnabled: boolean;
   polaroidFooterLabel: string;
+  /** ISO timestamp of the last successful palette export, or `null` before the first one. */
+  lastBackupAt: string | null;
   medianCut: MedianCutSettings;
   hybrid: HybridSettings;
 }
@@ -170,6 +184,7 @@ interface AppSettingsPatch {
   oneMoreColor?: boolean;
   originBadgesEnabled?: boolean;
   polaroidFooterLabel?: string;
+  lastBackupAt?: string | null;
   medianCut?: Partial<MedianCutSettings>;
   hybrid?: Partial<HybridSettings>;
 }
@@ -681,6 +696,8 @@ interface PaletcamDexieWhereClause<TRecord = Palette, TKey = number> {
 interface PaletcamDexieTable<TRecord = Palette, TKey = number> {
   add(item: object): Promise<TKey>;
   bulkAdd(items: object[]): Promise<unknown>;
+  count(): Promise<number>;
+  limit(count: number): PaletcamDexieTable<TRecord, TKey>;
   bulkDelete(keys: TKey[]): Promise<void>;
   bulkGet(keys: TKey[]): Promise<Array<TRecord | undefined>>;
   bulkPut(items: object[]): Promise<number>;
@@ -717,6 +734,7 @@ interface PaletcamDb {
   paletteStorageMetadata: PaletcamDexieTable<PaletteStorageMetadataRecord, string>;
   communityDeleteOutbox: PaletcamDexieTable<CommunityDeleteOutboxRecord, string>;
   paletteImportStaging: PaletcamDexieTable<PaletteImportStagingRecord, [string, number]>;
+  backupTombstones: PaletcamDexieTable<BackupTombstoneRecord, string>;
 }
 
 interface CapacitorLike {

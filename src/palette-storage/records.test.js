@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { normalizeStoredPaletteRecord, parseStoredPaletteMetadataRecord } from "./records.js";
+import {
+  createPaletteMetadataRecord,
+  normalizeStoredPaletteRecord,
+  parseStoredPaletteMetadataRecord,
+} from "./records.js";
 
 test("stored palette normalization allowlists persisted fields", () => {
   const photoBlob = new Blob(["photo"], { type: "image/webp" });
@@ -152,4 +156,59 @@ test("stored palette parser keeps legacy blank remote state as normalized null v
       moderationStatus: " ",
     }),
   ).toMatchObject({ remoteCatchId: null, moderationStatus: null });
+});
+
+test("new metadata records receive backup identity and start dirty", () => {
+  const record = createPaletteMetadataRecord({
+    timestamp: "2026-08-15T10:00:00.000Z",
+    colors: [{ r: 12, g: 34, b: 56 }],
+  });
+
+  expect(typeof record.backupUid).toBe("string");
+  expect(record.backupUid.length).toBeGreaterThan(0);
+  expect(typeof record.backupDirtyAt).toBe("string");
+  expect(record.backupUploadedAt).toBeNull();
+});
+
+test("metadata records preserve an explicit backup identity for restore", () => {
+  const record = createPaletteMetadataRecord({
+    timestamp: "2026-08-15T10:00:00.000Z",
+    colors: [{ r: 12, g: 34, b: 56 }],
+    backupUid: "restored-uid",
+    backupDirtyAt: "2026-08-01T00:00:00.000Z",
+    backupUploadedAt: "2026-07-01T00:00:00.000Z",
+  });
+
+  expect(record.backupUid).toBe("restored-uid");
+  expect(record.backupDirtyAt).toBe("2026-08-01T00:00:00.000Z");
+  expect(record.backupUploadedAt).toBe("2026-07-01T00:00:00.000Z");
+});
+
+test("stored palette parser carries the backup ledger fields through", () => {
+  expect(
+    parseStoredPaletteMetadataRecord({
+      id: 13,
+      timestamp: "2026-07-13T10:00:00.000Z",
+      colors: [{ r: 12, g: 34, b: 56 }],
+      backupUid: "ledger-uid",
+      backupDirtyAt: "2026-08-01T00:00:00.000Z",
+      backupUploadedAt: null,
+    }),
+  ).toMatchObject({
+    backupUid: "ledger-uid",
+    backupDirtyAt: "2026-08-01T00:00:00.000Z",
+    backupUploadedAt: null,
+  });
+});
+
+test("stored palette parser rejects rows with corrupt backup ledger fields", () => {
+  const base = {
+    id: 14,
+    timestamp: "2026-07-13T10:00:00.000Z",
+    colors: [{ r: 12, g: 34, b: 56 }],
+  };
+
+  expect(parseStoredPaletteMetadataRecord({ ...base, backupUid: 42 })).toBeNull();
+  expect(parseStoredPaletteMetadataRecord({ ...base, backupDirtyAt: "not-a-date" })).toBeNull();
+  expect(parseStoredPaletteMetadataRecord({ ...base, backupUploadedAt: false })).toBeNull();
 });

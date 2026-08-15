@@ -254,9 +254,10 @@ export async function savePalette(
 
 /**
  * @param {Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>} [patch]
- * @returns {Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>>}
+ * @returns {Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt' | 'backupDirtyAt'>>}
  */
 function normalizePaletteRemoteStatePatch(patch = {}) {
+  /** @type {Partial<Pick<Palette, 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt' | 'backupDirtyAt'>>} */
   const nextPatch = {};
 
   if (Object.hasOwn(patch, "remoteCatchId")) {
@@ -284,6 +285,13 @@ function normalizePaletteRemoteStatePatch(patch = {}) {
 
   if (Object.hasOwn(patch, "lastModerationCheckAt")) {
     nextPatch.lastModerationCheckAt = normalizeIsoString(patch.lastModerationCheckAt);
+  }
+
+  // Publication changes must reach the backup, but moderation polling that only
+  // touches `lastModerationCheckAt` is not worth re-uploading a palette for.
+  const dirtiesBackup = Object.keys(nextPatch).some((key) => key !== "lastModerationCheckAt");
+  if (dirtiesBackup) {
+    nextPatch.backupDirtyAt = new Date().toISOString();
   }
 
   return nextPatch;
@@ -358,7 +366,10 @@ export async function setPaletteFavorites(paletteIds, isFavorite) {
         return;
       }
 
-      await db.palettes.bulkUpdate(existingKeys.map((key) => ({ key, changes: { favoritedAt } })));
+      const backupDirtyAt = new Date().toISOString();
+      await db.palettes.bulkUpdate(
+        existingKeys.map((key) => ({ key, changes: { favoritedAt, backupDirtyAt } })),
+      );
       updatedIds = existingKeys;
     });
     return { favoritedAt, updatedIds };
@@ -498,6 +509,7 @@ export async function clearCommunityStateForAccount(ownerAccountKey) {
     postedAt: null,
     moderationUpdatedAt: null,
     lastModerationCheckAt: null,
+    backupDirtyAt: new Date().toISOString(),
   };
   try {
     let clearedOutboxCount = 0;
@@ -544,6 +556,7 @@ export async function clearPaletteRemoteStates(paletteIds) {
     postedAt: null,
     moderationUpdatedAt: null,
     lastModerationCheckAt: null,
+    backupDirtyAt: new Date().toISOString(),
   };
   await db.transaction("rw", db.palettes, async () => {
     await db.palettes.bulkUpdate(ids.map((key) => ({ key, changes })));

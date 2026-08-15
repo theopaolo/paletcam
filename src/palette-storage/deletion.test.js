@@ -13,6 +13,7 @@ function createTransactionalDeletionDb(palette) {
   const state = {
     assets: new Map([[palette.id, { paletteId: palette.id, photoBlob: new Blob(["photo"]) }]]),
     outbox: new Map(),
+    tombstones: new Map(),
     palettes: new Map([[palette.id, structuredClone(palette)]]),
     previews: new Map([
       [`${palette.id}:gallery`, { paletteId: palette.id, variant: "gallery" }],
@@ -23,6 +24,11 @@ function createTransactionalDeletionDb(palette) {
 
   const db = {
     communityDeleteOutbox: {},
+    backupTombstones: {
+      async put(record) {
+        state.tombstones.set(record.backupUid, structuredClone(record));
+      },
+    },
     paletteAssets: {
       async delete(id) {
         if (assetDeleteError) throw assetDeleteError;
@@ -50,6 +56,7 @@ function createTransactionalDeletionDb(palette) {
         outbox: structuredClone(state.outbox),
         palettes: structuredClone(state.palettes),
         previews: structuredClone(state.previews),
+        tombstones: structuredClone(state.tombstones),
       };
       try {
         return await callback();
@@ -58,6 +65,7 @@ function createTransactionalDeletionDb(palette) {
         replaceMap(state.outbox, snapshot.outbox);
         replaceMap(state.palettes, snapshot.palettes);
         replaceMap(state.previews, snapshot.previews);
+        replaceMap(state.tombstones, snapshot.tombstones);
         throw error;
       }
     },
@@ -127,6 +135,29 @@ describe("transactional palette deletion", () => {
     expect(state.previews.size).toBe(0);
     expect(state.outbox.size).toBe(0);
     expect(reserveDeleteRetryInCurrentTransaction).not.toHaveBeenCalled();
+  });
+
+  test("records a backup tombstone when the deleted palette carried a backup identity", async () => {
+    const { deletionOptions, module, state } = await loadDeletionModule({
+      accountKey: "",
+      palette: { id: 7, remoteCatchId: null, backupUid: "backup-uid-7" },
+    });
+
+    await module.deletePalette(7, deletionOptions);
+
+    expect(state.palettes.size).toBe(0);
+    expect(state.tombstones.get("backup-uid-7")).toMatchObject({
+      backupUid: "backup-uid-7",
+      deletedAt: expect.any(String),
+    });
+  });
+
+  test("skips the tombstone for palettes that predate backup identity", async () => {
+    const { deletionOptions, module, state } = await loadDeletionModule({ accountKey: "" });
+
+    await module.deletePalette(7, deletionOptions);
+
+    expect(state.tombstones.size).toBe(0);
   });
 
   test("reserves the stored remote id before deleting all local records", async () => {

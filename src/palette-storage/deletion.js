@@ -1,6 +1,6 @@
 import { reportAppError } from "../modules/error-reporting.js";
 import { db } from "./db.js";
-import { normalizeRemoteOwnerAccountKey } from "./records.js";
+import { normalizeBackupUid, normalizeRemoteOwnerAccountKey } from "./records.js";
 
 function createPaletteDeletionError(message, code, cause) {
   const error = /** @type {Error & {code: string}} */ (
@@ -53,6 +53,7 @@ export async function deletePalette(
       db.paletteAssets,
       db.palettePreviews,
       db.communityDeleteOutbox,
+      db.backupTombstones,
       async () => {
         const storedPalette = await db.palettes.get(paletteId);
         if (!storedPalette) {
@@ -105,6 +106,14 @@ export async function deletePalette(
         ]);
         await db.paletteAssets.delete(paletteId);
         await db.palettes.delete(paletteId);
+
+        // The backup flush loop turns this into a server-side tombstone; the
+        // server no-ops on uids it never received, so recording one is always
+        // safe even when the palette was deleted before its first upload.
+        const backupUid = normalizeBackupUid(storedPalette.backupUid);
+        if (backupUid) {
+          await db.backupTombstones.put({ backupUid, deletedAt: new Date().toISOString() });
+        }
 
         return {
           remoteCatchId,

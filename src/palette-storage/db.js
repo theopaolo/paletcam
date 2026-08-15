@@ -1,5 +1,6 @@
 import Dexie from "../vendor/dexie.mjs";
 import {
+  createBackupUid,
   createLeanPaletteMetadataRecord,
   createPaletteAssetRecord,
   createPalettePreviewRecord,
@@ -251,3 +252,49 @@ db.version(8).stores({
   communityDeleteOutbox: "&key, accountKey, [accountKey+nextAttemptAt], leaseExpiresAt",
   paletteImportStaging: "[sessionId+ordinal], sessionId",
 });
+
+/**
+ * Stamps the version 9 backup-ledger fields onto a palette row in place.
+ * `backupDirtyAt` follows the `favoritedAt` idiom (ISO string or `null`, never
+ * a boolean), so its index holds exactly the records awaiting upload. Existing
+ * rows are stamped dirty: nothing is on the backup server yet.
+ */
+export function applyBackupLedgerDefaults(
+  palette,
+  { nowIso = new Date().toISOString(), generateUid = createBackupUid } = {},
+) {
+  if (typeof palette.backupUid !== "string" || !palette.backupUid) {
+    palette.backupUid = generateUid();
+  }
+  if (typeof palette.backupDirtyAt !== "string" || !palette.backupDirtyAt) {
+    palette.backupDirtyAt = nowIso;
+  }
+  if (!Object.hasOwn(palette, "backupUploadedAt")) {
+    palette.backupUploadedAt = null;
+  }
+}
+
+// Version 9 introduces the incremental-backup ledger: a stable per-palette
+// `backupUid` (unique index — the identity on the private backup server), the
+// dirty-queue index `backupDirtyAt`, and the `backupTombstones` table that
+// records local deletions awaiting server-side tombstoning.
+db.version(9)
+  .stores({
+    palettes:
+      "++id, timestamp, remoteCatchId, remoteOwnerAccountKey, moderationStatus, favoritedAt, &backupUid, backupDirtyAt",
+    paletteAssets: "&paletteId",
+    palettePreviews: "[paletteId+variant], paletteId",
+    paletteStorageMetadata: "&key",
+    communityDeleteOutbox: "&key, accountKey, [accountKey+nextAttemptAt], leaseExpiresAt",
+    paletteImportStaging: "[sessionId+ordinal], sessionId",
+    backupTombstones: "&backupUid",
+  })
+  .upgrade(async (transaction) => {
+    const migratedAtIso = new Date().toISOString();
+    await transaction
+      .table("palettes")
+      .toCollection()
+      .modify((palette) => {
+        applyBackupLedgerDefaults(palette, { nowIso: migratedAtIso });
+      });
+  });
