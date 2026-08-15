@@ -111,34 +111,45 @@
     </div>
 
     <div class="sliders-container">
-      <div class="swatch-slider">
-        <input
-          type="range"
-          min="3"
-          max="7"
-          value="4"
-          step="1"
-          aria-label="Nombre de couleurs : 4"
-        />
-        <div class="swatch-meta">
-          <span class="swatch-count-indicator" aria-live="polite"
-            >4 couleurs</span
-          >
-          <section class="config-section">
-            <button
-              class="btn-overlay-control btn-config"
-              type="button"
-              aria-label="Ouvrir la configuration"
-              data-i18n-aria-label="capture.configOpen"
-            >
-              <span class="btn-config-icon" aria-hidden="true"></span>
-              <span class="btn-config-label" data-i18n="capture.configLabel"
-                >Config</span
-              >
-            </button>
-          </section>
+      <div class="swatch-count-control">
+        <div
+          class="swatch-count-drum"
+          id="swatchCountDrum"
+          role="spinbutton"
+          tabindex="0"
+          data-min="3"
+          data-max="7"
+          data-value="4"
+          aria-label="Nombre de couleurs"
+          aria-valuemin="3"
+          aria-valuemax="7"
+          aria-valuenow="4"
+          aria-valuetext="4 couleurs"
+        >
+          <span class="swatch-drum-chevron swatch-drum-chevron-up" aria-hidden="true"></span>
+          <span class="swatch-drum-window" aria-hidden="true">
+            <span class="swatch-drum-track">
+              <span class="swatch-drum-number swatch-drum-previous">3</span>
+              <span class="swatch-drum-number swatch-drum-current">4</span>
+              <span class="swatch-drum-number swatch-drum-next">5</span>
+            </span>
+          </span>
+          <span class="swatch-drum-chevron swatch-drum-chevron-down" aria-hidden="true"></span>
         </div>
+        <span class="swatch-count-label" data-i18n="slider.colorCountLabel">Couleurs</span>
       </div>
+
+      <section class="config-section">
+        <button
+          class="btn-overlay-control btn-config"
+          type="button"
+          aria-label="Ouvrir la configuration"
+          data-i18n-aria-label="capture.configOpen"
+        >
+          <span class="btn-config-icon" aria-hidden="true"></span>
+          <span class="btn-config-label" data-i18n="capture.configLabel">Config</span>
+        </button>
+      </section>
     </div>
 
     <!-- Palette Collection Panel -->

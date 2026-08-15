@@ -525,10 +525,11 @@ interface ExposureUiController {
   syncCapabilities(): void;
 }
 
-interface SwatchSliderUiController {
+interface SwatchCountDrumUiController {
   bindEvents(): void;
   cleanup(): void;
   destroy(): void;
+  getValue(): number;
   initialize(swatchCount: number): void;
 }
 
@@ -586,7 +587,6 @@ interface PerformanceHudController {
 interface VisualEffects {
   setCaptureButtonGlowColor(color: RgbColor): void;
   setCaptureGlowActive(isActive: boolean): void;
-  setPaletteRibbon(colors: RgbColor[]): void;
 }
 
 // ---------------------------------------------------------------------------

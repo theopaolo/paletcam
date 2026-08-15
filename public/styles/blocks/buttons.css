@@ -299,15 +299,10 @@
   min-height: 44px;
 }
 
-/* Rides in the swatch slider's meta row, right of the centred colour count,
-   so it no longer overlays the palette ribbon's last swatch. Flex, not block:
-   an inline-flex button would sit on the parent's text baseline and reserve
-   descender space beneath it. */
+/* Sits opposite the discrete color-count drum in the compact camera rail. */
 .config-section {
   display: flex;
-  grid-column: 3;
-  justify-self: end;
-  padding-top: var(--space-control-gap);
+  margin-inline-start: auto;
 }
 
 /* Lives inside the camera viewport frame (moved there by app.js) so it

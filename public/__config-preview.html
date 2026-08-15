@@ -126,35 +126,39 @@
       </div>
     </section>
 
-    <p class="harness-label">main swatch slider with palette ribbon</p>
+    <p class="harness-label">compact swatch-count drum</p>
 
     <div class="sliders-container">
-      <div
-        class="swatch-slider"
-        style="
-          --tick-count: 5;
-          --tick-index: 1;
-          --tick-intervals: 4;
-          --palette-ribbon: linear-gradient(
-            to right,
-            rgb(214 40 57) 0% 25%,
-            rgb(24 24 28) 25% 50%,
-            rgb(196 196 200) 50% 75%,
-            rgb(88 90 94) 75% 100%
-          );
-        "
-      >
-        <input type="range" min="3" max="7" value="4" step="1" aria-label="4 colors" />
-        <div class="swatch-meta">
-          <span class="swatch-count-indicator">4 colors</span>
-          <section class="config-section">
-            <button class="btn-overlay-control btn-config" type="button">
-              <span class="btn-config-icon" aria-hidden="true"></span>
-              <span class="btn-config-label">Tune</span>
-            </button>
-          </section>
+      <div class="swatch-count-control">
+        <div
+          class="swatch-count-drum"
+          role="spinbutton"
+          tabindex="0"
+          aria-label="Number of colors"
+          aria-valuemin="3"
+          aria-valuemax="7"
+          aria-valuenow="4"
+          aria-valuetext="4 colors"
+        >
+          <span class="swatch-drum-chevron swatch-drum-chevron-up" aria-hidden="true"></span>
+          <span class="swatch-drum-window" aria-hidden="true">
+            <span class="swatch-drum-track">
+              <span class="swatch-drum-number swatch-drum-previous">3</span>
+              <span class="swatch-drum-number swatch-drum-current">4</span>
+              <span class="swatch-drum-number swatch-drum-next">5</span>
+            </span>
+          </span>
+          <span class="swatch-drum-chevron swatch-drum-chevron-down" aria-hidden="true"></span>
         </div>
+        <span class="swatch-count-label">Colors</span>
       </div>
+
+      <section class="config-section">
+        <button class="btn-overlay-control btn-config" type="button">
+          <span class="btn-config-icon" aria-hidden="true"></span>
+          <span class="btn-config-label">Tune</span>
+        </button>
+      </section>
     </div>
   </body>
 </html>

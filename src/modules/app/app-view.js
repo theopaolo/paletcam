@@ -16,7 +16,7 @@
  * @property {HTMLCanvasElement | null} paletteCanvas
  * @property {HTMLElement | null} paletteLockOverlay
  * @property {HTMLButtonElement | null} rotateButton
- * @property {HTMLInputElement | null} swatchSlider
+ * @property {HTMLElement | null} swatchCountDrum
  * @property {HTMLElement | null} ralReticle
  * @property {HTMLElement | null} ralLiveSwatch
  * @property {HTMLElement | null} ralLiveSwatchColor
@@ -67,9 +67,7 @@ export function createAppView(documentRef) {
     rotateButton: /** @type {HTMLButtonElement | null} */ (
       documentRef.querySelector(".btn-rotate")
     ),
-    swatchSlider: /** @type {HTMLInputElement | null} */ (
-      documentRef.querySelector('.swatch-slider input[type="range"]')
-    ),
+    swatchCountDrum: documentRef.getElementById("swatchCountDrum"),
     ralReticle: documentRef.getElementById("ralReticle"),
     ralLiveSwatch: documentRef.getElementById("ralLiveSwatch"),
     ralLiveSwatchColor: documentRef.getElementById("ralLiveSwatchColor"),

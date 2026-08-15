@@ -1,7 +1,127 @@
 .sliders-container {
   display: flex;
-  align-items: stretch;
-  gap: var(--space-control-gap);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  min-height: var(--space-48);
+  padding: var(--space-4) var(--space-16);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--gradient-slider-shell);
+  box-shadow: var(--shadow-control-inset);
+}
+
+.swatch-count-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.swatch-count-drum {
+  position: relative;
+  display: grid;
+  grid-template-rows: var(--space-8) var(--space-24) var(--space-8);
+  place-items: center;
+  align-content: center;
+  width: var(--space-48);
+  min-height: var(--space-48);
+  overflow: hidden;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: var(--gradient-control-surface);
+  box-shadow: var(--shadow-control-inset);
+  color: var(--color-text-muted);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.swatch-count-drum:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.swatch-count-drum.is-dragging,
+.swatch-count-drum.is-rolling {
+  color: var(--color-camera-accent);
+  box-shadow: var(--shadow-accent-outline), var(--shadow-control-inset);
+}
+
+.swatch-drum-window {
+  display: block;
+  width: 100%;
+  height: var(--space-24);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.swatch-drum-track {
+  display: grid;
+  grid-auto-rows: var(--space-24);
+  width: 100%;
+  transform: translate3d(0, -33.3333%, 0);
+  transition: transform var(--duration-fast) var(--easing-in-out);
+  will-change: transform;
+}
+
+.swatch-drum-number {
+  display: grid;
+  place-items: center;
+  color: var(--color-camera-accent);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.swatch-drum-previous,
+.swatch-drum-next {
+  opacity: 0.35;
+}
+
+.swatch-count-drum.is-dragging .swatch-drum-previous,
+.swatch-count-drum.is-dragging .swatch-drum-next,
+.swatch-count-drum.is-rolling .swatch-drum-previous,
+.swatch-count-drum.is-rolling .swatch-drum-next {
+  opacity: 0.75;
+}
+
+.swatch-drum-chevron {
+  width: var(--space-8);
+  height: var(--space-8);
+  opacity: 0.66;
+  pointer-events: none;
+}
+
+.swatch-drum-chevron::before {
+  content: "";
+  display: block;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-top: 1px solid currentcolor;
+  border-left: 1px solid currentcolor;
+}
+
+.swatch-drum-chevron-up::before {
+  transform: translate(calc(var(--space-4) / 2), calc(var(--space-4) / 2)) rotate(45deg);
+}
+
+.swatch-drum-chevron-down::before {
+  transform: translate(calc(var(--space-4) / 2), 0) rotate(225deg);
+}
+
+.swatch-count-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sliders-container .btn-config {
+  min-height: var(--space-48);
+  padding-inline: var(--space-16);
 }
 
 /* ── Skeuomorphic Swatch Slider ── */
@@ -38,47 +158,6 @@
   --tick-glow-width: 19px;
   --tick-glow-height: 13px;
   --tick-highlight-width: 1.15px;
-}
-
-.swatch-meta {
-  width: 100%;
-  margin-top: auto;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-}
-
-.swatch-scale-label {
-  color: var(--color-text-muted);
-  font-weight: 700;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-sm);
-}
-
-.swatch-scale-label-min {
-  justify-self: start;
-}
-
-.swatch-scale-label-max {
-  justify-self: end;
-}
-
-.swatch-count-indicator {
-  display: inline-block;
-  padding-top: var(--space-control-gap);
-  text-align: center;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
-
-/* Column 1 stays empty so the count keeps its optical centre while the config
-   button occupies the mirrored column on the right. */
-.sliders-container .swatch-count-indicator {
-  grid-column: 2;
 }
 
 .swatch-slider::before {
@@ -148,22 +227,6 @@
     0 0 1px rgb(86 86 86);
 }
 
-/* Main swatch-count slider: the live palette rides inside the recessed
-   track as a segmented ribbon (one segment per extracted color).
-   --palette-ribbon is set by visual-effects.js on each palette repaint. */
-.sliders-container .swatch-slider input[type="range"] {
-  background:
-    var(--palette-ribbon, linear-gradient(transparent, transparent)),
-    var(--gradient-slider-track);
-  background-size:
-    calc(100% - var(--space-16)) 6px,
-    100% 100%;
-  background-position:
-    center,
-    0 0;
-  background-repeat: no-repeat;
-}
-
 .swatch-slider input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: var(--swatch-thumb-width);
@@ -231,4 +294,10 @@
 .swatch-slider.is-dragging input[type="range"]::-moz-range-thumb {
   transform: scale(1.08);
   box-shadow: var(--shadow-slider-thumb-active);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swatch-drum-track {
+    transition-duration: 1ms;
+  }
 }

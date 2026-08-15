@@ -5,12 +5,10 @@ function toRgbToken(color) {
 /**
  * @param {object} [options]
  * @param {HTMLElement | null} [options.captureButton]
- * @param {HTMLElement | null} [options.swatchSliderShell]
  * @returns {VisualEffects}
  */
-export function createVisualEffects({ captureButton, swatchSliderShell } = {}) {
+export function createVisualEffects({ captureButton } = {}) {
   let lastCaptureGlowRgb = "";
-  let lastRibbonKey = "";
 
   function setCaptureButtonGlowColor(color) {
     if (!captureButton || !color) {
@@ -30,40 +28,8 @@ export function createVisualEffects({ captureButton, swatchSliderShell } = {}) {
     captureButton?.classList.toggle("is-catching", isActive);
   }
 
-  function setPaletteRibbon(colors) {
-    if (!swatchSliderShell) {
-      return;
-    }
-
-    if (!Array.isArray(colors) || colors.length === 0) {
-      if (lastRibbonKey !== "") {
-        swatchSliderShell.style.removeProperty("--palette-ribbon");
-        lastRibbonKey = "";
-      }
-      return;
-    }
-
-    const ribbonKey = colors.map(toRgbToken).join(";");
-    if (ribbonKey === lastRibbonKey) {
-      return;
-    }
-
-    const segmentWidth = 100 / colors.length;
-    const stops = colors
-      .map((color, index) => {
-        const from = (index * segmentWidth).toFixed(2);
-        const to = ((index + 1) * segmentWidth).toFixed(2);
-        return `rgb(${toRgbToken(color)}) ${from}% ${to}%`;
-      })
-      .join(", ");
-
-    swatchSliderShell.style.setProperty("--palette-ribbon", `linear-gradient(to right, ${stops})`);
-    lastRibbonKey = ribbonKey;
-  }
-
   return {
     setCaptureButtonGlowColor,
     setCaptureGlowActive,
-    setPaletteRibbon,
   };
 }

@@ -90,7 +90,7 @@ config-panel.is-open .config-drawer {
 
 .config-drawer-panel {
   display: grid;
-  gap: var(--space-control-gap);
+  gap: var(--space-4);
 }
 
 /* ── Unified parameter sliders ─────────────────────────────────────────
@@ -117,10 +117,6 @@ config-panel.is-open .config-drawer {
 
 .config-drawer-panel .config-drawer-slider::before {
   content: none;
-}
-
-.config-drawer-panel .config-drawer-slider .swatch-scale-label {
-  display: none;
 }
 
 .config-drawer-panel .config-drawer-value {
@@ -241,13 +237,18 @@ config-panel.is-open .config-drawer {
 }
 
 .config-drawer-panel .config-drawer-neutral-field {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4);
-  padding-top: var(--space-4);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-8);
+  padding-top: 0;
+}
+
+.config-drawer-panel .config-drawer-neutral-field .panel-form-field-header {
+  grid-area: 1 / 1;
 }
 
 .config-drawer-panel .config-drawer-neutral-options {
-  grid-area: 2 / 1;
+  grid-area: 1 / 2;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   min-height: var(--space-48);
@@ -255,6 +256,23 @@ config-panel.is-open .config-drawer {
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
   background: var(--gradient-control-surface);
+}
+
+.config-drawer-panel
+  .config-drawer-neutral-field:has(.panel-form-field-header[open]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.config-drawer-panel
+  .config-drawer-neutral-field:has(.panel-form-field-header[open])
+  .panel-form-field-header {
+  grid-area: 1 / 1;
+}
+
+.config-drawer-panel
+  .config-drawer-neutral-field:has(.panel-form-field-header[open])
+  .config-drawer-neutral-options {
+  grid-area: 2 / 1;
 }
 
 .config-drawer-neutral-option {
@@ -315,11 +333,17 @@ config-panel.is-open .config-drawer {
 }
 
 .config-drawer-footer {
-  --dock-gap: var(--space-16);
+  --dock-gap: var(--space-8);
+
+  min-height: var(--space-48);
 }
 
 .config-drawer-history {
-  --toolbar-gap: var(--space-8);
+  --toolbar-gap: var(--space-4);
+}
+
+.config-drawer-footer .panel-inline-action {
+  min-height: var(--space-48);
 }
 
 .config-drawer-reset-button {
@@ -327,7 +351,9 @@ config-panel.is-open .config-drawer {
 }
 
 .config-drawer-darkest-toggle {
-  min-height: 0;
+  flex: none;
+  min-height: var(--space-48);
+  padding-inline: var(--space-4);
 }
 
 .config-drawer-darkest-toggle .panel-form-checkbox-label {

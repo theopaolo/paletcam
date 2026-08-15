@@ -529,7 +529,6 @@ export function createLivePreviewController({
 
         renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
         syncSwatchLockHints(displayColors);
-        visualEffects.setPaletteRibbon?.(displayColors);
         lastPaintedColors = displayColors;
         paintedPaletteWidth = paletteCanvas.width;
         paintedPaletteHeight = paletteCanvas.height;

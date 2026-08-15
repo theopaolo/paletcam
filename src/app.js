@@ -8,7 +8,7 @@ import { createCameraGridUiController } from "./modules/camera-grid-ui.js";
 import { createCaptureMicroInteractions } from "./modules/micro-interactions.js";
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudBridge } from "./modules/performance-hud-bridge.js";
-import { createSwatchSliderUiController } from "./modules/swatch-slider-ui.js";
+import { createSwatchCountDrumUiController } from "./modules/swatch-count-drum-ui.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
 import { initializeStorageHealth } from "./modules/storage-health.js";
@@ -79,7 +79,7 @@ const {
   ralReticle,
   rotateButton,
   slidersContainer,
-  swatchSlider,
+  swatchCountDrum,
   viewCollectionButton,
 } = appView;
 const paletteCaptureStage = capturePaletteStage;
@@ -102,7 +102,7 @@ if (shouldUseCanvasPreview) {
   }
 }
 
-let swatchCount = Number(swatchSlider?.value) || 4;
+let swatchCount = Number(swatchCountDrum?.dataset.value) || 4;
 let currentCaptureMode = "palette";
 let oneMoreColor = Boolean(getAppSettings().oneMoreColor);
 let originBadgesEnabled = Boolean(getAppSettings().originBadgesEnabled);
@@ -137,10 +137,7 @@ const captureMicroInteractions = createCaptureMicroInteractions({
   captureButton,
   captureContainer,
 });
-const visualEffects = createVisualEffects({
-  captureButton,
-  swatchSliderShell: swatchSlider?.closest(".swatch-slider") ?? null,
-});
+const visualEffects = createVisualEffects({ captureButton });
 const ralPreview = createRalPreviewController({
   ralLiveSwatch,
   ralLiveSwatchColor,
@@ -164,8 +161,8 @@ const paletteExtractionWorker = createPaletteExtractionWorkerController({
     livePreviewController?.handleWorkerResult({ colors, durationMs, origins, frozenPresence });
   },
 });
-const swatchSliderUi = createSwatchSliderUiController({
-  swatchSlider,
+const swatchCountDrumUi = createSwatchCountDrumUiController({
+  swatchCountDrum,
   onSwatchCountChange: (nextSwatchCount) => {
     swatchCount = nextSwatchCount;
     livePreviewController?.reset();
@@ -236,7 +233,7 @@ function getPaletteExtractionOptions() {
 
 function syncUserFacingCopy() {
   cameraPreviewSurface?.setAttribute("aria-label", t("capture.cameraPreview"));
-  swatchSliderUi.initialize(swatchCount);
+  swatchCountDrumUi.initialize(swatchCount);
   ralPreview.resyncCopy();
 }
 
@@ -557,7 +554,7 @@ function initializeApp() {
   exposureUi.bindEvents();
   gridUi.bindEvents();
   bindRotationEvents();
-  swatchSliderUi.bindEvents();
+  swatchCountDrumUi.bindEvents();
   panelCameraUi.bind();
   bindManagedEventListener(window, "beforeunload", handleWindowBeforeUnload);
   bindManagedEventListener(window, "focus", cameraLifecycleController?.handleWindowFocus);
@@ -590,7 +587,7 @@ function initializeApp() {
   zoomUi.initialize();
   exposureUi.initialize();
   gridUi.initialize();
-  swatchSliderUi.initialize(swatchCount);
+  swatchCountDrumUi.initialize(swatchCount);
   cameraLifecycleController?.syncActionAvailability();
   clearPhotoOutput();
   renderOutputSwatches(outputPalette, []);
@@ -683,7 +680,7 @@ function destroyApp() {
   viewportHeightController?.clear();
   cameraSurfaceLifecycleController.destroy();
   cameraLifecycleController?.stopCurrentStream({ preserveResumeIntent: false });
-  swatchSliderUi.destroy?.();
+  swatchCountDrumUi.destroy?.();
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   gridUi?.destroy?.();
