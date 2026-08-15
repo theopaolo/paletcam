@@ -50,18 +50,18 @@ function vibrate(pattern) {
 
 /** One detent crossed: tiny high click + micro vibration. */
 export function detentFeedback() {
-  playBlip({ frequency: 2100, duration: 0.016, peakGain: 0.045, type: "square" });
+  playBlip({ frequency: 2100, duration: 0.016, peakGain: 0.06, type: "square" });
   vibrate(8);
 }
 
 /** Hit an end stop: duller thunk + firmer vibration. */
 export function boundaryFeedback() {
-  playBlip({ frequency: 140, duration: 0.05, peakGain: 0.08, type: "sine" });
+  playBlip({ frequency: 140, duration: 0.05, peakGain: 0.1, type: "sine" });
   vibrate(24);
 }
 
 /** Shutter pressed: a slightly rounder blip than the detent tick. */
 export function shutterFeedback() {
-  playBlip({ frequency: 1300, duration: 0.03, peakGain: 0.06, type: "triangle" });
+  playBlip({ frequency: 1300, duration: 0.035, peakGain: 0.16, type: "triangle" });
   vibrate(12);
 }
