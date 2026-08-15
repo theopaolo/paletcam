@@ -24,7 +24,7 @@ const DEFAULT_HYBRID_SETTINGS = Object.freeze({
   repulsionRadius: 0.08,
   spreadStrength: 0.6,
   rarityStrength: 0.2,
-  tone: 0.85,
+  tone: 0.9,
   loyaltyStrength: 0.3,
 });
 
@@ -195,13 +195,17 @@ function loadSettings() {
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
     ...storedSettings,
-    // No UI exposes medianCut or oneMoreColor anymore: ignore overrides
-    // persisted by older builds so everyone runs on the calibrated defaults.
-    medianCut: { ...DEFAULT_SETTINGS.medianCut },
+    // The tuning panel now exposes the median-cut analysis budget again.
+    medianCut: {
+      ...DEFAULT_SETTINGS.medianCut,
+      ...(storedSettings?.medianCut ?? {}),
+    },
     oneMoreColor: DEFAULT_SETTINGS.oneMoreColor,
+    // Selector policy is fixed; Tone remains the only user-facing hybrid
+    // parameter. Ignore retired slider values persisted by older builds.
     hybrid: {
       ...DEFAULT_SETTINGS.hybrid,
-      ...(storedSettings?.hybrid ?? {}),
+      ...(storedSettings?.hybrid?.tone == null ? {} : { tone: storedSettings.hybrid.tone }),
     },
   });
 }

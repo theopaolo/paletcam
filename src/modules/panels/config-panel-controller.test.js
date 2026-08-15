@@ -278,27 +278,20 @@ function createButton(id, attributes = {}) {
   return button;
 }
 
-function createPanel(panelId, tabId) {
-  const panel = new FakeElement("section");
-  panel.setAttribute("id", panelId);
-  panel.setAttribute("data-config-tabpanel", tabId);
-  return panel;
-}
-
-function createSteppedShell({ controlKey, shellId, inputId, value }) {
+function createRangeShell({ shellId, inputId, valueId, min, max, step, value }) {
   const shell = new FakeElement("div");
   shell.setAttribute("id", shellId);
   const input = new FakeElement("input");
   input.setAttribute("id", inputId);
   input.type = "range";
-  input.min = "0";
-  input.max = "3";
-  input.step = "1";
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
   input.value = String(value);
-  const labels = new FakeElement("div");
-  labels.setAttribute("data-config-step-labels", controlKey);
-  shell.append(input, labels);
-  return { input, labels, shell };
+  const output = new FakeElement("output");
+  output.setAttribute("id", valueId);
+  shell.append(input, output);
+  return { input, output, shell };
 }
 
 function createConfigFixture() {
@@ -307,30 +300,36 @@ function createConfigFixture() {
   drawer.setAttribute("id", "configDrawer");
   root.appendChild(drawer);
 
-  const tabList = new FakeElement("div");
-  const colorsTab = createButton("configTabColors", { "data-config-tab": "colors" });
-  const balanceTab = createButton("configTabBalance", { "data-config-tab": "balance" });
-  tabList.append(colorsTab, balanceTab);
-
-  const colorsPanel = createPanel("configPanelColors", "colors");
-  const balancePanel = createPanel("configPanelBalance", "balance");
-  balancePanel.hidden = true;
-
-  const tone = createSteppedShell({
-    controlKey: "tone",
-    shellId: "configHybridToneSlider",
-    inputId: "configHybridToneRange",
-    value: 2,
+  const panel = new FakeElement("section");
+  const analyze = createRangeShell({
+    shellId: "configAnalyzeSlider",
+    inputId: "configAnalyzeRange",
+    valueId: "configAnalyzeValue",
+    min: 4,
+    max: 64,
+    step: 1,
+    value: 55,
   });
-  const spread = createSteppedShell({
-    controlKey: "spread",
-    shellId: "configHybridSpreadSlider",
-    inputId: "configHybridSpreadRange",
-    value: 1,
+  const density = createRangeShell({
+    shellId: "configDensitySlider",
+    inputId: "configDensityRange",
+    valueId: "configDensityValue",
+    min: 1000,
+    max: 60000,
+    step: 1000,
+    value: 46000,
+  });
+  const tone = createRangeShell({
+    shellId: "configToneSlider",
+    inputId: "configToneRange",
+    valueId: "configToneValue",
+    min: 0,
+    max: 100,
+    step: 1,
+    value: 90,
   });
 
-  colorsPanel.append(tone.shell);
-  balancePanel.append(spread.shell);
+  panel.append(analyze.shell, density.shell, tone.shell);
 
   const undoButton = createButton("configUndoButton");
   const redoButton = createButton("configRedoButton");
@@ -338,7 +337,7 @@ function createConfigFixture() {
   const footer = new FakeElement("div");
   footer.append(undoButton, redoButton, resetButton);
 
-  drawer.append(tabList, colorsPanel, balancePanel, footer);
+  drawer.append(panel, footer);
 
   const toggleSection = new FakeElement("section");
   const toggleButton = createButton("", {
@@ -356,21 +355,19 @@ function createConfigFixture() {
   toggleSection.appendChild(toggleButton);
 
   return {
-    balancePanel,
-    balanceTab,
-    colorsPanel,
-    colorsTab,
+    analyzeInput: analyze.input,
+    analyzeOutput: analyze.output,
+    densityInput: density.input,
+    densityOutput: density.output,
     drawer,
     redoButton,
     root,
-    spreadInput: spread.input,
-    spreadLabels: spread.labels,
     toggleButton,
     toggleIcon,
     toggleLabel,
     toggleSection,
     toneInput: tone.input,
-    toneLabels: tone.labels,
+    toneOutput: tone.output,
     undoButton,
   };
 }
@@ -435,7 +432,7 @@ describe("mountConfigPanel", () => {
     cleanup();
   });
 
-  test("switches tabs and keeps only the active panel visible", () => {
+  test("updates analyze, density, and tone with readable values", () => {
     const fixture = createConfigFixture();
     const fakeDocument = new FakeEventTarget();
     Object.defineProperty(globalThis, "document", {
@@ -449,48 +446,20 @@ describe("mountConfigPanel", () => {
       toggleSection: fixture.toggleSection,
     });
 
-    expect(fixture.colorsPanel.hidden).toBe(false);
-    expect(fixture.balancePanel.hidden).toBe(true);
-
-    fixture.balanceTab.click();
-
-    expect(fixture.balancePanel.hidden).toBe(false);
-    expect(fixture.colorsPanel.hidden).toBe(true);
-    expect(fixture.balanceTab.getAttribute("aria-selected")).toBe("true");
-    expect(fixture.colorsTab.getAttribute("aria-selected")).toBe("false");
-
-    fixture.balanceTab.dispatch("keydown", { key: "ArrowRight" });
-
-    expect(fixture.colorsTab.getAttribute("aria-selected")).toBe("true");
-    expect(fixture.colorsTab.wasFocused).toBe(true);
-
-    cleanup();
-  });
-
-  test("snaps hybrid sliders to detents and highlights the active step", () => {
-    const fixture = createConfigFixture();
-    const fakeDocument = new FakeEventTarget();
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: fakeDocument,
-    });
-
-    const cleanup = mountConfigPanel({
-      root: fixture.root,
-      toggleButton: fixture.toggleButton,
-      toggleSection: fixture.toggleSection,
-    });
-
-    expect(fixture.toneInput.value).toBe("2");
-    expect(fixture.toneLabels.getAttribute("data-active-index")).toBe("2");
+    expect(fixture.analyzeInput.value).toBe("55");
+    expect(fixture.analyzeOutput.textContent).toBe("55");
+    expect(fixture.densityInput.value).toBe("46000");
+    expect(fixture.densityOutput.textContent).toBe("46k");
+    expect(fixture.toneInput.value).toBe("90");
+    expect(fixture.toneOutput.textContent).toBe("90%");
 
     fixture.toneInput.dispatch("pointerdown");
-    fixture.toneInput.value = "3";
+    fixture.toneInput.value = "42";
     fixture.toneInput.dispatch("input");
     fixture.toneInput.dispatch("pointerup");
 
-    expect(getAppSettings().hybrid.tone).toBe(1);
-    expect(fixture.toneLabels.getAttribute("data-active-index")).toBe("3");
+    expect(getAppSettings().hybrid.tone).toBe(0.42);
+    expect(fixture.toneOutput.textContent).toBe("42%");
     expect(fixture.undoButton.disabled).toBe(false);
 
     cleanup();
@@ -543,29 +512,27 @@ describe("mountConfigPanel", () => {
     });
 
     expect(fixture.undoButton.disabled).toBe(true);
-    expect(fixture.spreadInput.value).toBe("2");
-    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("2");
+    expect(fixture.analyzeInput.value).toBe("55");
 
-    fixture.spreadInput.dispatch("pointerdown");
-    fixture.spreadInput.value = "0";
-    fixture.spreadInput.dispatch("input");
-    fixture.spreadInput.dispatch("pointerup");
+    fixture.analyzeInput.dispatch("pointerdown");
+    fixture.analyzeInput.value = "32";
+    fixture.analyzeInput.dispatch("input");
+    fixture.analyzeInput.dispatch("pointerup");
 
-    expect(getAppSettings().hybrid.spreadStrength).toBe(0.15);
-    expect(getAppSettings().hybrid.repulsionRadius).toBe(0.03);
+    expect(getAppSettings().medianCut.quantizedPoolSize).toBe(32);
     expect(fixture.undoButton.disabled).toBe(false);
-    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("0");
+    expect(fixture.analyzeOutput.textContent).toBe("32");
 
     fixture.undoButton.click();
 
-    expect(getAppSettings().hybrid.spreadStrength).toBe(0.6);
+    expect(getAppSettings().medianCut.quantizedPoolSize).toBe(55);
     expect(fixture.redoButton.disabled).toBe(false);
-    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("2");
+    expect(fixture.analyzeOutput.textContent).toBe("55");
 
     fixture.redoButton.click();
 
-    expect(getAppSettings().hybrid.spreadStrength).toBe(0.15);
-    expect(fixture.spreadLabels.getAttribute("data-active-index")).toBe("0");
+    expect(getAppSettings().medianCut.quantizedPoolSize).toBe(32);
+    expect(fixture.analyzeOutput.textContent).toBe("32");
 
     cleanup();
   });

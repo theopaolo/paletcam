@@ -7,10 +7,8 @@ import {
 import { t } from "../../i18n.js";
 import { areAlgorithmSettingsEqual, cloneAlgorithmSettings } from "../algorithm-settings.js";
 import { createAlgorithmSettingsHistory } from "./algorithm-settings-history.js";
-import { HYBRID_STEPPED_CONTROLS, nearestStepIndex } from "./perceptual-tuning.js";
 import { createRangeControl } from "./settings-range-control.js";
 
-const TAB_IDS = ["colors", "balance"];
 const CONFIG_TOGGLE_CLOSE_ICON_CLASS = "is-close";
 
 function queryById(root, id) {
@@ -29,20 +27,8 @@ function getConfigDom(root) {
     ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
-    tabButtons: Array.from(root.querySelectorAll("[data-config-tab]")),
-    tabPanels: Array.from(root.querySelectorAll("[data-config-tabpanel]")),
     undoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configUndoButton")),
   };
-}
-
-function getNextTabId(currentTabId, direction) {
-  const currentIndex = TAB_IDS.indexOf(currentTabId);
-  if (currentIndex < 0) {
-    return TAB_IDS[0];
-  }
-
-  const nextIndex = (currentIndex + direction + TAB_IDS.length) % TAB_IDS.length;
-  return TAB_IDS[nextIndex];
 }
 
 function isEventInsideElement(event, element) {
@@ -77,7 +63,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   const history = createAlgorithmSettingsHistory({
     initialSnapshot: cloneAlgorithmSettings(getAppSettings()),
   });
-  let activeTabId = "colors";
   let isDrawerOpen = false;
 
   const on = (element, eventName, handler, options) => {
@@ -164,26 +149,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     dom.originBadgesToggle.checked = Boolean(settings.originBadgesEnabled);
   }
 
-  function setActiveTab(nextTabId, { focusButton = false } = {}) {
-    activeTabId = TAB_IDS.includes(nextTabId) ? nextTabId : TAB_IDS[0];
-
-    dom.tabButtons.forEach((button) => {
-      const tabId = button.getAttribute("data-config-tab");
-      const isActive = tabId === activeTabId;
-      button.setAttribute("aria-selected", String(isActive));
-      button.setAttribute("tabindex", isActive ? "0" : "-1");
-      button.classList.toggle("is-active", isActive);
-
-      if (isActive && focusButton && typeof button.focus === "function") {
-        button.focus();
-      }
-    });
-
-    dom.tabPanels.forEach((panel) => {
-      panel.hidden = panel.getAttribute("data-config-tabpanel") !== activeTabId;
-    });
-  }
-
   function syncDrawerAvailability(settings) {
     const isRalMode = settings.captureMode === "ral";
     if (toggleSection) {
@@ -210,41 +175,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     control?.bindEvents(on);
   }
 
-  function bindTabButton(button) {
-    on(button, "click", () => {
-      const tabId = button.getAttribute("data-config-tab");
-      if (tabId) {
-        setActiveTab(tabId);
-      }
-    });
-
-    on(button, "keydown", (event) => {
-      const currentTabId = button.getAttribute("data-config-tab") || activeTabId;
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        setActiveTab(getNextTabId(currentTabId, -1), { focusButton: true });
-        return;
-      }
-
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        setActiveTab(getNextTabId(currentTabId, 1), { focusButton: true });
-        return;
-      }
-
-      if (event.key === "Home") {
-        event.preventDefault();
-        setActiveTab(TAB_IDS[0], { focusButton: true });
-        return;
-      }
-
-      if (event.key === "End") {
-        event.preventDefault();
-        setActiveTab(TAB_IDS[TAB_IDS.length - 1], { focusButton: true });
-      }
-    });
-  }
-
   function beginAlgorithmInteraction() {
     history.beginInteraction(cloneAlgorithmSettings(getAppSettings()));
   }
@@ -254,64 +184,67 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     syncHistoryButtons();
   }
 
-  function createHybridSteppedControl({ controlKey, shellId, inputId }) {
-    const control = HYBRID_STEPPED_CONTROLS[controlKey];
-    const labelsElement = root.querySelector(`[data-config-step-labels="${controlKey}"]`);
-    const getStepLabel = (index) =>
-      t(`config.hybrid.${controlKey}.step.${control.labelKeys[index]}`);
-    const getIndexFromSettings = (settings) =>
-      nearestStepIndex(control, settings.hybrid ?? defaultAlgorithmSettings.hybrid);
-
-    const baseControl = createRangeControl({
+  function createTuningControl({
+    controlKey,
+    shellId,
+    inputId,
+    inlineValueId,
+    getValueFromSettings,
+    applyValue,
+    formatValue,
+  }) {
+    return createRangeControl({
       root,
       shellId,
       inputId,
-      getValueFromSettings: getIndexFromSettings,
+      inlineValueId,
+      getValueFromSettings,
       onValueInput: (value) => {
-        const index = Math.min(control.steps.length - 1, Math.max(0, Math.round(value) || 0));
         applyAlgorithmSettings((snapshot) => {
-          Object.assign(snapshot.hybrid, control.steps[index]);
+          applyValue(snapshot, value);
         });
       },
       onInteractionStart: beginAlgorithmInteraction,
       onInteractionCommit: commitAlgorithmInteraction,
-      getAriaLabel: (index) =>
-        t(`config.hybrid.${controlKey}.aria`, { value: getStepLabel(index) }),
+      getAriaLabel: (value) =>
+        t(`config.production.${controlKey}.aria`, { value: formatValue(value) }),
+      formatInlineValue: formatValue,
     });
-
-    if (!baseControl) {
-      return null;
-    }
-
-    return {
-      bindEvents: baseControl.bindEvents,
-      renderFromSettings(settings) {
-        baseControl.renderFromSettings(settings);
-        labelsElement?.setAttribute("data-active-index", String(getIndexFromSettings(settings)));
-      },
-    };
   }
 
   const rangeControls = [
-    createHybridSteppedControl({
+    createTuningControl({
+      controlKey: "analyze",
+      shellId: "configAnalyzeSlider",
+      inputId: "configAnalyzeRange",
+      inlineValueId: "configAnalyzeValue",
+      getValueFromSettings: (settings) => settings.medianCut.quantizedPoolSize,
+      applyValue: (snapshot, value) => {
+        snapshot.medianCut.quantizedPoolSize = Math.round(value);
+      },
+      formatValue: (value) => String(Math.round(value)),
+    }),
+    createTuningControl({
+      controlKey: "density",
+      shellId: "configDensitySlider",
+      inputId: "configDensityRange",
+      inlineValueId: "configDensityValue",
+      getValueFromSettings: (settings) => settings.medianCut.maxQuantizerPixels,
+      applyValue: (snapshot, value) => {
+        snapshot.medianCut.maxQuantizerPixels = Math.round(value);
+      },
+      formatValue: (value) => `${Math.round(value / 1000)}k`,
+    }),
+    createTuningControl({
       controlKey: "tone",
-      shellId: "configHybridToneSlider",
-      inputId: "configHybridToneRange",
-    }),
-    createHybridSteppedControl({
-      controlKey: "rarity",
-      shellId: "configHybridRaritySlider",
-      inputId: "configHybridRarityRange",
-    }),
-    createHybridSteppedControl({
-      controlKey: "spread",
-      shellId: "configHybridSpreadSlider",
-      inputId: "configHybridSpreadRange",
-    }),
-    createHybridSteppedControl({
-      controlKey: "loyalty",
-      shellId: "configHybridLoyaltySlider",
-      inputId: "configHybridLoyaltyRange",
+      shellId: "configToneSlider",
+      inputId: "configToneRange",
+      inlineValueId: "configToneValue",
+      getValueFromSettings: (settings) => Math.round(settings.hybrid.tone * 100),
+      applyValue: (snapshot, value) => {
+        snapshot.hybrid.tone = Math.round(value) / 100;
+      },
+      formatValue: (value) => `${Math.round(value)}%`,
     }),
   ].filter(Boolean);
 
@@ -364,7 +297,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     setDrawerOpen(false);
   });
 
-  dom.tabButtons.forEach(bindTabButton);
   on(dom.originBadgesToggle, "change", () => {
     if (!dom.originBadgesToggle) {
       return;
@@ -406,7 +338,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     syncHistoryButtons();
   });
 
-  setActiveTab(activeTabId);
   syncDrawerState();
   renderConfigUi(getAppSettings());
   const unsubscribe = subscribeAppSettings(renderConfigUi);

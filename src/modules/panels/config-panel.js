@@ -1,48 +1,81 @@
 import { html, LitElement } from "lit";
+import { APP_SETTINGS_LIMITS, getDefaultAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
-import { HYBRID_STEPPED_CONTROLS } from "./perceptual-tuning.js";
 
-function renderHybridSteppedField({ controlKey, shellId, inputId }) {
-  const control = HYBRID_STEPPED_CONTROLS[controlKey];
-  const defaultLabel = t(
-    `config.hybrid.${controlKey}.step.${control.labelKeys[control.defaultIndex]}`,
-  );
+const DEFAULT_ALGORITHM_SETTINGS = getDefaultAppSettings();
+
+const TUNING_FIELDS = Object.freeze([
+  Object.freeze({
+    controlKey: "analyze",
+    shellId: "configAnalyzeSlider",
+    inputId: "configAnalyzeRange",
+    valueId: "configAnalyzeValue",
+    min: APP_SETTINGS_LIMITS.medianCut.quantizedPoolSize.min,
+    max: APP_SETTINGS_LIMITS.medianCut.quantizedPoolSize.max,
+    step: 1,
+    value: DEFAULT_ALGORITHM_SETTINGS.medianCut.quantizedPoolSize,
+  }),
+  Object.freeze({
+    controlKey: "density",
+    shellId: "configDensitySlider",
+    inputId: "configDensityRange",
+    valueId: "configDensityValue",
+    min: APP_SETTINGS_LIMITS.medianCut.maxQuantizerPixels.min,
+    max: APP_SETTINGS_LIMITS.medianCut.maxQuantizerPixels.max,
+    step: 1000,
+    value: DEFAULT_ALGORITHM_SETTINGS.medianCut.maxQuantizerPixels,
+  }),
+  Object.freeze({
+    controlKey: "tone",
+    shellId: "configToneSlider",
+    inputId: "configToneRange",
+    valueId: "configToneValue",
+    min: 0,
+    max: 100,
+    step: 1,
+    value: Math.round(DEFAULT_ALGORITHM_SETTINGS.hybrid.tone * 100),
+  }),
+]);
+
+function formatTuningValue(controlKey, value) {
+  if (controlKey === "density") {
+    return `${Math.round(value / 1000)}k`;
+  }
+  if (controlKey === "tone") {
+    return `${Math.round(value)}%`;
+  }
+  return String(Math.round(value));
+}
+
+function renderTuningField({ controlKey, shellId, inputId, valueId, min, max, step, value }) {
+  const formattedValue = formatTuningValue(controlKey, value);
 
   return html`
     <div class="panel-form-field">
       <details class="panel-form-field-header">
         <summary class="panel-form-label" for=${inputId}>
-          ${t(`config.hybrid.${controlKey}.title`)}
+          ${t(`config.production.${controlKey}.title`)}
         </summary>
         <p class="panel-form-hint">
-          ${t(`config.hybrid.${controlKey}.hint`)}
+          ${t(`config.production.${controlKey}.hint`)}
         </p>
       </details>
 
-      <div
-        class="swatch-slider panel-form-quality-slider config-drawer-slider is-stepped"
-        id=${shellId}
-      >
+      <output class="config-drawer-value" id=${valueId} for=${inputId}>
+        ${formattedValue}
+      </output>
+
+      <div class="swatch-slider panel-form-quality-slider config-drawer-slider" id=${shellId}>
         <input
           id=${inputId}
           type="range"
-          min="0"
-          max=${control.steps.length - 1}
-          value=${control.defaultIndex}
-          step="1"
-          aria-label=${t(`config.hybrid.${controlKey}.aria`, { value: defaultLabel })}
+          min=${min}
+          max=${max}
+          value=${value}
+          step=${step}
+          aria-label=${t(`config.production.${controlKey}.aria`, { value: formattedValue })}
         />
-        <div
-          class="config-step-labels"
-          data-config-step-labels=${controlKey}
-          data-active-index=${control.defaultIndex}
-          aria-hidden="true"
-        >
-          ${control.labelKeys.map(
-            (labelKey) => html`<span>${t(`config.hybrid.${controlKey}.step.${labelKey}`)}</span>`,
-          )}
-        </div>
       </div>
     </div>
   `;
@@ -80,79 +113,9 @@ class ConfigPanel extends LitElement {
         aria-hidden="true"
         hidden
       >
-        <div class="config-drawer-tabs" role="tablist" aria-label=${t("config.tabsAria")}>
-          <button
-            class="config-drawer-tab"
-            id="configTabColors"
-            type="button"
-            role="tab"
-            aria-controls="configPanelColors"
-            aria-selected="true"
-            data-config-tab="colors"
-            tabindex="0"
-          >
-            <span
-              class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-colors"
-              aria-hidden="true"
-            ></span>
-            <span class="config-drawer-tab-label">${t("config.tab.colors")}</span>
-          </button>
-          <button
-            class="config-drawer-tab"
-            id="configTabBalance"
-            type="button"
-            role="tab"
-            aria-controls="configPanelBalance"
-            aria-selected="false"
-            data-config-tab="balance"
-            tabindex="-1"
-          >
-            <span
-              class="config-drawer-icon config-drawer-tab-icon config-drawer-icon-balance"
-              aria-hidden="true"
-            ></span>
-            <span class="config-drawer-tab-label">${t("config.tab.balance")}</span>
-          </button>
-        </div>
-
         <div class="config-drawer-panels">
-          <section
-            class="config-drawer-panel"
-            id="configPanelColors"
-            role="tabpanel"
-            aria-labelledby="configTabColors"
-            data-config-tabpanel="colors"
-          >
-            ${renderHybridSteppedField({
-              controlKey: "tone",
-              shellId: "configHybridToneSlider",
-              inputId: "configHybridToneRange",
-            })}
-            ${renderHybridSteppedField({
-              controlKey: "rarity",
-              shellId: "configHybridRaritySlider",
-              inputId: "configHybridRarityRange",
-            })}
-          </section>
-
-          <section
-            class="config-drawer-panel"
-            id="configPanelBalance"
-            role="tabpanel"
-            aria-labelledby="configTabBalance"
-            data-config-tabpanel="balance"
-            hidden
-          >
-            ${renderHybridSteppedField({
-              controlKey: "spread",
-              shellId: "configHybridSpreadSlider",
-              inputId: "configHybridSpreadRange",
-            })}
-            ${renderHybridSteppedField({
-              controlKey: "loyalty",
-              shellId: "configHybridLoyaltySlider",
-              inputId: "configHybridLoyaltyRange",
-            })}
+          <section class="config-drawer-panel" aria-label=${t("config.production.panelAria")}>
+            ${TUNING_FIELDS.map(renderTuningField)}
           </section>
         </div>
 

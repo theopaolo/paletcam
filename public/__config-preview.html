@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles/index.css" />
     <style>
       body {
+        width: calc(100% - 24px);
         padding: 24px 12px;
         gap: 24px;
       }
@@ -20,6 +21,7 @@
       .config-drawer.harness-open {
         position: static;
         display: grid;
+        width: min(100%, calc(100vw - var(--space-48)));
       }
     </style>
   </head>
@@ -27,67 +29,54 @@
     <p class="harness-label">config drawer (forced open)</p>
 
     <section class="config-drawer harness-open">
-      <div class="config-drawer-tabs" role="tablist">
-        <button class="config-drawer-tab" type="button" aria-selected="false">Analysis</button>
-        <button class="config-drawer-tab is-active" type="button" aria-selected="true">
-          Balance
-        </button>
-        <button class="config-drawer-tab" type="button" aria-selected="false">Color</button>
-      </div>
-
       <div class="config-drawer-panels">
         <section class="config-drawer-panel">
           <div class="panel-form-field">
             <details class="panel-form-field-header">
-              <summary class="panel-form-label">Hue spread</summary>
-              <p class="panel-form-hint">How far hues repel each other.</p>
+              <summary class="panel-form-label">Analyze</summary>
+              <p class="panel-form-hint">
+                Candidate colors kept before selection. Higher values preserve smaller details.
+              </p>
             </details>
+            <output class="config-drawer-value">55</output>
             <div
               class="swatch-slider panel-form-quality-slider config-drawer-slider"
-              style="--tick-count: 101; --tick-index: 68; --tick-intervals: 100"
+              style="--tick-count: 61; --tick-index: 51; --tick-intervals: 60"
             >
-              <input type="range" min="0" max="100" value="68" step="1" />
-              <div class="swatch-meta">
-                <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                <span class="swatch-count-indicator">68</span>
-                <span class="swatch-scale-label swatch-scale-label-max">100</span>
-              </div>
+              <input type="range" min="4" max="64" value="55" step="1" />
             </div>
           </div>
 
           <div class="panel-form-field">
             <details class="panel-form-field-header" open>
-              <summary class="panel-form-label">Repulsion radius (hint open)</summary>
-              <p class="panel-form-hint">Minimum perceptual distance between picks.</p>
+              <summary class="panel-form-label">Density (hint open)</summary>
+              <p class="panel-form-hint">
+                Pixels sampled per frame. Higher values reduce misses but need more processing.
+              </p>
             </details>
+            <output class="config-drawer-value">46k</output>
             <div
               class="swatch-slider panel-form-quality-slider config-drawer-slider is-active"
-              style="--tick-count: 21; --tick-index: 12; --tick-intervals: 20"
+              style="--tick-count: 60; --tick-index: 45; --tick-intervals: 59"
             >
-              <input type="range" min="0" max="20" value="12" step="1" />
-              <div class="swatch-meta">
-                <span class="swatch-scale-label swatch-scale-label-min">0</span>
-                <span class="swatch-count-indicator">12</span>
-                <span class="swatch-scale-label swatch-scale-label-max">20</span>
-              </div>
+              <input type="range" min="1000" max="60000" value="46000" step="1000" />
             </div>
           </div>
 
           <div class="panel-form-field">
             <details class="panel-form-field-header">
-              <summary class="panel-form-label">Pixel density</summary>
-              <p class="panel-form-hint">Pixels analyzed per frame.</p>
+              <summary class="panel-form-label">Tone</summary>
+              <p class="panel-form-hint">
+                Lower values keep colors closer and more monochromatic; higher values make them
+                punchier.
+              </p>
             </details>
+            <output class="config-drawer-value">90%</output>
             <div
               class="swatch-slider panel-form-quality-slider config-drawer-slider"
-              style="--tick-count: 60; --tick-index: 44; --tick-intervals: 59"
+              style="--tick-count: 101; --tick-index: 90; --tick-intervals: 100"
             >
-              <input type="range" min="1000" max="60000" value="45000" step="1000" />
-              <div class="swatch-meta">
-                <span class="swatch-scale-label swatch-scale-label-min">1k</span>
-                <span class="swatch-count-indicator">45k</span>
-                <span class="swatch-scale-label swatch-scale-label-max">60k</span>
-              </div>
+              <input type="range" min="0" max="100" value="90" step="1" />
             </div>
           </div>
         </section>

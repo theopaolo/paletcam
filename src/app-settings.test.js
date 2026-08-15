@@ -176,20 +176,25 @@ describe("app-settings polaroidFooterLabel", () => {
 });
 
 describe("app-settings hybrid", () => {
-  test("persists manual hybrid updates", async () => {
+  test("persists Tone and resets retired selector controls on reload", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();
 
     module.updateAppSettings({
-      hybrid: { rarityStrength: 0.4 },
+      hybrid: { rarityStrength: 0.4, tone: 0.42 },
     });
 
-    expect(module.getAppSettings().hybrid.rarityStrength).toBe(0.4);
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).hybrid.rarityStrength).toBe(0.4);
+    expect(module.getAppSettings().hybrid.tone).toBe(0.42);
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).hybrid.tone).toBe(0.42);
+
+    module.resetAppSettingsForTests();
+
+    expect(module.getAppSettings().hybrid.tone).toBe(0.42);
+    expect(module.getAppSettings().hybrid.rarityStrength).toBe(0.2);
   });
 });
 
 describe("app-settings legacy overrides", () => {
-  test("ignores stored oneMoreColor and medianCut overrides from older builds", async () => {
+  test("keeps stored analysis tuning while ignoring the removed oneMoreColor override", async () => {
     const { module } = await loadAppSettingsModule({
       oneMoreColor: false,
       medianCut: { quantizedPoolSize: 24, maxQuantizerPixels: 40000 },
@@ -199,7 +204,7 @@ describe("app-settings legacy overrides", () => {
     const defaults = module.getDefaultAppSettings();
 
     expect(settings.oneMoreColor).toBe(defaults.oneMoreColor);
-    expect(settings.medianCut).toEqual(defaults.medianCut);
+    expect(settings.medianCut).toEqual({ quantizedPoolSize: 24, maxQuantizerPixels: 40000 });
   });
 
   test("drops removed paletteSelector and paletteScoring fields", async () => {
