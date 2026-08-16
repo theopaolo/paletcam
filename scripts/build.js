@@ -62,6 +62,9 @@ const browserBuildConfig = {
     __PALETCAM_DEBUG_TOOLS__: JSON.stringify(isPreprodDeploy(deployBranchName)),
     __PALETCAM_BUILD_ARTIFACT__: "true",
     __PALETCAM_LOG_API_BASE_URL__: JSON.stringify(logApiBaseUrl),
+    __PALETCAM_BACKUP_API_BASE_URL__: JSON.stringify(
+      String(process.env.PALETCAM_BACKUP_API_BASE_URL || "").trim(),
+    ),
     __APP_VERSION__: JSON.stringify(appVersion),
     __COMMIT_HASH__: JSON.stringify(commitHash),
   },

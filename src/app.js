@@ -13,6 +13,7 @@ import { shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
 import { initializeStorageHealth } from "./modules/storage-health.js";
+import { initializeBackupService } from "./backup-service.js";
 import { recordOperationalMetric, recordSessionStarted } from "./modules/operational-metrics.js";
 import { createVisualEffects } from "./modules/visual-effects.js";
 import { createZoomUiController } from "./modules/zoom-ui.js";
@@ -707,5 +708,6 @@ function destroyApp() {
 
 destroyCommunityHomepageLink = initCommunityHomepageLink();
 void initializeStorageHealth();
+initializeBackupService();
 initializeApp();
 scheduleDeleteOutboxInitialization();

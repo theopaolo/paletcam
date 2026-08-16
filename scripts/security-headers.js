@@ -1,6 +1,11 @@
 import { isProductionDeploy } from "./build-policy.js";
 
-const CONNECT_SOURCES = ["'self'", "https://colorcatchers.co", "https://cclogs.ludique.dev"];
+const CONNECT_SOURCES = [
+  "'self'",
+  "https://colorcatchers.co",
+  "https://cclogs.ludique.dev",
+  "https://ccbackup.ludique.dev",
+];
 
 function createContentSecurityPolicy(connectSources) {
   return [

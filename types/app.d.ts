@@ -85,6 +85,20 @@ interface BackupTombstoneRecord {
   deletedAt: string;
 }
 
+/** Credentials parsed from a `paletcam-<accountId>-<secret>` recovery code. */
+interface BackupCredentials {
+  accountId: string;
+  secret: string;
+}
+
+interface BackupServiceStatus {
+  phase: "idle" | "flushing";
+  paired: boolean;
+  errorCode: string | null;
+  progress: { total: number; dirty: number; backedUp: number } | null;
+  lastFlushAt: string | null;
+}
+
 type PalettePreviewVariant = "gallery" | "viewer";
 
 interface PaletteAssetRecord {
@@ -757,6 +771,7 @@ interface Navigator {
 
 declare const __COMMUNITY_BASE_URL__: string;
 declare const __PALETCAM_LOG_API_BASE_URL__: string;
+declare const __PALETCAM_BACKUP_API_BASE_URL__: string;
 declare const __PALETCAM_DEPLOY_BRANCH__: string;
 declare const __PALETCAM_DEBUG_TOOLS__: boolean;
 declare const __PALETCAM_BUILD_ARTIFACT__: boolean;

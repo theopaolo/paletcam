@@ -4,6 +4,7 @@ import { shouldShowPanelFormVersion } from "../../config.js";
 import { mountSettingsPanel } from "./settings-panel-controller.js";
 import { createSettingsBackupOperationCoordinator } from "./settings-backup-operation.js";
 import { initLoginUi } from "../../login-ui.js";
+import { initBackupUi } from "../../backup-ui.js";
 import { initDeleteAccountUi } from "../../delete-account-ui.js";
 
 class SettingsPanel extends LitElement {
@@ -30,6 +31,7 @@ class SettingsPanel extends LitElement {
       backupOperations: this.backupOperations,
     });
     this.cleanupLoginUi = initLoginUi(this);
+    this.cleanupBackupUi = initBackupUi(this);
     this.cleanupDeleteAccountUi = initDeleteAccountUi();
   }
 
@@ -38,6 +40,8 @@ class SettingsPanel extends LitElement {
     this.cleanupSettingsPanel = null;
     this.cleanupLoginUi?.();
     this.cleanupLoginUi = null;
+    this.cleanupBackupUi?.();
+    this.cleanupBackupUi = null;
     this.cleanupDeleteAccountUi?.();
     this.cleanupDeleteAccountUi = null;
   }
@@ -242,6 +246,54 @@ class SettingsPanel extends LitElement {
                 ${t("settings.data.storageBestEffortHint")}
               </p>
               <p class="settings-storage-hint" id="settingsLastBackupStatus"></p>
+            </div>
+
+            <div class="settings-backup" id="settingsBackupSection">
+              <p class="settings-storage-status" id="settingsBackupStatus"></p>
+              <p class="settings-storage-hint" id="settingsBackupProgress" hidden></p>
+
+              <div class="panel-form-field" id="settingsBackupConnectField">
+                <input
+                  class="panel-form-text-input"
+                  id="settingsBackupCodeInput"
+                  type="text"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  placeholder=${t("settings.backup.codePlaceholder")}
+                />
+                <button
+                  class="settings-action-button"
+                  id="settingsBackupConnectButton"
+                  type="button"
+                >
+                  ${t("settings.backup.connect")}
+                </button>
+              </div>
+
+              <div class="settings-data-actions" id="settingsBackupActions" hidden>
+                <button
+                  class="settings-action-button"
+                  id="settingsBackupNowButton"
+                  type="button"
+                >
+                  ${t("settings.backup.backupNow")}
+                </button>
+                <button
+                  class="settings-action-button"
+                  id="settingsBackupCopyCodeButton"
+                  type="button"
+                >
+                  ${t("settings.backup.copyCode")}
+                </button>
+                <button
+                  class="settings-action-button"
+                  id="settingsBackupDisconnectButton"
+                  type="button"
+                >
+                  ${t("settings.backup.disconnect")}
+                </button>
+              </div>
             </div>
 
             <div class="settings-data-actions">

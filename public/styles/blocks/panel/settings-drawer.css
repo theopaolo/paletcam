@@ -176,6 +176,15 @@ settings-panel.is-open .settings-drawer {
   line-height: 1.3;
 }
 
+.settings-backup {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.settings-backup [hidden] {
+  display: none;
+}
+
 .settings-data-actions {
   display: flex;
   flex-wrap: wrap;

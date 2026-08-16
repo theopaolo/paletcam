@@ -50,6 +50,7 @@ const METRIC_EVENTS = Object.freeze({
 
 const EVENT_FIELDS = Object.freeze({
   ...METRIC_EVENTS,
+  "backup:flush-failed": { errorCode: "error-code" },
   "Account deleted; local publication metadata cleanup failed.": {
     errorCode: "error-code",
     errorName: "error-name",

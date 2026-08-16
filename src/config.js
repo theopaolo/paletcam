@@ -5,6 +5,9 @@ export const LOCAL_API_BASE_URL = `${COMMUNITY_BASE_URL}/api/v1`;
 export const LIVE_API_BASE_URL = `${COMMUNITY_BASE_URL}/api/v1`;
 const LOG_API_BASE_URL_OVERRIDE =
   typeof __PALETCAM_LOG_API_BASE_URL__ === "string" ? __PALETCAM_LOG_API_BASE_URL__ : "";
+const BACKUP_API_BASE_URL_OVERRIDE =
+  typeof __PALETCAM_BACKUP_API_BASE_URL__ === "string" ? __PALETCAM_BACKUP_API_BASE_URL__ : "";
+const DEFAULT_BACKUP_API_BASE_URL = "https://ccbackup.ludique.dev";
 const PREPROD_BRANCH_NAME = "preprod";
 const DEPLOY_BRANCH_NAME =
   typeof __PALETCAM_DEPLOY_BRANCH__ === "string" ? __PALETCAM_DEPLOY_BRANCH__ : "";
@@ -47,6 +50,10 @@ export function getApiBaseUrl() {
 
 export function getLogApiBaseUrl() {
   return LOG_API_BASE_URL_OVERRIDE;
+}
+
+export function getBackupApiBaseUrl() {
+  return BACKUP_API_BASE_URL_OVERRIDE || DEFAULT_BACKUP_API_BASE_URL;
 }
 
 /** @param {unknown} branchName */
