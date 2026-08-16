@@ -15,20 +15,27 @@ function authorizationHeader({ accountId, secret }) {
 }
 
 export const MAX_RATE_LIMIT_RETRIES = 4;
-const DEFAULT_RETRY_DELAY_SECONDS = 30;
-const MAX_RETRY_DELAY_SECONDS = 90;
+export const DEFAULT_RETRY_DELAY_MS = 30_000;
+const MAX_RETRY_DELAY_MS = 90_000;
 
-function sleep(delayMs) {
-  return new Promise((resolve) => setTimeout(resolve, delayMs));
+let sleepImplementation = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+/** Test-only override so retry pacing is assertable without real waits. */
+export function setBackupApiSleepForTests(implementation) {
+  sleepImplementation =
+    implementation ?? ((delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)));
 }
 
-function getRetryDelayMs(response) {
-  const retryAfterSeconds = Number(response.headers.get("retry-after"));
-  const delaySeconds =
-    Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
-      ? Math.min(retryAfterSeconds, MAX_RETRY_DELAY_SECONDS)
-      : DEFAULT_RETRY_DELAY_SECONDS;
-  return delaySeconds * 1000;
+export function getRetryDelayMs(response) {
+  // Retry-After is not CORS-safelisted: unless the server exposes it, the
+  // browser answers null here, and Number(null) is 0 — either must fall back
+  // to a real pause, never a zero-length retry burst.
+  const rawHeader = response.headers.get("retry-after");
+  const parsedSeconds = Number(rawHeader);
+  if (rawHeader === null || !Number.isFinite(parsedSeconds) || parsedSeconds <= 0) {
+    return DEFAULT_RETRY_DELAY_MS;
+  }
+  return Math.min(parsedSeconds * 1000, MAX_RETRY_DELAY_MS);
 }
 
 /**
@@ -63,7 +70,7 @@ async function backupRequest(path, { credentials, method = "GET", body, contentT
     }
 
     if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
-      await sleep(getRetryDelayMs(response));
+      await sleepImplementation(getRetryDelayMs(response));
       continue;
     }
 

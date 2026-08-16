@@ -57,6 +57,9 @@ export function createSyncApp({
       },
       allowMethods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
+      // Without this the browser hides Retry-After from cross-origin JS and
+      // the client cannot pace its rate-limit backoff.
+      exposeHeaders: ["Retry-After"],
       maxAge: 600,
     }),
   );
