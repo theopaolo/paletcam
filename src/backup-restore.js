@@ -1,6 +1,7 @@
 import { fetchBackupAsset, fetchBackupManifest, fetchBackupPalette } from "./backup-api.js";
 import { getBackupCredentials } from "./backup-credentials.js";
 import { getAppSettings } from "./app-settings.js";
+import { clientLog } from "./modules/client-log.js";
 import { beginCriticalOperation } from "./modules/critical-operation.js";
 import {
   listExistingBackupUids,
@@ -119,9 +120,11 @@ export async function runBackupRestore({ onProgress } = {}) {
       await abortImportSession(sessionId).catch(() => {});
     }
     if (error instanceof BackupRestoreError) {
+      clientLog("backup:restore-failed", { errorCode: error.code });
       throw error;
     }
     const code = typeof (/** @type {any} */ (error)?.code) === "string" ? error.code : "unknown";
+    clientLog("backup:restore-failed", { errorCode: code, errorName: error?.name });
     throw new BackupRestoreError("The backup restore failed.", code);
   } finally {
     releaseCriticalOperation();

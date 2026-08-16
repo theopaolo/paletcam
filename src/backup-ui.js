@@ -19,6 +19,7 @@ const ERROR_MESSAGE_KEYS = Object.freeze({
   unauthorized: "settings.backup.errorUnauthorized",
   network: "settings.backup.errorNetwork",
   quota_exceeded: "settings.backup.errorQuota",
+  rate_limited: "settings.backup.errorRateLimited",
 });
 
 function getBackupErrorMessage(errorCode) {
@@ -182,8 +183,12 @@ export function initBackupUi(root) {
             ? "settings.backup.restoreDone.one"
             : "settings.backup.restoreDone.other";
       showToast(t(doneKey, { count: restored }), { duration: 2500 });
-    } catch (_error) {
-      showToast(t("settings.backup.restoreFailed"), { variant: "error", duration: 3000 });
+    } catch (error) {
+      const errorCode = typeof error?.code === "string" ? error.code : "unknown";
+      const message = ERROR_MESSAGE_KEYS[errorCode]
+        ? getBackupErrorMessage(errorCode)
+        : `${t("settings.backup.restoreFailed")} (${errorCode})`;
+      showToast(message, { variant: "error", duration: 4000 });
     } finally {
       isRestoring = false;
       render();

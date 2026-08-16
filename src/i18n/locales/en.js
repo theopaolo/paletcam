@@ -226,6 +226,7 @@ const en = {
   "settings.backup.errorUnauthorized": "The backup server rejected the code.",
   "settings.backup.errorNetwork": "The backup server is unreachable.",
   "settings.backup.errorQuota": "Backup storage is full.",
+  "settings.backup.errorRateLimited": "The backup server is busy — retry in a minute.",
   "settings.backup.errorGeneric": "Backup failed. It will retry automatically.",
   "settings.data.export": "Export palettes",
   "settings.data.exportBusy": "Exporting…",

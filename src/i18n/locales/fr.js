@@ -229,6 +229,7 @@ const fr = {
   "settings.backup.errorUnauthorized": "Code refusé par le serveur de sauvegarde.",
   "settings.backup.errorNetwork": "Serveur de sauvegarde injoignable.",
   "settings.backup.errorQuota": "Espace de sauvegarde plein.",
+  "settings.backup.errorRateLimited": "Serveur de sauvegarde occupé — réessayez dans une minute.",
   "settings.backup.errorGeneric": "La sauvegarde a échoué. Nouvelle tentative automatique.",
   "settings.data.export": "Exporter les palettes",
   "settings.data.exportBusy": "Export en cours…",

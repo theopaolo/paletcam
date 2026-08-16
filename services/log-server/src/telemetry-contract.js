@@ -51,6 +51,7 @@ const METRIC_EVENTS = Object.freeze({
 const EVENT_FIELDS = Object.freeze({
   ...METRIC_EVENTS,
   "backup:flush-failed": { errorCode: "error-code" },
+  "backup:restore-failed": { errorCode: "error-code", errorName: "error-name" },
   "Account deleted; local publication metadata cleanup failed.": {
     errorCode: "error-code",
     errorName: "error-name",
@@ -346,6 +347,14 @@ const ERROR_NAMES = new Set([
 ]);
 
 const ERROR_CODES = new Set([
+  // Backup client codes (lowercase by protocol, see src/backup-api.js).
+  "network",
+  "quota_exceeded",
+  "rate_limited",
+  "server",
+  "unauthorized",
+  "unknown",
+  "unpaired",
   "ALREADY_PUBLISHED",
   "API_ERROR",
   "AUTH_EXPIRED",
