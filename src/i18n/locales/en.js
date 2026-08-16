@@ -212,6 +212,8 @@ const en = {
   "settings.backup.restore": "Restore backup",
   "settings.backup.restoreConfirm":
     "Restore your palettes from the server? Captures already on this device are kept.",
+  "settings.backup.restoreStarting": "Contacting the backup server…",
+  "settings.backup.restorePreparing": "Preparing {fetched} / {total}…",
   "settings.backup.restoreProgress": "Restoring {fetched} / {total}…",
   "settings.backup.restoreDone.zero": "Nothing to restore.",
   "settings.backup.restoreDone.one": "1 palette restored.",

@@ -48,6 +48,7 @@ async function loadRestore({
     })),
     fetchBackupPalette: mock(async (_credentials, uid) => envelopesByUid[uid]),
     fetchBackupAsset: mock(async () => new Blob(["photo"])),
+    deleteBackupPalette: mock(async () => {}),
   };
 
   mock.module(apiModuleUrl, () => api);
@@ -101,9 +102,45 @@ describe("backup restore", () => {
 
     const result = await module.runBackupRestore();
 
-    expect(result).toEqual({ restored: 0, skipped: 1, missingPhoto: 1 });
+    expect(result).toEqual({ restored: 0, skipped: 1, missingPhoto: 1, deduplicated: 0 });
     expect(api.fetchBackupPalette).toHaveBeenCalledTimes(1);
     expect(api.fetchBackupAsset).not.toHaveBeenCalled();
+  });
+
+  test("keeps one copy per content key and tombstones the duplicates", async () => {
+    const sharedHash = "d".repeat(64);
+    const favoriteCopy = createEnvelope("2026-08-10T10:00:00.000Z", sharedHash);
+    favoriteCopy.palette.favoritedAt = "2026-08-12T00:00:00.000Z";
+    const { api, module, staged } = await loadRestore({
+      manifestPalettes: {
+        "uid-original": { updatedAt: "2026-08-14T00:00:00.000Z" },
+        "uid-reimport": { updatedAt: "2026-08-16T00:00:00.000Z" },
+      },
+      envelopesByUid: {
+        "uid-original": favoriteCopy,
+        "uid-reimport": createEnvelope("2026-08-10T10:00:00.000Z", sharedHash),
+      },
+    });
+
+    const result = await module.runBackupRestore();
+
+    expect(result.restored).toBe(1);
+    expect(result.deduplicated).toBe(1);
+    expect(staged.map((palette) => palette.backupUid)).toEqual(["uid-original"]);
+    expect(api.deleteBackupPalette).toHaveBeenCalledWith(CREDENTIALS, "uid-reimport");
+  });
+
+  test("reports preparing progress while metadata downloads", async () => {
+    const { module } = await loadRestore({
+      manifestPalettes: { "uid-new": {} },
+      envelopesByUid: { "uid-new": createEnvelope("2026-08-10T10:00:00.000Z", "b".repeat(64)) },
+    });
+    const phases = [];
+
+    await module.runBackupRestore({ onProgress: (progress) => phases.push(progress.phase) });
+
+    expect(phases[0]).toBe("preparing");
+    expect(phases.at(-1)).toBe("downloading");
   });
 
   test("aborts the staging session when the commit fails", async () => {

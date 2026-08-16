@@ -167,11 +167,20 @@ export function initBackupUi(root) {
 
     isRestoring = true;
     render();
+    if (progressLine) {
+      progressLine.textContent = t("settings.backup.restoreStarting");
+      progressLine.hidden = false;
+    }
     try {
       const { restored } = await runBackupRestore({
-        onProgress: ({ fetched, total }) => {
+        onProgress: ({ phase, fetched, total }) => {
           if (progressLine) {
-            progressLine.textContent = t("settings.backup.restoreProgress", { fetched, total });
+            progressLine.textContent = t(
+              phase === "preparing"
+                ? "settings.backup.restorePreparing"
+                : "settings.backup.restoreProgress",
+              { fetched, total },
+            );
             progressLine.hidden = false;
           }
         },

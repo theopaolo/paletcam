@@ -215,6 +215,8 @@ const fr = {
   "settings.backup.restore": "Restaurer la sauvegarde",
   "settings.backup.restoreConfirm":
     "Restaurer les palettes depuis le serveur ? Les captures déjà présentes sont conservées.",
+  "settings.backup.restoreStarting": "Connexion au serveur de sauvegarde…",
+  "settings.backup.restorePreparing": "Préparation {fetched} / {total}…",
   "settings.backup.restoreProgress": "Restauration {fetched} / {total}…",
   "settings.backup.restoreDone.zero": "Rien à restaurer.",
   "settings.backup.restoreDone.one": "1 palette restaurée.",
