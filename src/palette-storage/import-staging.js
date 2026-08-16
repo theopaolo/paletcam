@@ -93,6 +93,11 @@ function createImportedMetadata(palette, fallbackRenderSettings) {
     moderationUpdatedAt: paletteMetadata.moderationUpdatedAt ?? null,
     lastModerationCheckAt: paletteMetadata.lastModerationCheckAt ?? null,
     polaroidRenderSettings: paletteMetadata.polaroidRenderSettings ?? fallbackRenderSettings,
+    // File imports carry neither field (their entries were scrubbed by the
+    // import contract), so they get a fresh dirty backup identity; the cloud
+    // restore path passes both through to keep the palette's server identity.
+    favoritedAt: paletteMetadata.favoritedAt ?? null,
+    backupUid: paletteMetadata.backupUid ?? null,
     hasPhotoAsset: true,
   });
 }

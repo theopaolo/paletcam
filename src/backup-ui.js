@@ -11,6 +11,7 @@ import {
   requestBackupFlush,
   subscribeBackupStatus,
 } from "./backup-service.js";
+import { runBackupRestore } from "./backup-restore.js";
 import { t } from "./i18n.js";
 import { showToast } from "./modules/toast-ui.js";
 
@@ -41,10 +42,14 @@ export function initBackupUi(root) {
   );
   const actionsRow = root.querySelector("#settingsBackupActions");
   const backupNowButton = root.querySelector("#settingsBackupNowButton");
+  const restoreButton = /** @type {HTMLButtonElement | null} */ (
+    root.querySelector("#settingsBackupRestoreButton")
+  );
   const copyCodeButton = root.querySelector("#settingsBackupCopyCodeButton");
   const disconnectButton = root.querySelector("#settingsBackupDisconnectButton");
 
   let isConnecting = false;
+  let isRestoring = false;
 
   function render() {
     const credentials = getBackupCredentials();
@@ -61,7 +66,10 @@ export function initBackupUi(root) {
     }
 
     if (progressLine) {
-      if (paired && status.errorCode) {
+      if (isRestoring) {
+        // Restore progress writes the line itself; keep it visible.
+        progressLine.hidden = false;
+      } else if (paired && status.errorCode) {
         progressLine.textContent = getBackupErrorMessage(status.errorCode);
         progressLine.hidden = false;
       } else if (paired && status.progress) {
@@ -88,7 +96,10 @@ export function initBackupUi(root) {
         : t("settings.backup.connect");
     }
     if (backupNowButton instanceof HTMLButtonElement) {
-      backupNowButton.disabled = status.phase === "flushing";
+      backupNowButton.disabled = status.phase === "flushing" || isRestoring;
+    }
+    if (restoreButton) {
+      restoreButton.disabled = status.phase === "flushing" || isRestoring;
     }
   }
 
@@ -144,8 +155,44 @@ export function initBackupUi(root) {
 
   const handleBackupNow = () => void requestBackupFlush({ immediate: true });
 
+  async function handleRestore() {
+    if (isRestoring) {
+      return;
+    }
+    const isConfirmed = globalThis.confirm?.(t("settings.backup.restoreConfirm")) ?? true;
+    if (!isConfirmed) {
+      return;
+    }
+
+    isRestoring = true;
+    render();
+    try {
+      const { restored } = await runBackupRestore({
+        onProgress: ({ fetched, total }) => {
+          if (progressLine) {
+            progressLine.textContent = t("settings.backup.restoreProgress", { fetched, total });
+            progressLine.hidden = false;
+          }
+        },
+      });
+      const doneKey =
+        restored === 0
+          ? "settings.backup.restoreDone.zero"
+          : restored === 1
+            ? "settings.backup.restoreDone.one"
+            : "settings.backup.restoreDone.other";
+      showToast(t(doneKey, { count: restored }), { duration: 2500 });
+    } catch (_error) {
+      showToast(t("settings.backup.restoreFailed"), { variant: "error", duration: 3000 });
+    } finally {
+      isRestoring = false;
+      render();
+    }
+  }
+
   connectButton?.addEventListener("click", handleConnect);
   backupNowButton?.addEventListener("click", handleBackupNow);
+  restoreButton?.addEventListener("click", handleRestore);
   copyCodeButton?.addEventListener("click", handleCopyCode);
   disconnectButton?.addEventListener("click", handleDisconnect);
   const unsubscribeStatus = subscribeBackupStatus(render);
@@ -155,6 +202,7 @@ export function initBackupUi(root) {
   return () => {
     connectButton?.removeEventListener("click", handleConnect);
     backupNowButton?.removeEventListener("click", handleBackupNow);
+    restoreButton?.removeEventListener("click", handleRestore);
     copyCodeButton?.removeEventListener("click", handleCopyCode);
     disconnectButton?.removeEventListener("click", handleDisconnect);
     unsubscribeStatus();

@@ -1,5 +1,7 @@
 const STORAGE_KEY = "paletcam:backup:credentials:v1";
-const RECOVERY_CODE_PATTERN = /^paletcam-([a-f0-9]{16})-([a-f0-9]{48})$/;
+// The public brand is "colorcatchers", so codes are issued as `cc-…`; the
+// `paletcam-` prefix stays accepted because early codes were minted with it.
+const RECOVERY_CODE_PATTERN = /^(?:cc|paletcam)-([a-f0-9]{16})-([a-f0-9]{48})$/;
 
 /** @type {Set<(credentials: BackupCredentials | null) => void>} */
 const listeners = new Set();
@@ -21,7 +23,7 @@ export function parseBackupRecoveryCode(code) {
 
 /** @param {Partial<BackupCredentials>} credentials */
 export function formatBackupRecoveryCode({ accountId, secret }) {
-  return `paletcam-${accountId}-${secret}`;
+  return `cc-${accountId}-${secret}`;
 }
 
 /** @returns {BackupCredentials | null} */

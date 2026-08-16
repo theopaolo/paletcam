@@ -699,11 +699,13 @@ interface CommunityServiceError extends Error {
 
 interface PaletcamDexieCollection<TRecord = Palette, TKey = number> {
   delete(): Promise<number>;
-  modify(fn: (item: TRecord) => void): Promise<number>;
+  keys(): Promise<IDBValidKey[]>;
+  modify(changes: object | ((item: TRecord) => void)): Promise<number>;
   primaryKeys(): Promise<TKey[]>;
 }
 
 interface PaletcamDexieWhereClause<TRecord = Palette, TKey = number> {
+  anyOf(values: IDBValidKey[]): PaletcamDexieCollection<TRecord, TKey>;
   equals(value: IDBValidKey): PaletcamDexieCollection<TRecord, TKey>;
 }
 

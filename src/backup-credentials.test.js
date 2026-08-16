@@ -9,7 +9,7 @@ import {
 
 const ACCOUNT_ID = "0123456789abcdef";
 const SECRET = "a".repeat(48);
-const RECOVERY_CODE = `paletcam-${ACCOUNT_ID}-${SECRET}`;
+const RECOVERY_CODE = `cc-${ACCOUNT_ID}-${SECRET}`;
 
 function createLocalStorageMock() {
   const store = new Map();
@@ -30,8 +30,15 @@ describe("backup credentials", () => {
       accountId: ACCOUNT_ID,
       secret: SECRET,
     });
-    expect(parseBackupRecoveryCode("paletcam-short-code")).toBeNull();
+    expect(parseBackupRecoveryCode("cc-short-code")).toBeNull();
     expect(parseBackupRecoveryCode("")).toBeNull();
+  });
+
+  test("still accepts the legacy paletcam prefix", () => {
+    expect(parseBackupRecoveryCode(`paletcam-${ACCOUNT_ID}-${SECRET}`)).toEqual({
+      accountId: ACCOUNT_ID,
+      secret: SECRET,
+    });
   });
 
   test("round-trips credentials through storage and clears them", () => {

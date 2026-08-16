@@ -281,6 +281,13 @@ class SettingsPanel extends LitElement {
                 </button>
                 <button
                   class="settings-action-button"
+                  id="settingsBackupRestoreButton"
+                  type="button"
+                >
+                  ${t("settings.backup.restore")}
+                </button>
+                <button
+                  class="settings-action-button"
                   id="settingsBackupCopyCodeButton"
                   type="button"
                 >

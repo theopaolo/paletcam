@@ -69,7 +69,7 @@ describe("sync-server app", () => {
   test("pairing returns credentials once and can be disabled", async () => {
     const { app } = await createTestApp();
     const paired = await pair(app);
-    expect(paired.recoveryCode).toBe(`paletcam-${paired.accountId}-${paired.secret}`);
+    expect(paired.recoveryCode).toBe(`cc-${paired.accountId}-${paired.secret}`);
 
     const { app: lockedApp } = await createTestApp({ pairingEnabled: false });
     const response = await lockedApp.request("/v1/pair", { method: "POST" });

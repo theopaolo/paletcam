@@ -10,16 +10,17 @@ function sha256Hex(value) {
 }
 
 export function formatRecoveryCode(accountId, secret) {
-  return `paletcam-${accountId}-${secret}`;
+  return `cc-${accountId}-${secret}`;
 }
 
 /**
- * Splits a `paletcam-<accountId>-<secret>` recovery code back into
- * credentials, tolerating surrounding whitespace. Returns null when the shape
- * is wrong so callers treat it exactly like a bad secret.
+ * Splits a `cc-<accountId>-<secret>` recovery code back into credentials,
+ * tolerating surrounding whitespace and the legacy `paletcam-` prefix.
+ * Returns null when the shape is wrong so callers treat it exactly like a
+ * bad secret.
  */
 export function parseRecoveryCode(code) {
-  const match = /^paletcam-([a-f0-9]{16})-([a-f0-9]{48})$/.exec(String(code || "").trim());
+  const match = /^(?:cc|paletcam)-([a-f0-9]{16})-([a-f0-9]{48})$/.exec(String(code || "").trim());
   return match ? { accountId: match[1], secret: match[2] } : null;
 }
 

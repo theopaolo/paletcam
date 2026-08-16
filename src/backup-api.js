@@ -29,7 +29,7 @@ async function backupRequest(path, { credentials, method = "GET", body, contentT
       },
       body,
     });
-  } catch (error) {
+  } catch (_error) {
     throw new BackupApiError("The backup server could not be reached.", {
       code: "network",
       status: undefined,
@@ -77,6 +77,22 @@ export async function putBackupAsset(credentials, assetHash, blob) {
     body: blob,
     contentType: "application/octet-stream",
   });
+}
+
+/** @returns {Promise<{schemaVersion?: number, palette: object, assets?: string[]}>} */
+export async function fetchBackupPalette(credentials, backupUid) {
+  const response = await backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
+    credentials,
+  });
+  return response.json();
+}
+
+/** @returns {Promise<Blob>} */
+export async function fetchBackupAsset(credentials, assetHash) {
+  const response = await backupRequest(`/v1/assets/${encodeURIComponent(assetHash)}`, {
+    credentials,
+  });
+  return response.blob();
 }
 
 export async function deleteBackupPalette(credentials, backupUid) {

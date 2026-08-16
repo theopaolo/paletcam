@@ -68,6 +68,41 @@ export async function markPaletteBackedUp(
   });
 }
 
+/**
+ * Which of the given server uids already exist locally — restore skips them
+ * instead of tripping the unique `backupUid` index.
+ * @param {string[]} backupUids
+ * @returns {Promise<Set<string>>}
+ */
+export async function listExistingBackupUids(backupUids) {
+  const uids = (Array.isArray(backupUids) ? backupUids : []).filter(
+    (uid) => typeof uid === "string" && uid,
+  );
+  if (uids.length === 0) {
+    return new Set();
+  }
+  const presentKeys = await db.palettes.where("backupUid").anyOf(uids).keys();
+  return new Set(presentKeys.map((key) => String(key)));
+}
+
+/**
+ * Marks freshly restored palettes clean: their content already lives on the
+ * server, so the flush loop must not re-upload it.
+ * @param {string[]} backupUids
+ */
+export async function markPalettesRestoredClean(backupUids, restoredAt = new Date().toISOString()) {
+  const uids = (Array.isArray(backupUids) ? backupUids : []).filter(
+    (uid) => typeof uid === "string" && uid,
+  );
+  if (uids.length === 0) {
+    return 0;
+  }
+  return db.palettes.where("backupUid").anyOf(uids).modify({
+    backupDirtyAt: null,
+    backupUploadedAt: restoredAt,
+  });
+}
+
 /** @returns {Promise<BackupTombstoneRecord[]>} */
 export async function listPendingBackupTombstones(limit = MAX_BACKUP_QUEUE_BATCH) {
   return db.backupTombstones.limit(getBackupBatchLimit(limit)).toArray();
