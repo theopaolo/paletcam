@@ -576,6 +576,7 @@ interface SampleGridOverlayController {
 
 interface CaptureMicroInteractions {
   cleanup(): void;
+  flyPaletteToThumbnail?(colors: { r: number; g: number; b: number }[]): void;
   pulseCaptureButton(): void;
   triggerCaptureFlash(): void;
 }

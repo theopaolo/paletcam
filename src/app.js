@@ -9,6 +9,9 @@ import { createCaptureMicroInteractions } from "./modules/micro-interactions.js"
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudBridge } from "./modules/performance-hud-bridge.js";
 import { createSwatchCountDrumUiController } from "./modules/swatch-count-drum-ui.js";
+import { createAdjLeverUi, createCountDialUi } from "./modules/count-controls-ui.js";
+import { getFooterLab, subscribeFooterLab } from "./modules/footer-lab.js";
+import { createIrisShutter } from "./modules/iris-shutter.js";
 import { shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
@@ -112,6 +115,7 @@ let medianCutExtractionSettings = { ...getAppSettings().medianCut };
 let hybridSettings = { ...getAppSettings().hybrid };
 let lastCameraViewportLayout = null;
 let unsubscribeFromAppSettings = () => {};
+let unsubscribeFromFooterLab = () => {};
 let unsubscribeFromDatabaseLifecycle = () => {};
 let destroyCommunityHomepageLink = () => {};
 let cancelDeferredDeleteOutboxInitialization = () => {};
@@ -138,6 +142,8 @@ cameraViewportFrame.className = "camera-feed-frame";
 const captureMicroInteractions = createCaptureMicroInteractions({
   captureButton,
   captureContainer,
+  paletteSource: capturePaletteStage,
+  thumbnailTarget: photoOutput?.closest(".mini-output") ?? null,
 });
 const visualEffects = createVisualEffects({ captureButton });
 const ralPreview = createRalPreviewController({
@@ -163,14 +169,52 @@ const paletteExtractionWorker = createPaletteExtractionWorkerController({
     livePreviewController?.handleWorkerResult({ colors, durationMs, origins, frozenPresence });
   },
 });
+const SWATCH_COUNT_MIN = Number(swatchCountDrum?.dataset.min) || 3;
+const SWATCH_COUNT_MAX = Number(swatchCountDrum?.dataset.max) || 7;
+const footerControls = /** @type {HTMLElement | null} */ (
+  captureButton?.closest(".btn-containers") ?? null
+);
+const irisShutter = createIrisShutter({ button: captureButton });
+/** The count control of the active footer variant (dial or ADJ lever); the drum is always built. */
+let countControl = null;
+
+function applySwatchCount(nextSwatchCount) {
+  swatchCount = nextSwatchCount;
+  livePreviewController?.reset();
+  livePreviewController?.scheduleRefresh();
+}
+
 const swatchCountDrumUi = createSwatchCountDrumUiController({
   swatchCountDrum,
   onSwatchCountChange: (nextSwatchCount) => {
-    swatchCount = nextSwatchCount;
-    livePreviewController?.reset();
-    livePreviewController?.scheduleRefresh();
+    applySwatchCount(nextSwatchCount);
+    countControl?.sync(nextSwatchCount);
   },
 });
+
+function handleCountControlChange(nextSwatchCount) {
+  applySwatchCount(nextSwatchCount);
+  swatchCountDrumUi.initialize(nextSwatchCount);
+}
+
+function applyFooterLab({ shutter, count }) {
+  document.body.dataset.footerShutter = shutter;
+  document.body.dataset.footerCount = count;
+  irisShutter.setLook(shutter);
+  countControl?.destroy();
+  countControl = null;
+  const countOptions = {
+    min: SWATCH_COUNT_MIN,
+    max: SWATCH_COUNT_MAX,
+    value: swatchCount,
+    onChange: handleCountControlChange,
+  };
+  if (count === "dial") {
+    countControl = createCountDialUi({ ...countOptions, button: viewCollectionButton });
+  } else if (count === "adj") {
+    countControl = createAdjLeverUi({ ...countOptions, host: footerControls });
+  }
+}
 
 function shouldMirrorUserFacingCamera() {
   if (cameraController.getFacingMode() !== "user") {
@@ -260,6 +304,7 @@ function syncCaptureMode(mode) {
   if (ralReticle) ralReticle.hidden = !isRal;
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
   if (swatchCountControl) swatchCountControl.hidden = isRal;
+  irisShutter.setNeutral(isRal);
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
 
   syncCameraViewportLayout();
@@ -397,6 +442,7 @@ livePreviewController = createLivePreviewController({
   getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
   getSwatchCount: () => swatchCount,
   shouldUseCanvasPreview,
+  onPaletteChange: (colors) => irisShutter.setColors(colors),
 });
 
 captureController = createCaptureController({
@@ -524,6 +570,7 @@ function handleCaptureButtonClick(event) {
 
   unlockUiFeedback();
   shutterFeedback();
+  irisShutter.snap();
   void captureController?.captureCurrentFrame();
 }
 
@@ -592,6 +639,8 @@ function initializeApp() {
   exposureUi.initialize();
   gridUi.initialize();
   swatchCountDrumUi.initialize(swatchCount);
+  applyFooterLab(getFooterLab());
+  unsubscribeFromFooterLab = subscribeFooterLab(applyFooterLab);
   cameraLifecycleController?.syncActionAvailability();
   clearPhotoOutput();
   renderOutputSwatches(outputPalette, []);
@@ -685,6 +734,11 @@ function destroyApp() {
   cameraSurfaceLifecycleController.destroy();
   cameraLifecycleController?.stopCurrentStream({ preserveResumeIntent: false });
   swatchCountDrumUi.destroy?.();
+  countControl?.destroy();
+  countControl = null;
+  irisShutter.destroy();
+  unsubscribeFromFooterLab();
+  unsubscribeFromFooterLab = () => {};
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   gridUi?.destroy?.();

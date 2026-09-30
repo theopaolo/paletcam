@@ -62,6 +62,7 @@ export function createLivePreviewController({
   getShouldMirrorUserFacingCamera,
   getSwatchCount,
   shouldUseCanvasPreview,
+  onPaletteChange = null,
   frameAcquisition: injectedFrameAcquisition = null,
   getDevicePixelRatio = () => window.devicePixelRatio || 1,
   timingOptions = {},
@@ -528,6 +529,7 @@ export function createLivePreviewController({
         const dominantColor = getDominantColor(displayColors);
 
         renderPaletteBars(paletteContext, displayColors, paletteCanvas.width, paletteCanvas.height);
+        onPaletteChange?.(displayColors);
         syncSwatchLockHints(displayColors);
         lastPaintedColors = displayColors;
         paintedPaletteWidth = paletteCanvas.width;

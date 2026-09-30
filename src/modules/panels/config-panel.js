@@ -1,6 +1,7 @@
 import { html, LitElement } from "lit";
 import { APP_SETTINGS_LIMITS, getDefaultAppSettings } from "../../app-settings.js";
 import { subscribeLocaleChange, t } from "../../i18n.js";
+import { getFooterLab, setFooterLab, subscribeFooterLab } from "../footer-lab.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
 
 const DEFAULT_ALGORITHM_SETTINGS = getDefaultAppSettings();
@@ -126,6 +127,58 @@ function renderNeutralBalanceControl() {
   `;
 }
 
+/* Preprod-only switches for the footer variants under test. English only: a
+   debug tool, like the performance HUD. */
+const FOOTER_LAB_ROWS = Object.freeze([
+  Object.freeze({
+    key: "shutter",
+    label: "Shutter",
+    options: [
+      ["titanium", "Titanium"],
+      ["flat", "Flat"],
+      ["logo", "Logo"],
+    ],
+  }),
+  Object.freeze({
+    key: "count",
+    label: "Count",
+    options: [
+      ["dial", "Dial"],
+      ["adj", "ADJ"],
+      ["drum", "Drum"],
+    ],
+  }),
+]);
+
+function renderFooterLab() {
+  const lab = getFooterLab();
+  return html`
+    <div class="footer-lab" role="group" aria-label="Footer lab">
+      ${FOOTER_LAB_ROWS.map(
+        ({ key, label, options }) => html`
+          <div class="footer-lab-row">
+            <span class="footer-lab-label">${label}</span>
+            <div class="footer-lab-options">
+              ${options.map(
+                ([value, text]) => html`
+                  <button
+                    class="footer-lab-option"
+                    type="button"
+                    aria-pressed=${String(lab[key] === value)}
+                    @click=${() => setFooterLab({ [key]: value })}
+                  >
+                    ${text}
+                  </button>
+                `,
+              )}
+            </div>
+          </div>
+        `,
+      )}
+    </div>
+  `;
+}
+
 class ConfigPanel extends LitElement {
   createRenderRoot() {
     return this;
@@ -140,12 +193,16 @@ class ConfigPanel extends LitElement {
     this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
       this.requestUpdate();
     });
+    this.unsubscribeFooterLab = subscribeFooterLab(() => {
+      this.requestUpdate();
+    });
     this.requestUpdate();
   }
 
   disconnectedCallback() {
     this.cleanupConfigPanel?.();
     this.unsubscribeLocaleChange?.();
+    this.unsubscribeFooterLab?.();
     super.disconnectedCallback();
   }
 
@@ -227,6 +284,7 @@ class ConfigPanel extends LitElement {
             <span class="config-drawer-action-label">${t("config.history.reset")}</span>
           </button>
         </div>
+        ${__PALETCAM_DEBUG_TOOLS__ ? renderFooterLab() : ""}
       </section>
     `;
   }

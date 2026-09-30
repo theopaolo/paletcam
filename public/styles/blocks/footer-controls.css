@@ -1,0 +1,408 @@
+/* Footer hardware: tune lever (top left), ADJ lever (top right), rear count
+   dial around the catches button, iris shutter face, and the palette flight
+   into the thumbnail. Variants are picked by body[data-footer-count] and
+   body[data-footer-shutter] (see footer-lab.js). */
+
+/* ── Levers: a knurled rocker sunk into a slot on the footer's top edge ── */
+.tune-lever-slot,
+.adj-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3.125rem;
+  height: 1.125rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-shell);
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 95%),
+    0 1px 0 rgb(255 255 255 / 8%);
+}
+
+.tune-lever-knob,
+.adj-lever {
+  width: 2.125rem;
+  height: 0.75rem;
+  border-radius: var(--radius-pill);
+  background:
+    repeating-linear-gradient(90deg, #4a4a4a 0 1.5px, #1a1a1a 1.5px 3px),
+    #2a2a2a;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 18%),
+    0 1px 2px rgb(0 0 0 / 80%);
+  transition: transform var(--duration-settle) var(--easing-spring);
+  pointer-events: none;
+}
+
+/* Tune lever: the config toggle, moved from the palette strip to the footer. */
+.tune-lever {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+
+  /* Bigger hit area than the drawn lever, without moving it. */
+  margin: calc(-1 * var(--space-8));
+  padding: var(--space-8);
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  appearance: none;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.tune-lever .btn-config-label {
+  display: none;
+}
+
+.tune-lever:active .tune-lever-knob {
+  transform: translateY(-2px);
+  transition-duration: 0.06s;
+}
+
+.tune-lever.is-active {
+  color: var(--color-accent-soft);
+}
+
+.tune-lever.is-active .tune-lever-slot {
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 95%),
+    0 0 0 1px var(--color-accent-border);
+}
+
+body.is-ral-mode .config-section {
+  visibility: hidden;
+}
+
+/* ADJ lever: count, top right edge, above the catches button. */
+.adj-control {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-16);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  user-select: none;
+}
+
+.adj-window {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.125rem;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-shell);
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 90%),
+    0 1px 0 rgb(255 255 255 / 7%);
+  color: var(--color-accent-soft);
+  font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.adj-window span {
+  grid-area: 1 / 1;
+}
+
+.adj-window .is-rolling-up {
+  animation: adj-roll-up var(--duration-settle) var(--easing-spring);
+}
+
+.adj-window .is-rolling-down {
+  animation: adj-roll-down var(--duration-settle) var(--easing-spring);
+}
+
+.adj-slot {
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.adj-slot::after {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--space-8));
+}
+
+.adj-lever.is-held {
+  transition: transform 0.06s linear;
+}
+
+body.is-ral-mode .adj-control {
+  visibility: hidden;
+}
+
+@keyframes adj-roll-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes adj-roll-down {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+/* ── Rear count dial around the catches button ── */
+.count-dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.count-dial-index {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 2px;
+  height: 5px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background-color: var(--color-accent-soft);
+}
+
+.count-dial-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(#2e2e2e 0 3deg, #111 3deg 6deg);
+  box-shadow: var(--shadow-chrome);
+  transition: transform var(--duration-settle) var(--easing-spring);
+  pointer-events: none;
+}
+
+body.is-ral-mode .count-dial-ring,
+body.is-ral-mode .count-dial-index {
+  opacity: 0.3;
+}
+
+.count-dial.is-dragging .count-dial-ring {
+  transition: none;
+}
+
+/* Machined face with fine ticks; one longer tick per count, lit at the current one. */
+.count-dial-face {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle, rgb(255 255 255 / 3%) 0 1px, transparent 1px 3px),
+    var(--color-surface-ink);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 60%),
+    inset 0 1px 1px rgb(255 255 255 / 8%);
+}
+
+.count-dial-face::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgb(255 255 255 / 20%) 0 0.9deg, transparent 0.9deg 10deg);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+}
+
+.count-dial-face i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 6px;
+  border-radius: 1px;
+  background-color: var(--color-border-strong);
+  transform: translate(-50%, -50%) rotate(var(--tick-angle)) translateY(-1.7rem);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    height var(--duration-fast) var(--easing-standard);
+}
+
+.count-dial-face i.is-on {
+  height: 8px;
+  background-color: var(--color-accent-soft);
+}
+
+.btn-containers .count-dial .btn-view-collection {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+}
+
+.count-dial .camera-action-icon {
+  transition: opacity 0.15s var(--easing-standard);
+}
+
+.count-dial.is-turning .camera-action-icon {
+  opacity: 0;
+}
+
+.count-dial-value {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: var(--color-accent-soft);
+  font: 600 var(--font-size-base) / 1 var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.15s var(--easing-standard);
+  pointer-events: none;
+}
+
+.count-dial.is-turning .count-dial-value {
+  opacity: 1;
+}
+
+/* ── Footer row for the dial and ADJ variants: shutter truly centered ── */
+body:is([data-footer-count="dial"], [data-footer-count="adj"]) .btn-containers {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+body:is([data-footer-count="dial"], [data-footer-count="adj"]) .camera-actions {
+  display: contents;
+}
+
+body:is([data-footer-count="dial"], [data-footer-count="adj"]) .swatch-count-control {
+  display: none;
+}
+
+body:is([data-footer-count="dial"], [data-footer-count="adj"]).is-preview-expanded
+  .camera-preview-dock {
+  position: absolute;
+}
+
+body:is([data-footer-count="dial"], [data-footer-count="adj"]) .btn-containers .btn-capture {
+  justify-self: center;
+  margin: 0;
+}
+
+/* Direct children only: inside the dial the button must stay centered. */
+body:is([data-footer-count="dial"], [data-footer-count="adj"]) .camera-actions > .btn-view-collection,
+body:is([data-footer-count="dial"], [data-footer-count="adj"]) .camera-actions > .count-dial {
+  justify-self: end;
+}
+
+/* ── Iris face in the capture button ── */
+.iris-face {
+  display: none;
+}
+
+.btn-containers .btn-capture.has-iris {
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 2px;
+  border: 2px solid var(--color-accent);
+  background: var(--color-surface-shell);
+  box-shadow:
+    0 0 0 3px var(--color-surface-shell),
+    0 0 0 4px rgb(255 255 255 / 9%),
+    0 3px 8px rgb(0 0 0 / 60%);
+}
+
+.btn-capture.has-iris .btn-shoot {
+  display: none;
+}
+
+.btn-capture.has-iris .iris-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.iris-blades {
+  stroke-opacity: 0.6;
+  stroke-width: 0.35;
+}
+
+.iris-blades path {
+  transition: fill 0.35s var(--easing-standard);
+}
+
+.btn-capture[data-iris="flat"] .iris-blades {
+  stroke-opacity: 0.7;
+  stroke-width: 0.7;
+}
+
+.btn-capture[data-iris="flat"] :is(.iris-edges, .iris-sheen, .iris-glint) {
+  display: none;
+}
+
+/* ── Palette flight: the caught palette shrinks into the thumbnail ── */
+.palette-flight {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  transform-origin: 0 0;
+  box-shadow: var(--shadow-card-lift);
+  pointer-events: none;
+}
+
+.palette-flight i {
+  flex: 1;
+}
+
+/* ── Footer lab switches (preprod only, inside the tuning drawer) ── */
+.footer-lab {
+  display: grid;
+  gap: var(--space-8);
+  padding-top: var(--space-8);
+  border-top: 1px dashed var(--color-border-subtle);
+}
+
+.footer-lab-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.footer-lab-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.footer-lab-options {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.footer-lab-option {
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: 600 var(--font-size-sm) / 1.2 var(--font-family-body);
+  cursor: pointer;
+}
+
+.footer-lab-option + .footer-lab-option {
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.footer-lab-option[aria-pressed="true"] {
+  background-color: var(--color-accent-dim);
+  color: var(--color-accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .count-dial-ring,
+  .tune-lever-knob,
+  .adj-lever,
+  .iris-blades path {
+    transition-duration: 1ms;
+  }
+}

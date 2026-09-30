@@ -118,6 +118,7 @@ export function createCaptureController({
         }
       }
 
+      captureMicroInteractions.flyPaletteToThumbnail?.(paletteColors);
       renderOutputSwatches(outputPalette, paletteColors);
       photoOutputController.clearPaletteId();
 
