@@ -9,7 +9,7 @@ import { detentFeedback, unlockUiFeedback } from "../ui-feedback.js";
  * - arc: tabs pick a setting, one curved ruler turns under a fixed needle
  *   (after Luminar);
  * - thin: one thin drum per setting, the look included (after Halide);
- * - drums: wider drums, the look on a three-stop knob;
+ * - drums: wider drums, the look included;
  * - rails: thin tracks with a raised knob carrying the setting's icon.
  *
  * Panels own no state. They drive the drawer's native inputs (the range inputs
@@ -20,7 +20,7 @@ import { detentFeedback, unlockUiFeedback } from "../ui-feedback.js";
 const TAP_SLOP_PX = 4;
 const DOUBLE_TAP_MS = 320;
 const RUBBER_BAND = 0.25;
-/** Finger travel per stop on the look's drum and knob. */
+/** Finger travel per stop on the look's drum. */
 const LOOK_DETENT_PX = 28;
 
 /* Stroke icons (24px grid) for the arc tabs, the rail knobs and the guide. */
@@ -175,17 +175,13 @@ function createDoubleTap() {
 }
 
 /**
- * Pointer drag along one axis ("x", "y" up = positive, or "xy" for a knob
- * that turns either way). onMove gets the travel since the press; onEnd gets
- * whether the finger moved past the tap slop.
+ * Pointer drag along one axis ("x", or "y" up = positive). onMove gets the
+ * travel since the press; onEnd gets whether the finger moved past the tap
+ * slop.
  */
 function bindDrag(target, { axis, onStart, onMove, onEnd }) {
   let gesture = null;
-  const travel = (event) => {
-    const dx = event.clientX - gesture.x;
-    const dy = gesture.y - event.clientY;
-    return axis === "x" ? dx : axis === "y" ? dy : dx + dy;
-  };
+  const travel = (event) => (axis === "x" ? event.clientX - gesture.x : gesture.y - event.clientY);
 
   function handleDown(event) {
     if (gesture || (event.pointerType === "mouse" && event.button !== 0)) {
@@ -649,12 +645,24 @@ function createLever(model, setting, { thin, colors }) {
   };
 }
 
-/** Thin drum for the look: its mini palettes roll past two index marks. Tap for the next. */
-function createLookDrum(model, setting, { colors }) {
-  const width = 34;
-  const height = 108;
+/**
+ * Drum for the look: its mini palettes roll past the index like the numbers'
+ * major ticks, with fine ticks between the stops. Tap for the next.
+ */
+function createLookDrum(model, setting, { thin, colors }) {
+  const width = thin ? 34 : 52;
+  const height = thin ? 108 : 96;
   const stepDeg = 38;
-  const shell = createLeverShell("tune-lever is-thin", setting, width, height);
+  const swatchWidth = thin ? 3.5 : 5.5;
+  const swatchPitch = thin ? 4.75 : 6.75;
+  const swatchHeight = thin ? 8 : 10;
+  const tickLength = thin ? 9 : 18;
+  const shell = createLeverShell(
+    thin ? "tune-lever is-thin" : "tune-lever",
+    setting,
+    width,
+    height,
+  );
   const { context } = shell;
   let position = model.get();
   let startPosition = 0;
@@ -666,24 +674,46 @@ function createLookDrum(model, setting, { colors }) {
     }
     context.clearRect(0, 0, width, height);
     const middle = height / 2;
-    const r = middle - 6;
-    for (let index = model.lo; index <= model.hi; index++) {
-      const angle = ((index - position) * stepDeg * Math.PI) / 180;
+    const r = middle - 4;
+    const paletteWidth = swatchPitch * 3 + swatchWidth;
+    context.strokeStyle = colors.tick;
+    context.lineCap = "round";
+    // Four steps per stop: the palette on the stop, fine ticks between.
+    for (let step = model.lo * 4; step <= model.hi * 4; step++) {
+      const angle = ((step / 4 - position) * stepDeg * Math.PI) / 180;
       if (Math.abs(angle) > 1.45) {
         continue;
       }
       const cos = Math.cos(angle);
       const y = middle + r * Math.sin(angle);
-      const swatchHeight = 8 * cos;
-      context.globalAlpha = 0.2 + 0.8 * cos * cos;
-      model.swatches(index).forEach((swatch, slot) => {
-        context.fillStyle = swatch;
-        context.fillRect(width / 2 - 9 + slot * 4.75, y - swatchHeight / 2, 3.5, swatchHeight);
-      });
+      if (step % 4 === 0) {
+        const barHeight = swatchHeight * cos;
+        context.globalAlpha = 0.2 + 0.8 * cos * cos;
+        model.swatches(step / 4).forEach((swatch, slot) => {
+          context.fillStyle = swatch;
+          context.fillRect(
+            width / 2 - paletteWidth / 2 + slot * swatchPitch,
+            y - barHeight / 2,
+            swatchWidth,
+            barHeight,
+          );
+        });
+        continue;
+      }
+      const length = tickLength * (0.7 + 0.3 * cos);
+      context.globalAlpha = 0.1 + 0.55 * cos * cos;
+      context.lineWidth = thin ? 0.8 + 0.6 * cos : 1 + cos;
+      context.beginPath();
+      context.moveTo(width / 2 - length / 2, y);
+      context.lineTo(width / 2 + length / 2, y);
+      context.stroke();
     }
     context.globalAlpha = 1;
-    drawIndex(context, colors, 3, 6.5, middle, 1.6);
-    drawIndex(context, colors, width - 6.5, width - 3, middle, 1.6);
+    // The index stops short of the palette on each side.
+    const inset = thin ? 3 : 5;
+    const reach = (width - paletteWidth) / 2 - 2;
+    drawIndex(context, colors, inset, reach, middle, thin ? 1.6 : 2.5);
+    drawIndex(context, colors, width - reach, width - inset, middle, thin ? 1.6 : 2.5);
   }
 
   function paintText() {
@@ -733,74 +763,6 @@ function createLookDrum(model, setting, { colors }) {
     },
     destroy() {
       cancelTween();
-      drag.destroy();
-    },
-  };
-}
-
-/** Three-stop knob for the look, its mini palettes around the top. Tap for the next. */
-function createLookKnob(model, setting) {
-  const stepDeg = 48;
-  const element = document.createElement("div");
-  element.className = "tune-lever is-knob";
-  element.innerHTML = `<span class="tune-lever-label"></span><span class="tune-lever-value"></span><div class="tune-lever-drum is-knob"><span class="tune-knob"></span></div>`;
-  const label = /** @type {HTMLElement} */ (element.querySelector(".tune-lever-label"));
-  const value = /** @type {HTMLElement} */ (element.querySelector(".tune-lever-value"));
-  const housing = /** @type {HTMLElement} */ (element.querySelector(".tune-lever-drum"));
-  const knob = /** @type {HTMLElement} */ (element.querySelector(".tune-knob"));
-  const marks = [];
-  for (let index = model.lo; index <= model.hi; index++) {
-    const mark = document.createElement("span");
-    mark.className = "tune-knob-mark";
-    mark.style.setProperty("--mark-angle", `${(index - 1) * stepDeg}deg`);
-    for (const swatch of model.swatches(index)) {
-      const bar = document.createElement("i");
-      bar.style.backgroundColor = swatch;
-      mark.append(bar);
-    }
-    housing.prepend(mark);
-    marks.push(mark);
-  }
-  let startIndex = 0;
-
-  function paint(raw = model.get()) {
-    knob.style.transform = `rotate(${((raw - 1) * stepDeg).toFixed(1)}deg)`;
-    marks.forEach((mark, index) => {
-      mark.classList.toggle("is-on", index === model.get());
-    });
-    label.textContent = titleOf(setting);
-    paintValue(value, model, true);
-  }
-
-  const drag = bindDrag(housing, {
-    axis: "xy",
-    onStart() {
-      startIndex = model.get();
-    },
-    onMove(travel) {
-      knob.classList.add("is-dragging");
-      const raw = rubberBand(startIndex + travel / LOOK_DETENT_PX, model);
-      stepTo(model, raw, 1);
-      paint(raw);
-    },
-    onEnd(moved, event) {
-      knob.classList.remove("is-dragging");
-      if (!moved && event.type === "pointerup") {
-        stepTo(model, (model.get() + 1) % (model.hi + 1), 1);
-      }
-      paint();
-    },
-  });
-
-  paint();
-  return {
-    element,
-    sync() {
-      if (!drag.isActive()) {
-        paint();
-      }
-    },
-    destroy() {
       drag.destroy();
     },
   };
@@ -932,10 +894,9 @@ export function mountTunePanel(root, { formatValue, kind = "drums" }) {
     const thin = kind === "thin";
     parts = SETTINGS.map((setting) => {
       const model = models[setting.key];
-      if (setting.key !== "look") {
-        return createLever(model, setting, { thin, colors });
-      }
-      return thin ? createLookDrum(model, setting, { colors }) : createLookKnob(model, setting);
+      return setting.key === "look"
+        ? createLookDrum(model, setting, { thin, colors })
+        : createLever(model, setting, { thin, colors });
     });
     container = document.createElement("div");
     container.className = thin ? "tune-levers is-thin" : "tune-levers";

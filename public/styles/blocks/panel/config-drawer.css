@@ -226,63 +226,6 @@ body.is-ral-mode .config-drawer {
   height: 100%;
 }
 
-/* The look on a three-stop knob, its mini palettes around the top. */
-.tune-lever-drum.is-knob {
-  cursor: grab;
-}
-
-.tune-knob-mark {
-  position: absolute;
-  top: 3.625rem;
-  left: 50%;
-  display: flex;
-  gap: 1px;
-  height: 6px;
-  opacity: 0.35;
-  transform: translate(-50%, -50%) rotate(var(--mark-angle)) translateY(-1.75rem);
-  transition: opacity var(--duration-fast) var(--easing-standard);
-}
-
-.tune-knob-mark.is-on {
-  opacity: 1;
-}
-
-.tune-knob-mark i {
-  width: 2.5px;
-  border-radius: 0.5px;
-}
-
-.tune-knob {
-  position: absolute;
-  top: 3.625rem;
-  left: 50%;
-  width: 2.375rem;
-  height: 2.375rem;
-  margin: -1.1875rem 0 0 -1.1875rem;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle closest-side, #1c1c1c 0 12.5px, #0a0a0a 13px, transparent 13.5px),
-    repeating-conic-gradient(#2e2e2e 0 4deg, #111 4deg 8deg);
-  box-shadow: var(--shadow-chrome);
-  transition: transform var(--duration-settle) var(--easing-spring);
-}
-
-.tune-knob.is-dragging {
-  transition: none;
-}
-
-.tune-knob::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 50%;
-  width: 2px;
-  height: 9px;
-  margin-left: -1px;
-  border-radius: 1px;
-  background-color: var(--color-accent-soft);
-}
-
 /* ── Rails: thin tracks, an engraved scale, raised icon knobs ── */
 .tune-rails {
   display: grid;
