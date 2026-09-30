@@ -118,6 +118,7 @@ const FOOTER_LAB_ROWS = Object.freeze([
       ["numbered", "Numbers"],
       ["adj", "ADJ"],
       ["drum", "Drum"],
+      ["shutter", "Slide"],
     ],
   }),
   Object.freeze({

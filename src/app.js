@@ -9,7 +9,11 @@ import { createCaptureMicroInteractions } from "./modules/micro-interactions.js"
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
 import { createPerformanceHudBridge } from "./modules/performance-hud-bridge.js";
 import { createSwatchCountDrumUiController } from "./modules/swatch-count-drum-ui.js";
-import { createAdjLeverUi, createCountDialUi } from "./modules/count-controls-ui.js";
+import {
+  createAdjLeverUi,
+  createCountDialUi,
+  createShutterSlideUi,
+} from "./modules/count-controls-ui.js";
 import { getFooterLab, subscribeFooterLab } from "./modules/footer-lab.js";
 import { createIrisShutter } from "./modules/iris-shutter.js";
 import { bindTuneTray } from "./modules/tune-tray.js";
@@ -118,7 +122,7 @@ let hybridSettings = { ...getAppSettings().hybrid };
 let lastCameraViewportLayout = null;
 let unsubscribeFromAppSettings = () => {};
 let unsubscribeFromFooterLab = () => {};
-let unbindTuneTray = () => {};
+let tuneTrayControl = { beginDrag() {}, destroy() {} };
 let unsubscribeFromDatabaseLifecycle = () => {};
 let destroyCommunityHomepageLink = () => {};
 let cancelDeferredDeleteOutboxInitialization = () => {};
@@ -178,7 +182,7 @@ const footerControls = /** @type {HTMLElement | null} */ (
   captureButton?.closest(".btn-containers") ?? null
 );
 const irisShutter = createIrisShutter({ button: captureButton });
-/** The count control of the active footer variant (dial or ADJ lever); the drum is always built. */
+/** The count control of the active footer variant (dial, ADJ lever or shutter slide); the drum is always built. */
 let countControl = null;
 
 function applySwatchCount(nextSwatchCount) {
@@ -220,6 +224,12 @@ function applyFooterLab({ shutter, count }) {
     });
   } else if (count === "adj") {
     countControl = createAdjLeverUi({ ...countOptions, host: footerControls });
+  } else if (count === "shutter") {
+    countControl = createShutterSlideUi({
+      ...countOptions,
+      button: captureButton,
+      onVerticalDrag: (event, startY) => tuneTrayControl.beginDrag(event, startY),
+    });
   }
 }
 
@@ -653,7 +663,7 @@ function initializeApp() {
   zoomUi.initialize();
   exposureUi.initialize();
   gridUi.initialize();
-  unbindTuneTray = bindTuneTray({ tray: tuneTray });
+  tuneTrayControl = bindTuneTray({ tray: tuneTray });
   swatchCountDrumUi.initialize(swatchCount);
   applyFooterLab(getFooterLab());
   unsubscribeFromFooterLab = subscribeFooterLab(applyFooterLab);
@@ -771,7 +781,7 @@ function destroyApp() {
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   gridUi?.destroy?.();
-  unbindTuneTray();
+  tuneTrayControl.destroy();
   panelCameraUi.destroy();
   collectionEntryController.destroy();
   cameraController.destroy?.();

@@ -348,3 +348,143 @@ export function createAdjLeverUi({ host, min, max, value, onChange }) {
     },
   };
 }
+
+/**
+ * Shutter slide, after study F: slide sideways across the shutter for colors,
+ * one detent per DETENT_PX, with the count shown in the shutter's center.
+ * Swipe up or down and the tuning tray takes the finger. The first direction
+ * the finger moves decides; a tap still catches.
+ *
+ * @param {CountControlOptions & {
+ *   button: HTMLElement | null,
+ *   onVerticalDrag: (event: PointerEvent, startY: number) => void,
+ * }} options
+ * @returns {CountControl}
+ */
+export function createShutterSlideUi({ button, min, max, value, onChange, onVerticalDrag }) {
+  const host = button?.parentElement;
+  if (!button || !host) {
+    return { sync() {}, destroy() {} };
+  }
+
+  const readout = document.createElement("span");
+  readout.className = "shutter-count";
+  readout.setAttribute("aria-hidden", "true");
+  button.append(readout);
+
+  let current = clamp(value, min, max);
+  let gesture = null;
+  let hideTimer = 0;
+  // Set once the finger travels, cleared on the next press: a drag never catches.
+  let blockClick = false;
+
+  function paint() {
+    readout.textContent = String(current);
+  }
+
+  function handlePointerDown(event) {
+    if (event.button !== 0 || gesture) {
+      return;
+    }
+    unlockUiFeedback();
+    blockClick = false;
+    gesture = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      start: current,
+      sliding: false,
+      hitBoundary: false,
+    };
+  }
+
+  function handlePointerMove(event) {
+    if (!gesture || event.pointerId !== gesture.id) {
+      return;
+    }
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (!gesture.sliding) {
+      if (Math.hypot(dx, dy) <= TAP_SLOP_PX * 2) {
+        return;
+      }
+      blockClick = true;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        const startY = gesture.y;
+        gesture = null;
+        onVerticalDrag(event, startY);
+        return;
+      }
+      gesture.sliding = true;
+      capturePointer(button, event.pointerId);
+      window.clearTimeout(hideTimer);
+      button.classList.add("is-sliding");
+    }
+
+    const raw = gesture.start + dx / DETENT_PX;
+    // Past an end stop: one bump at the same finger travel as the dial's.
+    const overshootPx = Math.max(min - raw, raw - max, 0) * DETENT_PX;
+    if (overshootPx * RUBBER_BAND_FACTOR > BOUNDARY_FEEDBACK_PX) {
+      if (!gesture.hitBoundary) {
+        gesture.hitBoundary = true;
+        boundaryFeedback();
+      }
+    } else if (overshootPx === 0) {
+      gesture.hitBoundary = false;
+    }
+    const next = clamp(Math.round(raw), min, max);
+    if (next !== current) {
+      current = next;
+      detentFeedback();
+      paint();
+      onChange(current);
+    }
+  }
+
+  function handlePointerEnd(event) {
+    if (!gesture || event.pointerId !== gesture.id) {
+      return;
+    }
+    const { sliding } = gesture;
+    gesture = null;
+    releasePointer(button, event.pointerId);
+    if (sliding) {
+      hideTimer = window.setTimeout(
+        () => button.classList.remove("is-sliding"),
+        DIAL_VALUE_HOLD_MS,
+      );
+    }
+  }
+
+  // On the parent, in the capture phase, so it runs before the button's own click.
+  function handleClickCapture(event) {
+    if (blockClick && event.target instanceof Node && button.contains(event.target)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  button.addEventListener("pointerdown", handlePointerDown);
+  button.addEventListener("pointermove", handlePointerMove);
+  button.addEventListener("pointerup", handlePointerEnd);
+  button.addEventListener("pointercancel", handlePointerEnd);
+  host.addEventListener("click", handleClickCapture, true);
+  paint();
+
+  return {
+    sync(nextValue) {
+      current = clamp(nextValue, min, max);
+      paint();
+    },
+    destroy() {
+      window.clearTimeout(hideTimer);
+      button.removeEventListener("pointerdown", handlePointerDown);
+      button.removeEventListener("pointermove", handlePointerMove);
+      button.removeEventListener("pointerup", handlePointerEnd);
+      button.removeEventListener("pointercancel", handlePointerEnd);
+      host.removeEventListener("click", handleClickCapture, true);
+      button.classList.remove("is-sliding");
+      readout.remove();
+    },
+  };
+}

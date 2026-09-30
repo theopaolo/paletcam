@@ -6,7 +6,10 @@
  * - a drag on the bubble moves the tray with the finger, then settles open or
  *   closed from where it was let go and how fast it was moving;
  * - any open or close (tap, drag, Escape, a tap outside) animates the height,
- *   and the bubble bloops.
+ *   and the bubble bloops;
+ * - `beginDrag` hands the tray a finger that went down elsewhere (the shutter
+ *   slide variant in footer-lab.js), and the drag goes on as if it started on
+ *   the bubble.
  */
 const DRAG_SLOP_PX = 6;
 const RUBBER_BAND = 0.25;
@@ -17,13 +20,16 @@ const SWITCH_SHARE = 1 / 3;
 /** The browser may still fire a click after a drag; it must not toggle again. */
 const CLICK_SUPPRESS_MS = 350;
 
-/** @param {{ tray: HTMLElement | null }} options @returns {() => void} cleanup */
+/**
+ * @param {{ tray: HTMLElement | null }} options
+ * @returns {{ beginDrag: (event: PointerEvent, startY: number) => void, destroy: () => void }}
+ */
 export function bindTuneTray({ tray }) {
   const bubble = /** @type {HTMLElement | null} */ (tray?.querySelector(".tune-bubble") ?? null);
   const clip = /** @type {HTMLElement | null} */ (tray?.querySelector(".tune-tray-clip") ?? null);
   const body = /** @type {HTMLElement | null} */ (tray?.querySelector(".tune-tray-body") ?? null);
   if (!tray || !bubble || !clip || !body) {
-    return () => {};
+    return { beginDrag() {}, destroy() {} };
   }
 
   let isOpen = bubble.getAttribute("aria-expanded") === "true";
@@ -76,20 +82,26 @@ export function bindTuneTray({ tray }) {
     }
   }
 
-  function handlePointerDown(event) {
+  /** @param {PointerEvent} event @param {number} [startY] where the finger went down */
+  function beginDrag(event, startY = event.clientY) {
     if (gesture) {
       return;
     }
     gesture = {
       id: event.pointerId,
-      startY: event.clientY,
+      startY,
       startHeight: currentHeight(),
       lastY: event.clientY,
       lastTime: event.timeStamp,
       speed: 0,
       moved: false,
     };
-    bubble.setPointerCapture?.(event.pointerId);
+    try {
+      bubble.setPointerCapture(event.pointerId);
+    } catch {
+      // The pointer is already gone (a cancel race): no drag to follow.
+      gesture = null;
+    }
   }
 
   function handlePointerMove(event) {
@@ -157,7 +169,7 @@ export function bindTuneTray({ tray }) {
     bubble.classList.remove("is-blooping");
   }
 
-  bubble.addEventListener("pointerdown", handlePointerDown);
+  bubble.addEventListener("pointerdown", beginDrag);
   bubble.addEventListener("pointermove", handlePointerMove);
   bubble.addEventListener("pointerup", handlePointerEnd);
   bubble.addEventListener("pointercancel", handlePointerEnd);
@@ -166,8 +178,8 @@ export function bindTuneTray({ tray }) {
   clip.addEventListener("transitionend", handleTransitionEnd);
   document.addEventListener("config-drawer-change", handleDrawerChange);
 
-  return () => {
-    bubble.removeEventListener("pointerdown", handlePointerDown);
+  function destroy() {
+    bubble.removeEventListener("pointerdown", beginDrag);
     bubble.removeEventListener("pointermove", handlePointerMove);
     bubble.removeEventListener("pointerup", handlePointerEnd);
     bubble.removeEventListener("pointercancel", handlePointerEnd);
@@ -175,5 +187,7 @@ export function bindTuneTray({ tray }) {
     bubble.removeEventListener("animationend", handleAnimationEnd);
     clip.removeEventListener("transitionend", handleTransitionEnd);
     document.removeEventListener("config-drawer-change", handleDrawerChange);
-  };
+  }
+
+  return { beginDrag, destroy };
 }

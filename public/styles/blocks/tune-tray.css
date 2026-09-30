@@ -9,9 +9,11 @@
 /* No z-index here: the guide sheet inside must stack above the feed's
    overlays (the origin pins sit at 9), so only the bubble takes one. */
 .tune-tray {
+  --tray-well: #070707;
+
   position: relative;
   flex-shrink: 0;
-  background: #070707;
+  background: var(--tray-well);
   box-shadow:
     inset 0 10px 12px -10px rgb(0 0 0 / 95%),
     inset 0 -10px 12px -10px rgb(0 0 0 / 95%);
@@ -28,18 +30,20 @@
   transition: height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ── Bubble: the footer's top edge swelling into a drop above the shutter ── */
+/* ── Bubble: the footer's top edge swelling into a drop above the shutter ──
+   The button is a 144×48 grab zone around the drop: 40px above the edge and
+   8px into the footer, which still leaves 8px before the shutter. */
 .tune-bubble {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% - var(--space-8));
   left: 50%;
   z-index: 10;
-  display: flex;
-  align-items: flex-end;
-  width: 5rem;
-  height: 1.75rem;
-  margin-left: -2.5rem;
-  padding: 0;
+  display: grid;
+  place-items: end center;
+  width: 9rem;
+  height: var(--space-48);
+  margin-left: -4.5rem;
+  padding: 0 0 var(--space-8);
   border: 0;
   background: none;
   cursor: pointer;
@@ -47,22 +51,43 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The drop is cut out of the footer's own plate: the body color under it,
+   the footer's grain on top (shared with .btn-containers in buttons.css).
+   The footer's sheen fades over its full height; the drop keeps the value at
+   the footer's top edge so the two meet without a seam. It sinks 1px into the
+   footer to hide subpixel gaps. Open, it sits on the tray instead and takes
+   the well's color. */
 .tune-bubble-shape {
-  display: block;
-  width: 5rem;
-  height: 1rem;
-  overflow: visible;
+  --footer-sheen: linear-gradient(rgb(255 255 255 / 12%), rgb(255 255 255 / 12%));
+
+  position: relative;
+  width: 7.5rem;
+  height: 1.5rem;
+  margin-bottom: -1px;
+  background-color: var(--color-surface-base);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 24'%3E%3Cpath d='M18.46 24A18 18 0 0 0 32.31 17.5A36 36 0 0 1 87.69 17.5A18 18 0 0 0 101.54 24Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100% no-repeat;
   transform-origin: 50% 100%;
+  transition: background-color 0.32s var(--easing-standard);
 }
 
-.tune-bubble-fill {
-  fill: var(--color-surface-ink);
+.tune-bubble-shape::before {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
-.tune-bubble-edge {
-  fill: none;
-  stroke: var(--color-border-subtle);
-  stroke-width: 1;
+.tune-bubble-shape::before,
+.tune-bubble-shape::after {
+  transition: opacity 0.32s var(--easing-standard);
+}
+
+.tune-bubble-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
 }
 
 .tune-bubble-chevron {
@@ -95,6 +120,15 @@
   65% {
     transform: scale(1.04, 0.9);
   }
+}
+
+.tune-tray:has(config-panel.is-open) .tune-bubble-shape {
+  background-color: var(--tray-well);
+}
+
+.tune-tray:has(config-panel.is-open) .tune-bubble-shape::before,
+.tune-tray:has(config-panel.is-open) .tune-bubble-shape::after {
+  opacity: 0;
 }
 
 /* ── Quick row: slide switch and keys ── */
@@ -240,6 +274,9 @@ body.is-ral-mode .mode-switch-cap {
 
 @media (prefers-reduced-motion: reduce) {
   .tune-tray-clip.is-settling,
+  .tune-bubble-shape,
+  .tune-bubble-shape::before,
+  .tune-bubble-shape::after,
   .tune-bubble-chevron,
   .mode-switch-cap {
     transition-duration: 1ms;

@@ -8,7 +8,7 @@ const STORAGE_KEY = "paletcam.footerLab";
 
 export const FOOTER_LAB_OPTIONS = Object.freeze({
   shutter: Object.freeze(["titanium", "flat", "logo"]),
-  count: Object.freeze(["dial", "numbered", "adj", "drum"]),
+  count: Object.freeze(["dial", "numbered", "adj", "drum", "shutter"]),
   panel: Object.freeze(["arc", "thin", "rails", "drums"]),
 });
 
