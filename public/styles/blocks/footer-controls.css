@@ -233,9 +233,71 @@ body.is-ral-mode .count-dial-index {
   opacity: 1;
 }
 
-/* ── Shutter slide: the count shows in the shutter's center while sliding ── */
+/* ── Shutter slide: a bezel of color dots around the shutter, and the count
+   in its center while sliding. The groove and dots draw outside the
+   button's 72px box, so the footer keeps its height. ── */
 body[data-footer-count="shutter"] .btn-capture {
   touch-action: none;
+}
+
+.shutter-bezel {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.shutter-bezel::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle closest-side,
+    transparent 40px,
+    var(--color-surface-shell) 41px,
+    var(--color-surface-raised) 47px,
+    var(--color-surface-shell) 48px
+  );
+  pointer-events: none;
+}
+
+.shutter-dots {
+  position: absolute;
+  inset: -12px;
+  transition: transform var(--duration-settle) var(--easing-spring);
+  pointer-events: none;
+}
+
+body.is-ral-mode .shutter-dots {
+  visibility: hidden;
+}
+
+.shutter-bezel.is-dragging .shutter-dots {
+  transition: none;
+}
+
+/* The spring on transform is the bounce: a count change moves every lit dot
+   to its new place on the circle, and the new or leaving dot rises or sinks. */
+.shutter-dots i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background-color: var(--color-border-strong);
+  box-shadow: 0 0 0 1px var(--color-surface-shell);
+  transform: rotate(var(--dot-angle)) translateY(-44px);
+  transition:
+    transform 0.3s var(--easing-spring),
+    opacity var(--duration-fast) var(--easing-standard),
+    background-color 0.3s var(--easing-standard);
+}
+
+.shutter-dots i.is-off {
+  opacity: 0;
+  transform: rotate(var(--dot-angle)) translateY(-37px);
 }
 
 .shutter-count {
@@ -245,20 +307,20 @@ body[data-footer-count="shutter"] .btn-capture {
   z-index: 2;
   display: grid;
   place-items: center;
-  width: var(--space-32);
-  height: var(--space-32);
-  margin: calc(-1 * var(--space-16));
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: -1.25rem;
   border-radius: 50%;
   background-color: var(--color-surface-overlay);
   color: var(--color-accent-soft);
-  font: 600 var(--font-size-base) / 1 var(--font-family-mono);
+  font: 600 var(--font-size-lg) / 1 var(--font-family-mono);
   font-variant-numeric: tabular-nums;
   opacity: 0;
   transition: opacity 0.15s var(--easing-standard);
   pointer-events: none;
 }
 
-.btn-capture.is-sliding .shutter-count {
+.shutter-bezel.is-sliding .shutter-count {
   opacity: 1;
 }
 
@@ -441,6 +503,8 @@ body:not([data-footer-count="drum"]) .camera-actions > .count-dial {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .shutter-dots,
+  .shutter-dots i,
   .count-dial-ring,
   .adj-lever,
   .iris-blades path {

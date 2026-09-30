@@ -10,6 +10,8 @@ const BOUNDARY_FEEDBACK_PX = 6;
 const DIAL_STEP_DEG = 40;
 /** How long the number stays in the dial's center after a turn. */
 const DIAL_VALUE_HOLD_MS = 700;
+/** Shutter bezel: how far the dots follow the finger between detents. */
+const BEZEL_TILT_DEG = 24;
 /** ADJ lever: push past this to step once; hold to repeat. */
 const LEVER_TRIGGER_PX = 16;
 const LEVER_REARM_PX = 6;
@@ -52,6 +54,7 @@ function releasePointer(element, pointerId) {
  * @typedef {object} CountControl
  * @property {(value: number) => void} sync
  * @property {() => void} destroy
+ * @property {(colors: { r: number, g: number, b: number }[]) => void} [setColors]
  */
 
 /**
@@ -355,6 +358,10 @@ export function createAdjLeverUi({ host, min, max, value, onChange }) {
  * Swipe up or down and the tuning tray takes the finger. The first direction
  * the finger moves decides; a tap still catches.
  *
+ * A bezel around the shutter holds one dot per color, painted in the live
+ * palette. The dots tilt with the finger between detents and respread on a
+ * spring when the count changes.
+ *
  * @param {CountControlOptions & {
  *   button: HTMLElement | null,
  *   onVerticalDrag: (event: PointerEvent, startY: number) => void,
@@ -362,17 +369,26 @@ export function createAdjLeverUi({ host, min, max, value, onChange }) {
  * @returns {CountControl}
  */
 export function createShutterSlideUi({ button, min, max, value, onChange, onVerticalDrag }) {
-  const host = button?.parentElement;
-  if (!button || !host) {
+  if (!button?.parentElement) {
     return { sync() {}, destroy() {} };
   }
 
+  const bezel = document.createElement("div");
+  bezel.className = "shutter-bezel";
+  const ring = document.createElement("span");
+  ring.className = "shutter-dots";
+  ring.setAttribute("aria-hidden", "true");
+  const dots = Array.from({ length: max }, () => ring.appendChild(document.createElement("i")));
   const readout = document.createElement("span");
   readout.className = "shutter-count";
   readout.setAttribute("aria-hidden", "true");
+  button.before(bezel);
+  bezel.append(button, ring);
   button.append(readout);
 
   let current = clamp(value, min, max);
+  /** @type {{ r: number, g: number, b: number }[]} */
+  let colors = [];
   let gesture = null;
   let hideTimer = 0;
   // Set once the finger travels, cleared on the next press: a drag never catches.
@@ -380,6 +396,16 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
 
   function paint() {
     readout.textContent = String(current);
+    dots.forEach((dot, index) => {
+      const on = index < current;
+      dot.classList.toggle("is-off", !on);
+      // Lit dots share the circle; unlit ones wait at their place among `max`.
+      dot.style.setProperty("--dot-angle", `${(360 / (on ? current : max)) * index}deg`);
+      const color = colors[index];
+      if (color) {
+        dot.style.backgroundColor = `rgb(${color.r} ${color.g} ${color.b})`;
+      }
+    });
   }
 
   function handlePointerDown(event) {
@@ -418,7 +444,7 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
       gesture.sliding = true;
       capturePointer(button, event.pointerId);
       window.clearTimeout(hideTimer);
-      button.classList.add("is-sliding");
+      bezel.classList.add("is-sliding", "is-dragging");
     }
 
     const raw = gesture.start + dx / DETENT_PX;
@@ -439,6 +465,8 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
       paint();
       onChange(current);
     }
+    const tilt = clamp(raw - current, -0.6, 0.6) * BEZEL_TILT_DEG;
+    ring.style.transform = `rotate(${tilt.toFixed(1)}deg)`;
   }
 
   function handlePointerEnd(event) {
@@ -449,14 +477,13 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
     gesture = null;
     releasePointer(button, event.pointerId);
     if (sliding) {
-      hideTimer = window.setTimeout(
-        () => button.classList.remove("is-sliding"),
-        DIAL_VALUE_HOLD_MS,
-      );
+      ring.style.transform = "";
+      bezel.classList.remove("is-dragging");
+      hideTimer = window.setTimeout(() => bezel.classList.remove("is-sliding"), DIAL_VALUE_HOLD_MS);
     }
   }
 
-  // On the parent, in the capture phase, so it runs before the button's own click.
+  // On the bezel, in the capture phase, so it runs before the button's own click.
   function handleClickCapture(event) {
     if (blockClick && event.target instanceof Node && button.contains(event.target)) {
       event.preventDefault();
@@ -468,12 +495,16 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
   button.addEventListener("pointermove", handlePointerMove);
   button.addEventListener("pointerup", handlePointerEnd);
   button.addEventListener("pointercancel", handlePointerEnd);
-  host.addEventListener("click", handleClickCapture, true);
+  bezel.addEventListener("click", handleClickCapture, true);
   paint();
 
   return {
     sync(nextValue) {
       current = clamp(nextValue, min, max);
+      paint();
+    },
+    setColors(nextColors) {
+      colors = nextColors;
       paint();
     },
     destroy() {
@@ -482,9 +513,9 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
       button.removeEventListener("pointermove", handlePointerMove);
       button.removeEventListener("pointerup", handlePointerEnd);
       button.removeEventListener("pointercancel", handlePointerEnd);
-      host.removeEventListener("click", handleClickCapture, true);
-      button.classList.remove("is-sliding");
       readout.remove();
+      bezel.before(button);
+      bezel.remove();
     },
   };
 }

@@ -474,6 +474,7 @@ livePreviewController = createLivePreviewController({
   shouldUseCanvasPreview,
   onPaletteChange: (colors) => {
     irisShutter.setColors(colors);
+    countControl?.setColors?.(colors);
     paintPinDots(colors);
   },
 });
