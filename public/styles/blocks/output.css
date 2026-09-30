@@ -52,6 +52,19 @@
   line-height: 1.2;
 }
 
+/* Last-catch thumbnail: the caught palette's stripes cover the photo, which
+   stays underneath to take the tap and to show or hide the whole thumbnail. */
+.mini-output .output-palette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mini-output .output-img[hidden] + .output-palette,
+.mini-output .output-empty-hint {
+  display: none;
+}
+
 .counter {
   box-shadow:
     0 2px 0 var(--color-accent-depth),

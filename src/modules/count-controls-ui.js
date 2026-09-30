@@ -57,19 +57,20 @@ function releasePointer(element, pointerId) {
 /**
  * Rear dial wrapped around the catches button, after the rear dial and center
  * button of a camera body. Turn the ring for colors; a tap still reaches the
- * button in the center. The ring shows ticks only, and the number appears in
- * the center while turning.
+ * button in the center. By default the ring shows ticks only, and the number
+ * appears in the center while turning. `numbered` engraves the counts on the
+ * ring instead, read against the index.
  *
- * @param {CountControlOptions & { button: HTMLElement | null }} options
+ * @param {CountControlOptions & { button: HTMLElement | null, numbered?: boolean }} options
  * @returns {CountControl}
  */
-export function createCountDialUi({ button, min, max, value, onChange }) {
+export function createCountDialUi({ button, min, max, value, onChange, numbered = false }) {
   if (!button?.parentElement) {
     return { sync() {}, destroy() {} };
   }
 
   const dial = document.createElement("div");
-  dial.className = "count-dial";
+  dial.className = numbered ? "count-dial is-numbered" : "count-dial";
   dial.setAttribute("role", "group");
   dial.innerHTML =
     '<span class="count-dial-index" aria-hidden="true"></span><span class="count-dial-ring" aria-hidden="true"><span class="count-dial-face"></span></span><span class="count-dial-value" aria-hidden="true"></span>';
@@ -77,7 +78,8 @@ export function createCountDialUi({ button, min, max, value, onChange }) {
   const face = /** @type {HTMLElement} */ (dial.querySelector(".count-dial-face"));
   const valueLabel = /** @type {HTMLElement} */ (dial.querySelector(".count-dial-value"));
   for (let tickValue = min; tickValue <= max; tickValue++) {
-    const tick = document.createElement("i");
+    const tick = document.createElement(numbered ? "b" : "i");
+    tick.textContent = numbered ? String(tickValue) : "";
     tick.style.setProperty("--tick-angle", `${-(tickValue - min) * DIAL_STEP_DEG}deg`);
     face.append(tick);
   }

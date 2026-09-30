@@ -1,24 +1,10 @@
-/* Footer hardware: tune lever (top left), ADJ lever (top right), rear count
-   dial around the catches button, iris shutter face, and the palette flight
-   into the thumbnail. Variants are picked by body[data-footer-count] and
-   body[data-footer-shutter] (see footer-lab.js). */
+/* Footer hardware: ADJ lever (top right), rear count dial around the catches
+   button, iris shutter face, and the palette flight into the thumbnail.
+   Variants are picked by body[data-footer-count] and body[data-footer-shutter]
+   (see footer-lab.js). */
 
-/* ── Levers: a knurled rocker sunk into a slot on the footer's top edge ── */
-.tune-lever-slot,
-.adj-slot {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 3.125rem;
-  height: 1.125rem;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-shell);
-  box-shadow:
-    inset 0 1px 3px rgb(0 0 0 / 95%),
-    0 1px 0 rgb(255 255 255 / 8%);
-}
-
-.tune-lever-knob,
+/* ── ADJ lever: counter window and knurled rocker share one recessed plate on
+   the footer's top right edge ── */
 .adj-lever {
   width: 2.125rem;
   height: 0.75rem;
@@ -33,48 +19,6 @@
   pointer-events: none;
 }
 
-/* Tune lever: the config toggle, moved from the palette strip to the footer. */
-.tune-lever {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-
-  /* Bigger hit area than the drawn lever, without moving it. */
-  margin: calc(-1 * var(--space-8));
-  padding: var(--space-8);
-  border: 0;
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  appearance: none;
-  touch-action: manipulation;
-  user-select: none;
-}
-
-.tune-lever .btn-config-label {
-  display: none;
-}
-
-.tune-lever:active .tune-lever-knob {
-  transform: translateY(-2px);
-  transition-duration: 0.06s;
-}
-
-.tune-lever.is-active {
-  color: var(--color-accent-soft);
-}
-
-.tune-lever.is-active .tune-lever-slot {
-  box-shadow:
-    inset 0 1px 3px rgb(0 0 0 / 95%),
-    0 0 0 1px var(--color-accent-border);
-}
-
-body.is-ral-mode .config-section {
-  visibility: hidden;
-}
-
-/* ADJ lever: count, top right edge, above the catches button. */
 .adj-control {
   position: absolute;
   top: var(--space-4);
@@ -82,21 +26,29 @@ body.is-ral-mode .config-section {
   z-index: 7;
   display: flex;
   align-items: center;
-  gap: var(--space-8);
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-shell);
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 95%),
+    0 1px 0 rgb(255 255 255 / 8%);
   user-select: none;
+}
+
+/* The ADJ plate sits on the footer's top edge: make room for it. */
+body[data-footer-count="adj"] .btn-containers {
+  padding-top: var(--space-24);
 }
 
 .adj-window {
   display: grid;
   place-items: center;
-  width: 1.25rem;
-  height: 1.125rem;
+  width: 1.5rem;
+  height: 0.875rem;
   overflow: hidden;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface-shell);
-  box-shadow:
-    inset 0 1px 3px rgb(0 0 0 / 90%),
-    0 1px 0 rgb(255 255 255 / 7%);
+
+  /* Hairline between the counter and the rocker, engraved into the plate. */
+  box-shadow: 1px 0 0 rgb(255 255 255 / 7%);
   color: var(--color-accent-soft);
   font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
   font-variant-numeric: tabular-nums;
@@ -115,6 +67,11 @@ body.is-ral-mode .config-section {
 }
 
 .adj-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 0.875rem;
   cursor: ew-resize;
   touch-action: none;
 }
@@ -230,6 +187,27 @@ body.is-ral-mode .count-dial-index {
   background-color: var(--color-accent-soft);
 }
 
+/* Numbered face: the counts are engraved on the ring and read against the
+   index, so the center keeps its icon while turning. */
+.count-dial.is-numbered .count-dial-face::before {
+  content: none;
+}
+
+.count-dial-face b {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: var(--color-text-muted);
+  font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  transform: translate(-50%, -50%) rotate(var(--tick-angle)) translateY(-1.8rem);
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+
+.count-dial-face b.is-on {
+  color: var(--color-accent-soft);
+}
+
 .btn-containers .count-dial .btn-view-collection {
   position: relative;
   z-index: 1;
@@ -240,7 +218,7 @@ body.is-ral-mode .count-dial-index {
   transition: opacity 0.15s var(--easing-standard);
 }
 
-.count-dial.is-turning .camera-action-icon {
+.count-dial.is-turning:not(.is-numbered) .camera-action-icon {
   opacity: 0;
 }
 
@@ -258,38 +236,38 @@ body.is-ral-mode .count-dial-index {
   pointer-events: none;
 }
 
-.count-dial.is-turning .count-dial-value {
+.count-dial.is-turning:not(.is-numbered) .count-dial-value {
   opacity: 1;
 }
 
 /* ── Footer row for the dial and ADJ variants: shutter truly centered ── */
-body:is([data-footer-count="dial"], [data-footer-count="adj"]) .btn-containers {
+body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer-count="adj"]) .btn-containers {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
 }
 
-body:is([data-footer-count="dial"], [data-footer-count="adj"]) .camera-actions {
+body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer-count="adj"]) .camera-actions {
   display: contents;
 }
 
-body:is([data-footer-count="dial"], [data-footer-count="adj"]) .swatch-count-control {
+body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer-count="adj"]) .swatch-count-control {
   display: none;
 }
 
-body:is([data-footer-count="dial"], [data-footer-count="adj"]).is-preview-expanded
+body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer-count="adj"]).is-preview-expanded
   .camera-preview-dock {
   position: absolute;
 }
 
-body:is([data-footer-count="dial"], [data-footer-count="adj"]) .btn-containers .btn-capture {
+body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer-count="adj"]) .btn-containers .btn-capture {
   justify-self: center;
   margin: 0;
 }
 
 /* Direct children only: inside the dial the button must stay centered. */
-body:is([data-footer-count="dial"], [data-footer-count="adj"]) .camera-actions > .btn-view-collection,
-body:is([data-footer-count="dial"], [data-footer-count="adj"]) .camera-actions > .count-dial {
+body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer-count="adj"]) .camera-actions > .btn-view-collection,
+body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer-count="adj"]) .camera-actions > .count-dial {
   justify-self: end;
 }
 
@@ -400,7 +378,6 @@ body:is([data-footer-count="dial"], [data-footer-count="adj"]) .camera-actions >
 
 @media (prefers-reduced-motion: reduce) {
   .count-dial-ring,
-  .tune-lever-knob,
   .adj-lever,
   .iris-blades path {
     transition-duration: 1ms;

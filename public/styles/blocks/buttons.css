@@ -3,9 +3,7 @@
   width: 100%;
   display: flex;
   align-items: center;
-
-  /* The top padding leaves room for the levers on the footer's top edge. */
-  padding: var(--space-24) var(--space-control-gap) var(--space-16);
+  padding: var(--space-16) var(--space-control-gap);
   flex-shrink: 0;
   background-image:
     var(--gradient-surface-sheen),
@@ -307,12 +305,13 @@
   min-height: 44px;
 }
 
-/* Tune lever: top-left edge of the footer, mirroring the ADJ lever on the
-   right. Styled in footer-controls.css. */
+/* Floats over the palette strip's bottom-right corner (inside
+   .capture-palette-stage), under the config drawer that opens above it;
+   hides with the strip in RAL mode. */
 .config-section {
   position: absolute;
-  top: var(--space-4);
-  left: var(--space-16);
+  right: var(--space-8);
+  bottom: var(--space-8);
   z-index: 7;
   display: flex;
 }

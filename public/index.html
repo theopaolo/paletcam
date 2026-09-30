@@ -77,6 +77,17 @@
             id="paletteLockOverlay"
             aria-hidden="true"
           ></div>
+          <section class="config-section">
+            <button
+              class="btn-overlay-control btn-config"
+              type="button"
+              aria-label="Ouvrir la configuration"
+              data-i18n-aria-label="capture.configOpen"
+            >
+              <span class="btn-config-icon" aria-hidden="true"></span>
+              <span class="btn-config-label" data-i18n="capture.configLabel">Config</span>
+            </button>
+          </section>
         </div>
 
         <config-panel></config-panel>
@@ -485,19 +496,6 @@
 
     <!-- Btn containers -->
     <div class="btn-containers">
-      <section class="config-section">
-        <button
-          class="btn-config tune-lever"
-          type="button"
-          aria-label="Ouvrir la configuration"
-          data-i18n-aria-label="capture.configOpen"
-        >
-          <span class="tune-lever-slot" aria-hidden="true"><span class="tune-lever-knob"></span></span>
-          <span class="btn-config-icon" aria-hidden="true"></span>
-          <span class="btn-config-label" data-i18n="capture.configLabel">Config</span>
-        </button>
-      </section>
-
       <div class="camera-preview-dock" id="cameraPreviewDock">
         <video
           class="camera-feed"
@@ -519,7 +517,7 @@
 
       <div class="mini-output">
         <img class="output-img" id="photo" aria-hidden="true" hidden />
-        <!-- <div class="output-palette" id="outputPalette"></div> -->
+        <div class="output-palette" id="outputPalette" aria-hidden="true"></div>
       </div>
 
       <div class="swatch-count-control">

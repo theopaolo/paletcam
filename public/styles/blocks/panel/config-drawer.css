@@ -11,9 +11,8 @@ config-panel {
   left: var(--space-8);
   right: var(--space-8);
 
-  /* The tune lever lives in the footer, so the drawer sits on the strip's
-     bottom edge. */
-  bottom: var(--space-8);
+  /* Clears the tune/close chip floating at the strip's bottom-right. */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
   display: grid;
   gap: var(--space-control-padding);
   max-height: calc(100% - 4rem);

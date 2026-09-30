@@ -143,7 +143,8 @@ const FOOTER_LAB_ROWS = Object.freeze([
     key: "count",
     label: "Count",
     options: [
-      ["dial", "Dial"],
+      ["dial", "Ticks"],
+      ["numbered", "Numbers"],
       ["adj", "ADJ"],
       ["drum", "Drum"],
     ],

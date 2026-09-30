@@ -209,8 +209,12 @@ function applyFooterLab({ shutter, count }) {
     value: swatchCount,
     onChange: handleCountControlChange,
   };
-  if (count === "dial") {
-    countControl = createCountDialUi({ ...countOptions, button: viewCollectionButton });
+  if (count === "dial" || count === "numbered") {
+    countControl = createCountDialUi({
+      ...countOptions,
+      button: viewCollectionButton,
+      numbered: count === "numbered",
+    });
   } else if (count === "adj") {
     countControl = createAdjLeverUi({ ...countOptions, host: footerControls });
   }
