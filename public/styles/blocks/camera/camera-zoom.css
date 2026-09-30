@@ -85,15 +85,24 @@
   gap: var(--space-4);
   width: min(78vw, 11rem);
   padding: var(--space-4) 2px var(--space-24);
-  opacity: 1;
+
+  /* At rest the feed shows only the readout, and only while zoomed away from
+     1x; a pinch or a drag on the readout brings the whole scrubber up. */
+  opacity: 0;
   transform: none;
   transition:
     opacity var(--duration-fast) var(--easing-standard),
     transform var(--duration-fast) var(--easing-standard);
-  pointer-events: auto;
+  pointer-events: none;
   touch-action: none;
   user-select: none;
   cursor: ew-resize;
+}
+
+.camera-zoom-layer.is-zoomed .camera-zoom-scrubber,
+.camera-zoom-dock.is-scrubbing .camera-zoom-scrubber {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .camera-zoom-scrubber.is-active {
@@ -147,6 +156,18 @@
   width: 100%;
   height: var(--space-16);
   overflow: visible;
+
+  /* The ruler only shows while a finger drives the zoom, then fades. */
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+
+.camera-zoom-dock.is-scrubbing .camera-zoom-ruler {
+  opacity: 1;
+  transform: none;
 }
 
 .camera-zoom-ruler::before,

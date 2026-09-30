@@ -25,9 +25,6 @@ function getConfigDom(root) {
     neutralBalanceInputs: /** @type {HTMLInputElement[]} */ ([
       ...root.querySelectorAll(".config-drawer-neutral-input"),
     ]),
-    originBadgesToggle: /** @type {HTMLInputElement | null} */ (
-      queryById(root, "configOriginBadgesToggle")
-    ),
     redoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configRedoButton")),
     resetButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configResetButton")),
     undoButton: /** @type {HTMLButtonElement | null} */ (queryById(root, "configUndoButton")),
@@ -101,8 +98,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
   }
 
   function syncDrawerState() {
+    // The tray's clip hides the closed drawer, so it keeps its layout and
+    // slides shut with its content; inert keeps it out of reach meanwhile.
     if (dom.drawer) {
-      dom.drawer.hidden = !isDrawerOpen;
+      dom.drawer.inert = !isDrawerOpen;
       dom.drawer.setAttribute("aria-hidden", String(!isDrawerOpen));
     }
 
@@ -144,33 +143,10 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     }
   }
 
-  function syncOriginBadgesToggle(settings) {
-    if (!dom.originBadgesToggle) {
-      return;
-    }
-
-    dom.originBadgesToggle.checked = Boolean(settings.originBadgesEnabled);
-  }
-
   function syncNeutralBalance(settings) {
     dom.neutralBalanceInputs.forEach((input) => {
       input.checked = input.value === settings.hybrid.neutralBalance;
     });
-  }
-
-  function syncDrawerAvailability(settings) {
-    const isRalMode = settings.captureMode === "ral";
-    if (toggleSection) {
-      toggleSection.hidden = isRalMode;
-    }
-
-    if (toggleButton) {
-      toggleButton.hidden = isRalMode;
-    }
-
-    if (isRalMode) {
-      setDrawerOpen(false);
-    }
   }
 
   function applyAlgorithmSettings(mutator) {
@@ -272,8 +248,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
       control.renderFromSettings(settings);
     });
     syncNeutralBalance(settings);
-    syncOriginBadgesToggle(settings);
-    syncDrawerAvailability(settings);
     syncConfigToggleButton();
     syncHistoryButtons();
   }
@@ -307,15 +281,6 @@ export function mountConfigPanel({ root, toggleButton, toggleSection }) {
     setDrawerOpen(false);
   });
 
-  on(dom.originBadgesToggle, "change", () => {
-    if (!dom.originBadgesToggle) {
-      return;
-    }
-
-    updateAppSettings({
-      originBadgesEnabled: dom.originBadgesToggle.checked,
-    });
-  });
   rangeControls.forEach(bindSliderControl);
   dom.neutralBalanceInputs.forEach((input) => {
     on(input, "change", () => {

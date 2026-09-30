@@ -12,6 +12,7 @@ import { createSwatchCountDrumUiController } from "./modules/swatch-count-drum-u
 import { createAdjLeverUi, createCountDialUi } from "./modules/count-controls-ui.js";
 import { getFooterLab, subscribeFooterLab } from "./modules/footer-lab.js";
 import { createIrisShutter } from "./modules/iris-shutter.js";
+import { bindTuneBubble } from "./modules/tune-bubble.js";
 import { pressFeedback, shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
@@ -66,16 +67,16 @@ const {
   captureButton,
   captureCameraStage,
   captureContainer,
-  captureModeSection,
-  captureModeToggle,
   capturePaletteStage,
-  configPanel,
   frameCanvas,
+  gridKey,
+  modeSwitch,
   outputPalette,
   paletteCanvas,
   paletteLockOverlay,
   paletteOriginsOverlay,
   photoOutput,
+  pinsKey,
   ralLiveSwatch,
   ralLiveSwatchCode,
   ralLiveSwatchColor,
@@ -85,6 +86,7 @@ const {
   rotateButton,
   swatchCountControl,
   swatchCountDrum,
+  tuneTray,
   viewCollectionButton,
 } = appView;
 const paletteCaptureStage = capturePaletteStage;
@@ -116,6 +118,7 @@ let hybridSettings = { ...getAppSettings().hybrid };
 let lastCameraViewportLayout = null;
 let unsubscribeFromAppSettings = () => {};
 let unsubscribeFromFooterLab = () => {};
+let unbindTuneBubble = () => {};
 let unsubscribeFromDatabaseLifecycle = () => {};
 let destroyCommunityHomepageLink = () => {};
 let cancelDeferredDeleteOutboxInitialization = () => {};
@@ -291,16 +294,8 @@ function syncCaptureMode(mode) {
   const isRal = mode === "ral";
   currentCaptureMode = mode;
 
-  if (captureModeToggle) {
-    captureModeToggle.textContent =
-      mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral");
-    captureModeToggle.dataset.captureMode = mode;
-    captureModeToggle.setAttribute(
-      "aria-label",
-      t("capture.mode.toggleAria", {
-        mode: mode === "ral" ? t("capture.mode.palette") : t("capture.mode.ral"),
-      }),
-    );
+  for (const option of modeSwitch?.querySelectorAll("[data-capture-mode]") ?? []) {
+    option.setAttribute("aria-pressed", String(option.getAttribute("data-capture-mode") === mode));
   }
 
   // Toggle camera UI elements
@@ -336,6 +331,7 @@ function applyAppSettings({
 
   oneMoreColor = Boolean(nextOneMoreColor);
   originBadgesEnabled = Boolean(nextOriginBadgesEnabled);
+  pinsKey?.setAttribute("aria-pressed", String(originBadgesEnabled));
   performanceHud.setEnabled(performanceHudEnabled);
   medianCutExtractionSettings = { ...medianCut };
   hybridSettings = { ...hybrid };
@@ -343,10 +339,30 @@ function applyAppSettings({
   syncCaptureMode(captureMode);
 }
 
-bindManagedEventListener(captureModeToggle, "click", () => {
-  const nextMode = currentCaptureMode === "ral" ? "palette" : "ral";
-  updateAppSettings({ captureMode: nextMode });
+bindManagedEventListener(modeSwitch, "click", (event) => {
+  const nextMode =
+    event.target instanceof Element
+      ? event.target.closest("[data-capture-mode]")?.getAttribute("data-capture-mode")
+      : null;
+  if (nextMode && nextMode !== currentCaptureMode) {
+    updateAppSettings({ captureMode: nextMode });
+  }
 });
+
+bindManagedEventListener(pinsKey, "click", () => {
+  updateAppSettings({ originBadgesEnabled: !originBadgesEnabled });
+});
+
+/** The Pins key previews its markers in the live palette's first two colors. */
+function paintPinDots(colors) {
+  const dots = pinsKey?.querySelectorAll(".pin-dots b") ?? [];
+  dots.forEach((dot, index) => {
+    const color = colors[index];
+    if (dot instanceof HTMLElement && color) {
+      dot.style.backgroundColor = `rgb(${Math.round(color.r)} ${Math.round(color.g)} ${Math.round(color.b)})`;
+    }
+  });
+}
 
 function mountCameraFeed(targetElement) {
   if (!cameraPreviewSurface || !targetElement) {
@@ -446,7 +462,10 @@ livePreviewController = createLivePreviewController({
   getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
   getSwatchCount: () => swatchCount,
   shouldUseCanvasPreview,
-  onPaletteChange: (colors) => irisShutter.setColors(colors),
+  onPaletteChange: (colors) => {
+    irisShutter.setColors(colors);
+    paintPinDots(colors);
+  },
 });
 
 captureController = createCaptureController({
@@ -476,21 +495,13 @@ exposureUi = createExposureUiController({
 
 gridUi = createCameraGridUiController({
   overlayHost: cameraViewportFrame,
+  toggleButton: gridKey,
 });
 
 const panelCameraUi = createPanelCameraUiController({
-  cameraFeed,
-  configPanel,
   zoomUi,
   exposureUi,
-  gridUi,
 });
-
-// The capture-mode toggle overlays the live preview like the grid/quality/EV
-// controls, so it moves into the viewport frame alongside them.
-if (captureModeSection) {
-  cameraViewportFrame.appendChild(captureModeSection);
-}
 
 cameraLifecycleController = createCameraLifecycleController({
   cameraFeed,
@@ -642,6 +653,7 @@ function initializeApp() {
   zoomUi.initialize();
   exposureUi.initialize();
   gridUi.initialize();
+  unbindTuneBubble = bindTuneBubble({ bubble: tuneTray?.querySelector(".tune-bubble") ?? null });
   swatchCountDrumUi.initialize(swatchCount);
   applyFooterLab(getFooterLab());
   unsubscribeFromFooterLab = subscribeFooterLab(applyFooterLab);
@@ -696,6 +708,7 @@ function bindCaptureEvents() {
   };
   bindManagedEventListener(captureContainer, "pointerdown", handleButtonPress);
   bindManagedEventListener(footerControls, "pointerdown", handleButtonPress);
+  bindManagedEventListener(tuneTray, "pointerdown", handleButtonPress);
   // Tapping the preview meters the exposure there (see exposure-ui.js), so
   // pinning a colour is done from the palette strip below instead.
   bindManagedEventListener(paletteCanvas, "pointerdown", (event) => {
@@ -758,6 +771,7 @@ function destroyApp() {
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   gridUi?.destroy?.();
+  unbindTuneBubble();
   panelCameraUi.destroy();
   collectionEntryController.destroy();
   cameraController.destroy?.();

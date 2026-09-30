@@ -48,7 +48,10 @@ body {
 
 .capture {
   display: grid;
-  grid-template-rows: auto 1fr;
+
+  /* The camera keeps its 4:3 height until the palette is down to 5rem (the
+     tuning tray pushes both up); past that the camera gives up height too. */
+  grid-template-rows: minmax(0, auto) minmax(5rem, 1fr);
   position: relative;
   width: 100%;
   flex: 1;
@@ -93,6 +96,9 @@ body {
 
 .camera-feed-frame {
   position: relative;
+
+  /* Two fingers on the preview zoom the camera (zoom-ui.js), not the page. */
+  touch-action: none;
   width: 100%;
   height: 100%;
   max-width: 100%;

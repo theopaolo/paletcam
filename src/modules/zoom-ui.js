@@ -3,6 +3,12 @@ import { clampValue, createScrubberValue } from "./camera-scrubber-value.js";
 
 const DEFAULT_ZOOM_STEP = 0.1;
 const ACTIVE_FEEDBACK_HIDE_DELAY_MS = 240;
+/** After a pinch the ruler lingers this long, so the landing value can be read. */
+const PINCH_RULER_HOLD_MS = 900;
+/** A press on the readout that moves less than this is a tap: next preset. */
+const READOUT_TAP_SLOP_PX = 4;
+/** Zoom farther than this from 1x keeps the readout on the feed at rest. */
+const ZOOMED_EPSILON = 0.05;
 const SCRUB_RANGE_PX = 220;
 const CANONICAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5];
 
@@ -30,6 +36,10 @@ function formatZoomReadout(value) {
 }
 
 /**
+ * Zoom: pinch the preview with two fingers, or drag the readout sideways. At
+ * rest the feed shows only the readout, and only while zoomed away from 1x; the
+ * ruler appears while a finger drives the zoom and lingers briefly after.
+ *
  * @param {object} [options]
  * @param {CameraController | null} [options.cameraController]
  * @param {HTMLElement | null} [options.overlayHost]
@@ -83,6 +93,9 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   let activeFeedbackTimeoutId = 0;
   let gestureStartClientX = 0;
   let gestureStartZoom = 1;
+  /** Touches on the preview, tracked to detect and drive a pinch. */
+  const touchPoints = new Map();
+  let pinch = null;
   const unsubscribeLocaleChange = subscribeLocaleChange(() => {
     scrubber.setAttribute("aria-label", t("camera.zoom.label"));
     updateScrubberA11y(zoomValue.value);
@@ -96,6 +109,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     applyToCamera: (nextZoom) => cameraController?.applyZoom?.(nextZoom),
     onDisplay: (nextZoom) => {
       readout.textContent = formatZoomReadout(nextZoom);
+      overlayLayer.classList.toggle("is-zoomed", Math.abs(nextZoom - 1) > ZOOMED_EPSILON);
       updateScrubberProgress(nextZoom);
     },
   });
@@ -130,7 +144,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     scrubber.classList.toggle("is-active", shouldShowActiveState);
   }
 
-  function pulseScrubberActive() {
+  function pulseScrubberActive(holdMs = ACTIVE_FEEDBACK_HIDE_DELAY_MS) {
     if (!isEnabled || activePointerId !== null) {
       return;
     }
@@ -140,7 +154,7 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     activeFeedbackTimeoutId = window.setTimeout(() => {
       activeFeedbackTimeoutId = 0;
       setScrubberActive(false);
-    }, ACTIVE_FEEDBACK_HIDE_DELAY_MS);
+    }, holdMs);
   }
 
   function buildPresetValues() {
@@ -253,7 +267,79 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
   }
 
   function handlePointerUp(event) {
+    const isTap =
+      event.pointerId === activePointerId &&
+      Math.abs(event.clientX - gestureStartClientX) < READOUT_TAP_SLOP_PX;
     finishGesture(event.pointerId);
+    if (isTap && hasCapabilities) {
+      stepToNextPreset();
+    }
+  }
+
+  /** A tap on the readout jumps to the next preset, wrapping to the widest. */
+  function stepToNextPreset() {
+    const tolerance = getSelectionTolerance() / 2;
+    const nextZoom =
+      presetValues.find((presetValue) => presetValue > zoomValue.value + tolerance) ??
+      presetValues[0];
+    if (nextZoom === undefined) {
+      return;
+    }
+    pulseScrubberActive(PINCH_RULER_HOLD_MS);
+    void zoomValue.apply(nextZoom);
+  }
+
+  function getTouchSpread() {
+    const [first, second] = [...touchPoints.values()];
+    return Math.hypot(first.x - second.x, first.y - second.y);
+  }
+
+  /* Pinch listeners sit on the whole preview, so they also see the touches the
+     metering layer captures (exposure-ui.js hands off on the second finger). */
+  function handlePreviewPointerDown(event) {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+
+    touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touchPoints.size !== 2 || !isEnabled || !hasCapabilities) {
+      return;
+    }
+
+    pinch = { spread: Math.max(1, getTouchSpread()), zoom: zoomValue.value };
+    clearActiveFeedbackTimer();
+    setScrubberActive(true);
+  }
+
+  function handlePreviewPointerMove(event) {
+    const point = touchPoints.get(event.pointerId);
+    if (!point) {
+      return;
+    }
+
+    point.x = event.clientX;
+    point.y = event.clientY;
+    if (!pinch || touchPoints.size < 2) {
+      return;
+    }
+
+    void zoomValue.apply(pinch.zoom * (getTouchSpread() / pinch.spread));
+    event.preventDefault();
+  }
+
+  function handlePreviewPointerEnd(event) {
+    if (!touchPoints.delete(event.pointerId) || !pinch || touchPoints.size >= 2) {
+      return;
+    }
+
+    pinch = null;
+    setScrubberActive(false);
+    pulseScrubberActive(PINCH_RULER_HOLD_MS);
+  }
+
+  /** iOS Safari fires its own gesture events for a pinch; the page must not zoom. */
+  function handleGestureStart(event) {
+    event.preventDefault();
   }
 
   function handlePointerCancel(event) {
@@ -334,6 +420,11 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
     scrubber.addEventListener("lostpointercapture", handleLostPointerCapture);
     scrubber.addEventListener("wheel", handleWheel, { passive: false });
     scrubber.addEventListener("keydown", handleKeyDown);
+    overlayHost.addEventListener("pointerdown", handlePreviewPointerDown);
+    overlayHost.addEventListener("pointermove", handlePreviewPointerMove);
+    overlayHost.addEventListener("pointerup", handlePreviewPointerEnd);
+    overlayHost.addEventListener("pointercancel", handlePreviewPointerEnd);
+    overlayHost.addEventListener("gesturestart", handleGestureStart);
     isBound = true;
   }
 
@@ -346,6 +437,11 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
       scrubber.removeEventListener("lostpointercapture", handleLostPointerCapture);
       scrubber.removeEventListener("wheel", handleWheel);
       scrubber.removeEventListener("keydown", handleKeyDown);
+      overlayHost.removeEventListener("pointerdown", handlePreviewPointerDown);
+      overlayHost.removeEventListener("pointermove", handlePreviewPointerMove);
+      overlayHost.removeEventListener("pointerup", handlePreviewPointerEnd);
+      overlayHost.removeEventListener("pointercancel", handlePreviewPointerEnd);
+      overlayHost.removeEventListener("gesturestart", handleGestureStart);
       isBound = false;
     }
 
@@ -356,6 +452,8 @@ export function createZoomUiController({ cameraController, overlayHost } = {}) {
 
   function setDisabled() {
     isEnabled = false;
+    touchPoints.clear();
+    pinch = null;
     overlayLayer.hidden = true;
     setScrubberActive(false);
     clearActiveFeedbackTimer();

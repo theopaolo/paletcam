@@ -128,6 +128,49 @@ describe("createZoomUiController", () => {
     expect(scrubber.classList.contains("is-active")).toBe(false);
   });
 
+  test("pinching the preview scales the zoom and keeps the ruler up while it lasts", () => {
+    const overlayHost = new FakeElement("div");
+    const appliedZooms = [];
+    const cameraController = {
+      applyZoom(zoomValue) {
+        appliedZooms.push(zoomValue);
+        return Promise.resolve(true);
+      },
+      getCurrentZoom() {
+        return 1;
+      },
+      getZoomCapabilities() {
+        return { min: 0.5, max: 5, step: 0.1 };
+      },
+    };
+
+    const zoomUi = createZoomUiController({ cameraController, overlayHost });
+    zoomUi.initialize();
+    zoomUi.syncCapabilities();
+    zoomUi.bindEvents();
+
+    const dock = findByClass(overlayHost, "camera-zoom-dock");
+    const layer = findByClass(overlayHost, "camera-zoom-layer");
+    const touch = (type, pointerId, clientX) =>
+      overlayHost.dispatch(type, { clientX, clientY: 100, pointerId, pointerType: "touch" });
+
+    expect(layer.classList.contains("is-zoomed")).toBe(false);
+
+    touch("pointerdown", 1, 100);
+    expect(dock.classList.contains("is-scrubbing")).toBe(false);
+    touch("pointerdown", 2, 200);
+    expect(dock.classList.contains("is-scrubbing")).toBe(true);
+
+    touch("pointermove", 2, 300);
+    expect(appliedZooms.at(-1)).toBe(2);
+    expect(layer.classList.contains("is-zoomed")).toBe(true);
+
+    touch("pointerup", 2, 300);
+    touch("pointermove", 1, 50);
+    expect(appliedZooms).toHaveLength(1);
+    expect(dock.classList.contains("is-scrubbing")).toBe(true);
+  });
+
   test("supports keyboard nudges on the scrubber slider", async () => {
     const overlayHost = new FakeElement("div");
 

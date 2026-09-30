@@ -1,0 +1,254 @@
+/* Tuning tray: a well that opens between the palette and the footer and
+   pushes both up, so the palette stays in view while tuning. The bubble on its
+   top edge is the toggle (tune-bubble.js); the drawer inside is config-panel.
+
+   No tokens cover the hardware finishes here (the sunk well, the raised keys),
+   so their gradients and shadows are written out, like footer-controls.css. */
+
+/* No z-index here: the guide sheet inside must stack above the feed's
+   overlays (the origin pins sit at 9), so only the bubble takes one. */
+.tune-tray {
+  position: relative;
+  flex-shrink: 0;
+  background: #070707;
+  box-shadow:
+    inset 0 10px 12px -10px rgb(0 0 0 / 95%),
+    inset 0 -10px 12px -10px rgb(0 0 0 / 95%);
+}
+
+.tune-tray-clip {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tune-tray:has(config-panel.is-open) .tune-tray-clip {
+  grid-template-rows: 1fr;
+}
+
+.tune-tray-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Bubble: the footer's top edge swelling into a drop above the shutter ── */
+.tune-bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  width: 5rem;
+  height: 1.75rem;
+  margin-left: -2.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tune-bubble-shape {
+  display: block;
+  width: 5rem;
+  height: 1rem;
+  overflow: visible;
+  transform-origin: 50% 100%;
+}
+
+.tune-bubble-fill {
+  fill: var(--color-surface-ink);
+}
+
+.tune-bubble-edge {
+  fill: none;
+  stroke: var(--color-border-subtle);
+  stroke-width: 1;
+}
+
+.tune-bubble-chevron {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform 0.32s var(--easing-spring),
+    stroke var(--duration-fast) var(--easing-standard);
+}
+
+.tune-tray:has(config-panel.is-open) .tune-bubble-chevron {
+  stroke: var(--color-accent-soft);
+  transform: rotate(180deg);
+}
+
+.tune-bubble.is-blooping .tune-bubble-shape {
+  animation: tune-bubble-bloop 0.42s var(--easing-spring);
+}
+
+@keyframes tune-bubble-bloop {
+  30% {
+    transform: scale(0.92, 1.4);
+  }
+
+  65% {
+    transform: scale(1.04, 0.9);
+  }
+}
+
+/* ── Quick row: slide switch and keys ── */
+.tune-quick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--space-16) var(--space-16);
+}
+
+.mode-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 8.5rem;
+  height: 2rem;
+  margin-right: auto;
+  padding: 2px;
+  border-radius: var(--radius-lg);
+  background: #050505;
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 95%),
+    0 1px 0 rgb(255 255 255 / 7%);
+}
+
+.mode-switch-option {
+  position: relative;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font: 600 var(--font-size-sm) / 1 var(--font-family-body);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+
+.mode-switch-option[aria-pressed="true"] {
+  color: var(--color-accent-soft);
+}
+
+/* The raised cap slides under the active side. */
+.mode-switch-cap {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: calc(var(--radius-lg) - 2px);
+  background: linear-gradient(#272727, #171717);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 11%),
+    0 1px 2px rgb(0 0 0 / 85%);
+  transition: transform 0.28s var(--easing-spring);
+}
+
+body.is-ral-mode .mode-switch-cap {
+  transform: translateX(100%);
+}
+
+.tray-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 2rem;
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(#242424, #161616);
+  color: var(--color-text-muted);
+  font: 600 var(--font-size-sm) / 1 var(--font-family-body);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 9%),
+    0 0 0 1px #000,
+    0 2px 0 #000,
+    0 3px 6px rgb(0 0 0 / 55%);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    box-shadow 0.08s ease-out,
+    color var(--duration-fast) var(--easing-standard);
+}
+
+.tray-key[aria-pressed="true"] {
+  color: var(--color-text-primary);
+}
+
+.tray-key:active {
+  transform: translateY(1.5px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 0 0 1px #000,
+    0 0.5px 0 #000,
+    0 1px 2px rgb(0 0 0 / 55%);
+}
+
+.tray-led {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--color-surface-base);
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 80%);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.tray-key[aria-pressed="true"] .tray-led {
+  background-color: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-border);
+}
+
+/* Two pin markers in the live palette's first colors (painted by app.js). */
+.pin-dots {
+  display: inline-flex;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    filter var(--duration-fast) var(--easing-standard);
+}
+
+.pin-dots b {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgb(0 0 0 / 55%);
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  color: var(--color-text-primary);
+  font: 700 var(--font-size-2xs) / 1 var(--font-family-mono);
+  text-shadow: 0 0 2px rgb(0 0 0 / 80%);
+}
+
+.pin-dots b + b {
+  margin-left: -5px;
+  background-color: var(--color-success);
+}
+
+.tray-key[aria-pressed="false"] .pin-dots {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tune-tray-clip,
+  .tune-bubble-chevron,
+  .mode-switch-cap {
+    transition-duration: 1ms;
+  }
+
+  .tune-bubble.is-blooping .tune-bubble-shape {
+    animation: none;
+  }
+}

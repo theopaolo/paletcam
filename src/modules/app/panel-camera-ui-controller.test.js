@@ -1,9 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createPanelCameraUiController } from "./panel-camera-ui-controller.js";
 
-function createDocumentHarness() {
+function createHarness() {
   const listeners = new Map();
-  const videos = [];
   const documentRef = {
     addEventListener(name, listener) {
       listeners.set(name, listener);
@@ -13,127 +12,44 @@ function createDocumentHarness() {
         listeners.delete(name);
       }
     },
-    createElement(name) {
-      expect(name).toBe("video");
-      const video = {
-        parentElement: null,
-        play: mock(async () => {}),
-        remove: mock(() => {
-          video.parentElement = null;
-        }),
-        setAttribute: mock(() => {}),
-        srcObject: null,
-      };
-      videos.push(video);
-      return video;
-    },
-    body: {
-      appendChild(video) {
-        video.parentElement = documentRef.body;
-      },
-    },
   };
-
-  function dispatch(name, isOpen) {
-    listeners.get(name)?.({ detail: { isOpen } });
-  }
-
-  return { dispatch, documentRef, listeners, videos };
-}
-
-function createUiHarness() {
-  return {
-    exposureUi: {
-      setDisabled: mock(() => {}),
-      syncCapabilities: mock(() => {}),
-    },
-    gridUi: {
-      hide: mock(() => {}),
-      show: mock(() => {}),
-    },
-    zoomUi: {
-      setDisabled: mock(() => {}),
-      syncCapabilities: mock(() => {}),
-    },
+  const ui = {
+    exposureUi: { setDisabled: mock(() => {}), syncCapabilities: mock(() => {}) },
+    zoomUi: { setDisabled: mock(() => {}), syncCapabilities: mock(() => {}) },
   };
-}
-
-function createHarness({ innerHeight = 700 } = {}) {
-  const documentHarness = createDocumentHarness();
-  const ui = createUiHarness();
-  const stream = {};
-  const controller = createPanelCameraUiController({
-    cameraFeed: { srcObject: stream },
-    configPanel: {},
-    ...ui,
-    documentRef: documentHarness.documentRef,
-    windowRef: { innerHeight },
-  });
+  const controller = createPanelCameraUiController({ ...ui, documentRef });
   controller.bind();
-  return { controller, documentHarness, stream, ui };
+  const dispatch = (name, isOpen) => listeners.get(name)?.({ detail: { isOpen } });
+  return { controller, dispatch, listeners, ui };
 }
 
 describe("panel camera UI controller", () => {
-  test("owns and releases the compact configuration preview", async () => {
-    const { documentHarness, stream, ui } = createHarness();
+  test("pauses zoom and exposure while the settings drawer covers the preview", () => {
+    const { dispatch, ui } = createHarness();
 
-    documentHarness.dispatch("config-drawer-change", true);
-
-    expect(documentHarness.videos).toHaveLength(1);
-    const [video] = documentHarness.videos;
-    expect(video.srcObject).toBe(stream);
-    expect(video.parentElement).toBe(documentHarness.documentRef.body);
+    dispatch("settings-drawer-change", true);
     expect(ui.zoomUi.setDisabled).toHaveBeenCalledTimes(1);
-    expect(ui.gridUi.hide).toHaveBeenCalledTimes(1);
-    await Promise.resolve();
-    expect(video.play).toHaveBeenCalledTimes(1);
+    expect(ui.exposureUi.setDisabled).toHaveBeenCalledTimes(1);
 
-    documentHarness.dispatch("config-drawer-change", false);
-
-    expect(video.srcObject).toBeNull();
-    expect(video.remove).toHaveBeenCalledTimes(1);
+    dispatch("settings-drawer-change", false);
     expect(ui.zoomUi.syncCapabilities).toHaveBeenCalledTimes(1);
-    expect(ui.gridUi.show).toHaveBeenCalledTimes(1);
+    expect(ui.exposureUi.syncCapabilities).toHaveBeenCalledTimes(1);
   });
 
-  test("keeps controls hidden until every camera-obscuring drawer closes", () => {
-    const { documentHarness, ui } = createHarness();
+  test("ignores the tuning tray, which leaves the preview visible", () => {
+    const { dispatch, ui } = createHarness();
 
-    documentHarness.dispatch("config-drawer-change", true);
-    documentHarness.dispatch("settings-drawer-change", true);
-    documentHarness.dispatch("config-drawer-change", false);
+    dispatch("config-drawer-change", true);
 
-    expect(ui.zoomUi.syncCapabilities).not.toHaveBeenCalled();
-    expect(ui.gridUi.show).not.toHaveBeenCalled();
-
-    documentHarness.dispatch("settings-drawer-change", false);
-
-    expect(ui.zoomUi.syncCapabilities).toHaveBeenCalledTimes(1);
-    expect(ui.gridUi.show).toHaveBeenCalledTimes(1);
+    expect(ui.zoomUi.setDisabled).not.toHaveBeenCalled();
+    expect(ui.exposureUi.setDisabled).not.toHaveBeenCalled();
   });
 
-  test("destroy removes an open preview and all owned listeners", () => {
-    const { controller, documentHarness } = createHarness();
-    documentHarness.dispatch("config-drawer-change", true);
-    const [video] = documentHarness.videos;
+  test("destroy removes its listener", () => {
+    const { controller, listeners } = createHarness();
 
     controller.destroy();
 
-    expect(video.srcObject).toBeNull();
-    expect(video.remove).toHaveBeenCalledTimes(1);
-    expect(documentHarness.listeners.size).toBe(0);
-
-    documentHarness.dispatch("config-drawer-change", true);
-    expect(documentHarness.videos).toHaveLength(1);
-  });
-
-  test("does not create a compact preview on a tall viewport", () => {
-    const { documentHarness, ui } = createHarness({ innerHeight: 900 });
-
-    documentHarness.dispatch("config-drawer-change", true);
-
-    expect(documentHarness.videos).toHaveLength(0);
-    expect(ui.exposureUi.setDisabled).toHaveBeenCalledTimes(1);
-    expect(ui.gridUi.hide).toHaveBeenCalledTimes(1);
+    expect(listeners.size).toBe(0);
   });
 });

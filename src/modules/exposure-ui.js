@@ -159,6 +159,13 @@ export function createExposureUiController({
   }
 
   function handlePointerDown(event) {
+    // A second finger turns the gesture into a pinch: zoom-ui.js takes over.
+    if (activePointerId !== null && event.pointerId !== activePointerId) {
+      activePointerId = null;
+      hideReticle();
+      return;
+    }
+
     if (!canMeter && !canAdjustExposure) {
       return;
     }

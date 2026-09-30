@@ -3,15 +3,14 @@ import { APP_SETTINGS_LIMITS, getDefaultAppSettings } from "../../app-settings.j
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { getFooterLab, setFooterLab, subscribeFooterLab } from "../footer-lab.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
+import { mountTuneArc, TUNE_ICONS } from "./tune-arc.js";
 
 const DEFAULT_ALGORITHM_SETTINGS = getDefaultAppSettings();
 
 const TUNING_FIELDS = Object.freeze([
   Object.freeze({
     controlKey: "analyze",
-    shellId: "configAnalyzeSlider",
     inputId: "configAnalyzeRange",
-    valueId: "configAnalyzeValue",
     min: APP_SETTINGS_LIMITS.medianCut.quantizedPoolSize.min,
     max: APP_SETTINGS_LIMITS.medianCut.quantizedPoolSize.max,
     step: 1,
@@ -19,9 +18,7 @@ const TUNING_FIELDS = Object.freeze([
   }),
   Object.freeze({
     controlKey: "density",
-    shellId: "configDensitySlider",
     inputId: "configDensityRange",
-    valueId: "configDensityValue",
     min: APP_SETTINGS_LIMITS.medianCut.maxQuantizerPixels.min,
     max: APP_SETTINGS_LIMITS.medianCut.maxQuantizerPixels.max,
     step: 1000,
@@ -29,9 +26,7 @@ const TUNING_FIELDS = Object.freeze([
   }),
   Object.freeze({
     controlKey: "tone",
-    shellId: "configToneSlider",
     inputId: "configToneRange",
-    valueId: "configToneValue",
     min: 0,
     max: 100,
     step: 1,
@@ -55,77 +50,53 @@ function formatTuningValue(controlKey, value) {
   return String(Math.round(value));
 }
 
-function renderTuningField({ controlKey, shellId, inputId, valueId, min, max, step, value }) {
-  const formattedValue = formatTuningValue(controlKey, value);
-
+/* The native inputs stay the drawer's model: config-panel-controller.js reads
+   and writes them for settings and history, and the tuning arc drives them. */
+function renderTuningInput({ controlKey, inputId, min, max, step, value }) {
   return html`
-    <div class="panel-form-field">
-      <details class="panel-form-field-header">
-        <summary class="panel-form-label" for=${inputId}>
-          ${t(`config.production.${controlKey}.title`)}
-        </summary>
-        <p class="panel-form-hint">
-          ${t(`config.production.${controlKey}.hint`)}
-        </p>
-      </details>
+    <input
+      id=${inputId}
+      type="range"
+      min=${min}
+      max=${max}
+      value=${value}
+      step=${step}
+      aria-label=${t(`config.production.${controlKey}.aria`, {
+        value: formatTuningValue(controlKey, value),
+      })}
+    />
+  `;
+}
 
-      <output class="config-drawer-value" id=${valueId} for=${inputId}>
-        ${formattedValue}
-      </output>
-
-      <div class="swatch-slider panel-form-quality-slider config-drawer-slider" id=${shellId}>
-        <input
-          id=${inputId}
-          type="range"
-          min=${min}
-          max=${max}
-          value=${value}
-          step=${step}
-          aria-label=${t(`config.production.${controlKey}.aria`, { value: formattedValue })}
-        />
-      </div>
+function renderNeutralBalanceInputs() {
+  return html`
+    <div role="radiogroup" aria-label=${t("config.production.neutralBalance.title")}>
+      ${NEUTRAL_BALANCE_OPTIONS.map(
+        ({ value, id }) => html`
+          <input
+            class="config-drawer-neutral-input"
+            id=${id}
+            type="radio"
+            name="configNeutralBalance"
+            value=${value}
+            aria-label=${t(`config.production.neutralBalance.${value}`)}
+            ?checked=${value === DEFAULT_ALGORITHM_SETTINGS.hybrid.neutralBalance}
+          />
+        `,
+      )}
     </div>
   `;
 }
 
-function renderNeutralBalanceControl() {
-  return html`
-    <div class="panel-form-field config-drawer-neutral-field">
-      <details class="panel-form-field-header">
-        <summary class="panel-form-label" id="configNeutralBalanceLabel">
-          ${t("config.production.neutralBalance.title")}
-        </summary>
-        <p class="panel-form-hint">
-          ${t("config.production.neutralBalance.hint")}
-        </p>
-      </details>
-
-      <div
-        class="config-drawer-neutral-options"
-        role="radiogroup"
-        aria-labelledby="configNeutralBalanceLabel"
-      >
-        ${NEUTRAL_BALANCE_OPTIONS.map(
-          ({ value, id }) => html`
-            <label class="config-drawer-neutral-option" for=${id}>
-              <input
-                class="config-drawer-neutral-input"
-                id=${id}
-                type="radio"
-                name="configNeutralBalance"
-                value=${value}
-                ?checked=${value === DEFAULT_ALGORITHM_SETTINGS.hybrid.neutralBalance}
-              />
-              <span class="config-drawer-neutral-label">
-                ${t(`config.production.neutralBalance.${value}`)}
-              </span>
-            </label>
-          `,
-        )}
-      </div>
-    </div>
-  `;
-}
+const GUIDE_ENTRIES = Object.freeze([
+  ["look", "config.production.neutralBalance.title", "config.production.neutralBalance.hint"],
+  ["analyze", "config.production.analyze.title", "config.production.analyze.hint"],
+  ["density", "config.production.density.title", "config.production.density.hint"],
+  ["tone", "config.production.tone.title", "config.production.tone.hint"],
+  ["pins", "config.pins.checkbox", "config.guide.pins"],
+  ["grid", "capture.grid", "config.guide.grid"],
+  ["ral", "capture.mode.ral", "config.guide.ral"],
+]);
 
 /* Preprod-only switches for the footer variants under test. English only: a
    debug tool, like the performance HUD. */
@@ -181,6 +152,15 @@ function renderFooterLab() {
 }
 
 class ConfigPanel extends LitElement {
+  static properties = {
+    isGuideOpen: { state: true },
+  };
+
+  constructor() {
+    super();
+    this.isGuideOpen = false;
+  }
+
   createRenderRoot() {
     return this;
   }
@@ -189,8 +169,9 @@ class ConfigPanel extends LitElement {
     this.cleanupConfigPanel = mountConfigPanel({
       root: this,
       toggleButton: document.querySelector(".btn-config"),
-      toggleSection: document.querySelector(".config-section"),
+      toggleSection: document.getElementById("tuneTray"),
     });
+    this.cleanupTuneArc = mountTuneArc(this, { formatValue: formatTuningValue });
     this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
       this.requestUpdate();
     });
@@ -202,9 +183,56 @@ class ConfigPanel extends LitElement {
 
   disconnectedCallback() {
     this.cleanupConfigPanel?.();
+    this.cleanupTuneArc?.();
     this.unsubscribeLocaleChange?.();
     this.unsubscribeFooterLab?.();
     super.disconnectedCallback();
+  }
+
+  setGuideOpen(isOpen) {
+    this.isGuideOpen = isOpen;
+  }
+
+  renderGuide() {
+    return html`
+      <div
+        class="tune-guide ${this.isGuideOpen ? "is-open" : ""}"
+        aria-hidden=${String(!this.isGuideOpen)}
+        @click=${(event) => {
+          if (event.target === event.currentTarget) {
+            this.setGuideOpen(false);
+          }
+        }}
+      >
+        <div class="tune-guide-sheet" role="dialog" aria-label=${t("config.guide.title")}>
+          <div class="tune-guide-head">
+            <h2 class="tune-guide-title">${t("config.guide.title")}</h2>
+            <button
+              class="tune-guide-done"
+              type="button"
+              @click=${() => this.setGuideOpen(false)}
+            >
+              ${t("config.guide.done")}
+            </button>
+          </div>
+          <dl class="tune-guide-list">
+            ${GUIDE_ENTRIES.map(
+              ([icon, titleKey, hintKey]) => html`
+                <div class="tune-guide-row">
+                  <span class="tune-guide-icon" aria-hidden="true">${TUNE_ICONS[icon]}</span>
+                  <div>
+                    <dt>${t(titleKey)}</dt>
+                    <dd>${t(hintKey)}</dd>
+                  </div>
+                </div>
+              `,
+            )}
+          </dl>
+          <p class="tune-guide-foot">${t("config.guide.reset")}</p>
+          ${__PALETCAM_DEBUG_TOOLS__ ? renderFooterLab() : ""}
+        </div>
+      </div>
+    `;
   }
 
   render() {
@@ -214,79 +242,38 @@ class ConfigPanel extends LitElement {
         id="configDrawer"
         aria-label=${t("config.drawerAria")}
         aria-hidden="true"
-        hidden
+        inert
       >
-        <div class="config-drawer-panels">
-          <section class="config-drawer-panel" aria-label=${t("config.production.panelAria")}>
-            ${TUNING_FIELDS.map(renderTuningField)}
-            ${renderNeutralBalanceControl()}
-          </section>
+        <div class="tune-arc" id="configTuneArc"></div>
+
+        <div class="config-drawer-model" hidden>
+          ${TUNING_FIELDS.map(renderTuningInput)} ${renderNeutralBalanceInputs()}
         </div>
 
-        <div class="config-drawer-footer dock">
-          <div class="config-drawer-history toolbar" role="group" aria-label=${t("config.history.aria")}>
-            <button
-              class="config-drawer-history-button panel-inline-action"
-              id="configUndoButton"
-              type="button"
-              disabled
-            >
-              <span
-                class="config-drawer-icon config-drawer-action-icon config-drawer-icon-undo"
-                aria-hidden="true"
-              ></span>
-              <span class="config-drawer-action-label">${t("config.history.undo")}</span>
-            </button>
-            <button
-              class="config-drawer-history-button panel-inline-action"
-              id="configRedoButton"
-              type="button"
-              disabled
-            >
-              <span
-                class="config-drawer-icon config-drawer-action-icon config-drawer-icon-redo"
-                aria-hidden="true"
-              ></span>
-              <span class="config-drawer-action-label">${t("config.history.redo")}</span>
-            </button>
-          </div>
-
-          <label
-            class="panel-form-checkbox config-drawer-darkest-toggle"
-            for="configOriginBadgesToggle"
-          >
-            <input
-              class="panel-form-checkbox-input"
-              id="configOriginBadgesToggle"
-              type="checkbox"
-            />
-            <span class="panel-form-checkbox-box" aria-hidden="true"></span>
-            <span class="panel-form-checkbox-label">${t("config.pins.checkbox")}</span>
-            <svg
-              class="config-drawer-pins-icon"
-              viewBox="0 0 20 16"
-              aria-hidden="true"
-            >
-              <circle cx="13" cy="7" r="5.5" fill="var(--color-success)" stroke="black" stroke-width="1.5" />
-              <circle cx="7" cy="9" r="5.5" fill="var(--color-accent)" stroke="black" stroke-width="1.5" />
-              <text x="7" y="9.5" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="7" font-weight="bold" fill="black">1</text>
-            </svg>
-          </label>
-
+        <div class="config-drawer-footer" role="group" aria-label=${t("config.history.aria")}>
+          <button class="config-drawer-action" id="configUndoButton" type="button" disabled>
+            <span class="config-drawer-icon config-drawer-icon-undo" aria-hidden="true"></span>
+            ${t("config.history.undo")}
+          </button>
+          <button class="config-drawer-action" id="configRedoButton" type="button" disabled>
+            <span class="config-drawer-icon config-drawer-icon-redo" aria-hidden="true"></span>
+            ${t("config.history.redo")}
+          </button>
           <button
-            class="config-drawer-reset-button panel-inline-action"
-            id="configResetButton"
+            class="config-drawer-action config-drawer-guide"
             type="button"
+            @click=${() => this.setGuideOpen(true)}
           >
-            <span
-              class="config-drawer-icon config-drawer-action-icon config-drawer-icon-reset"
-              aria-hidden="true"
-            ></span>
-            <span class="config-drawer-action-label">${t("config.history.reset")}</span>
+            <span class="config-drawer-icon config-drawer-icon-guide" aria-hidden="true"></span>
+            ${t("config.guide.open")}
+          </button>
+          <button class="config-drawer-action" id="configResetButton" type="button">
+            <span class="config-drawer-icon config-drawer-icon-reset" aria-hidden="true"></span>
+            ${t("config.history.reset")}
           </button>
         </div>
-        ${__PALETCAM_DEBUG_TOOLS__ ? renderFooterLab() : ""}
       </section>
+      ${this.renderGuide()}
     `;
   }
 }

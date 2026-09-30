@@ -1,77 +1,180 @@
+/* Tuning drawer, inside the tuning tray (tune-tray.css): the tuning arc, the
+   history row, and the guide sheet. The native inputs it keeps as its model
+   stay hidden (config-panel.js). */
+
 config-panel {
   display: block;
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  pointer-events: none;
 }
 
 .config-drawer {
-  position: absolute;
-  left: var(--space-8);
-  right: var(--space-8);
-
-  /* Clears the tune/close chip floating at the strip's bottom-right. */
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
   display: grid;
-  gap: var(--space-control-padding);
-  max-height: calc(100% - 4rem);
-  overflow-y: auto;
-  padding: var(--space-control-gap)
-    calc(var(--space-control-gap) + env(safe-area-inset-right, 0px))
-    calc(var(--space-control-gap) + env(safe-area-inset-bottom, 0px))
-    calc(var(--space-control-gap) + env(safe-area-inset-left, 0px));
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: var(--space-control-gap);
-  background: var(--gradient-surface-panel), var(--color-surface-overlay);
-  pointer-events: auto;
-  transition: opacity var(--duration-fast) var(--easing-standard);
+  gap: var(--space-8);
+  padding: 0 var(--space-16) var(--space-16);
 }
 
-.config-drawer[hidden] {
+/* RAL has nothing to tune: the tray keeps its mode switch and grid key. */
+body.is-ral-mode .config-drawer {
   display: none;
 }
 
-config-panel.is-open .config-drawer {
-  animation: config-drawer-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+/* ── Tuning arc: setting tabs above one curved ruler (tune-arc.js) ── */
+.tune-arc {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
-.config-drawer:has(.config-drawer-slider.is-active) {
-  opacity: 0.1;
+.tune-arc-tabs {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-16);
 }
 
-@keyframes config-drawer-enter {
-  from {
-    opacity: 0;
-    transform: translateY(var(--space-16));
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.tune-arc-tab {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.875rem;
+  height: 2.375rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
 }
 
-.config-drawer-action-label {
-  display: block;
+.tune-arc-tab.is-active {
+  background: linear-gradient(#242424, #171717);
+  color: var(--color-text-primary);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 9%),
+    0 0 0 1px #000,
+    0 2px 4px rgb(0 0 0 / 60%);
+}
+
+/* The lit dot under the active tab. */
+.tune-arc-tab::after {
+  content: "";
+  position: absolute;
+  bottom: calc(-1 * var(--space-8));
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.tune-arc-tab.is-active::after {
+  opacity: 1;
+}
+
+.tune-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tune-icon .is-dot {
+  fill: currentcolor;
+  stroke: none;
+}
+
+.tune-arc-read {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--space-8);
+  margin: var(--space-8) 0 0;
+}
+
+.tune-arc-name {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.tune-arc-value {
+  color: var(--color-text-primary);
+  font: 500 var(--font-size-base) / 1 var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tune-arc-value.is-edited,
+.tune-arc-value.is-text {
+  color: var(--color-accent-soft);
+}
+
+.tune-arc-value.is-text {
+  font-family: var(--font-family-body);
+  font-weight: 600;
+}
+
+.tune-arc-dial {
+  position: relative;
+  height: 6.5rem;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.tune-arc-dial canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── History row ── */
+.config-drawer-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.config-drawer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: 600 var(--font-size-sm) / 1 var(--font-family-body);
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.config-drawer-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.config-drawer-guide {
+  margin-left: auto;
+  color: var(--color-text-muted);
 }
 
 .config-drawer-icon {
   display: inline-block;
   flex: none;
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1rem;
+  height: 1rem;
   background-color: currentcolor;
   mask-image: var(--config-icon-url);
   mask-position: center;
   mask-repeat: no-repeat;
   mask-size: contain;
-}
-
-.config-drawer-action-icon {
-  width: 1rem;
-  height: 1rem;
 }
 
 .config-drawer-icon-undo {
@@ -86,293 +189,120 @@ config-panel.is-open .config-drawer {
   --config-icon-url: url("/icons/arrow-counterclock.svg");
 }
 
-.config-drawer-panels {
-  display: grid;
+.config-drawer-icon-guide {
+  --config-icon-url: url("/icons/book-open.svg");
 }
 
-.config-drawer-panel {
-  display: grid;
-  gap: var(--space-4);
-}
-
-/* ── Unified parameter sliders ─────────────────────────────────────────
-   One compact row per parameter: label left, live value right, and a
-   single tick comb below where the amber fill block runs from zero to
-   the current value (Luminar-style). The .swatch-slider shell dissolves
-   via display: contents so its input joins the field grid; the comb is
-   painted on the range input itself from the
-   --tick-index / --tick-intervals vars the controller already sets. */
-
-.config-drawer-panel .panel-form-field {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-4) var(--space-8);
-  align-items: start;
-}
-
-.config-drawer-panel .panel-form-field-header {
-  grid-area: 1 / 1;
-}
-
-.config-drawer-panel .config-drawer-slider {
-  display: contents;
-}
-
-.config-drawer-panel .config-drawer-slider::before {
-  content: none;
-}
-
-.config-drawer-panel .config-drawer-value {
-  grid-area: 1 / 2;
-  justify-self: end;
-  padding: 0;
-  color: var(--color-camera-accent);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.config-drawer-panel .config-drawer-slider input[type="range"] {
-  --config-fill: calc(var(--tick-index) / var(--tick-intervals) * 100%);
-
-  grid-area: 2 / 1 / 3 / -1;
-  height: var(--space-16);
-  border-radius: 0;
-  box-shadow: none;
-  background:
-    linear-gradient(
-      to right,
-      transparent calc(var(--config-fill) - 1px),
-      var(--color-camera-accent) calc(var(--config-fill) - 1px),
-      var(--color-camera-accent) calc(var(--config-fill) + 1px),
-      transparent calc(var(--config-fill) + 1px)
-    ),
-    linear-gradient(
-      to right,
-      var(--color-accent) 0,
-      var(--color-accent) var(--config-fill),
-      transparent var(--config-fill)
-    ),
-    repeating-linear-gradient(
-      to right,
-      rgb(255 255 255 / 40%) 0 2px,
-      transparent 2px 7px
-    );
-  background-size:
-    100% 100%,
-    100% var(--space-16),
-    100% var(--space-16);
-  background-position:
-    0 0,
-    0 center,
-    0 center;
-  background-repeat: no-repeat;
-  transition: filter 0.16s var(--easing-standard);
-}
-
-.config-drawer-panel .config-drawer-slider input[type="range"]:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.config-drawer-panel .config-drawer-slider.is-active input[type="range"],
-.config-drawer-panel .config-drawer-slider.is-dragging input[type="range"] {
-  filter: drop-shadow(0 0 5px var(--color-accent-strong));
-}
-
-/* Invisible thumb: the comb is the readout, the finger just scrubs */
-.config-drawer-panel
-  .config-drawer-slider
-  input[type="range"]::-webkit-slider-thumb {
-  width: var(--space-24);
-  height: var(--space-16);
-  margin-top: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.config-drawer-panel
-  .config-drawer-slider
-  input[type="range"]::-webkit-slider-thumb:active,
-.config-drawer-panel
-  .config-drawer-slider.is-active
-  input[type="range"]::-webkit-slider-thumb,
-.config-drawer-panel
-  .config-drawer-slider.is-dragging
-  input[type="range"]::-webkit-slider-thumb {
-  transform: none;
-  box-shadow: none;
-}
-
-.config-drawer-panel
-  .config-drawer-slider
-  input[type="range"]::-moz-range-track {
-  height: var(--space-16);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.config-drawer-panel
-  .config-drawer-slider
-  input[type="range"]::-moz-range-thumb {
-  width: var(--space-24);
-  height: var(--space-16);
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.config-drawer-panel
-  .config-drawer-slider
-  input[type="range"]::-moz-range-thumb:active,
-.config-drawer-panel
-  .config-drawer-slider.is-active
-  input[type="range"]::-moz-range-thumb,
-.config-drawer-panel
-  .config-drawer-slider.is-dragging
-  input[type="range"]::-moz-range-thumb {
-  transform: none;
-  box-shadow: none;
-}
-
-/* Title on its own row, compact segmented control underneath. */
-.config-drawer-panel .config-drawer-neutral-field {
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-4);
-  padding-top: 0;
-}
-
-.config-drawer-panel .config-drawer-neutral-field .panel-form-field-header {
-  grid-area: 1 / 1;
-}
-
-.config-drawer-panel .config-drawer-neutral-options {
-  grid-area: 2 / 1;
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  width: fit-content;
-  min-height: var(--space-32);
-  overflow: hidden;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  background: var(--gradient-control-surface);
-}
-
-.config-drawer-neutral-option {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.config-drawer-neutral-option + .config-drawer-neutral-option {
-  border-left: 1px solid var(--color-border-default);
-}
-
-.config-drawer-neutral-input {
-  position: absolute;
+/* ── Guide sheet: what each setting does ── */
+.tune-guide {
+  position: fixed;
   inset: 0;
-  z-index: 1;
-  margin: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 45%);
   opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s var(--easing-standard);
+}
+
+.tune-guide.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tune-guide-sheet {
+  width: 100%;
+  max-width: var(--app-shell-max-width);
+  max-height: 84%;
+  overflow-y: auto;
+  padding: var(--space-16) var(--space-16)
+    calc(var(--space-24) + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--space-16) var(--space-16) 0 0;
+  background-color: var(--color-surface-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 -8px 24px rgb(0 0 0 / 60%);
+  transform: translateY(100%);
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tune-guide.is-open .tune-guide-sheet {
+  transform: none;
+}
+
+.tune-guide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-16);
+}
+
+.tune-guide-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.tune-guide-done {
+  padding: var(--space-8) 0 var(--space-8) var(--space-16);
+  border: 0;
+  background: none;
+  color: var(--color-accent-soft);
+  font: 600 var(--font-size-sm) / 1 var(--font-family-body);
   cursor: pointer;
 }
 
-.config-drawer-neutral-label {
+.tune-guide-list {
+  display: grid;
+  gap: var(--space-16);
+  margin: 0;
+}
+
+.tune-guide-row {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-8);
+}
+
+.tune-guide-icon {
   display: grid;
   place-items: center;
-  min-width: 0;
-  padding: var(--space-4) var(--space-16);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(#232323, #161616);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 9%),
+    0 0 0 1px #000;
+  color: var(--color-accent-soft);
+}
+
+.tune-guide-row dt {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  transition:
-    background-color var(--duration-fast) var(--easing-standard),
-    color var(--duration-fast) var(--easing-standard),
-    box-shadow var(--duration-fast) var(--easing-standard);
 }
 
-.config-drawer-neutral-input:checked + .config-drawer-neutral-label {
-  background: var(--color-accent-dim);
-  color: var(--color-camera-accent);
-  box-shadow: var(--shadow-accent-outline);
+.tune-guide-row dd {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
 }
 
-.config-drawer-neutral-input:focus-visible + .config-drawer-neutral-label {
-  outline: var(--focus-ring);
-  outline-offset: calc(-1 * var(--space-4));
-}
-
-.config-drawer-neutral-input:active + .config-drawer-neutral-label {
-  background: var(--color-accent-strong);
-}
-
-@media (hover: hover) {
-  .config-drawer-neutral-option:hover .config-drawer-neutral-label {
-    color: var(--color-text-primary);
-  }
-}
-
-.config-drawer-footer {
-  --dock-gap: var(--space-8);
-
-  min-height: var(--space-48);
-}
-
-.config-drawer-history {
-  --toolbar-gap: var(--space-4);
-}
-
-.config-drawer-footer .panel-inline-action {
-  min-height: var(--space-48);
-}
-
-.config-drawer-reset-button {
-  margin-left: auto;
-}
-
-.config-drawer-darkest-toggle {
-  flex: none;
-  min-height: var(--space-48);
-  padding-inline: var(--space-4);
-}
-
-.config-drawer-darkest-toggle .panel-form-checkbox-label {
+.tune-guide-foot {
+  margin: var(--space-16) 0 var(--space-8);
+  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
-.config-drawer-pins-icon {
-  width: 20px;
-  height: 16px;
-  flex-shrink: 0;
-  margin-inline-start: var(--space-4);
-}
-
-.config-drawer-darkest-toggle
-  .panel-form-checkbox-input:checked
-  + .panel-form-checkbox-box
-  + .panel-form-checkbox-label {
-  color: var(--color-text-warning);
-  font-size: 0.75rem;
-  font-weight: 400;
-  text-transform: unset;
-}
-
-.config-pip {
-  position: absolute;
-  bottom: var(--space-8);
-  left: var(--space-8);
-  width: 45%;
-  z-index: 999;
-  aspect-ratio: 4 / 3;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  object-fit: cover;
-  pointer-events: none;
+@media (prefers-reduced-motion: reduce) {
+  .tune-guide,
+  .tune-guide-sheet {
+    transition-duration: 1ms;
+  }
 }

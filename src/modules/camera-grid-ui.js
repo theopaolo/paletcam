@@ -2,27 +2,21 @@ import { subscribeLocaleChange, t } from "../i18n.js";
 
 const GRID_STORAGE_KEY = "paletcam:grid:v1";
 
-/** @param {{ overlayHost?: HTMLElement | null }} [options] */
-export function createCameraGridUiController({ overlayHost } = {}) {
-  if (!overlayHost) {
-    return { bindEvents() {}, destroy() {}, hide() {}, initialize() {}, show() {} };
+/**
+ * Thirds over the live preview. The toggle is the Grid key in the tuning tray,
+ * so nothing sits on the feed at rest.
+ *
+ * @param {{ overlayHost?: HTMLElement | null, toggleButton?: HTMLButtonElement | null }} [options]
+ */
+export function createCameraGridUiController({ overlayHost, toggleButton } = {}) {
+  if (!overlayHost || !toggleButton) {
+    return { bindEvents() {}, destroy() {}, initialize() {} };
   }
 
   const gridOverlay = document.createElement("div");
   gridOverlay.className = "camera-grid-overlay";
   gridOverlay.setAttribute("aria-hidden", "true");
-
-  const toggleLayer = document.createElement("div");
-  toggleLayer.className = "camera-grid-toggle-layer";
-
-  const toggleButton = document.createElement("button");
-  toggleButton.className = "camera-grid-toggle camera-chip";
-  toggleButton.type = "button";
-  toggleButton.textContent = "GRID";
-
-  toggleLayer.appendChild(toggleButton);
   overlayHost.appendChild(gridOverlay);
-  overlayHost.appendChild(toggleLayer);
 
   let isBound = false;
   let isVisible = false;
@@ -50,7 +44,6 @@ export function createCameraGridUiController({ overlayHost } = {}) {
 
   function syncVisual() {
     gridOverlay.classList.toggle("is-visible", isVisible);
-    toggleButton.classList.toggle("is-active", isVisible);
     syncA11y();
   }
 
@@ -77,15 +70,6 @@ export function createCameraGridUiController({ overlayHost } = {}) {
 
     unsubscribeLocaleChange();
     gridOverlay.remove();
-    toggleLayer.remove();
-  }
-
-  function hide() {
-    toggleLayer.hidden = true;
-  }
-
-  function show() {
-    toggleLayer.hidden = false;
   }
 
   function initialize() {
@@ -93,5 +77,5 @@ export function createCameraGridUiController({ overlayHost } = {}) {
     syncVisual();
   }
 
-  return { bindEvents, destroy, hide, initialize, show };
+  return { bindEvents, destroy, initialize };
 }

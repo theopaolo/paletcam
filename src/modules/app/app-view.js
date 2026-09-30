@@ -2,7 +2,6 @@
  * @typedef {object} AppView
  * @property {HTMLVideoElement | null} cameraFeed
  * @property {HTMLButtonElement | null} captureButton
- * @property {HTMLButtonElement | null} captureModeToggle
  * @property {HTMLElement | null} allowButton
  * @property {HTMLElement | null} allowText
  * @property {HTMLElement | null} captureContainer
@@ -24,7 +23,10 @@
  * @property {HTMLElement | null} ralLiveSwatchName
  * @property {HTMLElement | null} ralLiveSwatchQuality
  * @property {HTMLElement | null} swatchCountControl
- * @property {Element | null} captureModeSection
+ * @property {HTMLElement | null} tuneTray Tuning tray between the palette and the footer
+ * @property {HTMLElement | null} modeSwitch Palette/RAL switch in the tuning tray
+ * @property {HTMLButtonElement | null} gridKey
+ * @property {HTMLButtonElement | null} pinsKey
  * @property {HTMLElement | null} configPanel
  * @property {HTMLButtonElement | null} viewCollectionButton
  * @property {HTMLDivElement} cameraViewportFrame
@@ -42,9 +44,6 @@ export function createAppView(documentRef) {
     cameraFeed: /** @type {HTMLVideoElement | null} */ (documentRef.querySelector(".camera-feed")),
     captureButton: /** @type {HTMLButtonElement | null} */ (
       documentRef.querySelector(".btn-capture")
-    ),
-    captureModeToggle: /** @type {HTMLButtonElement | null} */ (
-      documentRef.querySelector(".btn-capture-mode-toggle")
     ),
     allowButton: /** @type {HTMLElement | null} */ (documentRef.querySelector(".btn-allow-media")),
     allowText: /** @type {HTMLElement | null} */ (
@@ -77,7 +76,10 @@ export function createAppView(documentRef) {
     swatchCountControl: /** @type {HTMLElement | null} */ (
       documentRef.querySelector(".swatch-count-control")
     ),
-    captureModeSection: documentRef.querySelector(".capture-mode-section"),
+    tuneTray: documentRef.getElementById("tuneTray"),
+    modeSwitch: /** @type {HTMLElement | null} */ (documentRef.querySelector(".mode-switch")),
+    gridKey: /** @type {HTMLButtonElement | null} */ (documentRef.getElementById("gridKey")),
+    pinsKey: /** @type {HTMLButtonElement | null} */ (documentRef.getElementById("pinsKey")),
     configPanel: /** @type {HTMLElement | null} */ (documentRef.querySelector("config-panel")),
     viewCollectionButton: /** @type {HTMLButtonElement | null} */ (
       documentRef.querySelector(".btn-view-collection")

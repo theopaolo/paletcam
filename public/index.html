@@ -77,20 +77,7 @@
             id="paletteLockOverlay"
             aria-hidden="true"
           ></div>
-          <section class="config-section">
-            <button
-              class="btn-overlay-control btn-config"
-              type="button"
-              aria-label="Ouvrir la configuration"
-              data-i18n-aria-label="capture.configOpen"
-            >
-              <span class="btn-config-icon" aria-hidden="true"></span>
-              <span class="btn-config-label" data-i18n="capture.configLabel">Config</span>
-            </button>
-          </section>
         </div>
-
-        <config-panel></config-panel>
 
         <settings-panel></settings-panel>
 
@@ -105,21 +92,81 @@
           <p class="ral-live-swatch-quality" id="ralLiveSwatchQuality"></p>
         </div>
       </div>
-
-      <section
-        class="capture-mode-section"
-        aria-label="Mode de capture"
-        data-i18n-aria-label="capture.modeSection"
-      >
-        <button
-          class="btn-capture-mode-toggle camera-chip"
-          type="button"
-          data-capture-mode="palette"
-        >
-          RAL
-        </button>
-      </section>
     </div>
+
+    <!-- Tuning tray: opens between the palette and the footer, pushing them up.
+         The bubble on its top edge is the config toggle. -->
+    <section
+      class="tune-tray"
+      id="tuneTray"
+      aria-label="Réglages de capture"
+      data-i18n-aria-label="capture.trayAria"
+    >
+      <button
+        class="btn-config tune-bubble"
+        type="button"
+        aria-label="Ouvrir la configuration"
+        data-i18n-aria-label="capture.configOpen"
+      >
+        <svg class="tune-bubble-shape" viewBox="0 0 80 16" aria-hidden="true">
+          <path
+            class="tune-bubble-fill"
+            d="M12.31 16 A12 12 0 0 0 21.54 11.67 A24 24 0 0 1 58.46 11.67 A12 12 0 0 0 67.69 16 L67.69 18 L12.31 18 Z"
+          />
+          <path
+            class="tune-bubble-edge"
+            d="M12.31 16 A12 12 0 0 0 21.54 11.67 A24 24 0 0 1 58.46 11.67 A12 12 0 0 0 67.69 16"
+          />
+          <path class="tune-bubble-chevron" d="M36 11.5 L40 7.5 L44 11.5" />
+        </svg>
+      </button>
+
+      <div class="tune-tray-clip">
+        <div class="tune-tray-body">
+          <div class="tune-quick">
+            <div
+              class="mode-switch"
+              role="group"
+              aria-label="Mode de capture"
+              data-i18n-aria-label="capture.modeSection"
+            >
+              <span class="mode-switch-cap" aria-hidden="true"></span>
+              <button
+                class="mode-switch-option"
+                type="button"
+                data-capture-mode="palette"
+                aria-pressed="true"
+                data-i18n="capture.mode.palette"
+              >
+                Palette
+              </button>
+              <button
+                class="mode-switch-option"
+                type="button"
+                data-capture-mode="ral"
+                aria-pressed="false"
+                data-i18n="capture.mode.ral"
+              >
+                RAL
+              </button>
+            </div>
+
+            <button class="tray-key" id="gridKey" type="button" aria-pressed="false">
+              <span class="tray-led" aria-hidden="true"></span>
+              <span data-i18n="capture.grid">Grille</span>
+            </button>
+
+            <button class="tray-key" id="pinsKey" type="button" aria-pressed="false">
+              <span class="tray-led" aria-hidden="true"></span>
+              <span data-i18n="config.pins.checkbox">Repères</span>
+              <span class="pin-dots" aria-hidden="true"><b>1</b><b></b></span>
+            </button>
+          </div>
+
+          <config-panel></config-panel>
+        </div>
+      </div>
+    </section>
 
     <!-- Palette Collection Panel -->
     <shared-panel

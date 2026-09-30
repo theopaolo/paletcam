@@ -26,9 +26,10 @@ const fr = {
   "capture.configLabel": "Config",
   "capture.configCloseLabel": "Fermer",
   "capture.modeSection": "Mode de capture",
+  "capture.trayAria": "Réglages de capture",
+  "capture.grid": "Grille",
   "capture.mode.palette": "Palette",
   "capture.mode.ral": "RAL",
-  "capture.mode.toggleAria": "Mode de capture : {mode}",
   "capture.rotate": "Changer de caméra",
   "capture.capture": "Capturer une palette",
   "capture.collectionOpen": "Ouvrir les captures",
@@ -300,6 +301,16 @@ const fr = {
   "settings.tabsAria": "Onglets des réglages",
   "config.drawerAria": "Réglage de la palette",
   "config.pins.checkbox": "Repères",
+  "config.guide.open": "Guide",
+  "config.guide.title": "Guide des réglages",
+  "config.guide.done": "Terminé",
+  "config.guide.pins":
+    "Des repères numérotés sur la palette et sur l'image montrent où chaque couleur a été trouvée.",
+  "config.guide.grid": "Des tiers sur l'image de la caméra, pour cadrer.",
+  "config.guide.ral":
+    "Lit la couleur sous l'anneau et donne la couleur RAL Classic la plus proche.",
+  "config.guide.reset":
+    "Touchez deux fois la règle pour remettre Analyse, Densité ou Tonalité à sa valeur par défaut.",
   "config.history.aria": "Historique",
   "config.history.undo": "Annuler",
   "config.history.redo": "Rétablir",

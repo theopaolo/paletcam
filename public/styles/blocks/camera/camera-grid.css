@@ -19,12 +19,3 @@
   opacity: 1;
 }
 
-.camera-grid-toggle-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 7;
-  padding: var(--space-8) 0 0 var(--space-8);
-  pointer-events: none;
-}
-

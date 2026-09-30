@@ -156,6 +156,7 @@ class FakeElement extends FakeEventTarget {
     this.dataset = {};
     this.disabled = false;
     this.hidden = false;
+    this.inert = false;
     this.id = "";
     this.parentElement = null;
     this.style = {
@@ -424,7 +425,7 @@ describe("mountConfigPanel", () => {
       toggleSection: fixture.toggleSection,
     });
 
-    expect(fixture.drawer.hidden).toBe(true);
+    expect(fixture.drawer.inert).toBe(true);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
     expectOneOf(fixture.toggleButton.getAttribute("aria-label"), CONFIG_OPEN_ARIA_LABELS);
     expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
@@ -432,7 +433,7 @@ describe("mountConfigPanel", () => {
 
     fixture.toggleButton.click();
 
-    expect(fixture.drawer.hidden).toBe(false);
+    expect(fixture.drawer.inert).toBe(false);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("true");
     expectOneOf(fixture.toggleButton.getAttribute("aria-label"), CONFIG_CLOSE_ARIA_LABELS);
     expect(fixture.toggleButton.classList.contains("is-active")).toBe(true);
@@ -441,7 +442,7 @@ describe("mountConfigPanel", () => {
 
     fakeDocument.dispatch("keydown", { key: "Escape" });
 
-    expect(fixture.drawer.hidden).toBe(true);
+    expect(fixture.drawer.inert).toBe(true);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
     expectOneOf(fixture.toggleButton.getAttribute("aria-label"), CONFIG_OPEN_ARIA_LABELS);
     expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
@@ -536,16 +537,16 @@ describe("mountConfigPanel", () => {
     });
 
     fixture.toggleButton.click();
-    expect(fixture.drawer.hidden).toBe(false);
+    expect(fixture.drawer.inert).toBe(false);
 
     fakeDocument.dispatch("pointerdown", { target: fixture.drawer });
-    expect(fixture.drawer.hidden).toBe(false);
+    expect(fixture.drawer.inert).toBe(false);
 
     fakeDocument.dispatch("pointerdown", { target: fixture.toggleButton });
-    expect(fixture.drawer.hidden).toBe(false);
+    expect(fixture.drawer.inert).toBe(false);
 
     fakeDocument.dispatch("pointerdown", { target: outsideElement });
-    expect(fixture.drawer.hidden).toBe(true);
+    expect(fixture.drawer.inert).toBe(true);
     expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
     expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
 
@@ -592,7 +593,7 @@ describe("mountConfigPanel", () => {
     cleanup();
   });
 
-  test("hides and closes the drawer in RAL mode", () => {
+  test("stays open in RAL mode, so the tray's mode switch stays in reach", () => {
     const fixture = createConfigFixture();
     const fakeDocument = new FakeEventTarget();
     Object.defineProperty(globalThis, "document", {
@@ -607,16 +608,12 @@ describe("mountConfigPanel", () => {
     });
 
     fixture.toggleButton.click();
-    expect(fixture.drawer.hidden).toBe(false);
-
     updateAppSettings({ captureMode: "ral" });
 
-    expect(fixture.toggleSection.hidden).toBe(true);
-    expect(fixture.toggleButton.hidden).toBe(true);
-    expect(fixture.drawer.hidden).toBe(true);
-    expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("false");
-    expect(fixture.toggleIcon.classList.contains("is-close")).toBe(false);
-    expectOneOf(fixture.toggleLabel.textContent, CONFIG_OPEN_LABELS);
+    expect(fixture.toggleSection.hidden).toBe(false);
+    expect(fixture.toggleButton.hidden).toBe(false);
+    expect(fixture.drawer.inert).toBe(false);
+    expect(fixture.toggleButton.getAttribute("aria-expanded")).toBe("true");
 
     cleanup();
   });
