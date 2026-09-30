@@ -12,7 +12,8 @@ export const FOOTER_LAB_OPTIONS = Object.freeze({
   panel: Object.freeze(["arc", "thin", "rails", "drums"]),
 });
 
-const DEFAULT_FOOTER_LAB = Object.freeze({ shutter: "titanium", count: "dial", panel: "arc" });
+/* Théo's pick after the phone tests: flat iris, ticks dial, M's drums. */
+const DEFAULT_FOOTER_LAB = Object.freeze({ shutter: "flat", count: "dial", panel: "drums" });
 
 /** @typedef {{ shutter: string, count: string, panel: string }} FooterLab */
 

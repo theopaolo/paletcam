@@ -900,7 +900,7 @@ function createRail(model, setting) {
  * @param {{ formatValue: (key: string, value: number) => string, kind?: string }} options
  * @returns {() => void} cleanup
  */
-export function mountTunePanel(root, { formatValue, kind = "arc" }) {
+export function mountTunePanel(root, { formatValue, kind = "drums" }) {
   const host = /** @type {HTMLElement | null} */ (root.querySelector("#configTunePanel"));
   const radios = /** @type {HTMLInputElement[]} */ ([
     ...root.querySelectorAll(".config-drawer-neutral-input"),
