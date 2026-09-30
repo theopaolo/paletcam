@@ -313,7 +313,7 @@ body:is([data-footer-count="dial"], [data-footer-count="numbered"], [data-footer
   stroke-width: 0.7;
 }
 
-.btn-capture[data-iris="flat"] :is(.iris-edges, .iris-sheen, .iris-glint) {
+.btn-capture[data-iris="flat"] :is(.iris-edges, .iris-sheen) {
   display: none;
 }
 

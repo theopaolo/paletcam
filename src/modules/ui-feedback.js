@@ -1,6 +1,6 @@
 /**
- * Synthesized mechanical feedback for camera-style controls: short WebAudio
- * blips plus vibration where the platform exposes it (Android; iOS PWAs have
+ * Synthesized mechanical feedback for camera-style controls: short bursts of
+ * band-passed noise (clicks, not tones) plus vibration where the platform exposes it (Android; iOS PWAs have
  * no vibration API, so sound is the only channel there and the iOS silent
  * switch may mute it — callers must never rely on feedback for correctness).
  */
@@ -26,22 +26,31 @@ export function unlockUiFeedback() {
   }
 }
 
-function playBlip({ frequency, duration, peakGain, type }) {
+/**
+ * One click: white noise with a steep decay, band-passed around `frequency`.
+ * Higher bands read as small detents, lower ones as heavier parts.
+ */
+function playClick({ frequency, duration, gain, delay = 0 }) {
   if (!audioContext || audioContext.state !== "running") {
     return;
   }
 
-  const now = audioContext.currentTime;
-  const oscillator = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  oscillator.type = type;
-  oscillator.frequency.value = frequency;
-  gain.gain.setValueAtTime(peakGain, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  oscillator.connect(gain);
-  gain.connect(audioContext.destination);
-  oscillator.start(now);
-  oscillator.stop(now + duration);
+  const length = Math.ceil(audioContext.sampleRate * duration);
+  const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+  const samples = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) {
+    samples[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 4;
+  }
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  const filter = audioContext.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = frequency;
+  filter.Q.value = 1.4;
+  const amplifier = audioContext.createGain();
+  amplifier.gain.value = gain;
+  source.connect(filter).connect(amplifier).connect(audioContext.destination);
+  source.start(audioContext.currentTime + delay);
 }
 
 function vibrate(pattern) {
@@ -50,18 +59,24 @@ function vibrate(pattern) {
 
 /** One detent crossed: tiny high click + micro vibration. */
 export function detentFeedback() {
-  playBlip({ frequency: 2100, duration: 0.016, peakGain: 0.06, type: "square" });
+  playClick({ frequency: 3400, duration: 0.012, gain: 0.5 });
   vibrate(8);
 }
 
 /** Hit an end stop: duller thunk + firmer vibration. */
 export function boundaryFeedback() {
-  playBlip({ frequency: 140, duration: 0.05, peakGain: 0.1, type: "sine" });
+  playClick({ frequency: 520, duration: 0.035, gain: 0.8 });
   vibrate(24);
 }
 
-/** Shutter pressed: a slightly rounder blip than the detent tick. */
+/** A button going down: a short, softer click than a detent. */
+export function pressFeedback() {
+  playClick({ frequency: 2200, duration: 0.01, gain: 0.35 });
+}
+
+/** Shutter released: a two-part clack, the curtain opening then closing. */
 export function shutterFeedback() {
-  playBlip({ frequency: 1300, duration: 0.035, peakGain: 0.16, type: "triangle" });
+  playClick({ frequency: 1400, duration: 0.04, gain: 0.9 });
+  playClick({ frequency: 2300, duration: 0.03, gain: 0.6, delay: 0.075 });
   vibrate(12);
 }

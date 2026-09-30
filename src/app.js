@@ -12,7 +12,7 @@ import { createSwatchCountDrumUiController } from "./modules/swatch-count-drum-u
 import { createAdjLeverUi, createCountDialUi } from "./modules/count-controls-ui.js";
 import { getFooterLab, subscribeFooterLab } from "./modules/footer-lab.js";
 import { createIrisShutter } from "./modules/iris-shutter.js";
-import { shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
+import { pressFeedback, shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
 import { initializeStorageHealth } from "./modules/storage-health.js";
@@ -684,6 +684,18 @@ function bindCaptureEvents() {
     captureMicroInteractions.pulseCaptureButton,
   );
   bindManagedEventListener(captureButton, "click", handleCaptureButtonClick);
+  // Camera-screen buttons click as they go down; the shutter has its own clack.
+  const handleButtonPress = (event) => {
+    if (
+      event.target instanceof Element &&
+      event.target.closest("button:not(.btn-capture):not(:disabled)")
+    ) {
+      unlockUiFeedback();
+      pressFeedback();
+    }
+  };
+  bindManagedEventListener(captureContainer, "pointerdown", handleButtonPress);
+  bindManagedEventListener(footerControls, "pointerdown", handleButtonPress);
   // Tapping the preview meters the exposure there (see exposure-ui.js), so
   // pinning a colour is done from the palette strip below instead.
   bindManagedEventListener(paletteCanvas, "pointerdown", (event) => {

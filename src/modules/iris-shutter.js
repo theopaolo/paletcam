@@ -11,14 +11,19 @@ const GRAPHITE = [
   { r: 36, g: 36, b: 36 },
 ];
 
-/** Per-look geometry. Titanium splits each color into thin blades; flat keeps one blade per color. */
+/**
+ * Per-look geometry. Titanium splits each color into thin blades; flat keeps
+ * one blade per color, turned 45° so four blades open a diamond (a leaf
+ * shutter) rather than a square window.
+ */
 const LOOKS = {
   titanium: {
     aperture: 5,
     bend: 0.16,
+    rotation: 0,
     bladesPerColor: (count) => Math.max(2, Math.round(12 / count)),
   },
-  flat: { aperture: 6.5, bend: 0.3, bladesPerColor: () => 1 },
+  flat: { aperture: 6.5, bend: 0.3, rotation: Math.PI / 4, bladesPerColor: () => 1 },
 };
 
 /**
@@ -94,10 +99,9 @@ export function createIrisShutter({ button }) {
   svg.setAttribute("class", "iris-face");
   svg.setAttribute("viewBox", "0 0 64 64");
   svg.setAttribute("aria-hidden", "true");
-  svg.innerHTML = `<defs><linearGradient id="irisSheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.12"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient></defs><g class="iris-blades" stroke="#000" stroke-linejoin="round"></g><g class="iris-edges" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="0.35" stroke-linecap="round"></g><circle class="iris-sheen" cx="32" cy="32" r="${RADIUS}" fill="url(#irisSheen)"/><circle class="iris-rim" cx="32" cy="32" r="${RADIUS - 0.3}" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="0.6"/><circle class="iris-glint" cx="31" cy="31" r="0.8" fill="#fff" fill-opacity="0.55"/>`;
+  svg.innerHTML = `<defs><linearGradient id="irisSheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.12"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient></defs><g class="iris-blades" stroke="#000" stroke-linejoin="round"></g><g class="iris-edges" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="0.35" stroke-linecap="round"></g><circle class="iris-sheen" cx="32" cy="32" r="${RADIUS}" fill="url(#irisSheen)"/><circle class="iris-rim" cx="32" cy="32" r="${RADIUS - 0.3}" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="0.6"/>`;
   const bladeGroup = svg.querySelector(".iris-blades");
   const edgeGroup = svg.querySelector(".iris-edges");
-  const glint = svg.querySelector(".iris-glint");
   button.append(svg);
 
   /** @type {{ r: number, g: number, b: number }[]} */
@@ -118,12 +122,12 @@ export function createIrisShutter({ button }) {
     }
     const palette = neutral || colors.length < 3 ? GRAPHITE : colors;
     const count = neutral || colors.length < 3 ? 6 : colors.length;
-    const { bend, bladesPerColor } = currentLook();
+    const { bend, rotation, bladesPerColor } = currentLook();
     const blades = irisBladePaths({
       count,
       perColor: bladesPerColor(count),
       aperture,
-      twist,
+      twist: twist + rotation,
       bend,
     });
 
@@ -143,7 +147,6 @@ export function createIrisShutter({ button }) {
       bladeNode.setAttribute("fill", `rgb(${Math.round(r)} ${Math.round(g)} ${Math.round(b)})`);
       edgeGroup.children[i].setAttribute("d", blade.edge);
     });
-    glint?.setAttribute("opacity", (aperture / currentLook().aperture).toFixed(2));
   }
 
   function animate(durationMs, step) {
