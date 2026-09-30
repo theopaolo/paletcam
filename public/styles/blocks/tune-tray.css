@@ -1,6 +1,7 @@
 /* Tuning tray: a well that opens between the palette and the footer and
    pushes both up, so the palette stays in view while tuning. The bubble on its
-   top edge is the toggle (tune-bubble.js); the drawer inside is config-panel.
+   top edge is the toggle, and tune-tray.js moves the tray with the finger;
+   the drawer inside is config-panel.
 
    No tokens cover the hardware finishes here (the sunk well, the raised keys),
    so their gradients and shadows are written out, like footer-controls.css. */
@@ -16,19 +17,15 @@
     inset 0 -10px 12px -10px rgb(0 0 0 / 95%);
 }
 
+/* Height is set by tune-tray.js: 0 closed, auto open, pixels while dragging
+   or settling. */
 .tune-tray-clip {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.tune-tray:has(config-panel.is-open) .tune-tray-clip {
-  grid-template-rows: 1fr;
-}
-
-.tune-tray-body {
-  min-height: 0;
+  height: 0;
   overflow: hidden;
+}
+
+.tune-tray-clip.is-settling {
+  transition: height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ── Bubble: the footer's top edge swelling into a drop above the shutter ── */
@@ -242,7 +239,7 @@ body.is-ral-mode .mode-switch-cap {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tune-tray-clip,
+  .tune-tray-clip.is-settling,
   .tune-bubble-chevron,
   .mode-switch-cap {
     transition-duration: 1ms;

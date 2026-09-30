@@ -17,12 +17,16 @@ body.is-ral-mode .config-drawer {
   display: none;
 }
 
-/* ── Tuning arc: setting tabs above one curved ruler (tune-arc.js) ── */
+/* ── Tuning panel host (tune-panels.js mounts arc, levers or rails) ── */
+.tune-panel {
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* ── Arc: setting tabs above one curved ruler ── */
 .tune-arc {
   display: grid;
   gap: var(--space-4);
-  padding-top: var(--space-16);
-  border-top: 1px solid var(--color-border-subtle);
 }
 
 .tune-arc-tabs {
@@ -133,6 +137,293 @@ body.is-ral-mode .config-drawer {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* ── Levers: one drum per setting behind a lit index ── */
+.tune-levers {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-16);
+  padding-bottom: var(--space-8);
+}
+
+.tune-levers.is-thin {
+  gap: var(--space-24);
+}
+
+.tune-lever {
+  display: grid;
+  flex: none;
+  justify-items: center;
+  gap: 2px;
+  width: 4.5rem;
+}
+
+.tune-levers.is-thin .tune-lever {
+  width: 3.875rem;
+}
+
+.tune-lever-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tune-lever-value {
+  color: var(--color-text-primary);
+  font: 500 var(--font-size-md) / 1.25 var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+
+.tune-lever-value.is-edited,
+.tune-lever-value.is-text {
+  color: var(--color-accent-soft);
+}
+
+.tune-lever-value.is-text {
+  font-family: var(--font-family-body);
+  font-weight: 600;
+}
+
+.tune-lever-drum {
+  position: relative;
+  width: 3.25rem;
+  height: 6rem;
+  margin-top: var(--space-4);
+  border-radius: var(--space-16);
+  background: linear-gradient(#040404, #161616 26%, #1d1d1d 50%, #161616 74%, #040404);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 2px 6px rgb(0 0 0 / 60%);
+  cursor: ns-resize;
+  touch-action: none;
+  transition: box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.tune-lever.is-thin .tune-lever-drum {
+  width: 2.125rem;
+  height: 6.75rem;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(#030303, #111 24%, #171717 50%, #111 76%, #030303);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 6%),
+    0 1px 0 rgb(255 255 255 / 4%);
+}
+
+.tune-lever.is-active .tune-lever-drum {
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent-border),
+    0 1px 0 rgb(255 255 255 / 4%);
+}
+
+.tune-lever-drum canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The look on a three-stop knob, its mini palettes around the top. */
+.tune-lever-drum.is-knob {
+  cursor: grab;
+}
+
+.tune-knob-mark {
+  position: absolute;
+  top: 3.625rem;
+  left: 50%;
+  display: flex;
+  gap: 1px;
+  height: 6px;
+  opacity: 0.35;
+  transform: translate(-50%, -50%) rotate(var(--mark-angle)) translateY(-1.75rem);
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.tune-knob-mark.is-on {
+  opacity: 1;
+}
+
+.tune-knob-mark i {
+  width: 2.5px;
+  border-radius: 0.5px;
+}
+
+.tune-knob {
+  position: absolute;
+  top: 3.625rem;
+  left: 50%;
+  width: 2.375rem;
+  height: 2.375rem;
+  margin: -1.1875rem 0 0 -1.1875rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle closest-side, #1c1c1c 0 12.5px, #0a0a0a 13px, transparent 13.5px),
+    repeating-conic-gradient(#2e2e2e 0 4deg, #111 4deg 8deg);
+  box-shadow: var(--shadow-chrome);
+  transition: transform var(--duration-settle) var(--easing-spring);
+}
+
+.tune-knob.is-dragging {
+  transition: none;
+}
+
+.tune-knob::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 2px;
+  height: 9px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background-color: var(--color-accent-soft);
+}
+
+/* ── Rails: thin tracks, an engraved scale, raised icon knobs ── */
+.tune-rails {
+  display: grid;
+  gap: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+
+.tune-rail {
+  --rail-knob: 1.75rem;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+}
+
+.tune-rail-name {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.tune-rail-value {
+  color: var(--color-text-primary);
+  font: 500 var(--font-size-md) / 1.2 var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tune-rail-value.is-edited,
+.tune-rail-value.is-text {
+  color: var(--color-accent-soft);
+}
+
+.tune-rail-value.is-text {
+  font-family: var(--font-family-body);
+  font-weight: 600;
+}
+
+.tune-rail-track {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 2rem;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.tune-rail-line {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 4px;
+  margin-top: -2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background-color: var(--color-surface-shell);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 90%),
+    0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.tune-rail-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--rail-progress) * (100% - var(--rail-knob)) + var(--rail-knob) / 2);
+  background: linear-gradient(90deg, var(--color-accent-dim), var(--color-accent-soft));
+  transition: width 0.22s var(--easing-spring);
+}
+
+.tune-rail.is-steps .tune-rail-fill {
+  display: none;
+}
+
+.tune-rail-scale {
+  position: absolute;
+  top: calc(50% + 6px);
+  right: calc(var(--rail-knob) / 2);
+  left: calc(var(--rail-knob) / 2);
+  height: 3px;
+  border-right: 1px solid var(--color-border-subtle);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-border-subtle) 0 1px,
+    transparent 1px 10%
+  );
+}
+
+.tune-rail.is-steps .tune-rail-scale {
+  height: 4px;
+  border-right-color: var(--color-border-strong);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-border-strong) 0 1px,
+    transparent 1px 50%
+  );
+}
+
+.tune-rail-knob {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--rail-progress) * (100% - var(--rail-knob)));
+  display: grid;
+  place-items: center;
+  width: var(--rail-knob);
+  height: var(--rail-knob);
+  margin-top: calc(var(--rail-knob) / -2);
+  border-radius: 50%;
+  background: linear-gradient(#2b2b2b, #151515);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 13%),
+    0 0 0 1px #000,
+    0 2px 5px rgb(0 0 0 / 70%);
+  color: var(--color-text-secondary);
+  transition:
+    left 0.22s var(--easing-spring),
+    box-shadow var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+
+.tune-rail-knob .tune-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.tune-rail.is-dragging .tune-rail-fill {
+  transition: none;
+}
+
+.tune-rail.is-dragging .tune-rail-knob {
+  color: var(--color-accent-soft);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 13%),
+    0 0 0 1px var(--color-accent-border),
+    0 2px 8px rgb(0 0 0 / 70%);
+  transform: scale(1.08);
+  transition:
+    box-shadow var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
 }
 
 /* ── History row ── */

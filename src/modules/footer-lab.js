@@ -1,6 +1,6 @@
 /**
- * Footer variants under test on preprod: the shutter face and the color-count
- * control. The choice is stored per device; the switches only render in debug
+ * Footer variants under test on preprod: the shutter face, the color-count
+ * control and the tuning panel in the tray. The choice is stored per device; the switches only render in debug
  * builds (see config-panel.js), so production always runs the defaults.
  */
 
@@ -9,11 +9,12 @@ const STORAGE_KEY = "paletcam.footerLab";
 export const FOOTER_LAB_OPTIONS = Object.freeze({
   shutter: Object.freeze(["titanium", "flat", "logo"]),
   count: Object.freeze(["dial", "numbered", "adj", "drum"]),
+  panel: Object.freeze(["arc", "thin", "rails", "drums"]),
 });
 
-const DEFAULT_FOOTER_LAB = Object.freeze({ shutter: "titanium", count: "dial" });
+const DEFAULT_FOOTER_LAB = Object.freeze({ shutter: "titanium", count: "dial", panel: "arc" });
 
-/** @typedef {{ shutter: string, count: string }} FooterLab */
+/** @typedef {{ shutter: string, count: string, panel: string }} FooterLab */
 
 /** @param {Partial<FooterLab> | null | undefined} candidate @returns {FooterLab} */
 function normalizeFooterLab(candidate) {
@@ -24,6 +25,9 @@ function normalizeFooterLab(candidate) {
     count: FOOTER_LAB_OPTIONS.count.includes(candidate?.count ?? "")
       ? /** @type {string} */ (candidate?.count)
       : DEFAULT_FOOTER_LAB.count,
+    panel: FOOTER_LAB_OPTIONS.panel.includes(candidate?.panel ?? "")
+      ? /** @type {string} */ (candidate?.panel)
+      : DEFAULT_FOOTER_LAB.panel,
   };
 }
 

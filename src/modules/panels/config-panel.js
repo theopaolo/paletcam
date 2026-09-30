@@ -3,7 +3,7 @@ import { APP_SETTINGS_LIMITS, getDefaultAppSettings } from "../../app-settings.j
 import { subscribeLocaleChange, t } from "../../i18n.js";
 import { getFooterLab, setFooterLab, subscribeFooterLab } from "../footer-lab.js";
 import { mountConfigPanel } from "./config-panel-controller.js";
-import { mountTuneArc, TUNE_ICONS } from "./tune-arc.js";
+import { mountTunePanel, TUNE_ICONS } from "./tune-panels.js";
 
 const DEFAULT_ALGORITHM_SETTINGS = getDefaultAppSettings();
 
@@ -120,6 +120,16 @@ const FOOTER_LAB_ROWS = Object.freeze([
       ["drum", "Drum"],
     ],
   }),
+  Object.freeze({
+    key: "panel",
+    label: "Tuning",
+    options: [
+      ["arc", "Arc"],
+      ["thin", "Thin"],
+      ["rails", "Rails"],
+      ["drums", "Drums"],
+    ],
+  }),
 ]);
 
 function renderFooterLab() {
@@ -171,11 +181,14 @@ class ConfigPanel extends LitElement {
       toggleButton: document.querySelector(".btn-config"),
       toggleSection: document.getElementById("tuneTray"),
     });
-    this.cleanupTuneArc = mountTuneArc(this, { formatValue: formatTuningValue });
+    this.mountPanel(getFooterLab().panel);
     this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
       this.requestUpdate();
     });
-    this.unsubscribeFooterLab = subscribeFooterLab(() => {
+    this.unsubscribeFooterLab = subscribeFooterLab(({ panel }) => {
+      if (panel !== this.panelKind) {
+        this.mountPanel(panel);
+      }
       this.requestUpdate();
     });
     this.requestUpdate();
@@ -183,10 +196,17 @@ class ConfigPanel extends LitElement {
 
   disconnectedCallback() {
     this.cleanupConfigPanel?.();
-    this.cleanupTuneArc?.();
+    this.cleanupTunePanel?.();
     this.unsubscribeLocaleChange?.();
     this.unsubscribeFooterLab?.();
     super.disconnectedCallback();
+  }
+
+  /** @param {string} kind A tuning panel from the preprod lab (footer-lab.js). */
+  mountPanel(kind) {
+    this.cleanupTunePanel?.();
+    this.panelKind = kind;
+    this.cleanupTunePanel = mountTunePanel(this, { formatValue: formatTuningValue, kind });
   }
 
   setGuideOpen(isOpen) {
@@ -244,7 +264,7 @@ class ConfigPanel extends LitElement {
         aria-hidden="true"
         inert
       >
-        <div class="tune-arc" id="configTuneArc"></div>
+        <div class="tune-panel" id="configTunePanel"></div>
 
         <div class="config-drawer-model" hidden>
           ${TUNING_FIELDS.map(renderTuningInput)} ${renderNeutralBalanceInputs()}

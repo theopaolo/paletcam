@@ -12,7 +12,7 @@ import { createSwatchCountDrumUiController } from "./modules/swatch-count-drum-u
 import { createAdjLeverUi, createCountDialUi } from "./modules/count-controls-ui.js";
 import { getFooterLab, subscribeFooterLab } from "./modules/footer-lab.js";
 import { createIrisShutter } from "./modules/iris-shutter.js";
-import { bindTuneBubble } from "./modules/tune-bubble.js";
+import { bindTuneTray } from "./modules/tune-tray.js";
 import { pressFeedback, shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
@@ -118,7 +118,7 @@ let hybridSettings = { ...getAppSettings().hybrid };
 let lastCameraViewportLayout = null;
 let unsubscribeFromAppSettings = () => {};
 let unsubscribeFromFooterLab = () => {};
-let unbindTuneBubble = () => {};
+let unbindTuneTray = () => {};
 let unsubscribeFromDatabaseLifecycle = () => {};
 let destroyCommunityHomepageLink = () => {};
 let cancelDeferredDeleteOutboxInitialization = () => {};
@@ -653,7 +653,7 @@ function initializeApp() {
   zoomUi.initialize();
   exposureUi.initialize();
   gridUi.initialize();
-  unbindTuneBubble = bindTuneBubble({ bubble: tuneTray?.querySelector(".tune-bubble") ?? null });
+  unbindTuneTray = bindTuneTray({ tray: tuneTray });
   swatchCountDrumUi.initialize(swatchCount);
   applyFooterLab(getFooterLab());
   unsubscribeFromFooterLab = subscribeFooterLab(applyFooterLab);
@@ -771,7 +771,7 @@ function destroyApp() {
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
   gridUi?.destroy?.();
-  unbindTuneBubble();
+  unbindTuneTray();
   panelCameraUi.destroy();
   collectionEntryController.destroy();
   cameraController.destroy?.();

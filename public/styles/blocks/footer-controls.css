@@ -146,7 +146,7 @@ body.is-ral-mode .count-dial-index {
   transition: none;
 }
 
-/* Machined face with fine ticks; one longer tick per count, lit at the current one. */
+/* Machined face with one tick per count, lit at the current one. */
 .count-dial-face {
   position: absolute;
   inset: 5px;
@@ -157,15 +157,6 @@ body.is-ral-mode .count-dial-index {
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 60%),
     inset 0 1px 1px rgb(255 255 255 / 8%);
-}
-
-.count-dial-face::before {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: repeating-conic-gradient(rgb(255 255 255 / 20%) 0 0.9deg, transparent 0.9deg 10deg);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
 }
 
 .count-dial-face i {
@@ -188,9 +179,11 @@ body.is-ral-mode .count-dial-index {
 }
 
 /* Numbered face: the counts are engraved on the ring and read against the
-   index, so the center keeps its icon while turning. */
-.count-dial.is-numbered .count-dial-face::before {
-  content: none;
+   index, so the center keeps its icon while turning. The dial is wider than
+   the ticks one, so the digits fit between the button and the knurled rim. */
+.count-dial.is-numbered {
+  width: 5rem;
+  height: 5rem;
 }
 
 .count-dial-face b {
@@ -200,7 +193,7 @@ body.is-ral-mode .count-dial-index {
   color: var(--color-text-muted);
   font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
   font-variant-numeric: tabular-nums;
-  transform: translate(-50%, -50%) rotate(var(--tick-angle)) translateY(-1.8rem);
+  transform: translate(-50%, -50%) rotate(var(--tick-angle)) translateY(-1.85rem);
   transition: color var(--duration-fast) var(--easing-standard);
 }
 
