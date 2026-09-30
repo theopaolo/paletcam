@@ -96,7 +96,7 @@ export async function resolveCommunityHomepageUrl(options) {
 }
 
 /**
- * Wire the header "Catchers Community" link so it opens in the user's real
+ * Wire the header community key so it opens in the user's real
  * browser (not the in-app PWA view). The anchor opens natively via
  * target="_blank"; JS only refreshes its href to an auto-login magic link.
  *
@@ -210,8 +210,14 @@ export function initCommunityHomepageLink(options = {}) {
   link.addEventListener("pointerdown", prefetchMagicLink);
   link.addEventListener("focus", prefetchMagicLink);
 
-  const unsubscribeSession = subscribeSession(() => resetLink());
+  // The key's LED is lit while signed in (branding.css).
+  const paintSignedIn = () => link.classList.toggle("is-signed-in", Boolean(getToken()));
+  const unsubscribeSession = subscribeSession(() => {
+    resetLink();
+    paintSignedIn();
+  });
   resetLink();
+  paintSignedIn();
 
   return () => {
     if (destroyed) {

@@ -17,6 +17,7 @@ function createFakeLink({ href = FALLBACK } = {}) {
     href,
     target: "",
     rel: "",
+    classList: { toggle() {} },
     addEventListener: (type, fn) => {
       handlers[type] = fn;
     },

@@ -7,8 +7,10 @@
   flex-shrink: 0;
 }
 
-/* Footer plate finish, shared with the tuning bubble (tune-tray.css) so the
-   drop reads as part of the footer. The bubble swaps in its own sheen. */
+/* Plate finish of the footer and the header, shared with the tuning bubble
+   (tune-tray.css) so the drop reads as part of the footer. The bubble swaps in
+   its own sheen. */
+.shell-header,
 .btn-containers,
 .tune-bubble-shape::before {
   background-image:
@@ -21,6 +23,7 @@
   background-blend-mode: soft-light;
 }
 
+.shell-header::after,
 .btn-containers::after,
 .tune-bubble-shape::after {
   content: "";
@@ -313,11 +316,13 @@
 }
 
 .btn-open-settings,
-.btn-open-login {
+.btn-open-login,
+.btn-community {
+  position: relative;
   display: grid;
   place-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   padding: 0;
   border: 2px solid var(--color-surface-ink);
   border-radius: var(--radius-pill);
@@ -332,7 +337,8 @@
 }
 
 .btn-open-settings img,
-.btn-open-login img {
+.btn-open-login img,
+.btn-community img {
   width: 1.2rem;
   height: 1.2rem;
   transition: transform 0.14s var(--easing-standard);
@@ -344,13 +350,15 @@
 }
 
 .btn-open-settings:active,
-.btn-open-login:active {
+.btn-open-login:active,
+.btn-community:active {
   transform: translateY(1px);
   border-color: rgb(255 200 0 / 40%);
   background: var(--gradient-surface-panel), var(--color-surface-overlay);
 }
 
 .btn-open-settings:active img,
-.btn-open-login:active img {
+.btn-open-login:active img,
+.btn-community:active img {
   transform: scale(0.94);
 }

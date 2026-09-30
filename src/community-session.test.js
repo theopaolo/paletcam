@@ -101,6 +101,7 @@ function createFakeLink() {
     href: "https://colorcatchers.co/",
     target: "",
     rel: "",
+    classList: { toggle() {} },
     addEventListener(type, listener) {
       handlers.set(type, listener);
     },
