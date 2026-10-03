@@ -149,6 +149,26 @@ describe("palette extraction worker controller", () => {
     expect(FakeWorker.instances[0].messages).toHaveLength(0);
   });
 
+  test("transfers a frame bitmap and closes the ones it drops", async () => {
+    const controller = await createController();
+    const frame = () => ({ close: mock(() => {}) });
+    const [first, replaced, latest] = [frame(), frame(), frame()];
+    const bitmapRequest = (bitmap) => ({ ...extractionRequest(), imageData: undefined, bitmap });
+
+    expect(controller.requestExtraction({ ...bitmapRequest(first), mirror: true })).toBe(true);
+    const worker = FakeWorker.instances[0];
+    expect(worker.messages[0].message).toMatchObject({ bitmap: first, buffer: null, mirror: true });
+    expect(worker.messages[0].transfer).toEqual([first]);
+
+    controller.requestExtraction(bitmapRequest(replaced));
+    controller.requestExtraction(bitmapRequest(latest));
+    expect(replaced.close).toHaveBeenCalledTimes(1);
+
+    controller.invalidate();
+    expect(latest.close).toHaveBeenCalledTimes(1);
+    expect(first.close).not.toHaveBeenCalled();
+  });
+
   test("destroy terminates, clears queued work, and prevents recreation", async () => {
     const controller = await createController();
     controller.requestExtraction(extractionRequest(1));

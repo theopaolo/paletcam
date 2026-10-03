@@ -209,6 +209,37 @@ export function createLivePreviewFrameAcquisition({
     return true;
   }
 
+  /**
+   * The current camera frame, cropped and scaled to the analysis size, as an
+   * ImageBitmap for the extraction worker to read. Unlike drawImage into the
+   * analysis canvas, this does not stall the main thread on a full-frame GPU
+   * readback (~27ms per call at 1600×1200 on an M5, every 200ms).
+   * Resolves null when no frame can be taken.
+   * @param {{ facingMode: string, shouldMirrorUserFacing: boolean }} options
+   * @returns {Promise<{ bitmap: ImageBitmap, mirror: boolean, width: number, height: number } | null>}
+   */
+  async function grabAnalysisFrame({ facingMode, shouldMirrorUserFacing }) {
+    if (!cameraFeed || analysisWidth <= 0 || analysisHeight <= 0) {
+      return null;
+    }
+
+    const width = analysisWidth;
+    const height = analysisHeight;
+    /** @type {ImageBitmapOptions} */
+    const resize = { resizeWidth: width, resizeHeight: height, resizeQuality: "low" };
+    const crop = getCameraFrameSourceRect();
+    try {
+      const bitmap =
+        crop && crop.width > 0 && crop.height > 0
+          ? await createImageBitmap(cameraFeed, crop.x, crop.y, crop.width, crop.height, resize)
+          : await createImageBitmap(cameraFeed, resize);
+      return { bitmap, mirror: facingMode === "user" && shouldMirrorUserFacing, width, height };
+    } catch {
+      // No decodable frame yet (stream starting or switching): skip this one.
+      return null;
+    }
+  }
+
   function readAnalysisPixels() {
     if (!analysisContext || analysisWidth <= 0 || analysisHeight <= 0) {
       return null;
@@ -238,6 +269,7 @@ export function createLivePreviewFrameAcquisition({
     getFrameContext: () => frameContext,
     getOriginsOverlayContext: () => originsOverlayContext,
     getPaletteContext: () => paletteContext,
+    grabAnalysisFrame,
     readAnalysisPixels,
     resize,
   };

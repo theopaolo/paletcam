@@ -17,7 +17,12 @@ import {
 import { getFooterLab, subscribeFooterLab } from "./modules/footer-lab.js";
 import { createIrisShutter } from "./modules/iris-shutter.js";
 import { bindTuneTray } from "./modules/tune-tray.js";
-import { pressFeedback, shutterFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
+import {
+  prepareUiFeedback,
+  pressFeedback,
+  shutterFeedback,
+  unlockUiFeedback,
+} from "./modules/ui-feedback.js";
 import { showToast } from "./modules/toast-ui.js";
 import { bindUncaughtErrorHandlers } from "./modules/uncaught-error-handler.js";
 import { initializeStorageHealth } from "./modules/storage-health.js";
@@ -622,6 +627,7 @@ function initializeApp() {
 
   isAppDestroyed = false;
   viewportHeightController?.sync();
+  globalThis.requestIdleCallback?.(prepareUiFeedback, { timeout: 3000 });
   applyAppSettings(getAppSettings());
   setPreviewExpanded(true);
   bindCameraPermissionEvents();

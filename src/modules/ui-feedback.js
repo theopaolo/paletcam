@@ -12,6 +12,18 @@ function resolveAudioContextClass() {
 }
 
 /**
+ * Create the audio context ahead of the first touch. Creating it costs ~50ms of
+ * main thread, which would drop frames from the first drag (the tuning tray's
+ * bubble). Outside a gesture it starts suspended; `unlockUiFeedback` resumes it.
+ */
+export function prepareUiFeedback() {
+  const AudioContextClass = resolveAudioContextClass();
+  if (AudioContextClass) {
+    audioContext ??= new AudioContextClass();
+  }
+}
+
+/**
  * Create/resume the audio context. Must be called from a user gesture
  * (pointerdown) once, otherwise iOS keeps the context suspended.
  */

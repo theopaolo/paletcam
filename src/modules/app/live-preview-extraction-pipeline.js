@@ -18,7 +18,9 @@
  * @param {{
  *   worker: {
  *     requestExtraction(request: {
- *       imageData: Uint8ClampedArray,
+ *       imageData?: Uint8ClampedArray,
+ *       bitmap?: ImageBitmap,
+ *       mirror?: boolean,
  *       width: number,
  *       height: number,
  *       swatchCount: number,
@@ -90,8 +92,13 @@ export function createLivePreviewExtractionPipeline({
   }
 
   /**
+   * Pass `imageData`, or a frame `bitmap` that only the worker can read. A
+   * bitmap the worker refuses comes back as `{delegated: false, result: null}`
+   * and stays the caller's to close.
    * @param {{
-   *   imageData: Uint8ClampedArray,
+   *   imageData?: Uint8ClampedArray,
+   *   bitmap?: ImageBitmap,
+   *   mirror?: boolean,
    *   width: number,
    *   height: number,
    *   swatchCount: number,
@@ -99,10 +106,12 @@ export function createLivePreviewExtractionPipeline({
    *   hybridSettings: object,
    *   frozenEntries: FrozenEntry[],
    * }} request
-   * @returns {{delegated: true, result: null} | {delegated: false, result: ExtractionResult}}
+   * @returns {{delegated: true, result: null} | {delegated: false, result: ExtractionResult | null}}
    */
   function request({
     imageData,
+    bitmap,
+    mirror,
     width,
     height,
     swatchCount,
@@ -114,6 +123,8 @@ export function createLivePreviewExtractionPipeline({
     const options = buildOptions(medianCutSettings, hybridSettings);
     const delegatedToWorker = worker.requestExtraction({
       imageData,
+      bitmap,
+      mirror,
       width,
       height,
       swatchCount,
@@ -125,6 +136,9 @@ export function createLivePreviewExtractionPipeline({
     // or reuse it after an accepted request.
     if (delegatedToWorker) {
       return { delegated: true, result: null };
+    }
+    if (!imageData) {
+      return { delegated: false, result: null };
     }
 
     const extraction = extractPalette(imageData, width, height, swatchCount, options);

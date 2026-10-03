@@ -107,6 +107,8 @@ export function createLivePreviewController({
   let paintedPaletteWidth = 0;
   let paintedPaletteHeight = 0;
   let cachedCameraTrackSettings = null;
+  let isFrameGrabPending = false;
+  let frameGrabGeneration = 0;
 
   function getPaletteViewportSize() {
     const currentCaptureMode = getCurrentCaptureMode();
@@ -341,6 +343,7 @@ export function createLivePreviewController({
   }
 
   function reset() {
+    frameGrabGeneration += 1;
     extractionPipeline.reset();
     clearOriginMarkers();
     frozenPins.reset();
@@ -377,6 +380,58 @@ export function createLivePreviewController({
     }
 
     return [];
+  }
+
+  // Where the worker can read camera frames itself, the live loop only hands it
+  // a scaled bitmap and never blocks on a GPU readback. iOS keeps its canvas
+  // preview path, and a failed worker falls back to reading pixels here.
+  function canReadFramesOffThread() {
+    return (
+      !shouldUseCanvasPreview &&
+      paletteExtractionWorker?.isEnabled?.() === true &&
+      typeof createImageBitmap === "function" &&
+      typeof OffscreenCanvas === "function" &&
+      typeof frameAcquisition.grabAnalysisFrame === "function"
+    );
+  }
+
+  function requestOffThreadExtraction(frameStartTime) {
+    if (isFrameGrabPending) {
+      return;
+    }
+    isFrameGrabPending = true;
+    timing.markExtracted(frameStartTime);
+    const generation = frameGrabGeneration;
+    frameAcquisition
+      .grabAnalysisFrame({
+        facingMode: cameraController.getFacingMode(),
+        shouldMirrorUserFacing: getShouldMirrorUserFacingCamera(),
+      })
+      .then((frame) => {
+        if (!frame) {
+          return;
+        }
+        // A reset (camera switch, stop) while the frame was being taken makes it stale.
+        const extraction =
+          generation === frameGrabGeneration && isStreaming
+            ? extractionPipeline.request({
+                bitmap: frame.bitmap,
+                mirror: frame.mirror,
+                width: frame.width,
+                height: frame.height,
+                swatchCount: getEffectiveSwatchCount(),
+                medianCutSettings: getMedianCutExtractionSettings(),
+                hybridSettings: getHybridSettings(),
+                frozenEntries: frozenPins.getEntries(),
+              })
+            : null;
+        if (!extraction?.delegated) {
+          frame.bitmap.close();
+        }
+      })
+      .finally(() => {
+        isFrameGrabPending = false;
+      });
   }
 
   function drawCurrentFrameToAnalysisCanvas() {
@@ -473,7 +528,13 @@ export function createLivePreviewController({
       );
       analysisDurationMs = timing.now() - analysisStartTime;
     } else {
-      if (timing.shouldExtract(frameStartTime, Boolean(extractionPipeline.getSnapshot().colors))) {
+      const shouldExtract = timing.shouldExtract(
+        frameStartTime,
+        Boolean(extractionPipeline.getSnapshot().colors),
+      );
+      if (shouldExtract && canReadFramesOffThread()) {
+        requestOffThreadExtraction(frameStartTime);
+      } else if (shouldExtract) {
         const analysisStartTime = timing.now();
         const analysisFrameReady = shouldUseCanvasPreview
           ? copyVisibleFrameToAnalysisCanvas()

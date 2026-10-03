@@ -39,6 +39,11 @@ function isFrozenPresence(value) {
   );
 }
 
+// A camera frame bitmap holds GPU memory until it is closed or transferred.
+function closeJobFrame(job) {
+  job?.bitmap?.close?.();
+}
+
 function normalizeExtractionResult(payload) {
   if (
     !Array.isArray(payload.colors) ||
@@ -89,6 +94,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
     worker?.terminate();
     worker = null;
     activeJob = null;
+    closeJobFrame(queuedJob);
     queuedJob = null;
   }
 
@@ -119,8 +125,10 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
           options: nextJob.options,
           frozenColors: nextJob.frozenColors,
           buffer: nextJob.buffer,
+          bitmap: nextJob.bitmap,
+          mirror: nextJob.mirror,
         },
-        [nextJob.buffer],
+        [nextJob.bitmap ?? nextJob.buffer],
       );
     } catch (error) {
       disableWorker(error);
@@ -186,21 +194,38 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
     return worker;
   }
 
-  function requestExtraction({ imageData, options, swatchCount, width, height, frozenColors }) {
+  /**
+   * Takes either the frame's pixels (`imageData`) or the frame itself as an
+   * ImageBitmap at the analysis size, which the worker reads (mirrored when
+   * `mirror` is set). An accepted bitmap belongs to the controller; a refused
+   * one stays with the caller.
+   */
+  function requestExtraction({
+    imageData,
+    bitmap,
+    mirror = false,
+    options,
+    swatchCount,
+    width,
+    height,
+    frozenColors,
+  }) {
     const activeWorker = ensureWorker();
     if (!activeWorker) {
       return false;
     }
 
     const pixelCount = width * height;
+    const hasPixels = bitmap
+      ? typeof bitmap.close === "function"
+      : imageData instanceof Uint8ClampedArray && imageData.length === pixelCount * 4;
     if (
-      !(imageData instanceof Uint8ClampedArray) ||
+      !hasPixels ||
       !Number.isInteger(width) ||
       !Number.isInteger(height) ||
       width <= 0 ||
       height <= 0 ||
       pixelCount > MAX_EXTRACTION_PIXELS ||
-      imageData.length !== pixelCount * 4 ||
       !Number.isInteger(swatchCount) ||
       swatchCount < 1 ||
       swatchCount > MAX_SWATCH_COUNT
@@ -209,7 +234,9 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
     }
 
     const nextJob = {
-      buffer: imageData.buffer,
+      bitmap: bitmap ?? null,
+      buffer: bitmap ? null : imageData.buffer,
+      mirror: Boolean(mirror),
       frozenColors: Array.isArray(frozenColors) ? frozenColors : [],
       generation: currentGeneration,
       height,
@@ -220,6 +247,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
     };
 
     if (activeJob) {
+      closeJobFrame(queuedJob);
       queuedJob = nextJob;
       return true;
     }
@@ -231,6 +259,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
 
   function invalidate() {
     currentGeneration += 1;
+    closeJobFrame(queuedJob);
     queuedJob = null;
   }
 
