@@ -665,8 +665,6 @@ interface PaletteViewerOpenOptions {
   onPublish?: (palette: Palette) => void | Promise<void>;
   onDelete?: (palette: Palette) => void | Promise<void>;
   onToggleFavorite?: (palette: Palette) => unknown;
-  /** Called with the strip color the reader tapped on the polaroid. */
-  onFindColor?: (color: RgbColor) => void;
   getPublishAction?: (palette: Palette) => PublicationAction;
   canShare?: (palette: Palette) => boolean;
   canExport?: (palette: Palette) => boolean;

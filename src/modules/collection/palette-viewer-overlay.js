@@ -9,7 +9,6 @@ import {
 } from "../panels/panel-manager.js";
 import { isPaletteFavorite } from "./collection-filter.js";
 import { FAVORITE_ICON_MARKUP } from "./favorite-icon.js";
-import { getPolaroidStripRect } from "./palette-polaroid-renderer.js";
 import { getPalettePreviewDebugInfo } from "./palette-preview-assets.js";
 import { runSessionBoundAction } from "./session-bound-action.js";
 
@@ -412,28 +411,6 @@ function setSlideFlipped(slideState, isFlipped) {
   }
 }
 
-/**
- * The strip color under a tap on the recto, or null when the tap fell on the
- * photo or the frame. The image is contain-fit, so the polaroid is found inside
- * the element box before the tap is mapped to image pixels.
- * @param {MouseEvent} event @param {HTMLImageElement} image @param {Palette} palette
- */
-function getTappedStripColor(event, image, palette) {
-  const colors = palette?.colors ?? [];
-  if (image.hidden || !image.naturalWidth || colors.length === 0) {
-    return null;
-  }
-  const box = image.getBoundingClientRect();
-  const scale = Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight);
-  const x = (event.clientX - box.left - (box.width - image.naturalWidth * scale) / 2) / scale;
-  const y = (event.clientY - box.top - (box.height - image.naturalHeight * scale) / 2) / scale;
-  const strip = getPolaroidStripRect(palette, image.naturalWidth, image.naturalHeight);
-  if (x < strip.left || x >= strip.right || y < strip.top || y >= strip.bottom) {
-    return null;
-  }
-  return colors[Math.floor(((x - strip.left) / (strip.right - strip.left)) * colors.length)];
-}
-
 function createSlideState(palette, index) {
   const slide = document.createElement("article");
   slide.className = "palette-viewer-slide";
@@ -488,14 +465,7 @@ function createSlideState(palette, index) {
       void buildSlideVerso(slideState, palette);
       setSlideFlipped(slideState, !slideState.isFlipped);
     };
-    flip.addEventListener("click", (event) => {
-      const color = slideState.isFlipped ? null : getTappedStripColor(event, image, palette);
-      if (color && typeof activeSession?.onFindColor === "function") {
-        activeSession.onFindColor(color);
-        return;
-      }
-      slideState.toggleFlip?.();
-    });
+    flip.addEventListener("click", slideState.toggleFlip);
   } else {
     flip.disabled = true;
   }
@@ -1024,7 +994,6 @@ export function openPaletteViewerOverlay({
   onPublish,
   onDelete,
   onToggleFavorite,
-  onFindColor,
   getPublishAction,
   canShare,
   canExport,
@@ -1060,7 +1029,6 @@ export function openPaletteViewerOverlay({
     onPublish,
     onDelete,
     onToggleFavorite,
-    onFindColor,
     getPublishAction,
     canShare,
     canExport,

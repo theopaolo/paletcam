@@ -51,6 +51,7 @@ import {
   createRingCard,
   createSwatchCard,
   disposePaletteCard,
+  getTappedCardColor,
   setPaletteCardFavoriteState,
 } from "./modules/collection/palette-card.js";
 import { createPaletteDeletionUseCase } from "./modules/collection/palette-deletion.js";
@@ -117,7 +118,7 @@ const selectionState = createCollectionSelectionState();
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
 let currentLocale = getAppSettings().locale;
-/** Set by a tap on a strip color in the viewer. @type {((palette: Palette) => boolean) | null} */
+/** Set by a tap on a color in the bands, mosaic or spectrum. @type {((palette: Palette) => boolean) | null} */
 let colorFilterMatch = null;
 const collectionFilters = createCollectionFilterState({
   published: (palette) => getPalettePublicationAction(palette) === "unpublish",
@@ -362,14 +363,6 @@ function canPublishPalette(palette) {
 
 function getDisplayPalettes() {
   return collectionFilters.apply(currentPalettes);
-}
-
-/** The viewer swipes in the order on screen: by hue in the spectrum, by date elsewhere. */
-function getViewerPalettes() {
-  const palettes = getDisplayPalettes();
-  return currentCollectionViewMode === "spectrum"
-    ? orderPalettesBySpectrum(palettes).map(({ palette }) => palette)
-    : palettes;
 }
 
 function isPalettePendingDeletion(paletteId) {
@@ -772,8 +765,8 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
     return;
   }
 
-  const viewerPalettes = getViewerPalettes();
-  const initialIndex = viewerPalettes.findIndex((palette) => palette.id === paletteId);
+  const displayPalettes = getDisplayPalettes();
+  const initialIndex = displayPalettes.findIndex((palette) => palette.id === paletteId);
   if (initialIndex < 0) {
     return;
   }
@@ -782,9 +775,9 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
   try {
     await paletteViewerCoordinator.open(
       {
-        palettes: viewerPalettes,
+        palettes: displayPalettes,
         initialIndex,
-        getPalettes: getViewerPalettes,
+        getPalettes: getDisplayPalettes,
         getPreviewAsset: getPaletteViewerPreviewAsset,
         getPublishAction: getPalettePublicationAction,
         canShare: canSharePalette,
@@ -799,7 +792,6 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
         onDelete: handleDeletePalette,
         onToggleFavorite: (palette) =>
           handleToggleFavorite(palette.id, !isPaletteFavorite(palette)),
-        onFindColor: findPalettesWithColor,
       },
       {
         canOpen: () =>
@@ -903,11 +895,7 @@ function renderSpectrumWall(palettes) {
       wall.appendChild(heading);
     }
 
-    const card = createChipCard({
-      palette: entry.palette,
-      colors: entry.colors,
-      onOpenViewer: openCollectionPaletteViewer,
-    });
+    const card = createChipCard({ palette: entry.palette, colors: entry.colors });
     applyCardSelectionState(card);
     wall.appendChild(card);
     railEntries.push({
@@ -1417,7 +1405,6 @@ export async function openDirectPaletteViewer(paletteId) {
       onExportVerso: handleExportPaletteVerso,
       onPublish: (p) => handlePublishPalette(p, getPalettePublicationAction(p)),
       onDelete: handleDeletePalette,
-      onFindColor: findPalettesWithColor,
     },
     {
       canOpen: () =>
@@ -1852,25 +1839,18 @@ function createZoomDots(mode) {
 }
 
 /**
- * Narrows the collection to the catches holding a color that reads as the one
- * tapped on a polaroid strip in the viewer, opening the collection if the
- * viewer came from the camera.
+ * Narrows the collection to the catches holding a color that reads as the
+ * tapped one. A tap on another color while filtered moves the search there.
  * @param {RgbColor} color
  */
-async function findPalettesWithColor(color) {
+function findPalettesWithColor(color) {
   colorFilterMatch = createSameColorMatcher(color);
   collectionFilterColorButton?.style.setProperty("--filter-color", toRgbCss(color));
   if (!collectionFilters.isActive("color")) {
     collectionFilters.toggle("color");
   }
   detentFeedback("analyze", true);
-  closePaletteViewerOverlay();
-
-  if (collectionPanel?.classList.contains("visible")) {
-    renderCollectionUi(currentPalettes);
-  } else {
-    await openCollectionPanel();
-  }
+  renderCollectionUi(currentPalettes);
   collectionGrid?.closest(".collection-panel-body")?.scrollTo({ top: 0 });
 }
 
@@ -1973,6 +1953,27 @@ function bindCollectionUiEvents() {
 
   bindCollectionEventListener(collectionGrid, "pointerup", clearLongPress);
   bindCollectionEventListener(collectionGrid, "pointercancel", clearLongPress);
+
+  // In the bands, the mosaic and the spectrum a color is its own target: a tap
+  // on it searches by it, and only the photo opens the viewer. Capture runs
+  // this before the card's own click handler.
+  bindCollectionEventListener(
+    collectionGrid,
+    "click",
+    (event) => {
+      const color =
+        !selectionState.isActive() && event.target instanceof Element
+          ? getTappedCardColor(event.target)
+          : null;
+      if (!color) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      findPalettesWithColor(color);
+    },
+    { capture: true },
+  );
 
   bindCollectionEventListener(collectionGrid, "contextmenu", (event) => {
     if (selectionState.isActive() || longPressTimer !== null) {

@@ -512,13 +512,33 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
 
 const toRgb = (color) => `rgb(${color.r}, ${color.g}, ${color.b})`;
 
+/** A color cell keeps its color, so a tap on it can search the collection by it. */
+function paintColorCell(cell, color) {
+  cell.style.backgroundColor = toRgb(color);
+  cell.dataset.rgb = `${color.r},${color.g},${color.b}`;
+}
+
+/**
+ * The color of the cell under a tap, or null when the tap was not on a color.
+ * @param {Element} target
+ * @returns {RgbColor | null}
+ */
+export function getTappedCardColor(target) {
+  const rgb = /** @type {HTMLElement | null} */ (target.closest("[data-rgb]"))?.dataset.rgb;
+  if (!rgb) {
+    return null;
+  }
+  const [r, g, b] = rgb.split(",").map(Number);
+  return { r, g, b };
+}
+
 function createColorBands(colors, className) {
   const bands = document.createElement("span");
   bands.className = className;
   bands.setAttribute("aria-hidden", "true");
   colors.forEach((color) => {
     const band = document.createElement("i");
-    band.style.backgroundColor = toRgb(color);
+    paintColorCell(band, color);
     bands.appendChild(band);
   });
   return bands;
@@ -609,7 +629,7 @@ export function createSwatchCard(config) {
       config.palette.colors.forEach((color) => {
         const segment = document.createElement("span");
         segment.className = "palette-swatch-segment";
-        segment.style.backgroundColor = toRgb(color);
+        paintColorCell(segment, color);
         segment.setAttribute("aria-hidden", "true");
         trigger.appendChild(segment);
       });
@@ -655,30 +675,22 @@ export function createRingCard(config) {
 }
 
 /**
- * A spectrum chip: no photo, the colors stacked with the key color on top.
+ * A catch as a chip of its colors with no photo. It opens nothing: a tap on a
+ * color searches the collection by it.
  * @param {object} config
  * @param {Palette} config.palette
- * @param {Palette["colors"]} config.colors
- * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
+ * @param {Palette["colors"]} config.colors Its colors in display order.
  */
-export function createChipCard({ palette, colors, onOpenViewer }) {
+export function createChipCard({ palette, colors }) {
   const card = document.createElement("div");
   card.className = "palette-card palette-card--chip";
   card.classList.toggle("is-favorite", isPaletteFavorite(palette));
   card.dataset.paletteId = String(palette.id);
 
-  const trigger = document.createElement("button");
-  trigger.type = "button";
+  const trigger = document.createElement("div");
   trigger.className = "palette-card-trigger";
-  trigger.setAttribute("aria-label", t("viewer.openCapture"));
   trigger.appendChild(createColorBands(colors, "palette-chip-colors"));
 
-  const handleClick = () => {
-    void onOpenViewer?.(palette.id, trigger);
-  };
-  trigger.addEventListener("click", handleClick);
-
   card.append(trigger, createSelectionIndicator());
-  paletteCardDisposers.set(card, () => trigger.removeEventListener("click", handleClick));
   return card;
 }
