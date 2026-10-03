@@ -97,7 +97,6 @@ describe("live preview extraction worker path", () => {
         medianCut: { colorBits: 5 },
       },
       swatchCount: 2,
-      whiteBalance: null,
       width: 3,
     });
     expect(fixture.extract).not.toHaveBeenCalled();
@@ -180,19 +179,6 @@ describe("live preview extraction synchronous fallback", () => {
       FROZEN_ENTRIES[1].color,
     ]);
     expect(fixture.pipeline.getSnapshot()).toEqual({ colors: RAW_COLORS, origins: ORIGINS });
-  });
-
-  test("balances the pixels before extraction, origins and presence read them", () => {
-    const fixture = createFixture({ workerAccepted: false });
-    const whiteBalance = new Uint8Array(768).fill(9);
-    const request = extractionRequest({ imageData: new Uint8ClampedArray(4 * 3 * 2).fill(200) });
-
-    fixture.pipeline.request({ ...request, whiteBalance });
-
-    const pixels = fixture.extract.mock.calls[0][0];
-    expect(Array.from(pixels.slice(0, 4))).toEqual([9, 9, 9, 200]);
-    expect(fixture.originTracker.compute.mock.calls[0][0]).toBe(pixels);
-    expect(fixture.presence.mock.calls[0][0]).toBe(pixels);
   });
 
   test("skips the presence scan when no pins are supplied", () => {

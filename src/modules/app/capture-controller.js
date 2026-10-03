@@ -9,7 +9,6 @@ import { showToast } from "../toast-ui.js";
 import { scheduleSavedPalettePreviewWarmup } from "../collection/palette-preview-persistence.js";
 import { recordOperationalMetric } from "../operational-metrics.js";
 import { tryBeginCriticalOperation } from "../critical-operation.js";
-import { applyWhiteBalanceLut } from "../white-balance.js";
 import { exportPhotoBlob } from "./photo-export.js";
 import { getCenteredAspectCropRect, toNormalizedCropRect } from "./geometry.js";
 
@@ -26,7 +25,6 @@ export function createCaptureController({
   getOneMoreColor,
   getPaletteExtractionOptions,
   getShouldMirrorUserFacingCamera,
-  getWhiteBalanceLut = () => null,
   now = () => performance.now(),
   recordMetric = recordOperationalMetric,
 }) {
@@ -106,10 +104,6 @@ export function createCaptureController({
         paletteColors = livePreviewController.getCapturePaletteColors();
         if (paletteColors.length === 0) {
           const imageData = frameContext.getImageData(0, 0, frameWidth, frameHeight).data;
-          const whiteBalance = getWhiteBalanceLut();
-          if (whiteBalance) {
-            applyWhiteBalanceLut(imageData, whiteBalance);
-          }
           const { colors: extractedPaletteColors } = extractPaletteColors(
             imageData,
             frameWidth,

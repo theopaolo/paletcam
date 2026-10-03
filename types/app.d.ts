@@ -459,7 +459,6 @@ interface CameraTrackCapabilities {
   exposureMode?: string[];
   focusMode?: string[];
   pointsOfInterest?: boolean | CameraPoint[];
-  whiteBalanceMode?: string[];
 }
 
 interface CameraTrackSettings {
@@ -474,7 +473,6 @@ interface CameraTrackConstraintSet {
   exposureMode?: string;
   focusMode?: string;
   pointsOfInterest?: CameraPoint[];
-  whiteBalanceMode?: string;
 }
 
 /** Zoom capability range reported by the camera track. */
@@ -533,7 +531,6 @@ interface CameraController {
   getStreamState(): CameraStreamState;
   startStream(): Promise<boolean>;
   setMeteringPoint(point: CameraPoint): Promise<boolean>;
-  setWhiteBalanceLocked(locked: boolean): Promise<boolean>;
   stopStream(): void;
   supportsMeteringPointSelection(): boolean;
   toggleFacingMode(): Promise<boolean>;

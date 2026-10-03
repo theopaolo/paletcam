@@ -7,7 +7,16 @@
  * - Semantic swatch classification
  */
 
-import { linearToSrgb, srgbToLinear } from "./color-math.js";
+import { srgbToLinear } from "./color-math.js";
+
+// ---------------------------------------------------------------------------
+// Linear sRGB
+// ---------------------------------------------------------------------------
+
+function linearToSrgb(c) {
+  const s = c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
+  return Math.round(Math.max(0, Math.min(255, s * 255)));
+}
 
 // ---------------------------------------------------------------------------
 // RGB -> OKLab -> OKLCH

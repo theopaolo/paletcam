@@ -94,7 +94,6 @@ const GUIDE_ENTRIES = Object.freeze([
   ["density", "config.production.density.title", "config.production.density.hint"],
   ["tone", "config.production.tone.title", "config.production.tone.hint"],
   ["pins", "config.pins.checkbox", "config.guide.pins"],
-  ["whiteBalance", "camera.whiteBalance.title", "config.guide.whiteBalance"],
   ["grid", "capture.grid", "config.guide.grid"],
   ["ral", "capture.mode.ral", "config.guide.ral"],
 ]);

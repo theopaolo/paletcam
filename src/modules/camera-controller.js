@@ -27,7 +27,6 @@ export function createCameraController({
   let currentExposureCompensation = 0;
   /** @type {CameraPoint | null} */
   let currentMeteringPoint = null;
-  let isWhiteBalanceLocked = false;
   /** @type {Promise<boolean> | null} */
   let activeStartPromise = null;
   let streamRevision = 0;
@@ -185,11 +184,6 @@ export function createCameraController({
     return false;
   }
 
-  function supportsWhiteBalanceLock(capabilities) {
-    const modes = capabilities?.whiteBalanceMode;
-    return Array.isArray(modes) && modes.includes("manual") && modes.includes("continuous");
-  }
-
   function clampNormalizedPoint(point) {
     return {
       x: Math.max(0, Math.min(1, Number(point?.x) || 0)),
@@ -290,11 +284,6 @@ export function createCameraController({
       nextConstraintSet.focusMode = preferredFocusMode;
     }
 
-    // Zoom and exposure changes resend the whole set, so a lock rides along.
-    if (isWhiteBalanceLocked && supportsWhiteBalanceLock(capabilities)) {
-      nextConstraintSet.whiteBalanceMode = "manual";
-    }
-
     if (Object.keys(nextConstraintSet).length === 0) {
       notifyZoomChange();
       notifyExposureChange();
@@ -350,35 +339,9 @@ export function createCameraController({
     return applyTrackControls();
   }
 
-  /**
-   * Holds the camera's white balance where it is ("manual" freezes it on
-   * Chrome Android and Safari), or hands it back to auto. False when the
-   * track has no such control.
-   * @param {boolean} locked
-   */
-  async function setWhiteBalanceLocked(locked) {
-    if (!videoTrack?.applyConstraints || !supportsWhiteBalanceLock(getTrackCapabilities())) {
-      return false;
-    }
-
-    isWhiteBalanceLocked = Boolean(locked);
-    try {
-      /** @type {CameraTrackConstraintSet} */
-      const constraintSet = { whiteBalanceMode: isWhiteBalanceLocked ? "manual" : "continuous" };
-      await videoTrack.applyConstraints({
-        advanced: [/** @type {MediaTrackConstraintSet} */ (constraintSet)],
-      });
-      return true;
-    } catch (error) {
-      reportControlError("Error locking white balance:", error);
-      return false;
-    }
-  }
-
   function stopStream() {
     streamRevision += 1;
     activeStartPromise = null;
-    isWhiteBalanceLocked = false;
     clearTrackEventListeners();
 
     const stream = getCurrentStream();
@@ -580,7 +543,6 @@ export function createCameraController({
     getFacingMode,
     getStreamState,
     setMeteringPoint,
-    setWhiteBalanceLocked,
     startStream,
     stopStream,
     supportsMeteringPointSelection,

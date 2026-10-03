@@ -317,8 +317,6 @@ const fr = {
   "config.guide.pins":
     "Des repères numérotés sur la palette et sur l'image montrent où chaque couleur a été trouvée.",
   "config.guide.grid": "Des tiers sur l'image de la caméra, pour cadrer.",
-  "config.guide.whiteBalance":
-    "Maintenez le doigt sur un blanc ou un gris de l'image : la palette retire la couleur de la lumière. Touchez WB pour revenir en automatique.",
   "config.guide.ral":
     "Lit la couleur sous l'anneau et donne la couleur RAL Classic la plus proche.",
   "config.guide.reset":
@@ -361,9 +359,6 @@ const fr = {
   "camera.zoom.label": "Zoom",
   "camera.zoom.valueText": "Zoom {value}",
   "camera.exposure.label": "Réglage de l'exposition",
-  "camera.whiteBalance.title": "Balance des blancs",
-  "camera.whiteBalance.clear": "Balance des blancs réglée. Toucher pour revenir en automatique.",
-  "camera.whiteBalance.rejected": "Maintenez le doigt sur un blanc ou un gris bien éclairé.",
   "camera.grid.aria": "Grille de composition",
   "camera.output.empty": "Aucun aperçu.",
   "ral.quality": "Similarité RAL {percentage}%",

@@ -1,7 +1,6 @@
 import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
 import { relativeLuminance } from "../color-space-oklch.js";
 import { sampleColorFromContextAtPoint } from "../ral-live-sampling.js";
-import { balanceColor } from "../white-balance.js";
 
 const RAL_SMOOTHING_FACTOR = 0.18;
 const RAL_COLOR_DISTANCE_THRESHOLD = 12;
@@ -13,7 +12,6 @@ export function createRalPreviewController({
   ralLiveSwatchName,
   ralLiveSwatchQuality,
   visualEffects,
-  getWhiteBalanceLut = () => null,
 }) {
   /** @type {{ r: number, g: number, b: number } | null} */
   let previousSampledColor = null;
@@ -96,9 +94,7 @@ export function createRalPreviewController({
   }
 
   function readCurrentMatch(context, width, height) {
-    const sample = sampleColorFromContextAtPoint(context, width, height, width / 2, height / 2);
-    const whiteBalance = getWhiteBalanceLut();
-    const rawColor = whiteBalance ? balanceColor(sample, whiteBalance) : sample;
+    const rawColor = sampleColorFromContextAtPoint(context, width, height, width / 2, height / 2);
     const sampledColor = smooth(rawColor);
     const matches = findClosestRAL(sampledColor.r, sampledColor.g, sampledColor.b, 1);
     const match = matches[0] ?? null;

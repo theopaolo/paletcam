@@ -127,7 +127,6 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
           buffer: nextJob.buffer,
           bitmap: nextJob.bitmap,
           mirror: nextJob.mirror,
-          whiteBalance: nextJob.whiteBalance,
         },
         [nextJob.bitmap ?? nextJob.buffer],
       );
@@ -199,8 +198,7 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
    * Takes either the frame's pixels (`imageData`) or the frame itself as an
    * ImageBitmap at the analysis size, which the worker reads (mirrored when
    * `mirror` is set). An accepted bitmap belongs to the controller; a refused
-   * one stays with the caller. A `whiteBalance` table (white-balance.js) is
-   * applied to the pixels before anything reads them.
+   * one stays with the caller.
    */
   function requestExtraction({
     imageData,
@@ -211,7 +209,6 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
     width,
     height,
     frozenColors,
-    whiteBalance = null,
   }) {
     const activeWorker = ensureWorker();
     if (!activeWorker) {
@@ -246,7 +243,6 @@ export function createPaletteExtractionWorkerController({ onError, onResult } = 
       options,
       requestId: ++nextRequestId,
       swatchCount,
-      whiteBalance: whiteBalance instanceof Uint8Array ? whiteBalance : null,
       width,
     };
 

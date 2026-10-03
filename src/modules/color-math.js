@@ -16,16 +16,6 @@ export function srgbToLinear(channel) {
 }
 
 /**
- * Linear-light 0-1 -> sRGB 0-255 channel, rounded and clamped.
- * @param {number} channel  linear 0-1 (out-of-range values clamp)
- * @returns {number} 0-255 integer
- */
-export function linearToSrgb(channel) {
-  const value = channel <= 0.0031308 ? 12.92 * channel : 1.055 * channel ** (1 / 2.4) - 0.055;
-  return Math.round(Math.max(0, Math.min(255, value * 255)));
-}
-
-/**
  * RGB (0-255) -> HSL with h in [0, 360), s and l in [0, 1].
  * @param {number} r  0-255
  * @param {number} g  0-255

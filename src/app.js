@@ -4,7 +4,6 @@ import { createCameraController } from "./modules/camera-controller.js";
 import { renderOutputSwatches } from "./modules/camera-ui.js";
 import { reportAppError } from "./modules/error-reporting.js";
 import { createExposureUiController } from "./modules/exposure-ui.js";
-import { createWhiteBalanceUiController } from "./modules/white-balance-ui.js";
 import { createCameraGridUiController } from "./modules/camera-grid-ui.js";
 import { createCaptureMicroInteractions } from "./modules/micro-interactions.js";
 import { createPaletteExtractionWorkerController } from "./modules/palette-extraction-worker.js";
@@ -166,7 +165,6 @@ const ralPreview = createRalPreviewController({
   ralLiveSwatchName,
   ralLiveSwatchQuality,
   visualEffects,
-  getWhiteBalanceLut: () => whiteBalanceUi?.getLut() ?? null,
 });
 const paletteExtractionWorker = createPaletteExtractionWorkerController({
   onError: (error) => {
@@ -431,7 +429,6 @@ function setPreviewExpanded(shouldExpand) {
 let zoomUi = null;
 let exposureUi = null;
 let gridUi = null;
-let whiteBalanceUi = null;
 
 /** @param {ErrorLike | null | undefined} error */
 function handleCameraControllerError(error) {
@@ -446,13 +443,8 @@ function handleCameraControllerError(error) {
 const cameraController = createCameraController({
   cameraFeed,
   onError: handleCameraControllerError,
-  onCameraActiveChange: (isCameraActive) => {
-    // A restarted stream white-balances anew, so the old correction is wrong.
-    if (!isCameraActive) {
-      whiteBalanceUi?.clear();
-    }
-    cameraLifecycleController?.handleCameraActiveChange(isCameraActive);
-  },
+  onCameraActiveChange: (isCameraActive) =>
+    cameraLifecycleController?.handleCameraActiveChange(isCameraActive),
   onZoomChange: (zoomValue) => {
     zoomUi?.handleZoomChange(zoomValue);
   },
@@ -484,7 +476,6 @@ livePreviewController = createLivePreviewController({
   getHybridSettings: () => hybridSettings,
   getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
   getSwatchCount: () => swatchCount,
-  getWhiteBalanceLut: () => whiteBalanceUi?.getLut() ?? null,
   shouldUseCanvasPreview,
   onPaletteChange: (colors) => {
     irisShutter.setColors(colors);
@@ -506,7 +497,6 @@ captureController = createCaptureController({
   getOneMoreColor: () => oneMoreColor,
   getPaletteExtractionOptions,
   getShouldMirrorUserFacingCamera: shouldMirrorUserFacingCamera,
-  getWhiteBalanceLut: () => whiteBalanceUi?.getLut() ?? null,
 });
 
 zoomUi = createZoomUiController({
@@ -514,21 +504,9 @@ zoomUi = createZoomUiController({
   overlayHost: cameraViewportFrame,
 });
 
-whiteBalanceUi = createWhiteBalanceUiController({
-  overlayHost: cameraViewportFrame,
-  cameraFeed,
-  cameraController,
-  getSourceRect: () => livePreviewController?.getCameraFrameSourceRect() ?? null,
-  isMirrored: shouldMirrorUserFacingCamera,
-  // Every color moves at once: start the palette over rather than let the
-  // smoother's deadband hold the small shifts, and drop pins taken in the old light.
-  onChange: () => livePreviewController?.reset(),
-});
-
 exposureUi = createExposureUiController({
   cameraController,
   overlayHost: cameraViewportFrame,
-  onLongPress: (point) => whiteBalanceUi?.pickAt(point) ?? false,
 });
 
 gridUi = createCameraGridUiController({
@@ -809,7 +787,6 @@ function destroyApp() {
   unsubscribeFromFooterLab = () => {};
   zoomUi?.destroy?.();
   exposureUi?.destroy?.();
-  whiteBalanceUi?.destroy();
   gridUi?.destroy?.();
   tuneTrayControl.destroy();
   panelCameraUi.destroy();

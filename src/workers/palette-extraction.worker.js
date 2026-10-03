@@ -1,8 +1,5 @@
 import { extractPaletteColors } from "../modules/palette-extraction.js";
 import { computeColorPresence, createSwatchOriginTracker } from "../modules/palette-origins.js";
-import { applyWhiteBalanceLut } from "../modules/white-balance.js";
-
-const WHITE_BALANCE_LUT_LENGTH = 768;
 
 const originTracker = createSwatchOriginTracker();
 const MAX_EXTRACTION_PIXELS = 4_194_304;
@@ -86,13 +83,6 @@ globalThis.addEventListener("message", (event) => {
     const imageData = isFrameBitmap(payload.bitmap)
       ? readFramePixels(payload.bitmap, payload.width, payload.height, payload.mirror === true)
       : new Uint8ClampedArray(payload.buffer);
-    // Palette, origins and pin presence all read the balanced frame.
-    if (
-      payload.whiteBalance instanceof Uint8Array &&
-      payload.whiteBalance.length === WHITE_BALANCE_LUT_LENGTH
-    ) {
-      applyWhiteBalanceLut(imageData, payload.whiteBalance);
-    }
     const result = extractPaletteColors(
       imageData,
       payload.width,

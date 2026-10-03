@@ -1,5 +1,3 @@
-import { applyWhiteBalanceLut } from "../white-balance.js";
-
 /** @typedef {RgbColor & {population?: number}} ExtractedColor */
 /** @typedef {{x: number, y: number} | null} SwatchOrigin */
 /** @typedef {{slot: number, color: RgbColor}} FrozenEntry */
@@ -28,7 +26,6 @@ import { applyWhiteBalanceLut } from "../white-balance.js";
  *       swatchCount: number,
  *       options: object,
  *       frozenColors: FrozenEntry[],
- *       whiteBalance?: Uint8Array | null,
  *     }): boolean,
  *     invalidate(): void,
  *   },
@@ -108,7 +105,6 @@ export function createLivePreviewExtractionPipeline({
    *   medianCutSettings: object,
    *   hybridSettings: object,
    *   frozenEntries: FrozenEntry[],
-   *   whiteBalance?: Uint8Array | null,
    * }} request
    * @returns {{delegated: true, result: null} | {delegated: false, result: ExtractionResult | null}}
    */
@@ -122,7 +118,6 @@ export function createLivePreviewExtractionPipeline({
     medianCutSettings,
     hybridSettings,
     frozenEntries,
-    whiteBalance = null,
   }) {
     const frozenColors = Array.isArray(frozenEntries) ? frozenEntries : [];
     const options = buildOptions(medianCutSettings, hybridSettings);
@@ -135,7 +130,6 @@ export function createLivePreviewExtractionPipeline({
       swatchCount,
       options,
       frozenColors,
-      whiteBalance,
     });
 
     // The worker may already have transferred imageData.buffer. Never inspect
@@ -147,9 +141,6 @@ export function createLivePreviewExtractionPipeline({
       return { delegated: false, result: null };
     }
 
-    if (whiteBalance) {
-      applyWhiteBalanceLut(imageData, whiteBalance);
-    }
     const extraction = extractPalette(imageData, width, height, swatchCount, options);
     const origins = originTracker.compute(imageData, width, height, extraction.colors);
     /** @type {FrozenPresence[]} */

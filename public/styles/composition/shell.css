@@ -89,8 +89,8 @@ body {
   position: relative;
 
   /* Two fingers on the preview zoom the camera (zoom-ui.js), not the page.
-     A held finger meters or picks, so Android must not select the chip
-     labels or open its callout. */
+     A held finger meters and slides exposure (exposure-ui.js), so Android
+     must not select the chip labels or open its callout. */
   touch-action: none;
   user-select: none;
   -webkit-touch-callout: none;
