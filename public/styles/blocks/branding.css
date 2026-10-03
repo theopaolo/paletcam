@@ -11,8 +11,9 @@
   user-select: none;
 }
 
-/* The community key's LED, lit while signed in (community-homepage-link.js),
-   like the tray keys' LEDs. */
+/* The community key's LED, lit while signed in (community-homepage-link.js).
+   Same housing as the tray keys' LEDs, but green: it reports a status, not a
+   toggle, and yellow read as "pending". */
 .btn-community::after {
   content: "";
   position: absolute;
@@ -26,6 +27,6 @@
 }
 
 .btn-community.is-signed-in::after {
-  background-color: var(--color-accent);
-  box-shadow: 0 0 6px var(--color-accent-border);
+  background-color: var(--color-success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 65%, transparent);
 }
