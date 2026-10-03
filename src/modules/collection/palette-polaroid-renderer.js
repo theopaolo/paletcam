@@ -126,6 +126,25 @@ function getPolaroidCardWidth(
   );
 }
 
+function getPolaroidFrameWidth(cardWidth) {
+  return Math.max(16, Math.round(cardWidth * 0.055));
+}
+
+/**
+ * Where the photo sits in a rendered polaroid, for cells that show the photo
+ * alone: `scale` is the image height over the photo height and `top` the frame
+ * above the photo over the photo height. It assumes a 4:3 photo panel, which
+ * every capture has at least (1:1 photos are taller and lose their bottom).
+ * ponytail: a legacy photo wider than 4:3 shows a sliver of the strip; render a
+ * photo-only thumbnail if that ever matters.
+ * @param {number} imageWidth @param {number} imageHeight
+ */
+export function getPolaroidPhotoCrop(imageWidth, imageHeight) {
+  const frame = getPolaroidFrameWidth(imageWidth);
+  const photoHeight = (imageWidth - frame * 2) / DEFAULT_POLAROID_PHOTO_ASPECT_RATIO;
+  return { scale: imageHeight / photoHeight, top: frame / photoHeight };
+}
+
 function loadImageFromBlob(blob) {
   if (!blob) {
     return Promise.reject(new Error("Missing image blob"));
@@ -560,8 +579,8 @@ function renderPolaroidCanvas({
   const cardWidth = getPolaroidCardWidth(photoSourceWidth, { maxWidth, minWidth, scale });
   const baseCardHeight = Math.round(cardWidth * POLAROID_CARD_ASPECT_RATIO);
 
-  const frameSide = Math.max(16, Math.round(cardWidth * 0.055));
-  const frameTop = Math.max(16, Math.round(cardWidth * 0.055));
+  const frameSide = getPolaroidFrameWidth(cardWidth);
+  const frameTop = frameSide;
   const frameBottom = Math.max(46, Math.round(cardWidth * 0.16));
   const innerX = frameSide;
   const innerY = frameTop;

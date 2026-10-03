@@ -118,23 +118,15 @@
   opacity: 0.66;
 }
 
-/* Two filter chips plus the view switch, which dropping the collapse-all button
-   brings back to a single row. The set measures 342px against 348px of usable
-   width on a 360px screen — the narrowest common phone — so anything below that
-   wraps rather than overflowing. */
+/* Two filter chips plus the five-way view switch. The switch alone measures
+   about 230px, so with both chips showing the row wraps rather than overflowing. */
 .collection-panel-toolbar {
   --toolbar-gap: var(--space-4);
   --toolbar-justify: flex-end;
-  --toolbar-wrap: nowrap;
+  --toolbar-wrap: wrap;
 
   padding: 0;
   max-width: 100%;
-}
-
-@media (width < 360px) {
-  .collection-panel-toolbar {
-    --toolbar-wrap: wrap;
-  }
 }
 
 .collection-view-switch {
@@ -190,16 +182,102 @@
 }
 
 .collection-panel-content {
+  position: relative;
   min-height: 0;
   height: 100%;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
 }
 
+/* The color rail stands in for the scrollbar, so the body hides its own and
+   leaves the rail a gutter on the right. */
 .collection-panel-body {
+  grid-area: 1 / 1;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-gutter: stable;
+  padding-right: var(--space-16);
+  scrollbar-width: none;
+}
+
+.collection-panel-body::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Color rail ── */
+
+.collection-rail {
+  grid-area: 1 / 1;
+  justify-self: end;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  width: var(--space-24);
+  margin-right: calc(var(--space-4) * -1);
+  padding-block: var(--space-4);
+  touch-action: none;
+  cursor: ns-resize;
+}
+
+.collection-rail[hidden] {
+  display: none;
+}
+
+/* No 6px token: --space-4 vanished against the dark panel, --space-8 read as a
+   second column of cards. */
+.collection-rail-bar {
+  position: relative;
+  width: 6px;
+  border-radius: var(--radius-pill);
+}
+
+.collection-rail-notch {
+  position: absolute;
+  left: calc(var(--space-4) * -1);
+  right: calc(var(--space-4) * -1);
+  height: 3px;
+  translate: 0 -50%;
+  border-radius: var(--radius-sm);
+  background: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-surface-ink);
+}
+
+.collection-rail-loupe {
+  position: absolute;
+  right: var(--space-32);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  pointer-events: none;
+  opacity: 0;
+  translate: var(--space-8) -50%;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    translate var(--duration-fast) var(--easing-standard);
+}
+
+.collection-panel-content.is-scrubbing .collection-rail-loupe {
+  opacity: 1;
+  translate: 0 -50%;
+}
+
+.collection-rail-loupe-label {
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.collection-rail-loupe-disc {
+  width: var(--space-48);
+  height: var(--space-48);
+  border: 2px solid var(--color-text-primary);
+  border-radius: 50%;
+  box-shadow: var(--shadow-chrome);
 }
 
 .collection-panel-footer {
@@ -479,20 +557,22 @@
   display: block;
 }
 
+/* The day's barcode, one slice per catch. A rule over an open day, tall enough
+   to read each catch once the day folds. */
 .collection-day-cover {
+  display: flex;
   height: var(--space-8);
+  overflow: hidden;
+  transition: height var(--duration-settle) var(--easing-in-out);
 }
 
-.collection-day-cards {
-  display: grid;
-  gap: var(--space-8);
-  grid-template-columns: minmax(0, 1fr);
+.collection-day-cover i {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-@media (width >= 560px) {
-  .collection-day-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.collection-day.is-collapsed .collection-day-cover {
+  height: var(--space-24);
 }
 
 .collection-day.is-collapsed .collection-day-content {
@@ -506,7 +586,37 @@
 .collection-day-grid {
   display: grid;
   gap: var(--space-8);
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(var(--collection-grid-columns, 2), minmax(0, 1fr));
+}
+
+.collection-day[data-view-mode="bands"] .collection-day-grid {
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.collection-day[data-view-mode="rings"] .collection-day-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ── Spectrum wall ── */
+
+.collection-spectrum {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.collection-spectrum-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: var(--space-16) 0 var(--space-4);
+  color: var(--color-text-primary);
+}
+
+.collection-spectrum-heading:first-child {
+  margin-top: 0;
 }
 
 .collection-day-grid .palette-card-publication-badge {

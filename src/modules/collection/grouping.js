@@ -84,3 +84,47 @@ export function groupPalettesByDay(palettes) {
 
   return dayGroups;
 }
+
+function getMonthLabel(date) {
+  if (!date) {
+    return t("collection.day.unknown");
+  }
+
+  const label = new Intl.DateTimeFormat(getIntlLocale(), { month: "long", year: "numeric" }).format(
+    date,
+  );
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/**
+ * Same shape as day groups, so a month folds and renders like a day does. The
+ * palette-first views use it: a day with one catch is not worth a header there.
+ * @param {Palette[]} palettes
+ * @returns {DayGroup[]}
+ */
+export function groupPalettesByMonth(palettes) {
+  const monthGroups = [];
+  let currentMonth;
+
+  palettes.forEach((palette) => {
+    const paletteDate = getPaletteTimestampDate(palette.timestamp);
+    const monthKey = getDayKey(paletteDate).slice(0, 7);
+
+    if (!currentMonth || currentMonth.key !== monthKey) {
+      currentMonth = {
+        key: monthKey,
+        id: `month-${monthKey}`,
+        title: getMonthLabel(paletteDate),
+        dateLabel: "",
+        paletteCount: 0,
+        palettes: [],
+      };
+      monthGroups.push(currentMonth);
+    }
+
+    currentMonth.palettes.push(palette);
+    currentMonth.paletteCount += 1;
+  });
+
+  return monthGroups;
+}

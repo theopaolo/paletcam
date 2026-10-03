@@ -3,47 +3,10 @@ import { toRgbCss } from "../color-format.js";
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const CARD_MOUNT_BATCH_SIZE = Object.freeze({
   grid: Object.freeze({ initial: 12, subsequent: 48 }),
-  list: Object.freeze({ initial: 3, subsequent: 24 }),
+  bands: Object.freeze({ initial: 24, subsequent: 72 }),
   swatch: Object.freeze({ initial: 24, subsequent: 72 }),
+  rings: Object.freeze({ initial: 24, subsequent: 72 }),
 });
-
-function clampColorChannel(channel) {
-  return Math.max(0, Math.min(255, Math.round(channel)));
-}
-
-function offsetColor(color, delta) {
-  return {
-    r: clampColorChannel(color.r + delta),
-    g: clampColorChannel(color.g + delta),
-    b: clampColorChannel(color.b + delta),
-  };
-}
-
-function getDayAverageColor(dayGroup) {
-  let totalR = 0;
-  let totalG = 0;
-  let totalB = 0;
-  let sampleCount = 0;
-
-  dayGroup.palettes.forEach((palette) => {
-    palette.colors.forEach((color) => {
-      totalR += color.r;
-      totalG += color.g;
-      totalB += color.b;
-      sampleCount += 1;
-    });
-  });
-
-  if (sampleCount === 0) {
-    return { r: 74, g: 74, b: 74 };
-  }
-
-  return {
-    r: Math.round(totalR / sampleCount),
-    g: Math.round(totalG / sampleCount),
-    b: Math.round(totalB / sampleCount),
-  };
-}
 
 function createDayCaret() {
   const caret = document.createElement("span");
@@ -66,18 +29,26 @@ function createDayCaret() {
   return caret;
 }
 
+/**
+ * The day's barcode: one slice per catch, its colors stacked top to bottom. It
+ * is a thin rule over an open day and grows tall enough to read once the day
+ * folds, so the folded list doubles as an index of what each day caught.
+ * @param {DayGroup} dayGroup
+ */
 function createDayCover(dayGroup) {
   const cover = document.createElement("div");
   cover.className = "collection-day-cover";
   cover.setAttribute("aria-hidden", "true");
 
-  const averageColor = getDayAverageColor(dayGroup);
-  const darkColor = offsetColor(averageColor, -38);
-  const lightColor = offsetColor(averageColor, 26);
-
-  cover.style.backgroundImage = `linear-gradient(108deg, ${toRgbCss(
-    darkColor,
-  )} 0%, ${toRgbCss(averageColor)} 52%, ${toRgbCss(lightColor)} 100%)`;
+  dayGroup.palettes.forEach((palette) => {
+    const colors = palette.colors ?? [];
+    const step = 100 / Math.max(1, colors.length);
+    const slice = document.createElement("i");
+    slice.style.backgroundImage = `linear-gradient(${colors
+      .map((color, index) => `${toRgbCss(color)} ${index * step}% ${(index + 1) * step}%`)
+      .join(", ")})`;
+    cover.appendChild(slice);
+  });
 
   return cover;
 }
@@ -137,8 +108,8 @@ function scheduleCardBatch(callback) {
 
 function createDayCards(dayGroup, createPaletteCard, viewMode, onCardMount) {
   const container = document.createElement("div");
-  container.className = viewMode === "list" ? "collection-day-cards" : "collection-day-grid";
-  const batchSizes = CARD_MOUNT_BATCH_SIZE[viewMode] ?? CARD_MOUNT_BATCH_SIZE.list;
+  container.className = "collection-day-grid";
+  const batchSizes = CARD_MOUNT_BATCH_SIZE[viewMode] ?? CARD_MOUNT_BATCH_SIZE.grid;
   let nextPaletteIndex = 0;
   let cancelScheduledBatch = null;
 
@@ -180,7 +151,7 @@ function createDayCards(dayGroup, createPaletteCard, viewMode, onCardMount) {
  * @param {number} config.revealStaggerMs
  * @param {(card: HTMLElement) => void} [config.onCardMount]
  * @param {(card: HTMLElement) => void} [config.onCardUnmount]
- * @param {"list" | "grid" | "swatch"} [config.viewMode]
+ * @param {"grid" | "bands" | "swatch" | "rings"} [config.viewMode]
  * @returns {{
  *   element: HTMLElement,
  *   contentContainer: HTMLElement,
@@ -197,7 +168,7 @@ export function createDayGroup({
   revealStaggerMs,
   onCardMount,
   onCardUnmount,
-  viewMode = "list",
+  viewMode = "grid",
 }) {
   const isCollapsible = viewMode !== "swatch";
 

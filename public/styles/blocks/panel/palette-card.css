@@ -177,16 +177,16 @@
   background: none;
 }
 
-.palette-card--swatch .palette-card-image {
+/* The photo alone, cut out of the gallery polaroid: palette-card.js sets the
+   crop from the loaded image so the polaroid's frame and strip fall outside. */
+.palette-swatch-media .palette-card-image {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: calc(var(--photo-crop-top, 0) * -100%);
+  left: 50%;
+  width: auto;
+  height: calc(var(--photo-crop-scale, 1) * 100%);
   max-width: none;
-  object-fit: cover;
-  object-position: center 24%;
-  transform: scale(1.32);
-  transform-origin: center 24%;
+  translate: -50% 0;
 }
 
 .palette-swatch-media,
@@ -322,4 +322,118 @@
 .collection-day[data-view-mode="swatch"] .palette-card-ral-indicator,
 .collection-day[data-view-mode="swatch"] .palette-card-select-indicator {
   display: none;
+}
+
+/* ── Palette-first cards: band, ring, chip ── */
+
+.palette-card--band,
+.palette-card--ring,
+.palette-card--chip {
+  background: none;
+}
+
+/* A photo this small cannot carry the loader's progress bar. */
+.palette-card--band .palette-card-loader::before,
+.palette-card--band .palette-card-loader::after,
+.palette-card--ring .palette-card-loader::before,
+.palette-card--ring .palette-card-loader::after {
+  display: none;
+}
+
+.palette-card--band .palette-card-trigger {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px;
+  height: var(--space-32);
+  aspect-ratio: auto;
+  background: none;
+}
+
+.palette-card--band .palette-swatch-media {
+  height: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.palette-band-colors,
+.palette-chip-colors {
+  display: flex;
+  overflow: hidden;
+}
+
+.palette-band-colors {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.palette-band-colors i,
+.palette-chip-colors i {
+  flex: 1 1 0;
+}
+
+.palette-card--chip .palette-card-trigger {
+  aspect-ratio: 1;
+  background: none;
+}
+
+.palette-chip-colors {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+/* Lens ring: the colors around the edge, the photo as the lens. Scrolling turns
+   the ring like a focus ring, pressing twists it and lets it spring back. */
+.palette-card--ring .palette-card-trigger {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: none;
+}
+
+.palette-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  mask: radial-gradient(circle closest-side, transparent 49%, #000 calc(49% + 0.5px));
+  transition: transform 0.7s var(--easing-spring);
+}
+
+.palette-card--ring .palette-card-trigger:active .palette-ring {
+  transform: rotate(-40deg);
+  transition-duration: 0.12s;
+}
+
+.palette-card--ring .palette-swatch-media {
+  position: absolute;
+  inset: 30%;
+  aspect-ratio: auto;
+  border-radius: 50%;
+}
+
+.palette-card--ring.is-favorite::after {
+  border-radius: 50%;
+}
+
+@supports (animation-timeline: view()) {
+  .palette-ring {
+    animation: palette-ring-turn linear both;
+    animation-timeline: view();
+  }
+}
+
+@keyframes palette-ring-turn {
+  from {
+    rotate: 0deg;
+  }
+
+  to {
+    rotate: 140deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette-ring {
+    animation: none;
+    transition: none;
+  }
 }

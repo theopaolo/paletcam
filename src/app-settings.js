@@ -12,7 +12,9 @@ const HYBRID_STRENGTH_RANGE = { min: 0, max: 1 };
 const HYBRID_TONE_RANGE = { min: 0, max: 1 };
 const VALID_NEUTRAL_BALANCES = new Set(["color", "balanced", "neutrals"]);
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
-const VALID_COLLECTION_VIEW_MODES = new Set(["list", "grid", "swatch"]);
+const VALID_COLLECTION_VIEW_MODES = new Set(["grid", "bands", "swatch", "spectrum", "rings"]);
+const COLLECTION_GRID_COLUMNS_RANGE = { min: 1, max: 4 };
+const DEFAULT_COLLECTION_GRID_COLUMNS = 2;
 const VALID_LOCALES = new Set(["fr", "en"]);
 const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
 
@@ -38,8 +40,17 @@ function normalizeCaptureMode(value) {
   return VALID_CAPTURE_MODES.has(value) ? value : "palette";
 }
 
+/** The old one-polaroid list became the photo grid's widest zoom step. */
 function normalizeCollectionViewMode(value) {
-  return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "list";
+  return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "grid";
+}
+
+function normalizeCollectionGridColumns(value) {
+  return Number.isInteger(value) &&
+    value >= COLLECTION_GRID_COLUMNS_RANGE.min &&
+    value <= COLLECTION_GRID_COLUMNS_RANGE.max
+    ? value
+    : DEFAULT_COLLECTION_GRID_COLUMNS;
 }
 
 function normalizeLocale(value) {
@@ -65,7 +76,8 @@ function normalizeLastBackupAt(value) {
 
 const DEFAULT_SETTINGS = Object.freeze({
   captureMode: "palette",
-  collectionViewMode: "list",
+  collectionViewMode: "grid",
+  collectionGridColumns: DEFAULT_COLLECTION_GRID_COLUMNS,
   locale: "fr",
   performanceHudEnabled: false,
   oneMoreColor: true,
@@ -169,6 +181,7 @@ function normalizeSettings(candidate) {
   return {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
+    collectionGridColumns: normalizeCollectionGridColumns(candidate?.collectionGridColumns),
     locale: normalizeLocale(candidate?.locale),
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),

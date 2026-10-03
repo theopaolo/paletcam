@@ -4,6 +4,7 @@ import { resetAppSettingsForTests } from "../../app-settings.js";
 import {
   getPalettePreviewImageMimeType,
   getPalettePhotoAspectRatioValue,
+  getPolaroidPhotoCrop,
   renderPalettePolaroidBlob,
   resetPalettePreviewImageSupportForTests,
   resolveNormalizedCropRectToPixelRect,
@@ -116,6 +117,16 @@ describe("resolveNormalizedCropRectToPixelRect", () => {
       width: 1000,
       height: 150,
     });
+  });
+});
+
+describe("getPolaroidPhotoCrop", () => {
+  test("maps a 480px gallery polaroid to its 26px frame and 321px photo", () => {
+    const { scale, top } = getPolaroidPhotoCrop(480, 586);
+    const photoHeight = 586 / scale;
+
+    expect(photoHeight).toBe(321);
+    expect(top * photoHeight).toBeCloseTo(26);
   });
 });
 

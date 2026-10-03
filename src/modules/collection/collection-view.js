@@ -2,9 +2,11 @@
  * @typedef {object} CollectionView
  * @property {(HTMLElement & { panelTitle: string }) | null} panel
  * @property {HTMLElement | null} grid
- * @property {HTMLElement | null} viewListButton
  * @property {HTMLElement | null} viewGridButton
+ * @property {HTMLElement | null} viewBandsButton
  * @property {HTMLElement | null} viewSwatchButton
+ * @property {HTMLElement | null} viewSpectrumButton
+ * @property {HTMLElement | null} viewRingsButton
  * @property {HTMLElement | null} filterPublishedButton
  * @property {HTMLElement | null} filterFavoritesButton
  * @property {HTMLElement | null} selectionBar
@@ -23,9 +25,11 @@ export function createCollectionView(documentRef) {
       documentRef.querySelector(".collection-panel")
     ),
     grid: documentRef.getElementById("collectionGrid"),
-    viewListButton: documentRef.getElementById("collectionViewListButton"),
     viewGridButton: documentRef.getElementById("collectionViewGridButton"),
+    viewBandsButton: documentRef.getElementById("collectionViewBandsButton"),
     viewSwatchButton: documentRef.getElementById("collectionViewSwatchButton"),
+    viewSpectrumButton: documentRef.getElementById("collectionViewSpectrumButton"),
+    viewRingsButton: documentRef.getElementById("collectionViewRingsButton"),
     filterPublishedButton: documentRef.getElementById("collectionFilterPublishedButton"),
     filterFavoritesButton: documentRef.getElementById("collectionFilterFavoritesButton"),
     selectionBar: documentRef.getElementById("collectionSelectionBar"),

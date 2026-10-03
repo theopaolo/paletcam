@@ -41,7 +41,7 @@ describe("createDayGroup", () => {
     restoreDom();
   });
 
-  test("renders a collapsible day with cards in list mode and honors collapsed state", () => {
+  test("renders a collapsible day with a catch barcode and honors collapsed state", () => {
     const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
@@ -49,17 +49,15 @@ describe("createDayGroup", () => {
       onDayCollapsedChange() {},
       revealDurationMs: 280,
       revealStaggerMs: 42,
-      viewMode: "list",
+      viewMode: "bands",
     });
 
     mountContent();
 
     expect(dayElement.classList.contains("is-collapsed")).toBe(true);
-    expect(dayElement.querySelector(".collection-day-grid")).toBeNull();
-    expect(dayElement.querySelector(".collection-day-cards")).not.toBeNull();
     expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(3);
     expect(dayElement.querySelector(".collection-day-count")?.textContent).toBe("3");
-    expect(dayElement.querySelector(".collection-day-cover")).not.toBeNull();
+    expect(dayElement.querySelector(".collection-day-cover")?.children).toHaveLength(3);
 
     const toggle = dayElement.querySelector(".collection-day-toggle");
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
@@ -82,7 +80,6 @@ describe("createDayGroup", () => {
 
     expect(dayGrid).not.toBeNull();
     expect(dayGrid?.children).toHaveLength(3);
-    expect(dayElement.querySelector(".collection-day-cards")).toBeNull();
     expect(dayElement.querySelector(".collection-day-toggle")?.disabled).toBeFalsy();
   });
 
@@ -117,7 +114,7 @@ describe("createDayGroup", () => {
       },
       revealDurationMs: 280,
       revealStaggerMs: 42,
-      viewMode: "list",
+      viewMode: "bands",
     });
 
     mountContent();
@@ -145,11 +142,11 @@ describe("createDayGroup", () => {
       onDayCollapsedChange() {},
       revealDurationMs: 280,
       revealStaggerMs: 42,
-      viewMode: "list",
+      viewMode: "grid",
     });
 
     mountContent();
-    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(3);
+    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(12);
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(30);
@@ -175,16 +172,16 @@ describe("createDayGroup", () => {
       onDayCollapsedChange() {},
       revealDurationMs: 280,
       revealStaggerMs: 42,
-      viewMode: "list",
+      viewMode: "grid",
     });
 
     mountContent();
-    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(3);
+    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(12);
     unmountContent(5_000);
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(0);
-    expect(unmountedIds).toEqual([1, 2, 3]);
+    expect(unmountedIds).toEqual(Array.from({ length: 12 }, (_value, index) => index + 1));
   });
 
   test("cancels a pending expansion reveal when the day unmounts", () => {
@@ -205,7 +202,7 @@ describe("createDayGroup", () => {
       onDayCollapsedChange() {},
       revealDurationMs: 280,
       revealStaggerMs: 42,
-      viewMode: "list",
+      viewMode: "bands",
     });
 
     mountContent();

@@ -3,6 +3,7 @@ import { t } from "../../i18n.js";
 import { reportAppError } from "../error-reporting.js";
 import { loadImageElementBlobSource } from "../image-element-loader.js";
 import { isPaletteFavorite } from "./collection-filter.js";
+import { getPolaroidPhotoCrop } from "./palette-polaroid-renderer.js";
 import {
   getPaletteGalleryPreviewAsset,
   getPalettePreviewDebugInfo,
@@ -509,18 +510,45 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
   return card;
 }
 
+const toRgb = (color) => `rgb(${color.r}, ${color.g}, ${color.b})`;
+
+function createColorBands(colors, className) {
+  const bands = document.createElement("span");
+  bands.className = className;
+  bands.setAttribute("aria-hidden", "true");
+  colors.forEach((color) => {
+    const band = document.createElement("i");
+    band.style.backgroundColor = toRgb(color);
+    bands.appendChild(band);
+  });
+  return bands;
+}
+
+/** Shows the photo alone, cut out of the gallery polaroid, once it has loaded. */
+function applyPolaroidPhotoCrop(image) {
+  if (!image.naturalWidth) {
+    return;
+  }
+  const { scale, top } = getPolaroidPhotoCrop(image.naturalWidth, image.naturalHeight);
+  image.style.setProperty("--photo-crop-scale", String(scale));
+  image.style.setProperty("--photo-crop-top", String(top));
+}
+
 /**
+ * Palette-first cards keep the photo as a small cutout: the swatch mosaic tile,
+ * the band's tab and the ring's lens. `assemble` fills the trigger around it.
  * @param {object} config
  * @param {Palette} config.palette
  * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
  * @param {Element | null} [config.scrollRoot]
+ * @param {string} config.modifier
+ * @param {(trigger: HTMLButtonElement, photo: HTMLElement) => void} config.assemble
  */
-export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
+function createPhotoCutoutCard({ palette, onOpenViewer, scrollRoot = null, modifier, assemble }) {
   const card = document.createElement("div");
-  card.className = "palette-card palette-card--swatch";
+  card.className = `palette-card palette-card--${modifier}`;
   card.classList.toggle("is-favorite", isPaletteFavorite(palette));
   card.dataset.paletteId = String(palette.id);
-  card.style.setProperty("--palette-card-span", String(Math.max(2, palette.colors.length + 1)));
 
   const trigger = document.createElement("button");
   trigger.type = "button";
@@ -536,30 +564,17 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
   previewImage.alt = t("viewer.previewAlt");
   previewImage.decoding = "async";
   previewImage.hidden = true;
+  previewImage.addEventListener("load", () => applyPolaroidPhotoCrop(previewImage));
 
   const previewLoader = document.createElement("div");
   previewLoader.className = "palette-card-loader";
   previewLoader.setAttribute("aria-hidden", "true");
 
   mediaTile.append(previewImage, previewLoader);
-  trigger.appendChild(mediaTile);
+  assemble(trigger, mediaTile);
 
-  palette.colors.forEach((color) => {
-    const segment = document.createElement("span");
-    segment.className = "palette-swatch-segment";
-    segment.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    segment.setAttribute("aria-hidden", "true");
-    trigger.appendChild(segment);
-  });
-
-  card.append(trigger, createPublicationBadge(palette), createSelectionIndicator());
-
-  if (palette.captureMode === "ral") {
-    const ralIndicator = document.createElement("span");
-    ralIndicator.className = "palette-card-ral-indicator panel-status-chip";
-    ralIndicator.textContent = "RAL";
-    card.appendChild(ralIndicator);
-  }
+  // Too small for the publication badge or the RAL chip; the viewer shows both.
+  card.append(trigger, createSelectionIndicator());
 
   const dispose = bindLazyPreviewLoad({
     card,
@@ -576,5 +591,94 @@ export function createSwatchCard({ palette, onOpenViewer, scrollRoot = null }) {
   });
   paletteCardDisposers.set(card, dispose);
 
+  return card;
+}
+
+/**
+ * @param {object} config
+ * @param {Palette} config.palette
+ * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
+ * @param {Element | null} [config.scrollRoot]
+ */
+export function createSwatchCard(config) {
+  return createPhotoCutoutCard({
+    ...config,
+    modifier: "swatch",
+    assemble(trigger, photo) {
+      trigger.appendChild(photo);
+      config.palette.colors.forEach((color) => {
+        const segment = document.createElement("span");
+        segment.className = "palette-swatch-segment";
+        segment.style.backgroundColor = toRgb(color);
+        segment.setAttribute("aria-hidden", "true");
+        trigger.appendChild(segment);
+      });
+    },
+  });
+}
+
+/** One catch per row: a photo tab, then the colors as equal bands. */
+export function createBandCard(config) {
+  return createPhotoCutoutCard({
+    ...config,
+    modifier: "band",
+    assemble(trigger, photo) {
+      trigger.append(photo, createColorBands(config.palette.colors, "palette-band-colors"));
+    },
+  });
+}
+
+/** The 3deg gaps between segments read as the seams of a lens ring. */
+function buildRingGradient(colors) {
+  const gapDeg = colors.length > 1 ? 3 : 0;
+  const step = 360 / Math.max(1, colors.length);
+  const stops = colors.map(
+    (color, index) =>
+      `${toRgb(color)} ${index * step}deg ${(index + 1) * step - gapDeg}deg, transparent 0 ${(index + 1) * step}deg`,
+  );
+  return `conic-gradient(from ${gapDeg / 2}deg, ${stops.join(", ")})`;
+}
+
+/** The colors around the edge, the photo as the lens in the middle. */
+export function createRingCard(config) {
+  return createPhotoCutoutCard({
+    ...config,
+    modifier: "ring",
+    assemble(trigger, photo) {
+      const ring = document.createElement("span");
+      ring.className = "palette-ring";
+      ring.setAttribute("aria-hidden", "true");
+      ring.style.backgroundImage = buildRingGradient(config.palette.colors);
+      trigger.append(ring, photo);
+    },
+  });
+}
+
+/**
+ * A spectrum chip: no photo, the colors stacked with the key color on top.
+ * @param {object} config
+ * @param {Palette} config.palette
+ * @param {Palette["colors"]} config.colors
+ * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
+ */
+export function createChipCard({ palette, colors, onOpenViewer }) {
+  const card = document.createElement("div");
+  card.className = "palette-card palette-card--chip";
+  card.classList.toggle("is-favorite", isPaletteFavorite(palette));
+  card.dataset.paletteId = String(palette.id);
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "palette-card-trigger";
+  trigger.setAttribute("aria-label", t("viewer.openCapture"));
+  trigger.appendChild(createColorBands(colors, "palette-chip-colors"));
+
+  const handleClick = () => {
+    void onOpenViewer?.(palette.id, trigger);
+  };
+  trigger.addEventListener("click", handleClick);
+
+  card.append(trigger, createSelectionIndicator());
+  paletteCardDisposers.set(card, () => trigger.removeEventListener("click", handleClick));
   return card;
 }

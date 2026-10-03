@@ -94,12 +94,14 @@ describe("app-settings captureMode", () => {
 });
 
 describe("app-settings collectionViewMode", () => {
-  test("normalizes invalid collectionViewMode to list", async () => {
+  test("normalizes invalid or retired collectionViewMode to grid", async () => {
     const { module } = await loadAppSettingsModule({
-      collectionViewMode: "invalid",
+      collectionViewMode: "list",
+      collectionGridColumns: 9,
     });
 
-    expect(module.getAppSettings().collectionViewMode).toBe("list");
+    expect(module.getAppSettings().collectionViewMode).toBe("grid");
+    expect(module.getAppSettings().collectionGridColumns).toBe(2);
   });
 
   // Representative persist-to-localStorage assertion for the whole settings store.
@@ -108,12 +110,14 @@ describe("app-settings collectionViewMode", () => {
     const updates = [];
     module.subscribeAppSettings((settings) => updates.push(settings));
 
-    module.updateAppSettings({ collectionViewMode: "grid" });
+    module.updateAppSettings({ collectionViewMode: "spectrum" });
 
-    expect(module.getAppSettings().collectionViewMode).toBe("grid");
+    expect(module.getAppSettings().collectionViewMode).toBe("spectrum");
     expect(updates).toHaveLength(1);
-    expect(updates[0].collectionViewMode).toBe("grid");
-    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).collectionViewMode).toBe("grid");
+    expect(updates[0].collectionViewMode).toBe("spectrum");
+    expect(JSON.parse(localStorageMock.dump(SETTINGS_STORAGE_KEY)).collectionViewMode).toBe(
+      "spectrum",
+    );
   });
 });
 
