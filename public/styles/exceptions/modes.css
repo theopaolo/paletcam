@@ -2,7 +2,7 @@ body.is-ral-mode .capture {
   flex: 0 0 auto;
   aspect-ratio: 4 / 3;
 
-  /* The palette row is hidden in RAL mode: the camera takes the whole box. */
+  /* Single color hides the palette row: the camera takes the whole box. */
   grid-template-rows: minmax(0, 1fr);
 }
 

@@ -92,7 +92,7 @@ const ease = (x) => x * x * (3 - 2 * x);
  */
 export function createIrisShutter({ button }) {
   if (!button) {
-    return { setColors() {}, setLook() {}, setNeutral() {}, snap() {}, destroy() {} };
+    return { setColors() {}, setLook() {}, snap() {}, destroy() {} };
   }
 
   const svg = document.createElementNS(SVG_NS, "svg");
@@ -107,7 +107,6 @@ export function createIrisShutter({ button }) {
   /** @type {{ r: number, g: number, b: number }[]} */
   let colors = [];
   let look = "logo";
-  let neutral = false;
   let aperture = LOOKS.titanium.aperture;
   let twist = 0;
   let frameId = 0;
@@ -120,8 +119,9 @@ export function createIrisShutter({ button }) {
     if (look === "logo") {
       return;
     }
-    const palette = neutral || colors.length < 3 ? GRAPHITE : colors;
-    const count = neutral || colors.length < 3 ? 6 : colors.length;
+    // Graphite until the first palette. Single color fills all six blades.
+    const palette = colors.length === 0 ? GRAPHITE : colors;
+    const count = colors.length < 3 ? 6 : colors.length;
     const { bend, rotation, bladesPerColor } = currentLook();
     const blades = irisBladePaths({
       count,
@@ -191,11 +191,6 @@ export function createIrisShutter({ button }) {
       button.dataset.iris = look;
       aperture = currentLook().aperture;
       twist = 0;
-      draw();
-    },
-    /** @param {boolean} isNeutral RAL mode shows graphite blades. */
-    setNeutral(isNeutral) {
-      neutral = Boolean(isNeutral);
       draw();
     },
     /** Close to a point and reopen, like a lens stopping down for the exposure. */

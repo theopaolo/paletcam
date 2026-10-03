@@ -11,7 +11,6 @@ const HYBRID_REPULSION_RADIUS_RANGE = { min: 0, max: 0.2 };
 const HYBRID_STRENGTH_RANGE = { min: 0, max: 1 };
 const HYBRID_TONE_RANGE = { min: 0, max: 1 };
 const VALID_NEUTRAL_BALANCES = new Set(["color", "balanced", "neutrals"]);
-const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 /** Bands and rings are switched off, and index.html hides their buttons. */
 const VALID_COLLECTION_VIEW_MODES = new Set(["grid", "swatch", "spectrum"]);
 /** Zoom steps of each collection view, in cards per row. */
@@ -41,10 +40,6 @@ const DEFAULT_HYBRID_SETTINGS = Object.freeze({
 
 function normalizeNeutralBalance(value) {
   return VALID_NEUTRAL_BALANCES.has(value) ? value : "balanced";
-}
-
-function normalizeCaptureMode(value) {
-  return VALID_CAPTURE_MODES.has(value) ? value : "palette";
 }
 
 /** The old one-polaroid list became the photo grid's widest zoom step. */
@@ -89,7 +84,6 @@ function normalizeLastBackupAt(value) {
 }
 
 const DEFAULT_SETTINGS = Object.freeze({
-  captureMode: "palette",
   collectionViewMode: "grid",
   collectionColumns: normalizeCollectionColumns(null),
   locale: "fr",
@@ -193,7 +187,6 @@ function normalizeHybridSettings(candidate) {
 
 function normalizeSettings(candidate) {
   return {
-    captureMode: normalizeCaptureMode(candidate?.captureMode),
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
     collectionColumns: normalizeCollectionColumns(candidate?.collectionColumns),
     locale: normalizeLocale(candidate?.locale),

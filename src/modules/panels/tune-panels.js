@@ -34,7 +34,7 @@ export const TUNE_ICONS = Object.freeze({
   tone: html`<svg class="tune-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path class="is-dot" d="M12 3.5a8.5 8.5 0 0 1 0 17z" /></svg>`,
   pins: html`<svg class="tune-icon" viewBox="0 0 24 24"><circle cx="9.5" cy="12" r="5.5" /><path d="M8.6 10.3 10 9.4v5.2" /><path d="M15.4 7.3a5.5 5.5 0 0 1 0 9.4" /></svg>`,
   grid: html`<svg class="tune-icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16" /></svg>`,
-  ral: html`<svg class="tune-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><circle class="is-dot" cx="12" cy="12" r="1.6" /></svg>`,
+  single: html`<svg class="tune-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" /><path d="M12 3.5v17M3.5 12h17" /></svg>`,
 });
 
 /* Illustrative swatches for the three neutral-balance looks, drawn in place of

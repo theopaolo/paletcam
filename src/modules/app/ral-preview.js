@@ -1,22 +1,28 @@
-import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
+import { findClosestRAL } from "../color-matching-ral.js";
 import { relativeLuminance } from "../color-space-oklch.js";
-import { sampleColorFromContextAtPoint } from "../ral-live-sampling.js";
 
 const RAL_SMOOTHING_FACTOR = 0.18;
 const RAL_COLOR_DISTANCE_THRESHOLD = 12;
 
+/**
+ * The single-color swatch: the color under the crosshair, its name, and the
+ * nearest RAL Classic code in small type. Names load with color-name-api.js
+ * on the first sample, so palette mode never pays for the name list.
+ */
 export function createRalPreviewController({
   ralLiveSwatch,
   ralLiveSwatchColor,
   ralLiveSwatchCode,
   ralLiveSwatchName,
-  ralLiveSwatchQuality,
   visualEffects,
+  onColorChange = null,
 }) {
   /** @type {{ r: number, g: number, b: number } | null} */
   let previousSampledColor = null;
   /** @type {{ match: RalMatch, sampledColor: { r: number, g: number, b: number } } | null} */
   let currentPreview = null;
+  /** @type {Promise<typeof import("../color-name-api.js")> | null} */
+  let colorNamesPromise = null;
 
   function clear() {
     ralLiveSwatch?.classList.remove("is-light-bg");
@@ -29,31 +35,33 @@ export function createRalPreviewController({
     if (ralLiveSwatchName) {
       ralLiveSwatchName.textContent = "";
     }
-    if (ralLiveSwatchQuality) {
-      ralLiveSwatchQuality.textContent = "";
-    }
+  }
+
+  function paintName(sampledColor) {
+    colorNamesPromise ??= import("../color-name-api.js");
+    void colorNamesPromise.then(async ({ getColorNames }) => {
+      const [name] = await getColorNames([sampledColor]);
+      // A newer sample may have landed while the name list loaded.
+      if (ralLiveSwatchName && currentPreview?.sampledColor === sampledColor) {
+        ralLiveSwatchName.textContent = name ?? "";
+      }
+    });
   }
 
   function sync(match, sampledColor) {
-    if (ralLiveSwatch) {
-      const isLight = relativeLuminance(match.ral.r, match.ral.g, match.ral.b) > 0.179;
-      ralLiveSwatch.classList.toggle("is-light-bg", isLight);
-    }
+    const { r, g, b } = sampledColor;
+    ralLiveSwatch?.classList.toggle("is-light-bg", relativeLuminance(r, g, b) > 0.179);
     if (ralLiveSwatchColor) {
-      ralLiveSwatchColor.style.backgroundColor = `rgb(${match.ral.r}, ${match.ral.g}, ${match.ral.b})`;
+      ralLiveSwatchColor.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
     }
     if (ralLiveSwatchCode) {
       ralLiveSwatchCode.textContent = match.ral.code;
     }
-    if (ralLiveSwatchName) {
-      ralLiveSwatchName.textContent = match.ral.name;
-    }
-    if (ralLiveSwatchQuality) {
-      ralLiveSwatchQuality.textContent = `${getRalQualityLabel(match.deltaE)}`;
-    }
+    paintName(sampledColor);
 
     visualEffects.setCaptureButtonGlowColor(sampledColor);
     visualEffects.setCaptureGlowActive(true);
+    onColorChange?.(sampledColor);
   }
 
   function smooth(raw) {
@@ -93,12 +101,15 @@ export function createRalPreviewController({
     currentPreview = null;
   }
 
-  function readCurrentMatch(context, width, height) {
-    const rawColor = sampleColorFromContextAtPoint(context, width, height, width / 2, height / 2);
+  /** @param {{ r: number, g: number, b: number }} rawColor the crosshair's average */
+  function update(rawColor) {
     const sampledColor = smooth(rawColor);
-    const matches = findClosestRAL(sampledColor.r, sampledColor.g, sampledColor.b, 1);
-    const match = matches[0] ?? null;
+    // Held inside the smoothing threshold: nothing on screen changes.
+    if (currentPreview?.sampledColor === sampledColor) {
+      return currentPreview.match;
+    }
 
+    const match = findClosestRAL(sampledColor.r, sampledColor.g, sampledColor.b, 1)[0] ?? null;
     if (!match) {
       currentPreview = null;
       clear();
@@ -106,10 +117,7 @@ export function createRalPreviewController({
       return null;
     }
 
-    currentPreview = {
-      match,
-      sampledColor: { ...sampledColor },
-    };
+    currentPreview = { match, sampledColor };
     sync(match, sampledColor);
     return match;
   }
@@ -123,8 +131,8 @@ export function createRalPreviewController({
   return {
     clear,
     getCurrentPreview: () => currentPreview,
-    readCurrentMatch,
     reset,
     resyncCopy,
+    update,
   };
 }

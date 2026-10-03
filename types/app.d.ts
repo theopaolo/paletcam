@@ -176,7 +176,6 @@ interface PaletteScoringWeights {
 }
 
 interface AppSettings {
-  captureMode: CaptureMode;
   collectionViewMode: CollectionViewMode;
   /** Cards per row in each collection view, its zoom level. */
   collectionColumns: Record<CollectionViewMode, number>;
@@ -193,7 +192,6 @@ interface AppSettings {
 
 /** Deep-partial variant for updateAppSettings — nested groups accept partial patches. */
 interface AppSettingsPatch {
-  captureMode?: CaptureMode;
   collectionViewMode?: CollectionViewMode;
   collectionColumns?: Partial<Record<CollectionViewMode, number>>;
   locale?: "fr" | "en";

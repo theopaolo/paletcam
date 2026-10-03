@@ -86,10 +86,6 @@ body[data-footer-count="adj"] .btn-containers {
   transition: transform 0.06s linear;
 }
 
-body.is-ral-mode .adj-control {
-  visibility: hidden;
-}
-
 @keyframes adj-roll-up {
   from {
     opacity: 0;
@@ -135,11 +131,6 @@ body.is-ral-mode .adj-control {
   box-shadow: var(--shadow-chrome);
   transition: transform var(--duration-settle) var(--easing-spring);
   pointer-events: none;
-}
-
-body.is-ral-mode .count-dial-ring,
-body.is-ral-mode .count-dial-index {
-  opacity: 0.3;
 }
 
 .count-dial.is-dragging .count-dial-ring {
@@ -266,10 +257,6 @@ body[data-footer-count="shutter"] .btn-capture {
   inset: -12px;
   transition: transform var(--duration-settle) var(--easing-spring);
   pointer-events: none;
-}
-
-body.is-ral-mode .shutter-dots {
-  visibility: hidden;
 }
 
 .shutter-bezel.is-dragging .shutter-dots {

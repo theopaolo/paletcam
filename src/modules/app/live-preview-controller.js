@@ -22,6 +22,8 @@ import { createLivePreviewOriginMarkerModel } from "./live-preview-origin-marker
 import { createLivePreviewTiming, EXTRACTION_MIN_INTERVAL_MS } from "./live-preview-timing.js";
 
 const PREVIEW_SMOOTHING_FACTOR = 0.16;
+/** Single color samples the crosshair this often: enough to follow the aim. */
+const CENTER_SAMPLE_INTERVAL_MS = 100;
 // Extraction cadence is time-based so cost stays constant across 60/120Hz
 // displays; the palette is intentionally slower than the camera preview.
 const HAPTIC_FREEZE_MS = 15;
@@ -109,6 +111,8 @@ export function createLivePreviewController({
   let cachedCameraTrackSettings = null;
   let isFrameGrabPending = false;
   let frameGrabGeneration = 0;
+  let isCenterSamplePending = false;
+  let lastCenterSampleAt = Number.NEGATIVE_INFINITY;
 
   function getPaletteViewportSize() {
     const currentCaptureMode = getCurrentCaptureMode();
@@ -354,6 +358,7 @@ export function createLivePreviewController({
     paletteLockOverlay?.replaceChildren();
     cachedCameraTrackSettings = null;
     timing.resetCadence();
+    lastCenterSampleAt = Number.NEGATIVE_INFINITY;
     ralPreview.clear();
     colorSmoother.reset();
     ralPreview.reset();
@@ -445,12 +450,23 @@ export function createLivePreviewController({
     return frameAcquisition.copyVisibleFrameToAnalysisCanvas();
   }
 
-  function readCurrentRalMatch(
-    context = frameContext,
-    width = frameAcquisition.getDimensions().frameWidth,
-    height = frameAcquisition.getDimensions().frameHeight,
-  ) {
-    return ralPreview.readCurrentMatch(context, width, height);
+  function requestCenterSample(frameStartTime) {
+    if (isCenterSamplePending || frameStartTime - lastCenterSampleAt < CENTER_SAMPLE_INTERVAL_MS) {
+      return;
+    }
+    isCenterSamplePending = true;
+    lastCenterSampleAt = frameStartTime;
+    const generation = frameGrabGeneration;
+    frameAcquisition
+      .readCenterColor()
+      .then((color) => {
+        if (color && generation === frameGrabGeneration && isStreaming) {
+          ralPreview.update(color);
+        }
+      })
+      .finally(() => {
+        isCenterSamplePending = false;
+      });
   }
 
   function getCameraTrackSettings(now = timing.now()) {
@@ -513,20 +529,11 @@ export function createLivePreviewController({
       // Force a repaint + glow refresh on the next palette frame.
       lastPaintedColors = null;
     } else if (currentCaptureMode === "ral") {
+      // Single color: the swatch follows the crosshair, see requestCenterSample.
       if (originMarkerModel.hasActivity()) {
         clearOriginMarkers();
       }
-      const analysisStartTime = timing.now();
-      if (!shouldUseCanvasPreview) {
-        drawCurrentFrameToAnalysisCanvas();
-      }
-
-      readCurrentRalMatch(
-        shouldUseCanvasPreview ? frameContext : activeAnalysisContext,
-        shouldUseCanvasPreview ? frameWidth : analysisWidth,
-        shouldUseCanvasPreview ? frameHeight : analysisHeight,
-      );
-      analysisDurationMs = timing.now() - analysisStartTime;
+      requestCenterSample(frameStartTime);
     } else {
       const shouldExtract = timing.shouldExtract(
         frameStartTime,
@@ -638,7 +645,6 @@ export function createLivePreviewController({
     handleWorkerResult(result) {
       applyExtractionResult(extractionPipeline.acceptWorkerResult(result));
     },
-    readCurrentRalMatch,
     recordStoppedFrame,
     reset,
     scheduleRefresh,

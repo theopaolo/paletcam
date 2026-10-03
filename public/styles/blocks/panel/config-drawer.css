@@ -12,7 +12,7 @@ config-panel {
   padding: 0 var(--space-16) var(--space-16);
 }
 
-/* RAL has nothing to tune: the tray keeps its mode switch and grid key. */
+/* Single color has nothing to tune: the tray keeps its grid and pins keys. */
 body.is-ral-mode .config-drawer {
   display: none;
 }

@@ -79,7 +79,6 @@ const {
   capturePaletteStage,
   frameCanvas,
   gridKey,
-  modeSwitch,
   outputPalette,
   paletteCanvas,
   paletteLockOverlay,
@@ -90,10 +89,8 @@ const {
   ralLiveSwatchCode,
   ralLiveSwatchColor,
   ralLiveSwatchName,
-  ralLiveSwatchQuality,
   ralReticle,
   rotateButton,
-  swatchCountControl,
   swatchCountDrum,
   tuneTray,
   viewCollectionButton,
@@ -163,8 +160,11 @@ const ralPreview = createRalPreviewController({
   ralLiveSwatchColor,
   ralLiveSwatchCode,
   ralLiveSwatchName,
-  ralLiveSwatchQuality,
   visualEffects,
+  onColorChange: (color) => {
+    irisShutter.setColors([color]);
+    countControl?.setColors?.([color]);
+  },
 });
 const paletteExtractionWorker = createPaletteExtractionWorkerController({
   onError: (error) => {
@@ -181,8 +181,8 @@ const paletteExtractionWorker = createPaletteExtractionWorkerController({
     livePreviewController?.handleWorkerResult({ colors, durationMs, origins, frozenPresence });
   },
 });
-const SWATCH_COUNT_MIN = Number(swatchCountDrum?.dataset.min) || 3;
-const SWATCH_COUNT_MAX = Number(swatchCountDrum?.dataset.max) || 7;
+/* One color is its own mode (aim the crosshair, take that color); two is left out. */
+const SWATCH_COUNT_STOPS = Object.freeze([1, 3, 4, 5, 6, 7]);
 const footerControls = /** @type {HTMLElement | null} */ (
   captureButton?.closest(".btn-containers") ?? null
 );
@@ -190,14 +190,19 @@ const irisShutter = createIrisShutter({ button: captureButton });
 /** The count control of the active footer variant (dial, ADJ lever or shutter slide); the drum is always built. */
 let countControl = null;
 
+/** Single color reuses the RAL capture path: crosshair sample, catches saved as "ral". */
+function getCaptureModeForCount(count) {
+  return count === 1 ? "ral" : "palette";
+}
+
 function applySwatchCount(nextSwatchCount) {
   swatchCount = nextSwatchCount;
-  livePreviewController?.reset();
-  livePreviewController?.scheduleRefresh();
+  syncCaptureMode(getCaptureModeForCount(swatchCount));
 }
 
 const swatchCountDrumUi = createSwatchCountDrumUiController({
   swatchCountDrum,
+  values: [...SWATCH_COUNT_STOPS],
   onSwatchCountChange: (nextSwatchCount) => {
     applySwatchCount(nextSwatchCount);
     countControl?.sync(nextSwatchCount);
@@ -216,8 +221,7 @@ function applyFooterLab({ shutter, count }) {
   countControl?.destroy();
   countControl = null;
   const countOptions = {
-    min: SWATCH_COUNT_MIN,
-    max: SWATCH_COUNT_MAX,
+    values: [...SWATCH_COUNT_STOPS],
     value: swatchCount,
     onChange: handleCountControlChange,
   };
@@ -307,19 +311,18 @@ function syncUserFacingCopy() {
 
 function syncCaptureMode(mode) {
   const isRal = mode === "ral";
+  const isEntering = mode !== currentCaptureMode;
   currentCaptureMode = mode;
-
-  for (const option of modeSwitch?.querySelectorAll("[data-capture-mode]") ?? []) {
-    option.setAttribute("aria-pressed", String(option.getAttribute("data-capture-mode") === mode));
-  }
 
   // Toggle camera UI elements
   document.body.classList.toggle("is-ral-mode", isRal);
   if (ralReticle) ralReticle.hidden = !isRal;
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
-  if (swatchCountControl) swatchCountControl.hidden = isRal;
-  irisShutter.setNeutral(isRal);
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;
+  // Expose for what sits under the crosshair, where the camera supports a point.
+  if (isRal && isEntering) {
+    void cameraController.setMeteringPoint({ x: 0.5, y: 0.5 });
+  }
 
   syncCameraViewportLayout();
   livePreviewController?.updateCachedDimensions();
@@ -330,7 +333,6 @@ function syncCaptureMode(mode) {
 }
 
 function applyAppSettings({
-  captureMode,
   locale,
   performanceHudEnabled,
   oneMoreColor: nextOneMoreColor,
@@ -350,19 +352,8 @@ function applyAppSettings({
   performanceHud.setEnabled(performanceHudEnabled);
   medianCutExtractionSettings = { ...medianCut };
   hybridSettings = { ...hybrid };
-  livePreviewController?.reset();
-  syncCaptureMode(captureMode);
+  syncCaptureMode(getCaptureModeForCount(swatchCount));
 }
-
-bindManagedEventListener(modeSwitch, "click", (event) => {
-  const nextMode =
-    event.target instanceof Element
-      ? event.target.closest("[data-capture-mode]")?.getAttribute("data-capture-mode")
-      : null;
-  if (nextMode && nextMode !== currentCaptureMode) {
-    updateAppSettings({ captureMode: nextMode });
-  }
-});
 
 bindManagedEventListener(pinsKey, "click", () => {
   updateAppSettings({ originBadgesEnabled: !originBadgesEnabled });

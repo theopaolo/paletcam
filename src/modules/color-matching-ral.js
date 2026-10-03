@@ -8,7 +8,6 @@
  * Also includes a point-sampling utility for precise single-color capture.
  */
 
-import { t } from "../i18n.js";
 import { deltaE2000, rgbToLab } from "./color-distance.js";
 import { RAL_CLASSIC } from "./ral-classic-data.js";
 
@@ -124,18 +123,3 @@ export function matchPaletteToRAL(colors, matchesPerColor = 3) {
 
 // Re-export for convenience
 export { RAL_CLASSIC } from "./ral-classic-data.js";
-
-/**
- * Human-readable quality label for a RAL match delta-E distance.
- * @param {number} deltaE
- * @returns {string}
- */
-export function getRalQualityLabel(deltaE) {
-  if (!Number.isFinite(deltaE)) {
-    return "";
-  }
-
-  const similarityPercentage = Math.max(0, Math.round(100 - deltaE * 10));
-
-  return t("ral.quality", { percentage: similarityPercentage });
-}

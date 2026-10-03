@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { setLocale } from "../i18n.js";
-import { findClosestRAL, getRalQualityLabel, matchPaletteToRAL } from "./color-matching-ral.js";
+import { findClosestRAL, matchPaletteToRAL } from "./color-matching-ral.js";
 
 describe("color-matching-ral", () => {
   test("returns the exact RAL entry as the closest match for known palette colors", () => {
@@ -29,25 +28,5 @@ describe("color-matching-ral", () => {
     expect(result).toHaveLength(2);
     expect(result[0].matches[0].ral.code).toBe("RAL 5012");
     expect(result[1].matches[0].ral.code).toBe("RAL 9003");
-  });
-});
-
-describe("getRalQualityLabel", () => {
-  test("returns similarity percentage based on deltaE", () => {
-    setLocale("en", { force: true });
-    expect(getRalQualityLabel(0)).toBe("RAL match 100%");
-    expect(getRalQualityLabel(5)).toBe("RAL match 50%");
-    expect(getRalQualityLabel(10)).toBe("RAL match 0%");
-  });
-
-  test("clamps at 0% for high deltaE", () => {
-    setLocale("en", { force: true });
-    expect(getRalQualityLabel(15)).toBe("RAL match 0%");
-  });
-
-  test("returns empty string for non-finite values", () => {
-    setLocale("en", { force: true });
-    expect(getRalQualityLabel(NaN)).toBe("");
-    expect(getRalQualityLabel(Infinity)).toBe("");
   });
 });

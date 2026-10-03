@@ -95,7 +95,7 @@ const GUIDE_ENTRIES = Object.freeze([
   ["tone", "config.production.tone.title", "config.production.tone.hint"],
   ["pins", "config.pins.checkbox", "config.guide.pins"],
   ["grid", "capture.grid", "config.guide.grid"],
-  ["ral", "capture.mode.ral", "config.guide.ral"],
+  ["single", "config.guide.singleTitle", "config.guide.single"],
 ]);
 
 /* Preprod-only switches for the footer variants under test. English only: a

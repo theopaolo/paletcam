@@ -24,6 +24,17 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+/** Position of `count` among `values`, or of the nearest one. */
+function positionOf(values, count) {
+  let best = 0;
+  values.forEach((value, index) => {
+    if (Math.abs(value - count) < Math.abs(values[best] - count)) {
+      best = index;
+    }
+  });
+  return best;
+}
+
 /* Capture calls can throw InvalidPointerId when the browser already released
    the pointer (cancel races); the gesture logic must survive that. */
 function capturePointer(element, pointerId) {
@@ -43,9 +54,11 @@ function releasePointer(element, pointerId) {
 }
 
 /**
+ * The controls step through `values` in order, one detent each, so a count
+ * can be skipped (1 then 3 to 7: one color is its own mode, two is left out).
+ *
  * @typedef {object} CountControlOptions
- * @property {number} min
- * @property {number} max
+ * @property {number[]} values
  * @property {number} value
  * @property {(value: number) => void} onChange
  */
@@ -67,7 +80,7 @@ function releasePointer(element, pointerId) {
  * @param {CountControlOptions & { button: HTMLElement | null, numbered?: boolean }} options
  * @returns {CountControl}
  */
-export function createCountDialUi({ button, min, max, value, onChange, numbered = false }) {
+export function createCountDialUi({ button, values, value, onChange, numbered = false }) {
   if (!button?.parentElement) {
     return { sync() {}, destroy() {} };
   }
@@ -80,29 +93,31 @@ export function createCountDialUi({ button, min, max, value, onChange, numbered 
   const ring = /** @type {HTMLElement} */ (dial.querySelector(".count-dial-ring"));
   const face = /** @type {HTMLElement} */ (dial.querySelector(".count-dial-face"));
   const valueLabel = /** @type {HTMLElement} */ (dial.querySelector(".count-dial-value"));
-  for (let tickValue = min; tickValue <= max; tickValue++) {
+  values.forEach((count, index) => {
     const tick = document.createElement(numbered ? "b" : "i");
-    tick.textContent = numbered ? String(tickValue) : "";
-    tick.style.setProperty("--tick-angle", `${-(tickValue - min) * DIAL_STEP_DEG}deg`);
+    tick.textContent = numbered ? String(count) : "";
+    tick.style.setProperty("--tick-angle", `${-index * DIAL_STEP_DEG}deg`);
     face.append(tick);
-  }
+  });
   button.before(dial);
   dial.append(button);
 
-  let current = clamp(value, min, max);
+  const last = values.length - 1;
+  /** Position among `values`, not the count. */
+  let current = positionOf(values, value);
   let gesture = null;
   let hideTimer = 0;
   let suppressClickUntil = 0;
 
-  function paint(rawOffset = current - min) {
+  function paint(rawOffset = current) {
     ring.style.transform = `rotate(${(rawOffset * DIAL_STEP_DEG).toFixed(1)}deg)`;
     [...face.children].forEach((tick, index) => {
-      tick.classList.toggle("is-on", index === current - min);
+      tick.classList.toggle("is-on", index === current);
     });
-    valueLabel.textContent = String(current);
+    valueLabel.textContent = String(values[current]);
     dial.setAttribute(
       "aria-label",
-      `${t("slider.colorCountAria")}: ${t("slider.colorCount", { count: current })}`,
+      `${t("slider.colorCountAria")}: ${t("slider.colorCount", { count: values[current] })}`,
     );
   }
 
@@ -143,11 +158,10 @@ export function createCountDialUi({ button, min, max, value, onChange, numbered 
       dial.classList.add("is-turning", "is-dragging");
     }
 
-    const span = max - min;
-    let raw = gesture.start - min + dx / DETENT_PX;
-    if (raw < 0 || raw > span) {
-      const overshoot = raw < 0 ? raw : raw - span;
-      raw = (raw < 0 ? 0 : span) + overshoot * RUBBER_BAND_FACTOR;
+    let raw = gesture.start + dx / DETENT_PX;
+    if (raw < 0 || raw > last) {
+      const overshoot = raw < 0 ? raw : raw - last;
+      raw = (raw < 0 ? 0 : last) + overshoot * RUBBER_BAND_FACTOR;
       if (
         !gesture.hitBoundary &&
         Math.abs(overshoot * DETENT_PX * RUBBER_BAND_FACTOR) > BOUNDARY_FEEDBACK_PX
@@ -159,11 +173,11 @@ export function createCountDialUi({ button, min, max, value, onChange, numbered 
       gesture.hitBoundary = false;
     }
 
-    const next = clamp(Math.round(raw) + min, min, max);
+    const next = clamp(Math.round(raw), 0, last);
     if (next !== current) {
       current = next;
       detentFeedback();
-      onChange(current);
+      onChange(values[current]);
     }
     paint(raw);
   }
@@ -202,7 +216,7 @@ export function createCountDialUi({ button, min, max, value, onChange, numbered 
 
   return {
     sync(nextValue) {
-      current = clamp(nextValue, min, max);
+      current = positionOf(values, nextValue);
       if (!gesture?.turning) {
         paint();
       }
@@ -223,7 +237,7 @@ export function createCountDialUi({ button, min, max, value, onChange, numbered 
  * @param {CountControlOptions & { host: HTMLElement | null }} options
  * @returns {CountControl}
  */
-export function createAdjLeverUi({ host, min, max, value, onChange }) {
+export function createAdjLeverUi({ host, values, value, onChange }) {
   if (!host) {
     return { sync() {}, destroy() {} };
   }
@@ -238,21 +252,23 @@ export function createAdjLeverUi({ host, min, max, value, onChange }) {
   const lever = /** @type {HTMLElement} */ (control.querySelector(".adj-lever"));
   host.append(control);
 
-  let current = clamp(value, min, max);
+  const last = values.length - 1;
+  /** Position among `values`, not the count. */
+  let current = positionOf(values, value);
   let gesture = null;
   let repeatTimer = 0;
 
   function paintWindow(direction = 0) {
     const roll = direction > 0 ? "is-rolling-up" : direction < 0 ? "is-rolling-down" : "";
-    windowLabel.innerHTML = `<span class="${roll}">${current}</span>`;
+    windowLabel.innerHTML = `<span class="${roll}">${values[current]}</span>`;
     control.setAttribute(
       "aria-label",
-      `${t("slider.colorCountAria")}: ${t("slider.colorCount", { count: current })}`,
+      `${t("slider.colorCountAria")}: ${t("slider.colorCount", { count: values[current] })}`,
     );
   }
 
   function nudge(direction) {
-    const next = clamp(current + direction, min, max);
+    const next = clamp(current + direction, 0, last);
     if (next === current) {
       boundaryFeedback();
       return;
@@ -260,7 +276,7 @@ export function createAdjLeverUi({ host, min, max, value, onChange }) {
     current = next;
     detentFeedback();
     paintWindow(direction);
-    onChange(current);
+    onChange(values[current]);
   }
 
   function stopRepeat() {
@@ -338,7 +354,7 @@ export function createAdjLeverUi({ host, min, max, value, onChange }) {
 
   return {
     sync(nextValue) {
-      const next = clamp(nextValue, min, max);
+      const next = positionOf(values, nextValue);
       if (next !== current) {
         const direction = Math.sign(next - current);
         current = next;
@@ -368,7 +384,7 @@ export function createAdjLeverUi({ host, min, max, value, onChange }) {
  * }} options
  * @returns {CountControl}
  */
-export function createShutterSlideUi({ button, min, max, value, onChange, onVerticalDrag }) {
+export function createShutterSlideUi({ button, values, value, onChange, onVerticalDrag }) {
   if (!button?.parentElement) {
     return { sync() {}, destroy() {} };
   }
@@ -378,7 +394,11 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
   const ring = document.createElement("span");
   ring.className = "shutter-dots";
   ring.setAttribute("aria-hidden", "true");
-  const dots = Array.from({ length: max }, () => ring.appendChild(document.createElement("i")));
+  const last = values.length - 1;
+  const maxCount = values[last];
+  const dots = Array.from({ length: maxCount }, () =>
+    ring.appendChild(document.createElement("i")),
+  );
   const readout = document.createElement("span");
   readout.className = "shutter-count";
   readout.setAttribute("aria-hidden", "true");
@@ -386,7 +406,8 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
   bezel.append(button, ring);
   button.append(readout);
 
-  let current = clamp(value, min, max);
+  /** Position among `values`, not the count. */
+  let current = positionOf(values, value);
   /** @type {{ r: number, g: number, b: number }[]} */
   let colors = [];
   let gesture = null;
@@ -395,12 +416,13 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
   let blockClick = false;
 
   function paint() {
-    readout.textContent = String(current);
+    const count = values[current];
+    readout.textContent = String(count);
     dots.forEach((dot, index) => {
-      const on = index < current;
+      const on = index < count;
       dot.classList.toggle("is-off", !on);
-      // Lit dots share the circle; unlit ones wait at their place among `max`.
-      dot.style.setProperty("--dot-angle", `${(360 / (on ? current : max)) * index}deg`);
+      // Lit dots share the circle; unlit ones wait at their place among the most.
+      dot.style.setProperty("--dot-angle", `${(360 / (on ? count : maxCount)) * index}deg`);
       const color = colors[index];
       if (color) {
         dot.style.backgroundColor = `rgb(${color.r} ${color.g} ${color.b})`;
@@ -449,7 +471,7 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
 
     const raw = gesture.start + dx / DETENT_PX;
     // Past an end stop: one bump at the same finger travel as the dial's.
-    const overshootPx = Math.max(min - raw, raw - max, 0) * DETENT_PX;
+    const overshootPx = Math.max(-raw, raw - last, 0) * DETENT_PX;
     if (overshootPx * RUBBER_BAND_FACTOR > BOUNDARY_FEEDBACK_PX) {
       if (!gesture.hitBoundary) {
         gesture.hitBoundary = true;
@@ -458,12 +480,12 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
     } else if (overshootPx === 0) {
       gesture.hitBoundary = false;
     }
-    const next = clamp(Math.round(raw), min, max);
+    const next = clamp(Math.round(raw), 0, last);
     if (next !== current) {
       current = next;
       detentFeedback();
       paint();
-      onChange(current);
+      onChange(values[current]);
     }
     const tilt = clamp(raw - current, -0.6, 0.6) * BEZEL_TILT_DEG;
     ring.style.transform = `rotate(${tilt.toFixed(1)}deg)`;
@@ -500,7 +522,7 @@ export function createShutterSlideUi({ button, min, max, value, onChange, onVert
 
   return {
     sync(nextValue) {
-      current = clamp(nextValue, min, max);
+      current = positionOf(values, nextValue);
       paint();
     },
     setColors(nextColors) {

@@ -20,6 +20,17 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+/** Position of `count` among `values`, or of the nearest one. */
+function positionOf(values, count) {
+  let best = 0;
+  values.forEach((value, index) => {
+    if (Math.abs(value - count) < Math.abs(values[best] - count)) {
+      best = index;
+    }
+  });
+  return best;
+}
+
 function readNumericValue(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -46,10 +57,15 @@ function releasePointer(element, pointerId) {
 /**
  * @param {object} [options]
  * @param {HTMLElement | null} [options.swatchCountDrum]
+ * @param {number[]} [options.values] counts the drum rolls through, in order (defaults to data-min..data-max)
  * @param {((count: number) => void) | null} [options.onSwatchCountChange]
  * @returns {SwatchCountDrumUiController}
  */
-export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCountChange } = {}) {
+export function createSwatchCountDrumUiController({
+  swatchCountDrum,
+  values: valuesOption,
+  onSwatchCountChange,
+} = {}) {
   const track = /** @type {HTMLElement | null} */ (
     swatchCountDrum?.querySelector(".swatch-drum-track") ?? null
   );
@@ -66,14 +82,16 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     swatchCountDrum?.dataset.max ?? swatchCountDrum?.getAttribute("aria-valuemax"),
     7,
   );
+  const values = valuesOption ?? Array.from({ length: max - min + 1 }, (_, index) => min + index);
+  const last = values.length - 1;
   const cleanups = [];
-  let currentValue = clamp(
+  /** Position among `values`, not the count. */
+  let position = positionOf(
+    values,
     readNumericValue(
       swatchCountDrum?.dataset.value ?? swatchCountDrum?.getAttribute("aria-valuenow"),
       4,
     ),
-    min,
-    max,
   );
   let activePointer = null;
   let rollTimeout = 0;
@@ -85,13 +103,13 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
 
   function renderTrack() {
     if (previousNumber) {
-      previousNumber.textContent = currentValue > min ? String(currentValue - 1) : "";
+      previousNumber.textContent = position > 0 ? String(values[position - 1]) : "";
     }
     if (currentNumber) {
-      currentNumber.textContent = String(currentValue);
+      currentNumber.textContent = String(values[position]);
     }
     if (nextNumber) {
-      nextNumber.textContent = currentValue < max ? String(currentValue + 1) : "";
+      nextNumber.textContent = position < last ? String(values[position + 1]) : "";
     }
   }
 
@@ -100,12 +118,13 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
       return;
     }
 
-    swatchCountDrum.dataset.value = String(currentValue);
+    const count = values[position];
+    swatchCountDrum.dataset.value = String(count);
     swatchCountDrum.setAttribute("aria-label", t("slider.colorCountAria"));
-    swatchCountDrum.setAttribute("aria-valuemin", String(min));
-    swatchCountDrum.setAttribute("aria-valuemax", String(max));
-    swatchCountDrum.setAttribute("aria-valuenow", String(currentValue));
-    swatchCountDrum.setAttribute("aria-valuetext", t("slider.colorCount", { count: currentValue }));
+    swatchCountDrum.setAttribute("aria-valuemin", String(values[0]));
+    swatchCountDrum.setAttribute("aria-valuemax", String(values[last]));
+    swatchCountDrum.setAttribute("aria-valuenow", String(count));
+    swatchCountDrum.setAttribute("aria-valuetext", t("slider.colorCount", { count }));
 
     if (countLabel) {
       countLabel.textContent = t("slider.colorCountLabel");
@@ -157,26 +176,26 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     rollTimeout = globalThis.window?.setTimeout(finishRoll, ROLL_DURATION_MS) ?? 0;
   }
 
-  /** Commit a value reached mid-drag: numbers rebase, no roll animation. */
-  function applyValue(nextValue) {
-    currentValue = nextValue;
+  /** Commit a position reached mid-drag: numbers rebase, no roll animation. */
+  function applyPosition(nextPosition) {
+    position = nextPosition;
     renderTrack();
     syncAccessibleValue();
-    onSwatchCountChange?.(currentValue);
+    onSwatchCountChange?.(values[position]);
   }
 
-  function setValue(nextValue, { animate = true } = {}) {
-    const normalizedValue = clamp(Math.round(nextValue), min, max);
-    if (normalizedValue === currentValue) {
+  function setPosition(nextPosition, { animate = true } = {}) {
+    const normalizedPosition = clamp(Math.round(nextPosition), 0, last);
+    if (normalizedPosition === position) {
       finishRoll();
       return false;
     }
 
     finishRoll();
-    const direction = normalizedValue > currentValue ? 1 : -1;
-    currentValue = normalizedValue;
+    const direction = normalizedPosition > position ? 1 : -1;
+    position = normalizedPosition;
     syncAccessibleValue();
-    onSwatchCountChange?.(currentValue);
+    onSwatchCountChange?.(values[position]);
     detentFeedback();
 
     if (animate) {
@@ -189,7 +208,7 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
   }
 
   function step(direction, options) {
-    return setValue(currentValue + direction, options);
+    return setPosition(position + direction, options);
   }
 
   function endPointerGesture(event, { cancelled = false } = {}) {
@@ -241,13 +260,13 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     const travel = gesture.startY - event.clientY;
     gesture.moved ||= Math.abs(travel) > TAP_SLOP_PX;
 
-    const baseValue = clamp(currentValue - gesture.committedSteps, min, max);
+    const basePosition = clamp(position - gesture.committedSteps, 0, last);
     const rawSteps = Math.round(travel / DETENT_PX);
-    const targetValue = clamp(baseValue + rawSteps, min, max);
-    const steps = targetValue - baseValue;
+    const targetPosition = clamp(basePosition + rawSteps, 0, last);
+    const steps = targetPosition - basePosition;
     if (steps !== gesture.committedSteps) {
       gesture.committedSteps = steps;
-      applyValue(targetValue);
+      applyPosition(targetPosition);
       detentFeedback();
     }
 
@@ -256,8 +275,8 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     }
 
     let remainder = travel - steps * DETENT_PX;
-    const pastUpperStop = currentValue >= max && remainder > 0;
-    const pastLowerStop = currentValue <= min && remainder < 0;
+    const pastUpperStop = position >= last && remainder > 0;
+    const pastLowerStop = position <= 0 && remainder < 0;
     if (pastUpperStop || pastLowerStop) {
       remainder *= RUBBER_BAND_FACTOR;
       if (!gesture.hitBoundary && Math.abs(remainder) > BOUNDARY_FEEDBACK_PX) {
@@ -299,7 +318,7 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
   }
 
   function initialize(swatchCount) {
-    currentValue = clamp(Math.round(readNumericValue(swatchCount, currentValue)), min, max);
+    position = positionOf(values, readNumericValue(swatchCount, values[position]));
     finishRoll();
     syncAccessibleValue();
   }
@@ -322,7 +341,7 @@ export function createSwatchCountDrumUiController({ swatchCountDrum, onSwatchCou
     bindEvents,
     cleanup,
     destroy,
-    getValue: () => currentValue,
+    getValue: () => values[position],
     initialize,
   };
 }

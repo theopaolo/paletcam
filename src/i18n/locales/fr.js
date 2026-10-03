@@ -25,11 +25,8 @@ const fr = {
   "capture.configClose": "Fermer la configuration",
   "capture.configLabel": "Config",
   "capture.configCloseLabel": "Fermer",
-  "capture.modeSection": "Mode de capture",
   "capture.trayAria": "Réglages de capture",
   "capture.grid": "Grille",
-  "capture.mode.palette": "Palette",
-  "capture.mode.ral": "RAL",
   "capture.rotate": "Changer de caméra",
   "capture.capture": "Capturer une palette",
   "capture.collectionOpen": "Ouvrir les captures",
@@ -317,8 +314,9 @@ const fr = {
   "config.guide.pins":
     "Des repères numérotés sur la palette et sur l'image montrent où chaque couleur a été trouvée.",
   "config.guide.grid": "Des tiers sur l'image de la caméra, pour cadrer.",
-  "config.guide.ral":
-    "Lit la couleur sous l'anneau et donne la couleur RAL Classic la plus proche.",
+  "config.guide.singleTitle": "Une couleur",
+  "config.guide.single":
+    "Tournez le compteur sur 1 et visez avec la croix au centre pour prendre exactement cette couleur. Le code RAL le plus proche s'affiche en petit sous son nom.",
   "config.guide.reset":
     "Touchez deux fois la règle pour remettre Analyse, Densité ou Tonalité à sa valeur par défaut.",
   "config.history.aria": "Historique",
@@ -361,7 +359,6 @@ const fr = {
   "camera.exposure.label": "Réglage de l'exposition",
   "camera.grid.aria": "Grille de composition",
   "camera.output.empty": "Aucun aperçu.",
-  "ral.quality": "Similarité RAL {percentage}%",
   "publication.status.public": "publié",
   "publication.status.rejected": "refusé",
   "publication.status.private": "privé",

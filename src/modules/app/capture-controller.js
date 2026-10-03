@@ -78,24 +78,18 @@ export function createCaptureController({
       let ralMatchData = null;
 
       if (captureModeSnapshot === "ral") {
-        const currentRalMatch =
-          ralPreview.getCurrentPreview()?.match ?? livePreviewController.readCurrentRalMatch();
-        if (currentRalMatch) {
-          paletteColors = [
-            {
-              r: currentRalMatch.ral.r,
-              g: currentRalMatch.ral.g,
-              b: currentRalMatch.ral.b,
-              deltaE: currentRalMatch.deltaE,
-            },
-          ];
+        // Single color keeps what the crosshair read, stored with its nearest RAL.
+        const preview = ralPreview.getCurrentPreview();
+        if (preview) {
+          const { match, sampledColor } = preview;
+          paletteColors = [{ r: sampledColor.r, g: sampledColor.g, b: sampledColor.b }];
           ralMatchData = {
-            code: currentRalMatch.ral.code,
-            name: currentRalMatch.ral.name,
-            r: currentRalMatch.ral.r,
-            g: currentRalMatch.ral.g,
-            b: currentRalMatch.ral.b,
-            deltaE: currentRalMatch.deltaE,
+            code: match.ral.code,
+            name: match.ral.name,
+            r: match.ral.r,
+            g: match.ral.g,
+            b: match.ral.b,
+            deltaE: match.deltaE,
           };
         } else {
           paletteColors = [];

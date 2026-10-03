@@ -42,54 +42,54 @@ afterEach(() => {
   delete globalThis[GLOBAL_SETTINGS_STORE_KEY];
 });
 
-// captureMode carries the representative coverage for the generic store machinery
-// (valid load round-trip, change notifications, reset patch). Other fields below
-// only assert their own distinct validation rules.
-describe("app-settings captureMode", () => {
-  test("loads a persisted ral setting", async () => {
+// collectionViewMode carries the representative coverage for the generic store
+// machinery (valid load round-trip, change notifications, reset patch). Other
+// fields below only assert their own distinct validation rules.
+describe("app-settings store", () => {
+  test("loads a persisted setting", async () => {
+    const { module } = await loadAppSettingsModule({
+      collectionViewMode: "swatch",
+    });
+
+    expect(module.getAppSettings().collectionViewMode).toBe("swatch");
+  });
+
+  test("drops the retired captureMode setting", async () => {
     const { module } = await loadAppSettingsModule({
       captureMode: "ral",
     });
 
-    expect(module.getAppSettings().captureMode).toBe("ral");
+    expect(module.getAppSettings()).not.toHaveProperty("captureMode");
   });
 
-  test("normalizes invalid captureMode to palette", async () => {
-    const { module } = await loadAppSettingsModule({
-      captureMode: "invalid",
-    });
-
-    expect(module.getAppSettings().captureMode).toBe("palette");
-  });
-
-  test("notifies listeners when captureMode changes", async () => {
+  test("notifies listeners when a setting changes", async () => {
     const { module } = await loadAppSettingsModule();
     const updates = [];
     module.subscribeAppSettings((settings) => updates.push(settings));
 
-    module.updateAppSettings({ captureMode: "ral" });
+    module.updateAppSettings({ collectionViewMode: "swatch" });
 
     expect(updates).toHaveLength(1);
-    expect(updates[0].captureMode).toBe("ral");
+    expect(updates[0].collectionViewMode).toBe("swatch");
   });
 
-  test("does not notify when captureMode is unchanged", async () => {
+  test("does not notify when a setting is unchanged", async () => {
     const { module } = await loadAppSettingsModule();
     const updates = [];
     module.subscribeAppSettings((settings) => updates.push(settings));
 
-    module.updateAppSettings({ captureMode: "palette" });
+    module.updateAppSettings({ collectionViewMode: "grid" });
 
     expect(updates).toHaveLength(0);
   });
 
-  test("default reset patch restores captureMode to palette", async () => {
+  test("default reset patch restores the defaults", async () => {
     const { module } = await loadAppSettingsModule();
 
-    module.updateAppSettings({ captureMode: "ral" });
+    module.updateAppSettings({ collectionViewMode: "swatch" });
     module.updateAppSettings(module.getDefaultAppSettingsResetPatch());
 
-    expect(module.getAppSettings().captureMode).toBe("palette");
+    expect(module.getAppSettings().collectionViewMode).toBe("grid");
   });
 });
 

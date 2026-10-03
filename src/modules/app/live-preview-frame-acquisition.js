@@ -1,6 +1,11 @@
 // The quantizer samples at most ~40k pixels, so anything above ~320px wide is
 // pure getImageData readback cost with no extraction-quality gain.
 const DEFAULT_ANALYSIS_MAX_WIDTH = 320;
+/* Single color reads a square this share of the visible frame wide under the
+   crosshair (the old RAL ring's 9 px of a 320 px frame), averaged from
+   CENTER_PATCH_PX² samples. */
+const CENTER_PATCH_SHARE = 0.03;
+const CENTER_PATCH_PX = 9;
 
 /**
  * Browser adapter for the live preview's canvas surfaces and camera-frame
@@ -240,6 +245,69 @@ export function createLivePreviewFrameAcquisition({
     }
   }
 
+  /** @type {CanvasRenderingContext2D | null} */
+  let centerPatchContext = null;
+
+  /**
+   * The average color under the center crosshair, read through a cropped
+   * ImageBitmap like grabAnalysisFrame, so only CENTER_PATCH_PX² pixels come
+   * back to the main thread. Mirroring does not matter: the patch is centered.
+   * Resolves null when no frame can be taken.
+   * @returns {Promise<{ r: number, g: number, b: number } | null>}
+   */
+  async function readCenterColor() {
+    const videoWidth = cameraFeed?.videoWidth ?? 0;
+    const videoHeight = cameraFeed?.videoHeight ?? 0;
+    if (!cameraFeed || videoWidth <= 0 || videoHeight <= 0) {
+      return null;
+    }
+
+    const crop = getCameraFrameSourceRect() ?? {
+      x: 0,
+      y: 0,
+      width: videoWidth,
+      height: videoHeight,
+    };
+    const size = Math.max(1, Math.round(crop.width * CENTER_PATCH_SHARE));
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(
+        cameraFeed,
+        Math.round(crop.x + (crop.width - size) / 2),
+        Math.round(crop.y + (crop.height - size) / 2),
+        size,
+        size,
+        { resizeWidth: CENTER_PATCH_PX, resizeHeight: CENTER_PATCH_PX, resizeQuality: "medium" },
+      );
+    } catch {
+      return null;
+    }
+
+    if (!centerPatchContext) {
+      const canvas = document.createElement("canvas");
+      canvas.width = CENTER_PATCH_PX;
+      canvas.height = CENTER_PATCH_PX;
+      centerPatchContext = canvas.getContext("2d", { willReadFrequently: true });
+    }
+    if (!centerPatchContext) {
+      bitmap.close();
+      return null;
+    }
+    centerPatchContext.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const pixels = centerPatchContext.getImageData(0, 0, CENTER_PATCH_PX, CENTER_PATCH_PX).data;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      r += pixels[index];
+      g += pixels[index + 1];
+      b += pixels[index + 2];
+    }
+    const count = pixels.length / 4;
+    return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) };
+  }
+
   function readAnalysisPixels() {
     if (!analysisContext || analysisWidth <= 0 || analysisHeight <= 0) {
       return null;
@@ -271,6 +339,7 @@ export function createLivePreviewFrameAcquisition({
     getPaletteContext: () => paletteContext,
     grabAnalysisFrame,
     readAnalysisPixels,
+    readCenterColor,
     resize,
   };
 }

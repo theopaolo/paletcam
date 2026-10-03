@@ -1,7 +1,7 @@
 import { getAppSettings } from "../../app-settings.js";
 import { toRgbCss } from "../color-format.js";
 import { relativeLuminance } from "../color-space-oklch.js";
-import { findClosestRAL, getRalQualityLabel } from "../color-matching-ral.js";
+import { findClosestRAL } from "../color-matching-ral.js";
 
 const POLAROID_CARD_ASPECT_RATIO = 1.22;
 const DEFAULT_POLAROID_PHOTO_ASPECT_RATIO = 4 / 3;
@@ -384,48 +384,35 @@ function drawRalReticleOverlay({ context, x, y, width, height }) {
   context.restore();
 }
 
+/** The RAL code and name a single-color catch carries, or the nearest to its color. */
 function getPaletteRalDetails(palette) {
   if (palette?.captureMode !== "ral") {
     return null;
   }
 
-  const storedMatch =
+  const stored =
     palette?.ralMatch && typeof palette.ralMatch === "object" ? palette.ralMatch : null;
+  const color = Array.isArray(palette?.colors) ? palette.colors[0] : null;
+  const nearest =
+    !stored?.code && color ? (findClosestRAL(color.r, color.g, color.b, 1)[0]?.ral ?? null) : null;
+  const code =
+    typeof stored?.code === "string" && stored.code.trim() ? stored.code : (nearest?.code ?? "");
+  const name =
+    typeof stored?.name === "string" && stored.name.trim() ? stored.name : (nearest?.name ?? "");
 
-  const hasStoredColor =
-    Number.isFinite(storedMatch?.r) &&
-    Number.isFinite(storedMatch?.g) &&
-    Number.isFinite(storedMatch?.b);
+  return code ? { code, name } : null;
+}
 
-  const fallbackColor = hasStoredColor
-    ? storedMatch
-    : Array.isArray(palette?.colors) && palette.colors.length > 0
-      ? palette.colors[0]
-      : null;
-
-  if (!fallbackColor) {
-    return null;
+/** Single-color catches caption their color by name. The name list loads only for them. */
+async function getSingleColorName(palette) {
+  const color = Array.isArray(palette?.colors) ? palette.colors[0] : null;
+  if (palette?.captureMode !== "ral" || !color) {
+    return "";
   }
 
-  const match = findClosestRAL(fallbackColor.r, fallbackColor.g, fallbackColor.b, 1)[0] ?? null;
-  if (!match && !hasStoredColor) {
-    return null;
-  }
-
-  return {
-    code:
-      typeof storedMatch?.code === "string" && storedMatch.code.trim()
-        ? storedMatch.code
-        : (match?.ral.code ?? ""),
-    name:
-      typeof storedMatch?.name === "string" && storedMatch.name.trim()
-        ? storedMatch.name
-        : (match?.ral.name ?? ""),
-    r: hasStoredColor ? storedMatch.r : (match?.ral.r ?? fallbackColor.r),
-    g: hasStoredColor ? storedMatch.g : (match?.ral.g ?? fallbackColor.g),
-    b: hasStoredColor ? storedMatch.b : (match?.ral.b ?? fallbackColor.b),
-    deltaE: Number.isFinite(storedMatch?.deltaE) ? storedMatch.deltaE : (match?.deltaE ?? null),
-  };
+  const { getColorNames } = await import("../color-name-api.js");
+  const [name] = await getColorNames([color]);
+  return name ?? "";
 }
 
 /**
@@ -447,31 +434,23 @@ function fitTextToWidth(context, text, { maxWidth, maxFontSize, minFontSize, fon
   return minFontSize;
 }
 
-function drawRalStripCaption({ context, palette, x, y, width, height, cardWidth }) {
+function drawRalStripCaption({ context, palette, colorName, x, y, width, height, cardWidth }) {
   const ralDetails = getPaletteRalDetails(palette);
-  if (!ralDetails || width <= 0 || height <= 0) {
+  const color = Array.isArray(palette?.colors) ? palette.colors[0] : null;
+  if (!ralDetails || !color || width <= 0 || height <= 0) {
     return;
   }
 
-  const isLightBackground = relativeLuminance(ralDetails.r, ralDetails.g, ralDetails.b) > 0.179;
-  const codeText = String(ralDetails.code ?? "")
-    .trim()
-    .toUpperCase();
-  const nameText = String(ralDetails.name ?? "")
-    .trim()
-    .toUpperCase();
-  const qualityText = String(getRalQualityLabel(ralDetails.deltaE) ?? "")
-    .trim()
-    .toUpperCase();
+  const isLightBackground = relativeLuminance(color.r, color.g, color.b) > 0.179;
+  const nameText = String(colorName || ralDetails.name).trim();
+  const codeText = ralDetails.code.trim();
   const primaryColor = isLightBackground ? "rgba(34, 28, 20, 0.92)" : "rgba(255, 250, 244, 0.94)";
-  const secondaryColor = isLightBackground ? "rgba(34, 28, 20, 0.82)" : "rgba(255, 250, 244, 0.82)";
-  const accentColor = isLightBackground ? "rgba(133, 95, 0, 0.96)" : "#ffc81a";
+  const secondaryColor = isLightBackground ? "rgba(34, 28, 20, 0.7)" : "rgba(255, 250, 244, 0.72)";
   const paddingX = Math.max(10, Math.round(cardWidth * 0.018));
   const paddingBottom = Math.max(8, Math.round(height * 0.055));
   const availableWidth = Math.max(48, width - paddingX * 2);
-  const codeMaxFontSize = Math.max(8, Math.min(height * 0.085, cardWidth * 0.016));
   const nameMaxFontSize = Math.max(10, Math.min(height * 0.12, cardWidth * 0.022));
-  const qualityMaxFontSize = Math.max(8, Math.min(height * 0.07, cardWidth * 0.014));
+  const codeMaxFontSize = Math.max(8, Math.min(height * 0.075, cardWidth * 0.015));
 
   context.save();
   context.beginPath();
@@ -480,44 +459,31 @@ function drawRalStripCaption({ context, palette, x, y, width, height, cardWidth 
   context.textAlign = "left";
   context.textBaseline = "alphabetic";
 
-  const codeFontSize = fitTextToWidth(context, codeText, {
-    maxWidth: availableWidth,
-    maxFontSize: Math.round(codeMaxFontSize),
-    minFontSize: 8,
-    fontWeight: 500,
-  });
   const nameFontSize = fitTextToWidth(context, nameText, {
     maxWidth: availableWidth,
     maxFontSize: Math.round(nameMaxFontSize),
     minFontSize: 10,
     fontWeight: 700,
   });
-  const qualityFontSize = fitTextToWidth(context, qualityText, {
+  const codeFontSize = fitTextToWidth(context, codeText, {
     maxWidth: availableWidth,
-    maxFontSize: Math.round(qualityMaxFontSize),
+    maxFontSize: Math.round(codeMaxFontSize),
     minFontSize: 8,
     fontWeight: 500,
   });
 
   const gap = Math.max(2, Math.round(height * 0.02));
   const anchorX = x + paddingX;
-  const qualityY = y + height - paddingBottom;
-  const nameY = qualityY - qualityFontSize - gap;
-  const codeY = nameY - nameFontSize - gap;
-
-  context.font = `500 ${codeFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
-  context.fillStyle = secondaryColor;
-  context.fillText(codeText, anchorX, codeY);
+  const codeY = y + height - paddingBottom;
+  const nameY = codeY - codeFontSize - gap;
 
   context.font = `700 ${nameFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
   context.fillStyle = primaryColor;
   context.fillText(nameText, anchorX, nameY);
 
-  if (qualityText) {
-    context.font = `500 ${qualityFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
-    context.fillStyle = accentColor;
-    context.fillText(qualityText, anchorX, qualityY);
-  }
+  context.font = `500 ${codeFontSize}px ${POLAROID_BRAND_FONT_FAMILY}`;
+  context.fillStyle = secondaryColor;
+  context.fillText(codeText, anchorX, codeY);
 
   context.restore();
 }
@@ -566,6 +532,7 @@ function renderPolaroidCanvas({
   palette,
   colors,
   brandLabel,
+  singleColorName = "",
   photoAspectRatio = DEFAULT_POLAROID_PHOTO_ASPECT_RATIO,
   photoSourceRect = null,
   expandCardForLegacyRawAspect = false,
@@ -663,6 +630,7 @@ function renderPolaroidCanvas({
   drawRalStripCaption({
     context,
     palette,
+    colorName: singleColorName,
     x: palettePanelX,
     y: palettePanelY,
     width: innerWidth,
@@ -755,7 +723,10 @@ export async function renderPalettePolaroidBlob(
   const { image, release } = await loadImageFromBlob(palette.photoBlob);
 
   try {
-    await waitForBrandFont();
+    const [, singleColorName] = await Promise.all([
+      waitForBrandFont(),
+      getSingleColorName(palette),
+    ]);
     renderPolaroidCanvas({
       canvas,
       context,
@@ -763,6 +734,7 @@ export async function renderPalettePolaroidBlob(
       palette,
       colors: palette.colors,
       brandLabel: getBrandLabel(palette),
+      singleColorName,
       photoAspectRatio: getPalettePhotoAspectRatioValue(palette),
       photoSourceRect: resolvePalettePhotoSourceRect(image, palette),
       expandCardForLegacyRawAspect: !palette?.captureAspectRatio && !palette?.captureCropRect,

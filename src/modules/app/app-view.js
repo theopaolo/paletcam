@@ -21,10 +21,7 @@
  * @property {HTMLElement | null} ralLiveSwatchColor
  * @property {HTMLElement | null} ralLiveSwatchCode
  * @property {HTMLElement | null} ralLiveSwatchName
- * @property {HTMLElement | null} ralLiveSwatchQuality
- * @property {HTMLElement | null} swatchCountControl
  * @property {HTMLElement | null} tuneTray Tuning tray between the palette and the footer
- * @property {HTMLElement | null} modeSwitch Palette/RAL switch in the tuning tray
  * @property {HTMLButtonElement | null} gridKey
  * @property {HTMLButtonElement | null} pinsKey
  * @property {HTMLElement | null} configPanel
@@ -72,12 +69,7 @@ export function createAppView(documentRef) {
     ralLiveSwatchColor: documentRef.getElementById("ralLiveSwatchColor"),
     ralLiveSwatchCode: documentRef.getElementById("ralLiveSwatchCode"),
     ralLiveSwatchName: documentRef.getElementById("ralLiveSwatchName"),
-    ralLiveSwatchQuality: documentRef.getElementById("ralLiveSwatchQuality"),
-    swatchCountControl: /** @type {HTMLElement | null} */ (
-      documentRef.querySelector(".swatch-count-control")
-    ),
     tuneTray: documentRef.getElementById("tuneTray"),
-    modeSwitch: /** @type {HTMLElement | null} */ (documentRef.querySelector(".mode-switch")),
     gridKey: /** @type {HTMLButtonElement | null} */ (documentRef.getElementById("gridKey")),
     pinsKey: /** @type {HTMLButtonElement | null} */ (documentRef.getElementById("pinsKey")),
     configPanel: /** @type {HTMLElement | null} */ (documentRef.querySelector("config-panel")),

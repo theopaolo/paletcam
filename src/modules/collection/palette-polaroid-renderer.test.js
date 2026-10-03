@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { resetAppSettingsForTests } from "../../app-settings.js";
+import { getColorNames } from "../color-name-api.js";
 
 import {
   getPalettePreviewImageMimeType,
@@ -358,7 +359,7 @@ describe("renderPalettePolaroidBlob", () => {
     );
   });
 
-  test("renders RAL details inside the swatch panel for RAL captures", async () => {
+  test("captions a single-color catch with its name and RAL code", async () => {
     const fillTextCalls = [];
     const arcCalls = [];
     const lineCalls = [];
@@ -468,9 +469,12 @@ describe("renderPalettePolaroidBlob", () => {
 
     const renderedTexts = fillTextCalls.map((call) => call.text);
 
-    expect(renderedTexts).toContain("RAL 4012");
-    expect(renderedTexts).toContain("PEARL BLACKBERRY");
-    expect(renderedTexts.some((text) => String(text).includes("0%"))).toBe(true);
+    // The color's own name leads, the RAL code follows, no match percentage.
+    const [colorName] = await getColorNames([{ r: 124, g: 112, b: 138 }]);
+    const codeIndex = renderedTexts.indexOf("RAL 4012");
+    expect(codeIndex).toBeGreaterThan(0);
+    expect(renderedTexts[codeIndex - 1]).toBe(colorName);
+    expect(renderedTexts.some((text) => String(text).includes("%"))).toBe(false);
     expect(renderedTexts).toContain("colorcatchers.co");
     expect(arcCalls).toHaveLength(1);
     const reticleMoveCalls = lineCalls.slice(-2);

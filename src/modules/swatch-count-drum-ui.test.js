@@ -65,6 +65,27 @@ describe("createSwatchCountDrumUiController", () => {
     expect(fixture.label.textContent).toBe(t("slider.colorCountLabel"));
   });
 
+  test("rolls through the given stops, so one color sits next to three", () => {
+    const fixture = createDrumFixture();
+    const changes = [];
+    const controller = createSwatchCountDrumUiController({
+      swatchCountDrum: fixture.drum,
+      values: [1, 3, 4, 5, 6, 7],
+      onSwatchCountChange: (count) => changes.push(count),
+    });
+    controller.initialize(3);
+    controller.bindEvents();
+
+    expect(fixture.previous.textContent).toBe("1");
+    expect(fixture.drum.getAttribute("aria-valuemin")).toBe("1");
+
+    fixture.drum.dispatch("pointerdown", { clientY: 200, pointerId: 1 });
+    fixture.drum.dispatch("pointermove", { clientY: 228, pointerId: 1 });
+    expect(changes).toEqual([1]);
+    expect(controller.getValue()).toBe(1);
+    expect(fixture.next.textContent).toBe("3");
+  });
+
   test("ticks through detents while dragging, before release", () => {
     const fixture = createDrumFixture();
     const changes = [];

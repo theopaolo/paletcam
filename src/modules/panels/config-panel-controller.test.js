@@ -608,7 +608,7 @@ describe("mountConfigPanel", () => {
     });
 
     fixture.toggleButton.click();
-    updateAppSettings({ captureMode: "ral" });
+    updateAppSettings({ collectionViewMode: "swatch" });
 
     expect(fixture.toggleSection.hidden).toBe(false);
     expect(fixture.toggleButton.hidden).toBe(false);

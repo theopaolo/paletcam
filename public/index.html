@@ -90,9 +90,8 @@
       <div class="ral-live-swatch" id="ralLiveSwatch" hidden>
         <div class="ral-live-swatch-color" id="ralLiveSwatchColor"></div>
         <div class="ral-live-swatch-info">
-          <p class="ral-live-swatch-code" id="ralLiveSwatchCode"></p>
           <p class="ral-live-swatch-name" id="ralLiveSwatchName"></p>
-          <p class="ral-live-swatch-quality" id="ralLiveSwatchQuality"></p>
+          <p class="ral-live-swatch-code" id="ralLiveSwatchCode"></p>
         </div>
       </div>
     </div>
@@ -125,33 +124,6 @@
       <div class="tune-tray-clip">
         <div class="tune-tray-body">
           <div class="tune-quick">
-            <div
-              class="mode-switch"
-              role="group"
-              aria-label="Mode de capture"
-              data-i18n-aria-label="capture.modeSection"
-            >
-              <span class="mode-switch-cap" aria-hidden="true"></span>
-              <button
-                class="mode-switch-option"
-                type="button"
-                data-capture-mode="palette"
-                aria-pressed="true"
-                data-i18n="capture.mode.palette"
-              >
-                Palette
-              </button>
-              <button
-                class="mode-switch-option"
-                type="button"
-                data-capture-mode="ral"
-                aria-pressed="false"
-                data-i18n="capture.mode.ral"
-              >
-                RAL
-              </button>
-            </div>
-
             <button
               class="tray-key"
               id="gridKey"
@@ -625,11 +597,11 @@
           id="swatchCountDrum"
           role="spinbutton"
           tabindex="0"
-          data-min="3"
+          data-min="1"
           data-max="7"
           data-value="4"
           aria-label="Nombre de couleurs"
-          aria-valuemin="3"
+          aria-valuemin="1"
           aria-valuemax="7"
           aria-valuenow="4"
           aria-valuetext="4 couleurs"
