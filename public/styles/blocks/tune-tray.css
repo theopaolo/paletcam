@@ -1,38 +1,83 @@
-/* Tuning tray: a well that opens between the palette and the footer and
-   pushes both up, so the palette stays in view while tuning. The bubble on its
-   top edge is the toggle, and tune-tray.js moves the tray with the finger;
-   the drawer inside is config-panel.
+/* Tuning tray: a well that slides up from behind the footer, over the bottom
+   of the palette. The bubble on its top edge is the toggle, and tune-tray.js
+   moves the tray with the finger; the drawer inside is config-panel.
+
+   The tray moves on transform only, so opening it never re-lays out the
+   camera and the palette. The tray box itself has no height: it marks the
+   footer's top edge. The clip above it hides the well while it sits below
+   that edge, and the body is the well that slides.
 
    No tokens cover the hardware finishes here (the sunk well, the raised keys),
    so their gradients and shadows are written out, like footer-controls.css. */
 
-/* No z-index here: the guide sheet inside must stack above the feed's
-   overlays (the origin pins sit at 9), so only the bubble takes one. */
 .tune-tray {
   --tray-well: #070707;
+  --tray-slide: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 
   position: relative;
   flex-shrink: 0;
+  height: 0;
+}
+
+/* Overflow does not clip fixed descendants, so the guide sheet inside the
+   drawer still covers the whole screen. */
+.tune-tray-clip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* z-index 10 lifts the open tray over the camera's overlays (origin pins at
+   9) where a short screen lets it reach them, and keeps the guide sheet
+   above them too. The settings sheet (11) still covers it. The bubble shares
+   10 and comes first in the page, so the body and its guide sheet paint over
+   it. */
+.tune-tray-body {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
   background: var(--tray-well);
   box-shadow:
     inset 0 10px 12px -10px rgb(0 0 0 / 95%),
     inset 0 -10px 12px -10px rgb(0 0 0 / 95%);
+  pointer-events: auto;
+  transform: translateY(100%);
+  transition: var(--tray-slide);
 }
 
-/* Height is set by tune-tray.js: 0 closed, auto open, pixels while dragging
-   or settling. */
-.tune-tray-clip {
-  height: 0;
-  overflow: hidden;
+/* More well under the drawer, for a drag past fully open (the rubber band). */
+.tune-tray-body::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 100%;
+  background: var(--tray-well);
 }
 
-.tune-tray-clip.is-settling {
-  transition: height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+/* Open at rest, no transform at all: a transformed ancestor would trap the
+   fixed guide sheet. */
+.tune-tray:has(config-panel.is-open) .tune-tray-body {
+  transform: none;
+}
+
+/* A finger holds the tray: tune-tray.js sets the transforms inline. */
+.tune-tray.is-dragging :is(.tune-tray-body, .tune-bubble) {
+  transition: none;
+  will-change: transform;
 }
 
 /* ── Bubble: the footer's top edge swelling into a drop above the shutter ──
    The button is a 144×48 grab zone around the drop: 40px above the edge and
-   8px into the footer, which still leaves 8px before the shutter. */
+   8px into the footer, which still leaves 8px before the shutter. Open, it
+   rides the tray's top edge (--tray-height is set by tune-tray.js). */
 .tune-bubble {
   position: absolute;
   bottom: calc(100% - var(--space-8));
@@ -49,6 +94,11 @@
   cursor: pointer;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  transition: var(--tray-slide);
+}
+
+.tune-tray:has(config-panel.is-open) .tune-bubble {
+  transform: translateY(calc(-1 * var(--tray-height, 0px)));
 }
 
 /* The drop is cut out of the footer's own plate: the body color under it,
@@ -273,7 +323,8 @@ body.is-ral-mode .mode-switch-cap {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tune-tray-clip.is-settling,
+  .tune-tray-body,
+  .tune-bubble,
   .tune-bubble-shape,
   .tune-bubble-shape::before,
   .tune-bubble-shape::after,

@@ -1,15 +1,20 @@
 /**
  * Motion of the tuning tray. config-panel-controller.js owns whether the tray is
- * open (the bubble is its toggle button); this module owns the tray's height:
+ * open (the bubble is its toggle button); this module moves it:
  *
  * - a tap on the bubble toggles through the button's own click;
  * - a drag on the bubble moves the tray with the finger, then settles open or
  *   closed from where it was let go and how fast it was moving;
- * - any open or close (tap, drag, Escape, a tap outside) animates the height,
- *   and the bubble bloops;
+ * - any open or close (tap, drag, Escape, a tap outside) slides the tray, and
+ *   the bubble bloops;
  * - `beginDrag` hands the tray a finger that went down elsewhere (the shutter
  *   slide variant in footer-lab.js), and the drag goes on as if it started on
  *   the bubble.
+ *
+ * The tray slides over the palette on `transform` only, so a drag or a settle
+ * never re-lays out the page and the settle runs on the compositor. The CSS
+ * owns the rest positions; while a finger holds the tray, inline transforms
+ * do, and dropping them lets the CSS transition carry the tray home.
  */
 const DRAG_SLOP_PX = 6;
 const RUBBER_BAND = 0.25;
@@ -26,9 +31,8 @@ const CLICK_SUPPRESS_MS = 350;
  */
 export function bindTuneTray({ tray }) {
   const bubble = /** @type {HTMLElement | null} */ (tray?.querySelector(".tune-bubble") ?? null);
-  const clip = /** @type {HTMLElement | null} */ (tray?.querySelector(".tune-tray-clip") ?? null);
   const body = /** @type {HTMLElement | null} */ (tray?.querySelector(".tune-tray-body") ?? null);
-  if (!tray || !bubble || !clip || !body) {
+  if (!tray || !bubble || !body) {
     return { beginDrag() {}, destroy() {} };
   }
 
@@ -36,26 +40,31 @@ export function bindTuneTray({ tray }) {
   let gesture = null;
   let suppressClickUntil = 0;
 
-  const currentHeight = () => clip.getBoundingClientRect().height;
+  // Translation leaves the box height alone; unrounded, so the bubble sits flush.
+  const fullHeight = () => body.getBoundingClientRect().height;
+  // The tray has no height of its own: its top is the footer's top edge.
+  const visibleHeight = () => tray.getBoundingClientRect().top - body.getBoundingClientRect().top;
 
-  function finishSettle() {
-    clip.classList.remove("is-settling");
-    // Open, the tray takes its content's height, so panels can change size.
-    clip.style.height = isOpen ? "auto" : "";
+  // The bubble rides the tray's top edge; the CSS lifts it by this much when
+  // open. The edge moves at once when the drawer resizes (RAL hides the
+  // tuning), so the bubble skips its slide and moves with it.
+  const resizeObserver = new ResizeObserver(() => {
+    bubble.style.transition = "none";
+    tray.style.setProperty("--tray-height", `${fullHeight()}px`);
+    void bubble.offsetWidth;
+    bubble.style.transition = "";
+  });
+  resizeObserver.observe(body);
+
+  function holdAt(height) {
+    body.style.transform = `translateY(${fullHeight() - height}px)`;
+    bubble.style.transform = `translateY(${-height}px)`;
   }
 
   function settle() {
-    const from = currentHeight();
-    const to = isOpen ? body.scrollHeight : 0;
     tray.classList.remove("is-dragging");
-    if (Math.abs(from - to) < 1) {
-      finishSettle();
-      return;
-    }
-    clip.style.height = `${from}px`;
-    void clip.offsetHeight;
-    clip.classList.add("is-settling");
-    clip.style.height = `${to}px`;
+    body.style.transform = "";
+    bubble.style.transform = "";
   }
 
   function bloop() {
@@ -76,12 +85,6 @@ export function bindTuneTray({ tray }) {
     }
   }
 
-  function handleTransitionEnd(event) {
-    if (event.target === clip && event.propertyName === "height") {
-      finishSettle();
-    }
-  }
-
   /** @param {PointerEvent} event @param {number} [startY] where the finger went down */
   function beginDrag(event, startY = event.clientY) {
     if (gesture) {
@@ -90,7 +93,7 @@ export function bindTuneTray({ tray }) {
     gesture = {
       id: event.pointerId,
       startY,
-      startHeight: currentHeight(),
+      startHeight: 0,
       lastY: event.clientY,
       lastTime: event.timeStamp,
       speed: 0,
@@ -108,20 +111,22 @@ export function bindTuneTray({ tray }) {
     if (!gesture || event.pointerId !== gesture.id) {
       return;
     }
-    const travel = gesture.startY - event.clientY;
     if (!gesture.moved) {
-      if (Math.abs(travel) < DRAG_SLOP_PX) {
+      if (Math.abs(gesture.startY - event.clientY) < DRAG_SLOP_PX) {
         return;
       }
+      // Catch the tray where it is, mid-settle included, and follow from here.
       gesture.moved = true;
-      clip.classList.remove("is-settling");
+      gesture.startY = event.clientY;
+      gesture.startHeight = visibleHeight();
+      holdAt(gesture.startHeight);
       tray.classList.add("is-dragging");
     }
 
-    const full = body.scrollHeight;
-    let height = gesture.startHeight + travel;
+    const full = fullHeight();
+    let height = gesture.startHeight + gesture.startY - event.clientY;
     if (height > full) height = full + (height - full) * RUBBER_BAND;
-    clip.style.height = `${Math.max(0, height)}px`;
+    holdAt(Math.max(0, height));
 
     const elapsed = event.timeStamp - gesture.lastTime;
     if (elapsed > 0) {
@@ -143,7 +148,7 @@ export function bindTuneTray({ tray }) {
     }
 
     suppressClickUntil = performance.now() + CLICK_SUPPRESS_MS;
-    const openShare = currentHeight() / body.scrollHeight;
+    const openShare = visibleHeight() / fullHeight();
     const shouldOpen =
       Math.abs(speed) > FLICK_SPEED
         ? speed > 0
@@ -175,17 +180,16 @@ export function bindTuneTray({ tray }) {
   bubble.addEventListener("pointercancel", handlePointerEnd);
   bubble.addEventListener("click", handleClickCapture, true);
   bubble.addEventListener("animationend", handleAnimationEnd);
-  clip.addEventListener("transitionend", handleTransitionEnd);
   document.addEventListener("config-drawer-change", handleDrawerChange);
 
   function destroy() {
+    resizeObserver.disconnect();
     bubble.removeEventListener("pointerdown", beginDrag);
     bubble.removeEventListener("pointermove", handlePointerMove);
     bubble.removeEventListener("pointerup", handlePointerEnd);
     bubble.removeEventListener("pointercancel", handlePointerEnd);
     bubble.removeEventListener("click", handleClickCapture, true);
     bubble.removeEventListener("animationend", handleAnimationEnd);
-    clip.removeEventListener("transitionend", handleTransitionEnd);
     document.removeEventListener("config-drawer-change", handleDrawerChange);
   }
 

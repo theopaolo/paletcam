@@ -1,7 +1,7 @@
 /**
  * The settings drawer covers the live preview, so zoom and exposure stand down
- * while it is open. The tuning tray pushes the preview up instead of covering
- * it, so the camera controls stay live while tuning.
+ * while it is open. The tuning tray only covers the palette, so the camera
+ * controls stay live while tuning.
  */
 export function createPanelCameraUiController({ zoomUi, exposureUi, documentRef = document }) {
   let isBound = false;

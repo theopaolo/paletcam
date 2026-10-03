@@ -40,8 +40,8 @@ body {
 .capture {
   display: grid;
 
-  /* The camera keeps its 4:3 height until the palette is down to 5rem (the
-     tuning tray pushes both up); past that the camera gives up height too. */
+  /* The camera keeps its 4:3 height until the palette is down to 5rem; past
+     that the camera gives up height too. */
   grid-template-rows: minmax(0, auto) minmax(5rem, 1fr);
   position: relative;
   width: 100%;

@@ -46,12 +46,13 @@
   box-shadow: 0 0 0 2px rgb(255 255 255 / 95%);
 }
 
+/* Right under the number, so the open tuning tray never hides it. */
 .palette-lock-hint img {
   display: block;
   width: 1.5rem;
   height: 1.5rem;
   opacity: 0.4;
-  margin: auto;
+  margin: 0 auto;
   transition: opacity var(--duration-fast) var(--easing-standard);
 }
 
