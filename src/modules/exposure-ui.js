@@ -284,11 +284,17 @@ export function createExposureUiController({
     finishGesture(null);
   }
 
+  // Android opens its text menu on a long touch even with no text selected.
+  function handleContextMenu(event) {
+    event.preventDefault();
+  }
+
   function bindEvents() {
     if (isBound) {
       return;
     }
 
+    overlayLayer.addEventListener("contextmenu", handleContextMenu);
     overlayLayer.addEventListener("pointerdown", handlePointerDown);
     overlayLayer.addEventListener("pointermove", handlePointerMove);
     overlayLayer.addEventListener("pointerup", handlePointerUp);
@@ -299,6 +305,7 @@ export function createExposureUiController({
 
   function destroy() {
     if (isBound) {
+      overlayLayer.removeEventListener("contextmenu", handleContextMenu);
       overlayLayer.removeEventListener("pointerdown", handlePointerDown);
       overlayLayer.removeEventListener("pointermove", handlePointerMove);
       overlayLayer.removeEventListener("pointerup", handlePointerUp);
