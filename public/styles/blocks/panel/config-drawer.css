@@ -226,6 +226,246 @@ body.is-ral-mode .config-drawer {
   height: 100%;
 }
 
+/* ── Look: three stops at the right of the levers (tune-panels.js) ──
+   --look-pos is the stop under the finger, fractional while dragging. The cap,
+   the prism and its shading follow it, and it springs to the stop on release.
+   No tokens cover these finishes, so they are written out like tune-tray.css. */
+@property --look-pos {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.tune-lever.is-look {
+  --look-stop: var(--space-32);
+
+  transition: --look-pos var(--duration-settle) var(--easing-spring);
+}
+
+.tune-lever.is-look.is-active {
+  transition: none;
+}
+
+/* A color wheel whose neutral share grows from the bottom: none for Couleurs,
+   half for Équilibré, three quarters for Neutres. */
+.chroma-glyph {
+  --gray: 0;
+
+  display: block;
+  width: var(--glyph-size, 1rem);
+  height: var(--glyph-size, 1rem);
+  border-radius: 50%;
+  background:
+    conic-gradient(from 90deg, #d9d4c8, #2d2f2c calc(var(--gray) * 1turn), transparent 0),
+    conic-gradient(in oklch longer hue, oklch(78% 0.17 30deg), oklch(78% 0.17 30deg));
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 70%);
+}
+
+.chroma-glyph[data-stop="balanced"] {
+  --gray: 0.5;
+}
+
+.chroma-glyph[data-stop="neutrals"] {
+  --gray: 0.75;
+}
+
+/* Lever: a slot, a knurled cap with the lit index, the stops beside it. */
+.tune-lever.is-lever .tune-lever-drum {
+  border-radius: var(--radius-lg);
+  background: linear-gradient(#151515, #0c0c0c);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 7%),
+    0 2px 6px rgb(0 0 0 / 60%);
+}
+
+.look-slot {
+  position: absolute;
+  top: var(--space-8);
+  bottom: var(--space-8);
+  left: 0.8125rem;
+  width: 6px;
+  border-radius: var(--radius-pill);
+  background: #020202;
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 95%),
+    0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.look-cap {
+  position: absolute;
+  top: calc(50% - var(--look-stop) - 0.6875rem);
+  left: 0.375rem;
+  width: 1.25rem;
+  height: 1.375rem;
+  border-radius: var(--radius-md);
+  background:
+    repeating-linear-gradient(transparent 0 2px, rgb(0 0 0 / 55%) 2px 3px),
+    linear-gradient(#3a3a3a, #1c1c1c);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 14%),
+    0 0 0 1px #000,
+    0 2px 4px rgb(0 0 0 / 70%);
+  translate: 0 calc(var(--look-pos) * var(--look-stop));
+}
+
+/* The lit index across the cap, reaching toward the stop's wheel. */
+.look-cap::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - 1px);
+  right: -5px;
+  left: 3px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  box-shadow: 0 0 6px var(--color-accent-border);
+}
+
+.look-scale {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: grid;
+  grid-template-rows: repeat(3, var(--look-stop));
+  align-items: center;
+  translate: 0 -50%;
+}
+
+.look-scale .chroma-glyph {
+  opacity: 0.6;
+  scale: 0.85;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    scale var(--duration-settle) var(--easing-spring);
+}
+
+.look-scale .chroma-glyph.is-on {
+  opacity: 1;
+  scale: 1;
+}
+
+/* Keys: three latching keys in a well, pressing one releases the others. */
+.tune-lever.is-keys .tune-lever-drum {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--space-4);
+  padding: 3px;
+  border-radius: var(--radius-lg);
+  background: #050505;
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 95%),
+    0 1px 0 rgb(255 255 255 / 7%);
+  cursor: default;
+  touch-action: manipulation;
+}
+
+.look-key {
+  justify-content: center;
+  gap: 6px;
+  height: auto;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+
+.look-key .chroma-glyph {
+  opacity: 0.6;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+/* Latched: the key stays down until another one is pressed. */
+.look-key[aria-pressed="true"] {
+  background: linear-gradient(#151515, #1c1c1c);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 80%),
+    0 0 0 1px #000;
+  transform: translateY(1.5px);
+}
+
+.look-key[aria-pressed="true"] .chroma-glyph {
+  opacity: 1;
+}
+
+/* Prism: a three-faced roller in a window; faces darken as they turn away. */
+.tune-lever.is-prism .tune-lever-drum {
+  --face-height: 3.5rem;
+
+  border-radius: var(--radius-lg);
+  background: #050505;
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 95%),
+    0 1px 0 rgb(255 255 255 / 7%);
+  perspective: 14rem;
+}
+
+.look-prism {
+  position: absolute;
+  top: calc(50% - var(--face-height) / 2);
+  right: 0.875rem;
+  left: var(--space-4);
+  height: var(--face-height);
+  transform: rotateX(calc(var(--look-pos) * 120deg));
+  transform-style: preserve-3d;
+}
+
+.look-face {
+  --face: 0;
+  --glyph-size: 1.5rem;
+
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: linear-gradient(#2a2a2a, #161616);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    inset 0 0 0 1px rgb(255 255 255 / 4%);
+  transform: rotateX(calc(var(--face) * -120deg)) translateZ(calc(var(--face-height) * 0.2887));
+  backface-visibility: hidden;
+}
+
+.look-face:nth-child(2) {
+  --face: 1;
+}
+
+.look-face:nth-child(3) {
+  --face: 2;
+}
+
+.look-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #000;
+  opacity: calc(1 - max(0, cos((var(--face) - var(--look-pos)) * 120deg)));
+}
+
+.look-pips {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: grid;
+  gap: 5px;
+  translate: 0 -50%;
+}
+
+.look-pips i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--color-surface-base);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.look-pips i.is-on {
+  background-color: var(--color-accent);
+  box-shadow: 0 0 5px var(--color-accent-border);
+}
+
 /* ── Rails: thin tracks, an engraved scale, raised icon knobs ── */
 .tune-rails {
   display: grid;
@@ -536,7 +776,8 @@ body.is-ral-mode .config-drawer {
 
 @media (prefers-reduced-motion: reduce) {
   .tune-guide,
-  .tune-guide-sheet {
+  .tune-guide-sheet,
+  .tune-lever.is-look {
     transition-duration: 1ms;
   }
 }

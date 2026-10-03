@@ -8,9 +8,12 @@ import { detentFeedback, unlockUiFeedback } from "../ui-feedback.js";
  *
  * - arc: tabs pick a setting, one curved ruler turns under a fixed needle
  *   (after Luminar);
- * - thin: one thin drum per setting, the look included (after Halide);
- * - drums: wider drums, the look included;
+ * - thin: one thin drum per setting (after Halide);
+ * - drums: wider drums;
  * - rails: thin tracks with a raised knob carrying the setting's icon.
+ *
+ * On thin and drums, the look sits rightmost on its own three-stop control,
+ * also picked in the lab: lever, keys or prism.
  *
  * Panels own no state. They drive the drawer's native inputs (the range inputs
  * and the neutral-balance radios) with the events a finger on those inputs
@@ -20,8 +23,8 @@ import { detentFeedback, unlockUiFeedback } from "../ui-feedback.js";
 const TAP_SLOP_PX = 4;
 const DOUBLE_TAP_MS = 320;
 const RUBBER_BAND = 0.25;
-/** Finger travel per stop on the look's drum. */
-const LOOK_DETENT_PX = 28;
+/** Finger travel per stop on the look's lever and prism, one stop's spacing. */
+const LOOK_STOP_PX = 32;
 
 /* Stroke icons (24px grid) for the arc tabs, the rail knobs and the guide. */
 export const TUNE_ICONS = Object.freeze({
@@ -118,6 +121,7 @@ function lookModel(radios) {
     commit() {},
     format: (index) => t(`config.production.neutralBalance.${radios[index]?.value}`),
     swatches: (index) => LOOK_SWATCHES[radios[index]?.value] ?? [],
+    stops: radios.map((radio) => radio.value),
   };
 }
 
@@ -517,19 +521,15 @@ function createArc(models, colors) {
 
 /* ── Drums: levers after Halide ── */
 
-function createLeverShell(className, setting, width, height) {
+function createLeverShell(className) {
   const element = document.createElement("div");
   element.className = className;
-  element.innerHTML = `<span class="tune-lever-label"></span><span class="tune-lever-value"></span><div class="tune-lever-drum"><canvas></canvas></div>`;
-  const drum = /** @type {HTMLElement} */ (element.querySelector(".tune-lever-drum"));
-  const canvas = /** @type {HTMLCanvasElement} */ (element.querySelector("canvas"));
+  element.innerHTML = `<span class="tune-lever-label"></span><span class="tune-lever-value"></span><div class="tune-lever-drum"></div>`;
   return {
     element,
     label: /** @type {HTMLElement} */ (element.querySelector(".tune-lever-label")),
     value: /** @type {HTMLElement} */ (element.querySelector(".tune-lever-value")),
-    drum,
-    context: prepareCanvas(canvas, width, height),
-    setting,
+    drum: /** @type {HTMLElement} */ (element.querySelector(".tune-lever-drum")),
   };
 }
 
@@ -539,13 +539,10 @@ function createLever(model, setting, { thin, colors }) {
   const width = thin ? 34 : 52;
   const height = thin ? 108 : 96;
   const inset = thin ? 5 : 9;
-  const shell = createLeverShell(
-    thin ? "tune-lever is-thin" : "tune-lever",
-    setting,
-    width,
-    height,
-  );
-  const { context } = shell;
+  const shell = createLeverShell(thin ? "tune-lever is-thin" : "tune-lever");
+  const canvas = document.createElement("canvas");
+  shell.drum.append(canvas);
+  const context = prepareCanvas(canvas, width, height);
   let position = model.get();
   let startPosition = 0;
   let cancelTween = () => {};
@@ -645,125 +642,137 @@ function createLever(model, setting, { thin, colors }) {
   };
 }
 
+/* ── The look's three stops ── */
+
+/* Each stop is drawn as a color wheel whose neutral share (config-drawer.css)
+   grows from Couleurs to Neutres. */
+const LOOK_MARKUP = Object.freeze({
+  /* A slot with a knurled cap, the stops engraved beside it (after
+     Fujifilm's S/C/M focus lever). Drag the cap or tap a stop. */
+  lever: (glyphs) =>
+    `<span class="look-slot"></span><span class="look-cap"></span><span class="look-scale">${glyphs.join("")}</span>`,
+  /* Latching keys: pressing one releases the others (after car-radio
+     presets). */
+  keys: (glyphs) =>
+    glyphs
+      .map(
+        (glyph, index) =>
+          `<button class="tray-key look-key" type="button" data-index="${index}"><span class="tray-led"></span>${glyph}</button>`,
+      )
+      .join(""),
+  /* A three-faced roller turning in a window (after trivision signs). Drag
+     to roll, tap for the next face; it wraps around. */
+  prism: (glyphs) =>
+    `<span class="look-prism">${glyphs.map((glyph) => `<span class="look-face">${glyph}</span>`).join("")}</span><span class="look-pips">${glyphs.map(() => "<i></i>").join("")}</span>`,
+});
+
 /**
- * Drum for the look: its mini palettes roll past the index like the numbers'
- * major ticks, with fine ticks between the stops. Tap for the next.
+ * The look as a lever, keys or prism. CSS draws all three from --look-pos,
+ * the stop under the finger (fractional while dragging, springing to the stop
+ * on release).
  */
-function createLookDrum(model, setting, { thin, colors }) {
-  const width = thin ? 34 : 52;
-  const height = thin ? 108 : 96;
-  const stepDeg = 38;
-  const swatchWidth = thin ? 3.5 : 5.5;
-  const swatchPitch = thin ? 4.75 : 6.75;
-  const swatchHeight = thin ? 8 : 10;
-  const tickLength = thin ? 9 : 18;
-  const shell = createLeverShell(
-    thin ? "tune-lever is-thin" : "tune-lever",
-    setting,
-    width,
-    height,
+function createLookControl(model, setting, kind) {
+  const shell = createLeverShell(`tune-lever is-look is-${kind}`);
+  const { element, drum } = shell;
+  drum.innerHTML = LOOK_MARKUP[kind](
+    model.stops.map((stop) => `<span class="chroma-glyph" data-stop="${stop}"></span>`),
   );
-  const { context } = shell;
+  const marks = /** @type {HTMLElement[]} */ ([
+    ...drum.querySelectorAll(
+      { lever: ".chroma-glyph", keys: ".look-key", prism: ".look-pips i" }[kind],
+    ),
+  ]);
+  const stops = model.stops.length;
+  const wraps = kind === "prism";
   let position = model.get();
   let startPosition = 0;
-  let cancelTween = () => {};
 
-  function draw() {
-    if (!context) {
-      return;
-    }
-    context.clearRect(0, 0, width, height);
-    const middle = height / 2;
-    const r = middle - 4;
-    const paletteWidth = swatchPitch * 3 + swatchWidth;
-    context.strokeStyle = colors.tick;
-    context.lineCap = "round";
-    // Four steps per stop: the palette on the stop, fine ticks between.
-    for (let step = model.lo * 4; step <= model.hi * 4; step++) {
-      const angle = ((step / 4 - position) * stepDeg * Math.PI) / 180;
-      if (Math.abs(angle) > 1.45) {
-        continue;
-      }
-      const cos = Math.cos(angle);
-      const y = middle + r * Math.sin(angle);
-      if (step % 4 === 0) {
-        const barHeight = swatchHeight * cos;
-        context.globalAlpha = 0.2 + 0.8 * cos * cos;
-        model.swatches(step / 4).forEach((swatch, slot) => {
-          context.fillStyle = swatch;
-          context.fillRect(
-            width / 2 - paletteWidth / 2 + slot * swatchPitch,
-            y - barHeight / 2,
-            swatchWidth,
-            barHeight,
-          );
-        });
-        continue;
-      }
-      const length = tickLength * (0.7 + 0.3 * cos);
-      context.globalAlpha = 0.1 + 0.55 * cos * cos;
-      context.lineWidth = thin ? 0.8 + 0.6 * cos : 1 + cos;
-      context.beginPath();
-      context.moveTo(width / 2 - length / 2, y);
-      context.lineTo(width / 2 + length / 2, y);
-      context.stroke();
-    }
-    context.globalAlpha = 1;
-    // The index stops short of the palette on each side.
-    const inset = thin ? 3 : 5;
-    const reach = (width - paletteWidth) / 2 - 2;
-    drawIndex(context, colors, inset, reach, middle, thin ? 1.6 : 2.5);
-    drawIndex(context, colors, width - reach, width - inset, middle, thin ? 1.6 : 2.5);
-  }
-
-  function paintText() {
+  function paint() {
     shell.label.textContent = titleOf(setting);
     paintValue(shell.value, model, true);
-  }
-
-  function glideTo(target, durationMs = 240) {
-    cancelTween();
-    cancelTween = tween(position, target, durationMs, (value) => {
-      position = value;
-      draw();
+    element.style.setProperty("--look-pos", String(position));
+    marks.forEach((mark, index) => {
+      const isOn = index === model.get();
+      mark.classList.toggle("is-on", isOn);
+      if (kind === "keys") {
+        mark.setAttribute("aria-pressed", String(isOn));
+      }
     });
   }
 
-  const drag = bindDrag(shell.drum, {
-    axis: "y",
-    onStart() {
-      cancelTween();
-      startPosition = position;
-    },
-    onMove(travel) {
-      shell.element.classList.add("is-active");
-      position = rubberBand(startPosition + travel / LOOK_DETENT_PX, model);
-      stepTo(model, position, 1);
-      paintText();
-      draw();
-    },
-    onEnd(moved, event) {
-      shell.element.classList.remove("is-active");
-      if (!moved && event.type === "pointerup") {
-        stepTo(model, (model.get() + 1) % (model.hi + 1), 1);
-      }
-      glideTo(model.get());
-    },
-  });
+  /** Selects the stop under `raw`; the prism wraps past its last face. */
+  function select(raw) {
+    stepTo(model, wraps ? ((Math.round(raw) % stops) + stops) % stops : raw, 1);
+  }
 
-  paintText();
-  draw();
+  /** The lever's stop nearest to a tap. */
+  function stopAt(clientY) {
+    const distances = marks.map((mark) => {
+      const bounds = mark.getBoundingClientRect();
+      return Math.abs(bounds.top + bounds.height / 2 - clientY);
+    });
+    return distances.indexOf(Math.min(...distances));
+  }
+
+  const drag =
+    kind === "keys"
+      ? null
+      : bindDrag(drum, {
+          axis: "y",
+          onStart() {
+            startPosition = position;
+          },
+          onMove(travel) {
+            element.classList.add("is-active");
+            // The lever's cap rides up toward Couleurs; the prism's face rolls
+            // up and brings the next one in from below.
+            if (wraps) {
+              position = startPosition + travel / LOOK_STOP_PX;
+            } else {
+              position = rubberBand(startPosition - travel / LOOK_STOP_PX, model);
+            }
+            select(position);
+            paint();
+          },
+          onEnd(moved, event) {
+            element.classList.remove("is-active");
+            if (!moved && event.type === "pointerup") {
+              position = wraps ? Math.round(position) + 1 : stopAt(event.clientY);
+              select(position);
+            }
+            position = wraps ? Math.round(position) : model.get();
+            paint();
+          },
+        });
+
+  function handleKey(event) {
+    const key = event.target instanceof Element ? event.target.closest(".look-key") : null;
+    if (!(key instanceof HTMLElement)) {
+      return;
+    }
+    unlockUiFeedback();
+    select(Number(key.dataset.index));
+    position = model.get();
+    paint();
+  }
+  if (kind === "keys") {
+    drum.addEventListener("click", handleKey);
+  }
+
+  paint();
   return {
-    element: shell.element,
+    element,
     sync() {
-      paintText();
-      if (!drag.isActive() && Math.abs(model.get() - position) > 0.01) {
-        glideTo(model.get());
+      if (!drag?.isActive()) {
+        // The prism keeps its turns so a change from elsewhere rolls the short way.
+        const index = model.get();
+        position = wraps ? index + stops * Math.round((position - index) / stops) : index;
       }
+      paint();
     },
     destroy() {
-      cancelTween();
-      drag.destroy();
+      drag?.destroy();
+      drum.removeEventListener("click", handleKey);
     },
   };
 }
@@ -859,10 +868,10 @@ function createRail(model, setting) {
  * Mounts one tuning panel into #configTunePanel.
  *
  * @param {HTMLElement} root The config panel, holding the host and the inputs.
- * @param {{ formatValue: (key: string, value: number) => string, kind?: string }} options
+ * @param {{ formatValue: (key: string, value: number) => string, kind?: string, look?: string }} options
  * @returns {() => void} cleanup
  */
-export function mountTunePanel(root, { formatValue, kind = "drums" }) {
+export function mountTunePanel(root, { formatValue, kind = "drums", look = "lever" }) {
   const host = /** @type {HTMLElement | null} */ (root.querySelector("#configTunePanel"));
   const radios = /** @type {HTMLInputElement[]} */ ([
     ...root.querySelectorAll(".config-drawer-neutral-input"),
@@ -892,12 +901,13 @@ export function mountTunePanel(root, { formatValue, kind = "drums" }) {
     container.className = "tune-rails";
   } else if (kind === "thin" || kind === "drums") {
     const thin = kind === "thin";
-    parts = SETTINGS.map((setting) => {
-      const model = models[setting.key];
-      return setting.key === "look"
-        ? createLookDrum(model, setting, { thin, colors })
-        : createLever(model, setting, { thin, colors });
-    });
+    const lookSetting = SETTINGS.find((setting) => setting.key === "look");
+    parts = [
+      ...SETTINGS.filter((setting) => setting !== lookSetting).map((setting) =>
+        createLever(models[setting.key], setting, { thin, colors }),
+      ),
+      createLookControl(models.look, lookSetting, look),
+    ];
     container = document.createElement("div");
     container.className = thin ? "tune-levers is-thin" : "tune-levers";
   } else {

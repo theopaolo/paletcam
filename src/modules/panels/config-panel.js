@@ -131,6 +131,15 @@ const FOOTER_LAB_ROWS = Object.freeze([
       ["drums", "Drums"],
     ],
   }),
+  Object.freeze({
+    key: "look",
+    label: "Look",
+    options: [
+      ["lever", "Lever"],
+      ["keys", "Keys"],
+      ["prism", "Prism"],
+    ],
+  }),
 ]);
 
 function renderFooterLab() {
@@ -182,13 +191,13 @@ class ConfigPanel extends LitElement {
       toggleButton: document.querySelector(".btn-config"),
       toggleSection: document.getElementById("tuneTray"),
     });
-    this.mountPanel(getFooterLab().panel);
+    this.mountPanel(getFooterLab());
     this.unsubscribeLocaleChange = subscribeLocaleChange(() => {
       this.requestUpdate();
     });
-    this.unsubscribeFooterLab = subscribeFooterLab(({ panel }) => {
-      if (panel !== this.panelKind) {
-        this.mountPanel(panel);
+    this.unsubscribeFooterLab = subscribeFooterLab((lab) => {
+      if (lab.panel !== this.panelLab?.panel || lab.look !== this.panelLab?.look) {
+        this.mountPanel(lab);
       }
       this.requestUpdate();
     });
@@ -203,11 +212,15 @@ class ConfigPanel extends LitElement {
     super.disconnectedCallback();
   }
 
-  /** @param {string} kind A tuning panel from the preprod lab (footer-lab.js). */
-  mountPanel(kind) {
+  /** @param {import("../footer-lab.js").FooterLab} lab The preprod lab's tuning panel and look control. */
+  mountPanel(lab) {
     this.cleanupTunePanel?.();
-    this.panelKind = kind;
-    this.cleanupTunePanel = mountTunePanel(this, { formatValue: formatTuningValue, kind });
+    this.panelLab = lab;
+    this.cleanupTunePanel = mountTunePanel(this, {
+      formatValue: formatTuningValue,
+      kind: lab.panel,
+      look: lab.look,
+    });
   }
 
   setGuideOpen(isOpen) {
