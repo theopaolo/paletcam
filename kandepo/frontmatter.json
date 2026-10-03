@@ -1,0 +1,102 @@
+{
+  "$schema": "https://frontmatter.codes/frontmatter.schema.json",
+  "frontMatter.taxonomy.contentTypes": [
+    {
+      "name": "default",
+      "pageBundle": false,
+      "previewPath": null,
+      "fields": [
+        {
+          "title": "title",
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "title": "status",
+          "name": "status",
+          "type": "choice",
+          "choices": [
+            "not_started",
+            "in_progress",
+            "blocked",
+            "done"
+          ]
+        },
+        {
+          "title": "context",
+          "name": "context",
+          "type": "choice",
+          "choices": [
+            "deep",
+            "shallow",
+            "creative",
+            "social",
+            "admin",
+            "outdoor"
+          ]
+        },
+        {
+          "title": "energy",
+          "name": "energy",
+          "type": "number"
+        },
+        {
+          "title": "pleasure",
+          "name": "pleasure",
+          "type": "number"
+        },
+        {
+          "title": "impact",
+          "name": "impact",
+          "type": "number"
+        },
+        {
+          "title": "duration",
+          "name": "duration",
+          "type": "string"
+        },
+        {
+          "title": "scope",
+          "name": "scope",
+          "type": "tags"
+        },
+        {
+          "title": "type",
+          "name": "type",
+          "type": "tags"
+        },
+        {
+          "title": "due",
+          "name": "due",
+          "type": "datetime"
+        },
+        {
+          "title": "assign",
+          "name": "assign",
+          "type": "string"
+        },
+        {
+          "title": "issue_url",
+          "name": "issue_url",
+          "type": "string"
+        },
+        {
+          "title": "notion_url",
+          "name": "notion_url",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "frontMatter.framework.id": "other",
+  "frontMatter.content.publicFolder": "",
+  "frontMatter.content.pageFolders": [
+    {
+      "path": "[[workspace]]/beta",
+      "title": "beta"
+    },
+    {
+      "path": "[[workspace]]/alpha"
+    }
+  ]
+}

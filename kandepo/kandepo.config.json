@@ -1,0 +1,12 @@
+{
+  "title": "ColorCatch",
+  "dirs": ["./alpha", "./beta"],
+  "output": "./kanban.html",
+  "port": 7878,
+  "editor": "code",
+  "plane": {
+    "apiUrl": "https://plane.ludique.dev/api/v1/workspaces/oloap",
+    "projectId": "9eab6f76-e0a6-47a3-ab4e-2cd53b71883c",
+    "apiKeyEnv": "PLANE_API_KEY"
+  }
+}
