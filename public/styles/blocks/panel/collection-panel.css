@@ -141,6 +141,7 @@
 }
 
 .collection-view-option {
+  position: relative;
   appearance: none;
   display: grid;
   place-items: center;
@@ -176,6 +177,39 @@
   opacity: 1;
 }
 
+/* Zoom steps under the active view's icon, the current one lit. */
+.collection-view-zoom {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  display: flex;
+  gap: 2px;
+  translate: -50% 0;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.collection-view-option.is-active .collection-view-zoom {
+  opacity: 1;
+}
+
+.collection-view-zoom i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  opacity: 0.3;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+}
+
+.collection-view-zoom i.is-lit {
+  opacity: 1;
+}
+
+.collection-view-option.is-active img {
+  translate: 0 -2px;
+}
+
 .collection-view-option:disabled {
   cursor: default;
   opacity: 0.42;
@@ -190,6 +224,14 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
+}
+
+.collection-filter-swatch {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  background: var(--filter-color);
+  box-shadow: 0 0 0 1px var(--color-border-default);
 }
 
 .collection-panel-content {
@@ -570,6 +612,20 @@
 
 .collection-day[data-view-mode="swatch"] .collection-day-header {
   display: none;
+}
+
+/* Each day of the mosaic is its own grid. collection-ui.js sets the cells laid
+   before it as --mosaic-offset: the day starts at the column where the last
+   one stopped and rises one row (cells are square, so a row is 100% / columns
+   of the width) to sit in the gap that day left. */
+.collection-day[data-view-mode="swatch"] {
+  --mosaic-column: mod(var(--mosaic-offset, 0), var(--collection-grid-columns, 4));
+
+  margin-top: calc(-100% / var(--collection-grid-columns, 4) * min(1, var(--mosaic-column)));
+}
+
+.collection-day[data-view-mode="swatch"] .palette-card:first-child .palette-swatch-media {
+  grid-column-start: calc(var(--mosaic-column) + 1);
 }
 
 .collection-day[data-view-mode="swatch"] .palette-card {

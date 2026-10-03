@@ -1,10 +1,12 @@
-import { rgbToOklch } from "../color-space-oklch.js";
+import { rgbToOklab, rgbToOklch } from "../color-space-oklch.js";
 
 /** Below this OKLCh chroma a catch has no color worth sorting by hue. */
 const NEUTRAL_CHROMA = 0.05;
+/** OKLab distance under which two colors read as the same color. */
+const SAME_COLOR_DISTANCE = 0.05;
 /** The hue wheel is cut here so the reds sit in one run at the start. */
 const HUE_START_DEG = 350;
-/** Upper bound of each hue family, in degrees past HUE_START_DEG. */
+/** Upper bound of each hue family, in degrees past HUE_START_DEG. @type {ReadonlyArray<[number, string]>} */
 const HUE_FAMILIES = Object.freeze([
   [50, "red"],
   [85, "orange"],
@@ -66,4 +68,19 @@ export function orderPalettesBySpectrum(palettes) {
     color: key.color,
     colors: [key.color, ...palette.colors.filter((_, index) => index !== key.index)],
   }));
+}
+
+/**
+ * A filter for the catches holding a color that reads as the target one.
+ * ponytail: fixed tolerance; make it adjustable if searches feel too strict.
+ * @param {RgbColor} target
+ * @returns {(palette: Palette) => boolean}
+ */
+export function createSameColorMatcher(target) {
+  const goal = rgbToOklab(target.r, target.g, target.b);
+  return (palette) =>
+    (palette?.colors ?? []).some((color) => {
+      const lab = rgbToOklab(color.r, color.g, color.b);
+      return Math.hypot(lab.L - goal.L, lab.a - goal.a, lab.b - goal.b) < SAME_COLOR_DISTANCE;
+    });
 }

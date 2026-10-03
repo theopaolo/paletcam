@@ -56,7 +56,7 @@ function createDayCards(dayGroup, createPaletteCard, viewMode, onCardMount) {
  * @param {(palette: Palette) => HTMLElement} config.createPaletteCard
  * @param {(card: HTMLElement) => void} [config.onCardMount]
  * @param {(card: HTMLElement) => void} [config.onCardUnmount]
- * @param {"grid" | "bands" | "swatch" | "rings"} [config.viewMode]
+ * @param {CollectionViewMode} [config.viewMode]
  * @returns {{
  *   element: HTMLElement,
  *   contentContainer: HTMLElement,

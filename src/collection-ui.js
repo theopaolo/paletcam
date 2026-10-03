@@ -67,7 +67,11 @@ import {
 import { buildCollectionPanelTitle } from "./modules/collection/panel-state.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { createCollectionSelectionState } from "./modules/collection/selection-mode.js";
-import { getPaletteKeyColor, orderPalettesBySpectrum } from "./modules/collection/spectrum.js";
+import {
+  createSameColorMatcher,
+  getPaletteKeyColor,
+  orderPalettesBySpectrum,
+} from "./modules/collection/spectrum.js";
 import { toRgbCss } from "./modules/color-format.js";
 import { createErrorToastOptions, reportAppError } from "./modules/error-reporting.js";
 import {
@@ -96,6 +100,7 @@ const {
   viewRingsButton: collectionViewRingsButton,
   filterPublishedButton: collectionFilterPublishedButton,
   filterFavoritesButton: collectionFilterFavoritesButton,
+  filterColorButton: collectionFilterColorButton,
   selectionBar: collectionSelectionBar,
   selectionCount: collectionSelectionCount,
   selectionCancelButton: collectionSelectionCancel,
@@ -112,14 +117,19 @@ const selectionState = createCollectionSelectionState();
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
 let currentLocale = getAppSettings().locale;
+/** Set by a tap on a strip color in the viewer. @type {((palette: Palette) => boolean) | null} */
+let colorFilterMatch = null;
 const collectionFilters = createCollectionFilterState({
   published: (palette) => getPalettePublicationAction(palette) === "unpublish",
   favorites: isPaletteFavorite,
+  color: (palette) => colorFilterMatch?.(palette) ?? false,
 });
 const collectionFilterButtons = new Map([
   ["published", collectionFilterPublishedButton],
   ["favorites", collectionFilterFavoritesButton],
+  ["color", collectionFilterColorButton],
 ]);
+/** @type {{ mode: CollectionViewMode, button: HTMLElement | null }[]} */
 const collectionViewOptions = [
   { mode: "grid", button: collectionViewGridButton },
   { mode: "bands", button: collectionViewBandsButton },
@@ -354,6 +364,14 @@ function getDisplayPalettes() {
   return collectionFilters.apply(currentPalettes);
 }
 
+/** The viewer swipes in the order on screen: by hue in the spectrum, by date elsewhere. */
+function getViewerPalettes() {
+  const palettes = getDisplayPalettes();
+  return currentCollectionViewMode === "spectrum"
+    ? orderPalettesBySpectrum(palettes).map(({ palette }) => palette)
+    : palettes;
+}
+
 function isPalettePendingDeletion(paletteId) {
   return pendingDeletionIds.has(Number(paletteId));
 }
@@ -377,6 +395,7 @@ function setCollectionPanelTitle(title) {
 }
 
 function syncCollectionHeaderControls() {
+  const { collectionColumns } = getAppSettings();
   collectionViewOptions.forEach(({ mode, button }) => {
     if (!(button instanceof HTMLButtonElement)) {
       return;
@@ -385,6 +404,10 @@ function syncCollectionHeaderControls() {
     const isActive = currentCollectionViewMode === mode;
     button.setAttribute("aria-pressed", String(isActive));
     button.classList.toggle("is-active", isActive);
+    const level = collectionColumns[mode] - COLLECTION_COLUMN_RANGES[mode].min;
+    button.querySelectorAll(".collection-view-zoom i").forEach((dot, index) => {
+      dot.classList.toggle("is-lit", index === level);
+    });
   });
 
   syncCollectionFilterChips();
@@ -749,8 +772,8 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
     return;
   }
 
-  const displayPalettes = getDisplayPalettes();
-  const initialIndex = displayPalettes.findIndex((palette) => palette.id === paletteId);
+  const viewerPalettes = getViewerPalettes();
+  const initialIndex = viewerPalettes.findIndex((palette) => palette.id === paletteId);
   if (initialIndex < 0) {
     return;
   }
@@ -759,9 +782,9 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
   try {
     await paletteViewerCoordinator.open(
       {
-        palettes: displayPalettes,
+        palettes: viewerPalettes,
         initialIndex,
-        getPalettes: getDisplayPalettes,
+        getPalettes: getViewerPalettes,
         getPreviewAsset: getPaletteViewerPreviewAsset,
         getPublishAction: getPalettePublicationAction,
         canShare: canSharePalette,
@@ -776,6 +799,7 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
         onDelete: handleDeletePalette,
         onToggleFavorite: (palette) =>
           handleToggleFavorite(palette.id, !isPaletteFavorite(palette)),
+        onFindColor: findPalettesWithColor,
       },
       {
         canOpen: () =>
@@ -960,8 +984,18 @@ function renderCollectionUi(palettes) {
   });
 
   const railEntries = [];
+  // The mosaic's days are separate grids: each one starts at the column where
+  // the previous day stopped and tucks into its last row, so no row has holes.
+  let mosaicCells = 0;
   dayGroups.forEach((dayGroup) => {
     const dayRender = createCollectionDayGroup(dayGroup);
+    if (currentCollectionViewMode === "swatch") {
+      dayRender.element.style.setProperty("--mosaic-offset", String(mosaicCells));
+      mosaicCells += dayGroup.palettes.reduce(
+        (cells, palette) => cells + 1 + (palette.colors?.length ?? 0),
+        0,
+      );
+    }
     collectionGrid.appendChild(dayRender.element);
     activeDayVirtualizer.register({
       element: dayRender.element,
@@ -1059,7 +1093,7 @@ function handleCollectionSettingsChange(settings) {
 /**
  * Tapping the view already in use steps its zoom, one more card per row each
  * time, back to the largest cards after the densest step.
- * @param {string} viewMode
+ * @param {CollectionViewMode} viewMode
  */
 function handleCollectionViewOptionClick(viewMode) {
   if (currentCollectionViewMode !== viewMode) {
@@ -1383,6 +1417,7 @@ export async function openDirectPaletteViewer(paletteId) {
       onExportVerso: handleExportPaletteVerso,
       onPublish: (p) => handlePublishPalette(p, getPalettePublicationAction(p)),
       onDelete: handleDeletePalette,
+      onFindColor: findPalettesWithColor,
     },
     {
       canOpen: () =>
@@ -1800,6 +1835,45 @@ function bindCollectionEventListener(target, eventName, listener, options = {}) 
   });
 }
 
+/**
+ * One dot per zoom step under a view's icon, the current step lit, like the
+ * zoom marks on a camera. Only the active view shows them.
+ * @param {CollectionViewMode} mode
+ */
+function createZoomDots(mode) {
+  const { min, max } = COLLECTION_COLUMN_RANGES[mode];
+  const dots = document.createElement("span");
+  dots.className = "collection-view-zoom";
+  dots.setAttribute("aria-hidden", "true");
+  for (let step = min; step <= max; step += 1) {
+    dots.appendChild(document.createElement("i"));
+  }
+  return dots;
+}
+
+/**
+ * Narrows the collection to the catches holding a color that reads as the one
+ * tapped on a polaroid strip in the viewer, opening the collection if the
+ * viewer came from the camera.
+ * @param {RgbColor} color
+ */
+async function findPalettesWithColor(color) {
+  colorFilterMatch = createSameColorMatcher(color);
+  collectionFilterColorButton?.style.setProperty("--filter-color", toRgbCss(color));
+  if (!collectionFilters.isActive("color")) {
+    collectionFilters.toggle("color");
+  }
+  detentFeedback("analyze", true);
+  closePaletteViewerOverlay();
+
+  if (collectionPanel?.classList.contains("visible")) {
+    renderCollectionUi(currentPalettes);
+  } else {
+    await openCollectionPanel();
+  }
+  collectionGrid?.closest(".collection-panel-body")?.scrollTo({ top: 0 });
+}
+
 function handleCollectionPanelClosing() {
   collectionLoadCoordinator.invalidate();
   moderationSyncController.stop();
@@ -1815,6 +1889,7 @@ function bindCollectionUiEvents() {
   }
 
   collectionViewOptions.forEach(({ mode, button }) => {
+    button?.appendChild(createZoomDots(mode));
     bindCollectionEventListener(button, "click", () => {
       handleCollectionViewOptionClick(mode);
     });
@@ -1823,7 +1898,9 @@ function bindCollectionUiEvents() {
 
   collectionFilterButtons.forEach((filterButton, filterName) => {
     bindCollectionEventListener(filterButton, "click", () => {
-      collectionFilters.toggle(filterName);
+      if (!collectionFilters.toggle(filterName) && filterName === "color") {
+        colorFilterMatch = null;
+      }
       if (selectionState.isActive()) {
         exitSelectMode();
       }

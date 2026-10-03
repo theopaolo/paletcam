@@ -198,6 +198,19 @@
         </div>
         <div class="collection-panel-footer">
           <div class="collection-panel-toolbar toolbar">
+            <!-- Shown while a strip color tapped in the viewer filters the
+                 collection; tapping it clears the filter. -->
+            <button
+              class="collection-toolbar-button collection-filter-button collection-filter-button--icon panel-action-button"
+              id="collectionFilterColorButton"
+              type="button"
+              hidden
+              aria-label="Retirer le filtre de couleur"
+              data-i18n-aria-label="collection.filter.colorAria"
+            >
+              <span class="collection-filter-swatch" aria-hidden="true"></span>
+            </button>
+
             <button
               class="collection-toolbar-button collection-filter-button collection-filter-button--icon panel-action-button"
               id="collectionFilterFavoritesButton"
@@ -227,8 +240,7 @@
               Publiées
             </button>
 
-            <!-- Re-tapping the option already in use folds or unfolds every day
-                 group, which is why there is no separate collapse-all control. -->
+            <!-- Re-tapping the option already in use steps that view's zoom. -->
             <div
               class="collection-view-switch"
               role="group"

@@ -59,6 +59,7 @@ const en = {
   "collection.view.swatchAria": "Show captures as a colour swatch",
   "collection.view.swatchLabel": "Colours",
   "collection.filter.published": "Published",
+  "collection.filter.colorAria": "Clear the colour filter",
   "collection.filter.favoritesAria": "Show favourites only",
   "collection.favorite.add": "Add to favourites",
   "collection.favorite.remove": "Remove from favourites",

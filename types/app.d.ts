@@ -138,7 +138,7 @@ type CopyMode = "rgb" | "hex" | "hsl";
 // ---------------------------------------------------------------------------
 
 type CaptureMode = "palette" | "ral";
-type CollectionViewMode = "list" | "grid" | "swatch";
+type CollectionViewMode = "grid" | "bands" | "swatch" | "spectrum" | "rings";
 type PaletteAnalysisProfile = "expressive" | "perceptual" | "custom";
 
 type PaletteExtractionAlgorithm = "grid" | "median-cut";
@@ -178,6 +178,8 @@ interface PaletteScoringWeights {
 interface AppSettings {
   captureMode: CaptureMode;
   collectionViewMode: CollectionViewMode;
+  /** Cards per row in each collection view, its zoom level. */
+  collectionColumns: Record<CollectionViewMode, number>;
   locale: "fr" | "en";
   performanceHudEnabled: boolean;
   oneMoreColor: boolean;
@@ -193,6 +195,7 @@ interface AppSettings {
 interface AppSettingsPatch {
   captureMode?: CaptureMode;
   collectionViewMode?: CollectionViewMode;
+  collectionColumns?: Partial<Record<CollectionViewMode, number>>;
   locale?: "fr" | "en";
   performanceHudEnabled?: boolean;
   oneMoreColor?: boolean;
@@ -428,6 +431,7 @@ interface DayGroup {
   title: string;
   dateLabel: string;
   paletteCount: number;
+  palettes: Palette[];
   sessions: SessionGroup[];
 }
 
@@ -661,6 +665,8 @@ interface PaletteViewerOpenOptions {
   onPublish?: (palette: Palette) => void | Promise<void>;
   onDelete?: (palette: Palette) => void | Promise<void>;
   onToggleFavorite?: (palette: Palette) => unknown;
+  /** Called with the strip color the reader tapped on the polaroid. */
+  onFindColor?: (color: RgbColor) => void;
   getPublishAction?: (palette: Palette) => PublicationAction;
   canShare?: (palette: Palette) => boolean;
   canExport?: (palette: Palette) => boolean;

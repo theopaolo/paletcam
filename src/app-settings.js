@@ -51,15 +51,18 @@ function normalizeCollectionViewMode(value) {
   return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "grid";
 }
 
+/** @returns {Record<CollectionViewMode, number>} */
 function normalizeCollectionColumns(value) {
-  return Object.fromEntries(
-    Object.entries(COLLECTION_COLUMN_RANGES).map(([mode, { min, max, initial }]) => {
-      const columns = value?.[mode];
-      return [
-        mode,
-        Number.isInteger(columns) && columns >= min && columns <= max ? columns : initial,
-      ];
-    }),
+  return /** @type {Record<CollectionViewMode, number>} */ (
+    Object.fromEntries(
+      Object.entries(COLLECTION_COLUMN_RANGES).map(([mode, { min, max, initial }]) => {
+        const columns = value?.[mode];
+        return [
+          mode,
+          Number.isInteger(columns) && columns >= min && columns <= max ? columns : initial,
+        ];
+      }),
+    )
   );
 }
 

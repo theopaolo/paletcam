@@ -10,6 +10,7 @@
  * @property {HTMLElement | null} viewRingsButton
  * @property {HTMLElement | null} filterPublishedButton
  * @property {HTMLElement | null} filterFavoritesButton
+ * @property {HTMLElement | null} filterColorButton
  * @property {HTMLElement | null} selectionBar
  * @property {HTMLElement | null} selectionCount
  * @property {HTMLElement | null} selectionCancelButton
@@ -34,6 +35,7 @@ export function createCollectionView(documentRef) {
     viewRingsButton: documentRef.getElementById("collectionViewRingsButton"),
     filterPublishedButton: documentRef.getElementById("collectionFilterPublishedButton"),
     filterFavoritesButton: documentRef.getElementById("collectionFilterFavoritesButton"),
+    filterColorButton: documentRef.getElementById("collectionFilterColorButton"),
     selectionBar: documentRef.getElementById("collectionSelectionBar"),
     selectionCount: documentRef.getElementById("collectionSelectionCount"),
     selectionCancelButton: documentRef.getElementById("collectionSelectionCancel"),

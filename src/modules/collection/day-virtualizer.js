@@ -11,7 +11,16 @@ const ESTIMATED_ROW_HEIGHTS = Object.freeze({
 });
 
 function estimateDayContentHeight(dayGroup, viewMode, columns) {
-  const total = Math.max(1, dayGroup?.paletteCount ?? 0);
+  // A mosaic cell is the photo or one color, so a catch fills several.
+  const total = Math.max(
+    1,
+    viewMode === "swatch"
+      ? (dayGroup?.palettes ?? []).reduce(
+          (cells, palette) => cells + 1 + (palette.colors?.length ?? 0),
+          0,
+        )
+      : (dayGroup?.paletteCount ?? 0),
+  );
   const rowHeight = (ESTIMATED_ROW_HEIGHTS[viewMode] ?? ESTIMATED_ROW_HEIGHTS.grid)(
     ESTIMATED_CONTENT_WIDTH_PX / columns,
   );

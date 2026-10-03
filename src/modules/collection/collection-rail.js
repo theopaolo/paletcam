@@ -7,7 +7,7 @@ const SCROLL_HEADROOM_PX = 8;
  * @typedef {object} RailEntry
  * @property {string} color CSS color of the catch's strongest color.
  * @property {string} label What the loupe shows over this catch.
- * @property {Element} target The element to scroll to: its day, its month, or the chip itself.
+ * @property {HTMLElement} target The element to scroll to: its day, its month, or the chip itself.
  */
 
 /**
@@ -41,7 +41,7 @@ export function createCollectionRail({ host, scrollRoot }) {
 
   /** @type {RailEntry[]} */
   let entries = [];
-  /** Consecutive entries sharing a scroll target. @type {{ target: Element, start: number, count: number }[]} */
+  /** Consecutive entries sharing a scroll target. @type {{ target: HTMLElement, start: number, count: number }[]} */
   let runs = [];
   let isScrubbing = false;
   let lastLabel = "";
@@ -84,7 +84,12 @@ export function createCollectionRail({ host, scrollRoot }) {
     const barRect = bar.getBoundingClientRect();
     const fraction = clamp((clientY - barRect.top) / barRect.height, 0, 0.9999);
     const index = Math.floor(fraction * entries.length);
-    const run = runs.findLast((candidate) => candidate.start <= index) ?? runs[0];
+    let run = runs[0];
+    for (const candidate of runs) {
+      if (candidate.start <= index) {
+        run = candidate;
+      }
+    }
     scrollRoot.scrollTop =
       topOf(run.target) +
       ((index - run.start) / run.count) * run.target.offsetHeight -

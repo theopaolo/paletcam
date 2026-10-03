@@ -49,6 +49,7 @@ describe("collection view factory", () => {
       "collectionViewRingsButton",
       "collectionFilterPublishedButton",
       "collectionFilterFavoritesButton",
+      "collectionFilterColorButton",
       "collectionSelectionBar",
       "collectionSelectionCount",
       "collectionSelectionCancel",

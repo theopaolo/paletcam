@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { orderPalettesBySpectrum } from "./spectrum.js";
+import { createSameColorMatcher, orderPalettesBySpectrum } from "./spectrum.js";
 
 const beige = { r: 230, g: 222, b: 205 };
 const palette = (id, ...colors) => ({ id, colors });
@@ -38,5 +38,15 @@ describe("orderPalettesBySpectrum", () => {
     ]);
 
     expect(ordered.map((entry) => entry.family)).toEqual(["red", "purple"]);
+  });
+});
+
+describe("createSameColorMatcher", () => {
+  test("keeps catches holding a near twin of the color, drops the rest", () => {
+    const matchesRed = createSameColorMatcher({ r: 210, g: 40, b: 40 });
+
+    expect(matchesRed(palette(1, beige, { r: 214, g: 44, b: 42 }))).toBe(true);
+    expect(matchesRed(palette(2, beige, { r: 230, g: 110, b: 40 }))).toBe(false);
+    expect(matchesRed(palette(3))).toBe(false);
   });
 });

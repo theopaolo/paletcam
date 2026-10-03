@@ -5,6 +5,7 @@ import {
   getPalettePreviewImageMimeType,
   getPalettePhotoAspectRatioValue,
   getPolaroidPhotoCrop,
+  getPolaroidStripRect,
   renderPalettePolaroidBlob,
   resetPalettePreviewImageSupportForTests,
   resolveNormalizedCropRectToPixelRect,
@@ -127,6 +128,21 @@ describe("getPolaroidPhotoCrop", () => {
 
     expect(photoHeight).toBe(321);
     expect(top * photoHeight).toBeCloseTo(26);
+  });
+});
+
+describe("getPolaroidStripRect", () => {
+  test("puts a 4:3 capture's strip between its photo and the footer", () => {
+    expect(getPolaroidStripRect({ captureAspectRatio: "4:3" }, 480, 586)).toEqual({
+      left: 26,
+      right: 454,
+      top: 347,
+      bottom: 509,
+    });
+  });
+
+  test("keeps to the legacy minimum strip when the photo ratio is unknown", () => {
+    expect(getPolaroidStripRect({}, 480, 586).top).toBe(509 - 48);
   });
 });
 

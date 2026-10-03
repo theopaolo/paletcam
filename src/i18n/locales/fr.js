@@ -59,6 +59,7 @@ const fr = {
   "collection.view.swatchAria": "Afficher les captures en nuancier",
   "collection.view.swatchLabel": "Couleurs",
   "collection.filter.published": "Publiées",
+  "collection.filter.colorAria": "Retirer le filtre de couleur",
   "collection.filter.favoritesAria": "Afficher uniquement les favoris",
   "collection.favorite.add": "Ajouter aux favoris",
   "collection.favorite.remove": "Retirer des favoris",

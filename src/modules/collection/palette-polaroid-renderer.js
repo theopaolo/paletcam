@@ -145,6 +145,23 @@ export function getPolaroidPhotoCrop(imageWidth, imageHeight) {
   return { scale: imageHeight / photoHeight, top: frame / photoHeight };
 }
 
+/**
+ * Where the palette strip sits in a rendered polaroid, in image pixels, so a
+ * tap on the image can be read as a tap on one of its colors. A capture that
+ * recorded no aspect ratio only promises the legacy minimum strip above the
+ * footer, so that band is all it reports.
+ * @param {Palette} palette @param {number} imageWidth @param {number} imageHeight
+ */
+export function getPolaroidStripRect(palette, imageWidth, imageHeight) {
+  const frame = getPolaroidFrameWidth(imageWidth);
+  const bottom = imageHeight - Math.max(46, Math.round(imageWidth * 0.16));
+  const aspectRatio = getPalettePhotoAspectRatioValue(palette);
+  const top = aspectRatio
+    ? frame + Math.round((imageWidth - frame * 2) / aspectRatio)
+    : bottom - Math.max(LEGACY_MIN_PALETTE_PANEL_HEIGHT, Math.round(imageWidth * 0.1));
+  return { left: frame, right: imageWidth - frame, top: Math.min(top, bottom - 1), bottom };
+}
+
 function loadImageFromBlob(blob) {
   if (!blob) {
     return Promise.reject(new Error("Missing image blob"));
