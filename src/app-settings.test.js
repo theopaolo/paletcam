@@ -101,6 +101,8 @@ describe("app-settings collectionViewMode", () => {
     });
 
     expect(module.getAppSettings().collectionViewMode).toBe("grid");
+    module.updateAppSettings({ collectionViewMode: "rings" });
+    expect(module.getAppSettings().collectionViewMode).toBe("grid");
     expect(module.getAppSettings().collectionColumns).toEqual({
       grid: 2,
       bands: 1,

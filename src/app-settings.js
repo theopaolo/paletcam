@@ -12,7 +12,8 @@ const HYBRID_STRENGTH_RANGE = { min: 0, max: 1 };
 const HYBRID_TONE_RANGE = { min: 0, max: 1 };
 const VALID_NEUTRAL_BALANCES = new Set(["color", "balanced", "neutrals"]);
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
-const VALID_COLLECTION_VIEW_MODES = new Set(["grid", "bands", "swatch", "spectrum", "rings"]);
+/** Bands and rings are switched off, and index.html hides their buttons. */
+const VALID_COLLECTION_VIEW_MODES = new Set(["grid", "swatch", "spectrum"]);
 /** Zoom steps of each collection view, in cards per row. */
 export const COLLECTION_COLUMN_RANGES = Object.freeze({
   grid: Object.freeze({ min: 1, max: 4, initial: 2 }),

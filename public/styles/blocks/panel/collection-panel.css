@@ -157,6 +157,10 @@
     border-color 0.14s var(--easing-standard);
 }
 
+.collection-view-option[hidden] {
+  display: none;
+}
+
 .collection-view-option img {
   display: block;
   width: 1.4rem;
