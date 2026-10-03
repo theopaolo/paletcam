@@ -5,6 +5,13 @@ import { oklabToRgb, rgbToOklab } from "./color-space-oklch.js";
 // 2x that suppresses shimmer without visibly lagging real scene changes.
 const COLOR_DISTANCE_THRESHOLD = 0.04;
 const COLOR_DISTANCE_THRESHOLD_SQUARED = COLOR_DISTANCE_THRESHOLD * COLOR_DISTANCE_THRESHOLD;
+// A swatch that started moving follows its target until the rolling average
+// has taken in a full window of new extractions and the swatch is this close
+// (half a JND), then lands on it. Before, the lerp stopped as soon as it got
+// inside the deadband, so swatches and catches stayed up to 0.04 short of the
+// extracted color.
+const SETTLE_DISTANCE = 0.01;
+const SETTLE_DISTANCE_SQUARED = SETTLE_DISTANCE * SETTLE_DISTANCE;
 // Extractions arrive ~5x/second (time-based cadence), so a deeper rolling
 // average covers ~1s of history and filters sensor noise without visible lag.
 const ACCUMULATOR_MAX_SIZE = 5;
@@ -103,12 +110,15 @@ function createOklabColorSmoother() {
   let displayColors = null;
   let lastRawColorsRef = null;
   let labAccumulator = [];
+  /** @type {number[]} per slot, new extractions left to follow (0 = at rest) */
+  let followSlots = [];
 
   function reset() {
     previousLabs = null;
     displayColors = null;
     lastRawColorsRef = null;
     labAccumulator = [];
+    followSlots = [];
   }
 
   function smooth(rawColors, lerpFactor) {
@@ -119,6 +129,7 @@ function createOklabColorSmoother() {
       displayColors = rawColors;
       lastRawColorsRef = rawColors;
       labAccumulator = [rawLabs];
+      followSlots = [];
       return rawColors;
     }
 
@@ -136,6 +147,7 @@ function createOklabColorSmoother() {
       if (labAccumulator.length > ACCUMULATOR_MAX_SIZE) {
         labAccumulator.shift();
       }
+      followSlots = followSlots.map((left) => Math.max(0, left - 1));
     }
 
     const targetLabs = averageAccumulatedLabs(labAccumulator);
@@ -143,10 +155,26 @@ function createOklabColorSmoother() {
     const smoothedLabs = [];
     const smoothedColors = targetLabs.map((targetLab, index) => {
       const prevLab = previousLabs[index];
+      const distanceSquared = labDistanceSquared(targetLab, prevLab);
 
-      if (labDistanceSquared(targetLab, prevLab) < COLOR_DISTANCE_THRESHOLD_SQUARED) {
+      const isFollowing = (followSlots[index] ?? 0) > 0;
+      if (!isFollowing && distanceSquared < COLOR_DISTANCE_THRESHOLD_SQUARED) {
         smoothedLabs.push(prevLab);
         return displayColors[index];
+      }
+
+      if (!isFollowing) {
+        followSlots[index] = ACCUMULATOR_MAX_SIZE;
+      }
+
+      if (distanceSquared < SETTLE_DISTANCE_SQUARED) {
+        // Landed: the same object while the target holds, so nothing repaints.
+        if (distanceSquared === 0) {
+          smoothedLabs.push(prevLab);
+          return displayColors[index];
+        }
+        smoothedLabs.push(targetLab);
+        return oklabToRgb(targetLab.L, targetLab.a, targetLab.b);
       }
 
       const lab = {

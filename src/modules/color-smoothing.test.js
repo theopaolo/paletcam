@@ -13,6 +13,34 @@ describe("createColorSmoother", () => {
     expect(smoother.smooth(colors, 0.1)).toEqual(colors);
   });
 
+  test("a change past the deadband lands on the new color instead of stopping short", () => {
+    const smoother = createColorSmoother();
+    const warm = [{ r: 232, g: 200, b: 160 }];
+    const neutral = [{ r: 208, g: 208, b: 208 }];
+    smoother.smooth(warm, 0.16);
+
+    let shown = warm;
+    for (let frame = 0; frame < 120; frame += 1) {
+      // A fresh extraction every few frames, as the live preview delivers them.
+      shown = smoother.smooth(frame % 12 === 0 ? [{ ...neutral[0] }] : neutral, 0.16);
+    }
+
+    for (const channel of ["r", "g", "b"]) {
+      expect(Math.abs(shown[0][channel] - neutral[0][channel])).toBeLessThanOrEqual(2);
+    }
+  });
+
+  test("a settled swatch keeps the same object, so the palette does not repaint", () => {
+    const smoother = createColorSmoother();
+    smoother.smooth([{ r: 232, g: 200, b: 160 }], 0.16);
+    const neutral = [{ r: 208, g: 208, b: 208 }];
+    for (let frame = 0; frame < 120; frame += 1) {
+      smoother.smooth(neutral, 0.16);
+    }
+
+    expect(smoother.smooth(neutral, 0.16)[0]).toBe(smoother.smooth(neutral, 0.16)[0]);
+  });
+
   test("clears accumulated state when reset is called", () => {
     const smoother = createColorSmoother();
     const firstPalette = [
