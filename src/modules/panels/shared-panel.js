@@ -105,7 +105,6 @@ class SharedPanelElement extends LitElement {
       width: 3rem;
       height: 3rem;
       color: var(--color-text-primary);
-      font-size: 2rem;
       border-radius: var(--radius-pill);
       border: 4px solid var(--color-surface-ink);
       box-shadow: var(--shadow-chrome);
@@ -121,10 +120,6 @@ class SharedPanelElement extends LitElement {
       flex-shrink: 0;
       justify-self: end;
       filter: var(--shared-panel-close-icon-filter, none);
-    }
-
-    .close-button-glyph {
-      line-height: 1;
     }
 
     @media (hover: hover) {
@@ -144,7 +139,7 @@ class SharedPanelElement extends LitElement {
   constructor() {
     super();
     this.closeLabel = t("common.closePanel");
-    this.closeIconSrc = "";
+    this.closeIconSrc = "icons/close.svg";
     this.open = false;
     this.panelTitle = "";
     this.hasPendingCloseEvent = false;
@@ -490,18 +485,12 @@ class SharedPanelElement extends LitElement {
             aria-label=${this.closeLabel}
             @click=${this.handleCloseButtonClick}
           >
-            ${
-              this.closeIconSrc
-                ? html`
-                  <img
-                    class="close-button-icon"
-                    src=${this.closeIconSrc}
-                    alt=""
-                    aria-hidden="true"
-                  />
-                `
-                : html`<span class="close-button-glyph" aria-hidden="true">×</span>`
-            }
+            <img
+              class="close-button-icon"
+              src=${this.closeIconSrc}
+              alt=""
+              aria-hidden="true"
+            />
           </button>
         </header>
         <div class="panel-body">
