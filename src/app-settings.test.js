@@ -97,11 +97,26 @@ describe("app-settings collectionViewMode", () => {
   test("normalizes invalid or retired collectionViewMode to grid", async () => {
     const { module } = await loadAppSettingsModule({
       collectionViewMode: "list",
-      collectionGridColumns: 9,
+      collectionColumns: { grid: 9, swatch: 5 },
     });
 
     expect(module.getAppSettings().collectionViewMode).toBe("grid");
-    expect(module.getAppSettings().collectionGridColumns).toBe(2);
+    expect(module.getAppSettings().collectionColumns).toEqual({
+      grid: 2,
+      bands: 1,
+      swatch: 5,
+      spectrum: 4,
+      rings: 4,
+    });
+  });
+
+  test("zooms one view without resetting the others", async () => {
+    const { module } = await loadAppSettingsModule({ collectionColumns: { swatch: 5 } });
+
+    module.updateAppSettings({ collectionColumns: { grid: 3 } });
+
+    expect(module.getAppSettings().collectionColumns.grid).toBe(3);
+    expect(module.getAppSettings().collectionColumns.swatch).toBe(5);
   });
 
   // Representative persist-to-localStorage assertion for the whole settings store.

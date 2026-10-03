@@ -2,14 +2,12 @@
  * @param {object} config
  * @param {HTMLElement | null} config.collectionGrid
  * @param {string | (() => string)} config.emptyMessageText
- * @param {Set<string>} config.collapsedDayIds
  * @param {() => Promise<void>} config.reloadCollectionUi
  * @returns {CollectionCardLifecycle}
  */
 export function createCollectionCardLifecycle({
   collectionGrid,
   emptyMessageText,
-  collapsedDayIds,
   reloadCollectionUi,
 }) {
   const readEmptyMessageText =
@@ -72,11 +70,6 @@ export function createCollectionCardLifecycle({
       if (dayCount > 0) {
         removeEmptyMessage();
         return;
-      }
-
-      const dayId = dayElement.dataset.dayId;
-      if (dayId) {
-        collapsedDayIds.delete(dayId);
       }
 
       dayElement.remove();

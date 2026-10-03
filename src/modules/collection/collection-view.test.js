@@ -41,6 +41,7 @@ describe("collection view factory", () => {
     expect(documentStub.queriedSelectors).toEqual([".collection-panel"]);
     expect(documentStub.queriedIds).toEqual([
       "collectionGrid",
+      "collectionTally",
       "collectionViewGridButton",
       "collectionViewBandsButton",
       "collectionViewSwatchButton",

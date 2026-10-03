@@ -41,11 +41,9 @@ describe("createCollectionCardLifecycle", () => {
     day.append(dayCount, dayCards);
     collectionGrid.appendChild(day);
 
-    const collapsedDayIds = new Set();
     const lifecycle = createCollectionCardLifecycle({
       collectionGrid,
       emptyMessageText: "Aucune capture",
-      collapsedDayIds,
       reloadCollectionUi: async () => {},
     });
 
@@ -71,11 +69,9 @@ describe("createCollectionCardLifecycle", () => {
     day.append(dayCount, dayGrid);
     collectionGrid.appendChild(day);
 
-    const collapsedDayIds = new Set(["day-1"]);
     const lifecycle = createCollectionCardLifecycle({
       collectionGrid,
       emptyMessageText: "Aucune capture",
-      collapsedDayIds,
       reloadCollectionUi: async () => {},
     });
 
@@ -84,7 +80,6 @@ describe("createCollectionCardLifecycle", () => {
 
     expect(collectionGrid.querySelector(".collection-day")).toBeNull();
     expect(collectionGrid.querySelector(".empty-message")?.textContent).toBe("Aucune capture");
-    expect(collapsedDayIds.has("day-1")).toBe(false);
   });
 
   test("restores a detached card to its connected snapshot parent", () => {
@@ -101,7 +96,6 @@ describe("createCollectionCardLifecycle", () => {
     const lifecycle = createCollectionCardLifecycle({
       collectionGrid,
       emptyMessageText: "Aucune capture",
-      collapsedDayIds: new Set(),
       reloadCollectionUi: async () => {},
     });
     const snapshot = lifecycle.takeCardPositionSnapshot(card);
@@ -124,7 +118,6 @@ describe("createCollectionCardLifecycle", () => {
     const lifecycle = createCollectionCardLifecycle({
       collectionGrid,
       emptyMessageText: "Aucune capture",
-      collapsedDayIds: new Set(),
       reloadCollectionUi: async () => {
         reloadCount += 1;
       },

@@ -1,4 +1,9 @@
-import { getAppSettings, subscribeAppSettings, updateAppSettings } from "./app-settings.js";
+import {
+  COLLECTION_COLUMN_RANGES,
+  getAppSettings,
+  subscribeAppSettings,
+  updateAppSettings,
+} from "./app-settings.js";
 import {
   captureDeleteOutboxAccountKey,
   flushDeleteOutbox,
@@ -59,12 +64,7 @@ import {
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
 } from "./modules/collection/palette-preview-assets.js";
-import {
-  areAllCollectionDaysCollapsed,
-  buildCollectionPanelTitle,
-  getCollectionDayIds,
-  toggleAllCollectionDays,
-} from "./modules/collection/panel-state.js";
+import { buildCollectionPanelTitle } from "./modules/collection/panel-state.js";
 import { createDayGroup as renderDayGroup } from "./modules/collection/render-groups.js";
 import { createCollectionSelectionState } from "./modules/collection/selection-mode.js";
 import { getPaletteKeyColor, orderPalettesBySpectrum } from "./modules/collection/spectrum.js";
@@ -88,6 +88,7 @@ const collectionView = createCollectionView(document);
 const {
   panel: collectionPanel,
   grid: collectionGrid,
+  tally: collectionTally,
   viewGridButton: collectionViewGridButton,
   viewBandsButton: collectionViewBandsButton,
   viewSwatchButton: collectionViewSwatchButton,
@@ -106,10 +107,7 @@ const {
 const collectionSelectionPublishLabel =
   collectionSelectionPublish?.querySelector(".palette-action-label") ?? null;
 const DELETE_UNDO_DURATION_MS = 5000;
-const CARD_REVEAL_DURATION_MS = 280;
-const CARD_REVEAL_STAGGER_MS = 42;
 const pendingDeletionIds = new Set();
-const collapsedDayIds = new Set();
 const selectionState = createCollectionSelectionState();
 let currentPalettes = [];
 let currentCollectionViewMode = getAppSettings().collectionViewMode;
@@ -123,18 +121,12 @@ const collectionFilterButtons = new Map([
   ["favorites", collectionFilterFavoritesButton],
 ]);
 const collectionViewOptions = [
-  { mode: "grid", button: collectionViewGridButton, labelKey: "collection.view.gridAria" },
-  { mode: "bands", button: collectionViewBandsButton, labelKey: "collection.view.bandsAria" },
-  { mode: "swatch", button: collectionViewSwatchButton, labelKey: "collection.view.swatchAria" },
-  {
-    mode: "spectrum",
-    button: collectionViewSpectrumButton,
-    labelKey: "collection.view.spectrumAria",
-  },
-  { mode: "rings", button: collectionViewRingsButton, labelKey: "collection.view.ringsAria" },
+  { mode: "grid", button: collectionViewGridButton },
+  { mode: "bands", button: collectionViewBandsButton },
+  { mode: "swatch", button: collectionViewSwatchButton },
+  { mode: "spectrum", button: collectionViewSpectrumButton },
+  { mode: "rings", button: collectionViewRingsButton },
 ];
-/** Views that fold by group; the swatch mosaic and the spectrum run unbroken. */
-const COLLAPSIBLE_VIEW_MODES = new Set(["grid", "bands", "rings"]);
 /** Palette-first views group by month: a day with one catch is not worth a header there. */
 const MONTH_GROUPED_VIEW_MODES = new Set(["bands", "rings"]);
 const CARD_CREATORS = {
@@ -143,7 +135,7 @@ const CARD_CREATORS = {
   swatch: createSwatchCard,
   rings: createRingCard,
 };
-/** Pinch spread ratio that steps the photo grid one zoom level. */
+/** Pinch spread ratio that steps a view one zoom level. */
 const PINCH_STEP_RATIO = 1.3;
 let longPressTimer = null;
 let longPressStartPos = null;
@@ -179,7 +171,6 @@ const paletteOutputCommands = createPaletteOutputCommands({
 const cardLifecycle = createCollectionCardLifecycle({
   collectionGrid,
   emptyMessageText: () => t("collection.empty"),
-  collapsedDayIds,
   reloadCollectionUi: async () => {
     await loadCollectionUi();
   },
@@ -308,7 +299,6 @@ function releaseCollectionResources() {
   disposePalettePreviewDownloads();
   currentPalettes = [];
   pendingDeletionIds.clear();
-  collapsedDayIds.clear();
   selectionState.exit();
   collectionFilters.clear();
 }
@@ -377,10 +367,6 @@ function groupForCurrentView(palettes) {
     : groupPalettesByDay(palettes);
 }
 
-function getCurrentDayGroups() {
-  return groupForCurrentView(getDisplayPalettes());
-}
-
 function setCollectionPanelTitle(title) {
   if (!collectionPanel) {
     return;
@@ -390,15 +376,8 @@ function setCollectionPanelTitle(title) {
   collectionPanel.setAttribute("panel-title", title);
 }
 
-function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
-  const hasCollapsibleDays =
-    COLLAPSIBLE_VIEW_MODES.has(currentCollectionViewMode) &&
-    getCollectionDayIds(dayGroups).length > 0;
-  const collapseAllLabel = areAllCollectionDaysCollapsed(dayGroups, collapsedDayIds)
-    ? t("collection.expandAll")
-    : t("collection.collapseAll");
-
-  collectionViewOptions.forEach(({ mode, button, labelKey }) => {
+function syncCollectionHeaderControls() {
+  collectionViewOptions.forEach(({ mode, button }) => {
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
@@ -406,14 +385,6 @@ function syncCollectionHeaderControls(dayGroups = getCurrentDayGroups()) {
     const isActive = currentCollectionViewMode === mode;
     button.setAttribute("aria-pressed", String(isActive));
     button.classList.toggle("is-active", isActive);
-
-    // Pressing the option already in use folds or unfolds the day groups, so
-    // that is what it announces; the labels are recomputed here rather than
-    // read back from the markup, which lets a locale change refresh them.
-    const label =
-      isActive && hasCollapsibleDays ? `${t(labelKey)} — ${collapseAllLabel}` : t(labelKey);
-    button.setAttribute("aria-label", label);
-    button.title = label;
   });
 
   syncCollectionFilterChips();
@@ -436,9 +407,29 @@ function syncCollectionFilterChips() {
   });
 }
 
-function syncCollectionPanelChrome(dayGroups = getCurrentDayGroups()) {
+/** "156 palettes, 624 couleurs" over the whole collection, whatever the filters show. */
+function syncCollectionTally() {
+  if (!collectionTally) {
+    return;
+  }
+  const paletteCount = currentPalettes.length;
+  const colorCount = currentPalettes.reduce(
+    (total, palette) => total + (palette.colors?.length ?? 0),
+    0,
+  );
+  collectionTally.textContent =
+    paletteCount === 0
+      ? ""
+      : t(paletteCount === 1 ? "collection.tally.one" : "collection.tally.other", {
+          palettes: paletteCount.toLocaleString(currentLocale),
+          colors: colorCount.toLocaleString(currentLocale),
+        });
+}
+
+function syncCollectionPanelChrome() {
   setCollectionPanelTitle(buildCollectionPanelTitle(currentPalettes.length));
-  syncCollectionHeaderControls(dayGroups);
+  syncCollectionTally();
+  syncCollectionHeaderControls();
 }
 
 function getCollectionCardByPaletteId(paletteId) {
@@ -814,31 +805,9 @@ function createCollectionDayGroup(dayGroup) {
   return renderDayGroup({
     dayGroup,
     createPaletteCard: getCardCreator(),
-    isDayCollapsed: (dayId) => collapsedDayIds.has(dayId),
-    onDayCollapsedChange: (dayId, isCollapsed) => {
-      if (isCollapsed) {
-        collapsedDayIds.add(dayId);
-      } else {
-        collapsedDayIds.delete(dayId);
-      }
-
-      syncCollectionHeaderControls();
-    },
     onCardMount: applyCardSelectionState,
     onCardUnmount: disposePaletteCard,
-    revealDurationMs: CARD_REVEAL_DURATION_MS,
-    revealStaggerMs: CARD_REVEAL_STAGGER_MS,
     viewMode: currentCollectionViewMode,
-  });
-}
-
-function pruneUnavailableCollapsedDays(dayGroups) {
-  const availableDayIds = new Set(getCollectionDayIds(dayGroups));
-
-  [...collapsedDayIds].forEach((dayId) => {
-    if (!availableDayIds.has(dayId)) {
-      collapsedDayIds.delete(dayId);
-    }
   });
 }
 
@@ -928,6 +897,10 @@ function renderSpectrumWall(palettes) {
   return railEntries;
 }
 
+function getCurrentViewColumns() {
+  return getAppSettings().collectionColumns[currentCollectionViewMode];
+}
+
 function getCollectionRail() {
   const host = collectionGrid?.closest(".collection-panel-content");
   const scrollRoot = collectionGrid?.closest(".collection-panel-body");
@@ -951,10 +924,7 @@ function renderCollectionUi(palettes) {
 
   collectionGrid.innerHTML = "";
   collectionGrid.dataset.viewMode = currentCollectionViewMode;
-  collectionGrid.style.setProperty(
-    "--collection-grid-columns",
-    String(getAppSettings().collectionGridColumns),
-  );
+  collectionGrid.style.setProperty("--collection-grid-columns", String(getCurrentViewColumns()));
 
   if (displayPalettes.length === 0) {
     getCollectionRail()?.setEntries([]);
@@ -967,13 +937,13 @@ function renderCollectionUi(palettes) {
         <p class="empty-message">${emptyMessage}</p>
       </div>
     `;
-    syncCollectionPanelChrome([]);
+    syncCollectionPanelChrome();
     refreshPaletteViewerOverlay();
     return true;
   }
 
   if (currentCollectionViewMode === "spectrum") {
-    syncCollectionPanelChrome([]);
+    syncCollectionPanelChrome();
     getCollectionRail()?.setEntries(renderSpectrumWall(displayPalettes));
     syncSelectModeAfterRender();
     refreshPaletteViewerOverlay();
@@ -981,8 +951,7 @@ function renderCollectionUi(palettes) {
   }
 
   const dayGroups = groupForCurrentView(displayPalettes);
-  pruneUnavailableCollapsedDays(dayGroups);
-  syncCollectionPanelChrome(dayGroups);
+  syncCollectionPanelChrome();
 
   const scrollRoot = collectionPanel?.shadowRoot?.querySelector(".panel-shell") ?? null;
   activeDayVirtualizer = createDayContentVirtualizer({
@@ -1001,7 +970,7 @@ function renderCollectionUi(palettes) {
       unmountContent: dayRender.unmountContent,
       dayGroup,
       viewMode: currentCollectionViewMode,
-      gridColumns: getAppSettings().collectionGridColumns,
+      columns: getCurrentViewColumns(),
     });
     const label = `${dayGroup.dateLabel || dayGroup.title} · ${dayGroup.paletteCount}`;
     dayGroup.palettes.forEach((palette) => {
@@ -1027,7 +996,7 @@ function renderCollectionLoadFailure(error) {
   currentPalettes = [];
   collectionGrid.innerHTML = `<p class="empty-message">${t("collection.loadErrorInline")}</p>`;
   collectionGrid.dataset.viewMode = currentCollectionViewMode;
-  syncCollectionPanelChrome([]);
+  syncCollectionPanelChrome();
   reportAppError(error, {
     logMessage: "Failed to load palette collection.",
   });
@@ -1062,15 +1031,15 @@ function handleCollectionViewModeChange(nextViewMode) {
 }
 
 function handleCollectionSettingsChange(settings) {
-  const columns = String(settings.collectionGridColumns);
+  handleCollectionViewModeChange(settings.collectionViewMode);
+  const columns = settings.collectionColumns[currentCollectionViewMode];
   if (
     collectionGrid &&
-    collectionGrid.style.getPropertyValue("--collection-grid-columns") !== columns
+    collectionGrid.style.getPropertyValue("--collection-grid-columns") !== String(columns)
   ) {
-    collectionGrid.style.setProperty("--collection-grid-columns", columns);
-    activeDayVirtualizer?.relayout(settings.collectionGridColumns);
+    collectionGrid.style.setProperty("--collection-grid-columns", String(columns));
+    activeDayVirtualizer?.relayout(columns);
   }
-  handleCollectionViewModeChange(settings.collectionViewMode);
 
   if (settings.locale === currentLocale) {
     return;
@@ -1088,10 +1057,8 @@ function handleCollectionSettingsChange(settings) {
 }
 
 /**
- * The view switch is the toolbar's only icon control, so the option already in
- * use carries the collapse-all a separate chevron used to own: tapping it folds
- * every day group, tapping again unfolds. The swatch and spectrum views have no
- * groups to fold, so a repeat tap there does nothing.
+ * Tapping the view already in use steps its zoom, one more card per row each
+ * time, back to the largest cards after the densest step.
  * @param {string} viewMode
  */
 function handleCollectionViewOptionClick(viewMode) {
@@ -1100,52 +1067,53 @@ function handleCollectionViewOptionClick(viewMode) {
     return;
   }
 
-  if (!COLLAPSIBLE_VIEW_MODES.has(viewMode)) {
-    return;
-  }
-
-  handleCollapseAllDays();
+  const { min, max } = COLLECTION_COLUMN_RANGES[viewMode];
+  const columns = getCurrentViewColumns();
+  const scrollRoot = collectionGrid?.closest(".collection-panel-body");
+  unlockUiFeedback();
+  stepCollectionZoom(
+    columns >= max ? min : columns + 1,
+    scrollRoot?.getBoundingClientRect().top ?? 0,
+  );
 }
 
 /**
- * One zoom step of the photo grid, keeping the spot under the fingers where it
- * was: the group there is found before the columns change and scrolled back
- * under the same point after.
+ * One zoom step of the current view, keeping the row under the fingers where
+ * it was: the first card reaching that line is found before the columns change
+ * and scrolled back to the same height after.
  * @param {number} columns
  * @param {number} anchorClientY
  */
-function stepPhotoGridZoom(columns, anchorClientY) {
+function stepCollectionZoom(columns, anchorClientY) {
   const scrollRoot = collectionGrid?.closest(".collection-panel-body");
+  const { min, max } = COLLECTION_COLUMN_RANGES[currentCollectionViewMode];
   if (!(scrollRoot instanceof HTMLElement)) {
     return;
   }
-  if (columns < 1 || columns > 4) {
+  if (columns < min || columns > max) {
     boundaryFeedback();
     return;
   }
 
-  const anchor = [...collectionGrid.querySelectorAll(".collection-day")].find((section) => {
-    const rect = section.getBoundingClientRect();
-    return rect.top <= anchorClientY && rect.bottom >= anchorClientY;
-  });
-  const before = anchor?.getBoundingClientRect();
-  const fraction = before ? (anchorClientY - before.top) / Math.max(1, before.height) : 0;
+  const anchor = [...collectionGrid.querySelectorAll(".palette-card")].find(
+    (card) => card.getBoundingClientRect().bottom > anchorClientY,
+  );
+  const anchorTop = anchor?.getBoundingClientRect().top ?? 0;
 
-  updateAppSettings({ collectionGridColumns: columns });
+  updateAppSettings({ collectionColumns: { [currentCollectionViewMode]: columns } });
   detentFeedback("density");
 
   if (anchor) {
-    const after = anchor.getBoundingClientRect();
-    scrollRoot.scrollTop += after.top + fraction * after.height - anchorClientY;
+    scrollRoot.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
   }
 }
 
 /**
- * Pinching the photo grid zooms it like a photo library: spread for bigger
- * polaroids, squeeze for more per row. Touch events, not pointer events, so a
+ * Pinching zooms the current view like a photo library: spread for bigger
+ * cards, squeeze for more per row. Touch events, not pointer events, so a
  * two-finger move can be kept from scrolling or zooming the page.
  */
-function bindPhotoGridPinch() {
+function bindCollectionPinch() {
   const scrollRoot = collectionGrid?.closest(".collection-panel-body");
   if (!scrollRoot) {
     return;
@@ -1159,7 +1127,7 @@ function bindPhotoGridPinch() {
     "touchstart",
     (event) => {
       const touches = /** @type {TouchEvent} */ (event).touches;
-      if (touches.length === 2 && currentCollectionViewMode === "grid") {
+      if (touches.length === 2) {
         unlockUiFeedback();
         clearLongPress();
         startSpread = getSpread(touches);
@@ -1181,8 +1149,8 @@ function bindPhotoGridPinch() {
         return;
       }
       startSpread = getSpread(touches);
-      stepPhotoGridZoom(
-        getAppSettings().collectionGridColumns + (ratio > 1 ? -1 : 1),
+      stepCollectionZoom(
+        getCurrentViewColumns() + (ratio > 1 ? -1 : 1),
         (touches[0].clientY + touches[1].clientY) / 2,
       );
     },
@@ -1197,17 +1165,6 @@ function bindPhotoGridPinch() {
   bindCollectionEventListener(scrollRoot, "touchcancel", endPinch);
   // iOS Safari zooms the page on its own gesture events unless they are cancelled.
   bindCollectionEventListener(scrollRoot, "gesturestart", (event) => event.preventDefault());
-}
-
-function handleCollapseAllDays() {
-  const dayGroups = getCurrentDayGroups();
-
-  if (!toggleAllCollectionDays(dayGroups, collapsedDayIds)) {
-    syncCollectionHeaderControls(dayGroups);
-    return;
-  }
-
-  renderCollectionUi(currentPalettes);
 }
 
 function getPublicationErrorMessage(error, fallbackMessage) {
@@ -1862,7 +1819,7 @@ function bindCollectionUiEvents() {
       handleCollectionViewOptionClick(mode);
     });
   });
-  bindPhotoGridPinch();
+  bindCollectionPinch();
 
   collectionFilterButtons.forEach((filterButton, filterName) => {
     bindCollectionEventListener(filterButton, "click", () => {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { createDayGroup } from "./render-groups.js";
 import { FakeElement, installFakeDom } from "../test-support/fake-dom.js";
@@ -41,90 +41,20 @@ describe("createDayGroup", () => {
     restoreDom();
   });
 
-  test("renders a collapsible day with a catch barcode and honors collapsed state", () => {
+  test("renders a day header with its count above the day's cards", () => {
     const { element: dayElement, mountContent } = createDayGroup({
       dayGroup: createDayGroupFixture(),
       createPaletteCard,
-      isDayCollapsed: (dayId) => dayId === "day-2026-03-12",
-      onDayCollapsedChange() {},
-      revealDurationMs: 280,
-      revealStaggerMs: 42,
-      viewMode: "bands",
-    });
-
-    mountContent();
-
-    expect(dayElement.classList.contains("is-collapsed")).toBe(true);
-    expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(3);
-    expect(dayElement.querySelector(".collection-day-count")?.textContent).toBe("3");
-    expect(dayElement.querySelector(".collection-day-cover")?.children).toHaveLength(3);
-
-    const toggle = dayElement.querySelector(".collection-day-toggle");
-    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
-  });
-
-  test("renders a day-level grid in grid mode", () => {
-    const { element: dayElement, mountContent } = createDayGroup({
-      dayGroup: createDayGroupFixture(),
-      createPaletteCard,
-      isDayCollapsed: () => false,
-      onDayCollapsedChange() {},
-      revealDurationMs: 280,
-      revealStaggerMs: 42,
       viewMode: "grid",
     });
 
     mountContent();
 
-    const dayGrid = dayElement.querySelector(".collection-day-grid");
-
-    expect(dayGrid).not.toBeNull();
-    expect(dayGrid?.children).toHaveLength(3);
-    expect(dayElement.querySelector(".collection-day-toggle")?.disabled).toBeFalsy();
-  });
-
-  test("disables collapse in swatch mode", () => {
-    const { element: dayElement, mountContent } = createDayGroup({
-      dayGroup: createDayGroupFixture(),
-      createPaletteCard,
-      isDayCollapsed: () => true,
-      onDayCollapsedChange() {},
-      revealDurationMs: 280,
-      revealStaggerMs: 42,
-      viewMode: "swatch",
-    });
-
-    mountContent();
-
-    const toggle = dayElement.querySelector(".collection-day-toggle");
-
-    expect(dayElement.classList.contains("is-collapsed")).toBe(false);
-    expect(toggle?.disabled).toBe(true);
-    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
-  });
-
-  test("updates collapse state when the day toggle is clicked", () => {
-    const collapseEvents = [];
-    const { element: dayElement, mountContent } = createDayGroup({
-      dayGroup: createDayGroupFixture(),
-      createPaletteCard,
-      isDayCollapsed: () => false,
-      onDayCollapsedChange: (dayId, isCollapsed) => {
-        collapseEvents.push({ dayId, isCollapsed });
-      },
-      revealDurationMs: 280,
-      revealStaggerMs: 42,
-      viewMode: "bands",
-    });
-
-    mountContent();
-
-    const toggle = dayElement.querySelector(".collection-day-toggle");
-    toggle?.click();
-
-    expect(collapseEvents).toEqual([{ dayId: "day-2026-03-12", isCollapsed: true }]);
-    expect(dayElement.classList.contains("is-collapsed")).toBe(true);
-    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(dayElement.querySelector(".collection-day-title")?.textContent).toBe(
+      "Aujourd'hui — 12 mars 2026",
+    );
+    expect(dayElement.querySelector(".collection-day-count")?.textContent).toBe("3");
+    expect(dayElement.querySelector(".collection-day-grid")?.children).toHaveLength(3);
   });
 
   test("hydrates large days in bounded batches without dropping cards", async () => {
@@ -137,11 +67,7 @@ describe("createDayGroup", () => {
         palettes,
       },
       createPaletteCard,
-      isDayCollapsed: () => false,
       onCardMount: (card) => mountedIds.push(Number(card.dataset.paletteId)),
-      onDayCollapsedChange() {},
-      revealDurationMs: 280,
-      revealStaggerMs: 42,
       viewMode: "grid",
     });
 
@@ -167,11 +93,7 @@ describe("createDayGroup", () => {
         palettes,
       },
       createPaletteCard,
-      isDayCollapsed: () => false,
       onCardUnmount: (card) => unmountedIds.push(Number(card.dataset.paletteId)),
-      onDayCollapsedChange() {},
-      revealDurationMs: 280,
-      revealStaggerMs: 42,
       viewMode: "grid",
     });
 
@@ -182,36 +104,5 @@ describe("createDayGroup", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(dayElement.querySelectorAll(".palette-card")).toHaveLength(0);
     expect(unmountedIds).toEqual(Array.from({ length: 12 }, (_value, index) => index + 1));
-  });
-
-  test("cancels a pending expansion reveal when the day unmounts", () => {
-    restoreDom();
-    restoreDom = installFakeDom({ prefersReducedMotion: false });
-    const setTimeout = mock(() => 83);
-    const clearTimeout = mock(() => {});
-    globalThis.window.setTimeout = setTimeout;
-    globalThis.window.clearTimeout = clearTimeout;
-    const {
-      element: dayElement,
-      mountContent,
-      unmountContent,
-    } = createDayGroup({
-      dayGroup: createDayGroupFixture(),
-      createPaletteCard,
-      isDayCollapsed: () => true,
-      onDayCollapsedChange() {},
-      revealDurationMs: 280,
-      revealStaggerMs: 42,
-      viewMode: "bands",
-    });
-
-    mountContent();
-    dayElement.querySelector(".collection-day-toggle")?.click();
-    expect(setTimeout).toHaveBeenCalledTimes(1);
-    expect(dayElement.querySelectorAll(".is-revealing")).toHaveLength(3);
-
-    unmountContent(5_000);
-    expect(clearTimeout).toHaveBeenCalledWith(83);
-    expect(dayElement.querySelectorAll(".is-revealing")).toHaveLength(0);
   });
 });

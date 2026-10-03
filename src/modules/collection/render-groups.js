@@ -1,100 +1,9 @@
-import { toRgbCss } from "../color-format.js";
-
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const CARD_MOUNT_BATCH_SIZE = Object.freeze({
   grid: Object.freeze({ initial: 12, subsequent: 48 }),
   bands: Object.freeze({ initial: 24, subsequent: 72 }),
   swatch: Object.freeze({ initial: 24, subsequent: 72 }),
   rings: Object.freeze({ initial: 24, subsequent: 72 }),
 });
-
-function createDayCaret() {
-  const caret = document.createElement("span");
-  caret.className = "collection-day-caret";
-
-  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("aria-hidden", "true");
-
-  const path = document.createElementNS(SVG_NAMESPACE, "path");
-  path.setAttribute("d", "M3.2 5.5L8 10.3l4.8-4.8");
-  path.setAttribute("fill", "none");
-  path.setAttribute("stroke", "currentColor");
-  path.setAttribute("stroke-width", "1.8");
-  path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("stroke-linejoin", "round");
-
-  svg.appendChild(path);
-  caret.appendChild(svg);
-  return caret;
-}
-
-/**
- * The day's barcode: one slice per catch, its colors stacked top to bottom. It
- * is a thin rule over an open day and grows tall enough to read once the day
- * folds, so the folded list doubles as an index of what each day caught.
- * @param {DayGroup} dayGroup
- */
-function createDayCover(dayGroup) {
-  const cover = document.createElement("div");
-  cover.className = "collection-day-cover";
-  cover.setAttribute("aria-hidden", "true");
-
-  dayGroup.palettes.forEach((palette) => {
-    const colors = palette.colors ?? [];
-    const step = 100 / Math.max(1, colors.length);
-    const slice = document.createElement("i");
-    slice.style.backgroundImage = `linear-gradient(${colors
-      .map((color, index) => `${toRgbCss(color)} ${index * step}% ${(index + 1) * step}%`)
-      .join(", ")})`;
-    cover.appendChild(slice);
-  });
-
-  return cover;
-}
-
-function setDayCollapsed(daySection, toggleButton, isCollapsed) {
-  daySection.classList.toggle("is-collapsed", isCollapsed);
-  toggleButton.setAttribute("aria-expanded", String(!isCollapsed));
-}
-
-function animateDayExpansion(daySection, { revealDurationMs, revealStaggerMs }) {
-  const shouldReduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (shouldReduceMotion) {
-    return () => {};
-  }
-
-  const cards = [...daySection.querySelectorAll(".palette-card")];
-  if (cards.length === 0) {
-    return () => {};
-  }
-
-  cards.forEach((card, index) => {
-    card.style.setProperty("--reveal-index", String(index));
-    card.classList.remove("is-revealing");
-  });
-
-  void daySection.offsetHeight;
-
-  cards.forEach((card) => {
-    card.classList.add("is-revealing");
-  });
-
-  const timeoutId = window.setTimeout(
-    () => {
-      cards.forEach((card) => {
-        card.classList.remove("is-revealing");
-      });
-    },
-    revealDurationMs + revealStaggerMs * cards.length,
-  );
-  return () => {
-    window.clearTimeout(timeoutId);
-    cards.forEach((card) => {
-      card.classList.remove("is-revealing");
-    });
-  };
-}
 
 function scheduleCardBatch(callback) {
   if (typeof window.requestIdleCallback === "function") {
@@ -145,10 +54,6 @@ function createDayCards(dayGroup, createPaletteCard, viewMode, onCardMount) {
  * @param {object} config
  * @param {DayGroup} config.dayGroup
  * @param {(palette: Palette) => HTMLElement} config.createPaletteCard
- * @param {(dayId: string) => boolean} config.isDayCollapsed
- * @param {(dayId: string, collapsed: boolean) => void} config.onDayCollapsedChange
- * @param {number} config.revealDurationMs
- * @param {number} config.revealStaggerMs
  * @param {(card: HTMLElement) => void} [config.onCardMount]
  * @param {(card: HTMLElement) => void} [config.onCardUnmount]
  * @param {"grid" | "bands" | "swatch" | "rings"} [config.viewMode]
@@ -162,28 +67,18 @@ function createDayCards(dayGroup, createPaletteCard, viewMode, onCardMount) {
 export function createDayGroup({
   dayGroup,
   createPaletteCard,
-  isDayCollapsed,
-  onDayCollapsedChange,
-  revealDurationMs,
-  revealStaggerMs,
   onCardMount,
   onCardUnmount,
   viewMode = "grid",
 }) {
-  const isCollapsible = viewMode !== "swatch";
-
   const daySection = document.createElement("section");
   daySection.className = "collection-day";
   daySection.dataset.dayId = dayGroup.id;
   daySection.dataset.viewMode = viewMode;
   daySection.dataset.paletteCount = String(dayGroup.paletteCount);
 
-  const contentId = `${dayGroup.id}-content`;
-
-  const dayToggle = document.createElement("button");
-  dayToggle.type = "button";
-  dayToggle.className = "collection-day-toggle";
-  dayToggle.setAttribute("aria-controls", contentId);
+  const dayHeader = document.createElement("h3");
+  dayHeader.className = "collection-day-header";
 
   const dayTitle = document.createElement("span");
   dayTitle.className = "collection-day-title";
@@ -191,48 +86,16 @@ export function createDayGroup({
     ? `${dayGroup.title} — ${dayGroup.dateLabel}`
     : dayGroup.title;
 
-  const dayMeta = document.createElement("span");
-  dayMeta.className = "collection-day-meta";
-
   const dayCount = document.createElement("span");
   dayCount.className = "collection-day-count";
   dayCount.textContent = String(dayGroup.paletteCount);
 
-  dayMeta.append(dayCount, createDayCaret());
-  dayToggle.append(dayTitle, dayMeta);
-
-  const cover = createDayCover(dayGroup);
+  dayHeader.append(dayTitle, dayCount);
 
   const contentContainer = document.createElement("div");
   contentContainer.className = "collection-day-content";
-  contentContainer.id = contentId;
 
-  daySection.append(dayToggle, cover, contentContainer);
-  let cancelDayExpansion = () => {};
-
-  if (isCollapsible) {
-    dayToggle.addEventListener("click", () => {
-      cancelDayExpansion();
-      cancelDayExpansion = () => {};
-      const nextCollapsedState = !daySection.classList.contains("is-collapsed");
-      setDayCollapsed(daySection, dayToggle, nextCollapsedState);
-      onDayCollapsedChange?.(dayGroup.id, nextCollapsedState);
-
-      if (nextCollapsedState) {
-        return;
-      }
-
-      cancelDayExpansion = animateDayExpansion(daySection, {
-        revealDurationMs,
-        revealStaggerMs,
-      });
-    });
-
-    setDayCollapsed(daySection, dayToggle, isDayCollapsed(dayGroup.id));
-  } else {
-    dayToggle.setAttribute("aria-expanded", "true");
-    dayToggle.disabled = true;
-  }
+  daySection.append(dayHeader, contentContainer);
 
   let lastMeasuredHeight = 0;
   let cancelCardMount = null;
@@ -246,8 +109,6 @@ export function createDayGroup({
   };
 
   const unmountContent = (preMeasuredHeight) => {
-    cancelDayExpansion();
-    cancelDayExpansion = () => {};
     cancelCardMount?.();
     cancelCardMount = null;
     const height = preMeasuredHeight ?? contentContainer.offsetHeight;

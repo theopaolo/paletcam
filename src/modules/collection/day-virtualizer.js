@@ -2,20 +2,20 @@ const DAY_MOUNT_ROOT_MARGIN = "1500px 0px";
 const EAGER_MOUNT_COUNT = 3;
 /** A phone's content width, enough to size placeholders before a day mounts. */
 const ESTIMATED_CONTENT_WIDTH_PX = 340;
-const POLAROID_ASPECT_RATIO = 1.22;
-const ESTIMATED_LAYOUTS = Object.freeze({
-  bands: Object.freeze({ columns: 1, rowHeight: 40 }),
-  swatch: Object.freeze({ columns: 4, rowHeight: 85 }),
-  rings: Object.freeze({ columns: 4, rowHeight: 89 }),
+/** Row height of each view from its cell width, gaps included. */
+const ESTIMATED_ROW_HEIGHTS = Object.freeze({
+  grid: (cellWidth) => cellWidth * 1.22 + 8,
+  bands: () => 36,
+  swatch: (cellWidth) => cellWidth,
+  rings: (cellWidth) => cellWidth + 8,
 });
 
-function estimateDayContentHeight(dayGroup, viewMode, gridColumns) {
+function estimateDayContentHeight(dayGroup, viewMode, columns) {
   const total = Math.max(1, dayGroup?.paletteCount ?? 0);
-  const layout = ESTIMATED_LAYOUTS[viewMode] ?? {
-    columns: gridColumns,
-    rowHeight: (ESTIMATED_CONTENT_WIDTH_PX / gridColumns) * POLAROID_ASPECT_RATIO + 8,
-  };
-  return Math.ceil(total / layout.columns) * layout.rowHeight;
+  const rowHeight = (ESTIMATED_ROW_HEIGHTS[viewMode] ?? ESTIMATED_ROW_HEIGHTS.grid)(
+    ESTIMATED_CONTENT_WIDTH_PX / columns,
+  );
+  return Math.ceil(total / columns) * rowHeight;
 }
 
 /**
@@ -93,7 +93,7 @@ export function createDayContentVirtualizer({ scrollRoot, onCardMount } = {}) {
       unmountContent,
       dayGroup,
       viewMode,
-      gridColumns = 3,
+      columns = 2,
     }) {
       if (destroyed) {
         return;
@@ -110,7 +110,7 @@ export function createDayContentVirtualizer({ scrollRoot, onCardMount } = {}) {
 
       handlers.set(element, handler);
 
-      const placeholderHeight = estimateDayContentHeight(dayGroup, viewMode, gridColumns);
+      const placeholderHeight = estimateDayContentHeight(dayGroup, viewMode, columns);
       if (placeholderHeight > 0) {
         contentContainer.style.minHeight = `${placeholderHeight}px`;
       }
@@ -127,11 +127,11 @@ export function createDayContentVirtualizer({ scrollRoot, onCardMount } = {}) {
 
       handleMount(handler);
     },
-    /** Re-sizes the placeholders of unmounted days after the photo grid zooms. */
-    relayout(gridColumns) {
+    /** Re-sizes the placeholders of unmounted days after the view zooms. */
+    relayout(columns) {
       handlers.forEach((handler) => {
         if (!handler.isMounted) {
-          const height = estimateDayContentHeight(handler.dayGroup, handler.viewMode, gridColumns);
+          const height = estimateDayContentHeight(handler.dayGroup, handler.viewMode, columns);
           handler.contentContainer.style.minHeight = `${height}px`;
         }
       });

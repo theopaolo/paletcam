@@ -2,6 +2,7 @@
  * @typedef {object} CollectionView
  * @property {(HTMLElement & { panelTitle: string }) | null} panel
  * @property {HTMLElement | null} grid
+ * @property {HTMLElement | null} tally
  * @property {HTMLElement | null} viewGridButton
  * @property {HTMLElement | null} viewBandsButton
  * @property {HTMLElement | null} viewSwatchButton
@@ -25,6 +26,7 @@ export function createCollectionView(documentRef) {
       documentRef.querySelector(".collection-panel")
     ),
     grid: documentRef.getElementById("collectionGrid"),
+    tally: documentRef.getElementById("collectionTally"),
     viewGridButton: documentRef.getElementById("collectionViewGridButton"),
     viewBandsButton: documentRef.getElementById("collectionViewBandsButton"),
     viewSwatchButton: documentRef.getElementById("collectionViewSwatchButton"),

@@ -13,8 +13,14 @@ const HYBRID_TONE_RANGE = { min: 0, max: 1 };
 const VALID_NEUTRAL_BALANCES = new Set(["color", "balanced", "neutrals"]);
 const VALID_CAPTURE_MODES = new Set(["palette", "ral"]);
 const VALID_COLLECTION_VIEW_MODES = new Set(["grid", "bands", "swatch", "spectrum", "rings"]);
-const COLLECTION_GRID_COLUMNS_RANGE = { min: 1, max: 4 };
-const DEFAULT_COLLECTION_GRID_COLUMNS = 2;
+/** Zoom steps of each collection view, in cards per row. */
+export const COLLECTION_COLUMN_RANGES = Object.freeze({
+  grid: Object.freeze({ min: 1, max: 4, initial: 2 }),
+  bands: Object.freeze({ min: 1, max: 3, initial: 1 }),
+  swatch: Object.freeze({ min: 3, max: 6, initial: 4 }),
+  spectrum: Object.freeze({ min: 3, max: 6, initial: 4 }),
+  rings: Object.freeze({ min: 3, max: 6, initial: 4 }),
+});
 const VALID_LOCALES = new Set(["fr", "en"]);
 const DEFAULT_POLAROID_FOOTER_LABEL = "colorcatchers.co";
 
@@ -45,12 +51,16 @@ function normalizeCollectionViewMode(value) {
   return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "grid";
 }
 
-function normalizeCollectionGridColumns(value) {
-  return Number.isInteger(value) &&
-    value >= COLLECTION_GRID_COLUMNS_RANGE.min &&
-    value <= COLLECTION_GRID_COLUMNS_RANGE.max
-    ? value
-    : DEFAULT_COLLECTION_GRID_COLUMNS;
+function normalizeCollectionColumns(value) {
+  return Object.fromEntries(
+    Object.entries(COLLECTION_COLUMN_RANGES).map(([mode, { min, max, initial }]) => {
+      const columns = value?.[mode];
+      return [
+        mode,
+        Number.isInteger(columns) && columns >= min && columns <= max ? columns : initial,
+      ];
+    }),
+  );
 }
 
 function normalizeLocale(value) {
@@ -77,7 +87,7 @@ function normalizeLastBackupAt(value) {
 const DEFAULT_SETTINGS = Object.freeze({
   captureMode: "palette",
   collectionViewMode: "grid",
-  collectionGridColumns: DEFAULT_COLLECTION_GRID_COLUMNS,
+  collectionColumns: normalizeCollectionColumns(null),
   locale: "fr",
   performanceHudEnabled: false,
   oneMoreColor: true,
@@ -181,7 +191,7 @@ function normalizeSettings(candidate) {
   return {
     captureMode: normalizeCaptureMode(candidate?.captureMode),
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
-    collectionGridColumns: normalizeCollectionGridColumns(candidate?.collectionGridColumns),
+    collectionColumns: normalizeCollectionColumns(candidate?.collectionColumns),
     locale: normalizeLocale(candidate?.locale),
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),
@@ -260,6 +270,7 @@ export function getDefaultAppSettings() {
     ...DEFAULT_SETTINGS,
     medianCut: { ...DEFAULT_SETTINGS.medianCut },
     hybrid: { ...DEFAULT_SETTINGS.hybrid },
+    collectionColumns: { ...DEFAULT_SETTINGS.collectionColumns },
   };
 }
 
@@ -274,6 +285,7 @@ export function getAppSettings() {
     ...settingsStore.currentSettings,
     medianCut: { ...settingsStore.currentSettings.medianCut },
     hybrid: { ...settingsStore.currentSettings.hybrid },
+    collectionColumns: { ...settingsStore.currentSettings.collectionColumns },
   };
 }
 
@@ -292,6 +304,10 @@ export function updateAppSettings(partialSettings) {
     hybrid: {
       ...settingsStore.currentSettings.hybrid,
       ...(partialSettings?.hybrid ?? {}),
+    },
+    collectionColumns: {
+      ...settingsStore.currentSettings.collectionColumns,
+      ...(partialSettings?.collectionColumns ?? {}),
     },
   });
 
