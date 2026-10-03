@@ -86,6 +86,7 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 /** A range input in ruler units (density counts thousands of pixels). */
 function rangeModel(input, { key, unit = 1 }, formatValue) {
   return {
+    key,
     lo: Number(input.min) / unit,
     hi: Number(input.max) / unit,
     def: Number(input.defaultValue) / unit,
@@ -105,6 +106,7 @@ function rangeModel(input, { key, unit = 1 }, formatValue) {
 function lookModel(radios) {
   const indexOf = (predicate) => Math.max(0, radios.findIndex(predicate));
   return {
+    key: "look",
     lo: 0,
     hi: radios.length - 1,
     def: indexOf((radio) => radio.defaultChecked),
@@ -127,15 +129,18 @@ function lookModel(radios) {
 
 /* ── Shared mechanics ── */
 
-/** Rounds to a whole unit inside the range, clicks on each `every` crossed. */
-function stepTo(model, raw, every) {
+/**
+ * Rounds to a whole unit inside the range, clicks in the setting's voice on
+ * each `every` crossed, firmer on each `major`.
+ */
+function stepTo(model, raw, every, major = 0) {
   const next = clamp(Math.round(raw), model.lo, model.hi);
   const previous = model.get();
   if (next === previous) {
     return;
   }
   if (Math.floor(next / every) !== Math.floor(previous / every)) {
-    detentFeedback();
+    detentFeedback(model.key, next % major === 0);
   }
   model.set(next);
 }
@@ -144,7 +149,7 @@ function resetToDefault(model) {
   model.begin();
   model.set(model.def);
   model.commit();
-  detentFeedback();
+  detentFeedback(model.key, true);
 }
 
 function rubberBand(raw, model) {
@@ -455,7 +460,7 @@ function createArc(models, colors) {
         model.begin();
       }
       position = rubberBand(startPosition - travel / pixelsPerUnit(), model);
-      stepTo(model, position, active.arc.every);
+      stepTo(model, position, active.arc.every, active.arc.major);
       paintText();
       draw();
     },
@@ -606,7 +611,7 @@ function createLever(model, setting, { thin, colors }) {
         shell.element.classList.add("is-active");
       }
       position = rubberBand(startPosition + travel / px, model);
-      stepTo(model, position, every);
+      stepTo(model, position, every, major);
       paintText();
       draw();
     },
