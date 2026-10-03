@@ -69,3 +69,59 @@
 .camera-meter-reticle.is-offset .camera-meter-ev {
   opacity: 1;
 }
+
+/* A hold picked the light (white-balance-ui.js): the square snaps tight in
+   white, the color of a neutral. */
+.camera-meter-reticle.is-held {
+  border-color: var(--color-text-primary);
+  animation: camera-meter-held 0.32s var(--easing-spring);
+}
+
+@keyframes camera-meter-held {
+  from {
+    transform: scale(0.8);
+  }
+}
+
+/* The held light's color, shown until a tap hands white balance back to the
+   camera. Above the origin badges (z-index 9), which can land in this corner. */
+.camera-wb-chip {
+  position: absolute;
+  top: var(--space-8);
+  left: var(--space-8);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--overlay-control-height);
+  padding: 0 var(--space-8) 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-camera-readout-bg);
+  color: var(--color-camera-readout-fg);
+  font: 500 var(--font-size-xs) / 1 var(--font-family-mono);
+}
+
+.camera-wb-chip[hidden] {
+  display: none;
+}
+
+/* A finger-sized target around a small chip. */
+.camera-wb-chip::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--space-8) * -1);
+}
+
+.camera-wb-swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 18%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .camera-meter-reticle.is-held {
+    animation: none;
+  }
+}

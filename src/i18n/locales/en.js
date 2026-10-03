@@ -309,6 +309,8 @@ const en = {
   "config.guide.pins":
     "Numbered markers on the palette and on the feed show where each color was found.",
   "config.guide.grid": "Thirds over the camera feed, for framing.",
+  "config.guide.whiteBalance":
+    "Hold your finger on something white or gray in the image and the palette removes the color of the light. Tap WB to return to auto.",
   "config.guide.ral": "Reads the color under the ring and names the closest RAL Classic color.",
   "config.guide.reset": "Double-tap the ruler to set Analyze, Density or Tone back to its default.",
   "config.history.aria": "History",
@@ -349,6 +351,9 @@ const en = {
   "camera.zoom.label": "Zoom",
   "camera.zoom.valueText": "Zoom {value}",
   "camera.exposure.label": "Exposure adjustment",
+  "camera.whiteBalance.title": "White balance",
+  "camera.whiteBalance.clear": "White balance set. Tap to return to auto.",
+  "camera.whiteBalance.rejected": "Hold your finger on a well-lit white or gray.",
   "camera.grid.aria": "Composition grid",
   "camera.output.empty": "No preview yet.",
   "ral.quality": "RAL match {percentage}%",

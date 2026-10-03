@@ -61,6 +61,7 @@ export function createLivePreviewController({
   getHybridSettings,
   getShouldMirrorUserFacingCamera,
   getSwatchCount,
+  getWhiteBalanceLut = () => null,
   shouldUseCanvasPreview,
   onPaletteChange = null,
   frameAcquisition: injectedFrameAcquisition = null,
@@ -423,6 +424,7 @@ export function createLivePreviewController({
                 medianCutSettings: getMedianCutExtractionSettings(),
                 hybridSettings: getHybridSettings(),
                 frozenEntries: frozenPins.getEntries(),
+                whiteBalance: getWhiteBalanceLut(),
               })
             : null;
         if (!extraction?.delegated) {
@@ -555,6 +557,7 @@ export function createLivePreviewController({
             medianCutSettings: getMedianCutExtractionSettings(),
             hybridSettings: getHybridSettings(),
             frozenEntries: frozenPins.getEntries(),
+            whiteBalance: getWhiteBalanceLut(),
           });
 
           if (!extraction.delegated) {

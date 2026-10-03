@@ -7,6 +7,8 @@ const DEFAULT_HIDE_DELAY_MS = 1800;
 const DRAG_SPAN_RATIO = 0.6;
 /* Under this travel the gesture is still a tap, so the EV readout stays out. */
 const DRAG_DEAD_ZONE_PX = 6;
+/* A finger held this long without leaving the dead zone is a long-press. */
+const LONG_PRESS_MS = 550;
 
 function formatExposureValue(value) {
   if (!Number.isFinite(value)) {
@@ -20,18 +22,21 @@ function formatExposureValue(value) {
 /**
  * Tap the preview to meter there, then slide up or down without lifting to
  * trade exposure, the way a stock camera app behaves. A fresh tap re-meters
- * and drops the offset back to zero.
+ * and drops the offset back to zero. Holding still hands the point to
+ * `onLongPress` (the white balance pick).
  *
  * @param {object} [options]
  * @param {CameraController | null} [options.cameraController]
  * @param {HTMLElement | null} [options.overlayHost]
  * @param {number} [options.hideDelayMs]
+ * @param {((point: CameraPoint) => boolean) | null} [options.onLongPress] true when the hold was taken
  * @returns {ExposureUiController}
  */
 export function createExposureUiController({
   cameraController,
   overlayHost,
   hideDelayMs = DEFAULT_HIDE_DELAY_MS,
+  onLongPress = null,
 } = {}) {
   if (!overlayHost) {
     return {
@@ -64,9 +69,11 @@ export function createExposureUiController({
   let canAdjustExposure = false;
   let canMeter = false;
   let activePointerId = null;
+  let dragStartX = 0;
   let dragStartY = 0;
   let hasLeftDeadZone = false;
   let hideTimeoutId = 0;
+  let longPressTimeoutId = 0;
 
   const unsubscribeLocaleChange = subscribeLocaleChange(() => {
     overlayLayer.setAttribute("aria-label", t("camera.exposure.label"));
@@ -97,6 +104,30 @@ export function createExposureUiController({
 
     window.clearTimeout(hideTimeoutId);
     hideTimeoutId = 0;
+  }
+
+  function cancelLongPress() {
+    if (!longPressTimeoutId) {
+      return;
+    }
+
+    window.clearTimeout(longPressTimeoutId);
+    longPressTimeoutId = 0;
+  }
+
+  function scheduleLongPress(point) {
+    cancelLongPress();
+    if (!onLongPress) {
+      return;
+    }
+
+    longPressTimeoutId = window.setTimeout(() => {
+      longPressTimeoutId = 0;
+      placeReticle(point);
+      if (onLongPress(point)) {
+        reticle.classList.add("is-held");
+      }
+    }, LONG_PRESS_MS);
   }
 
   function hideReticle() {
@@ -155,18 +186,19 @@ export function createExposureUiController({
     // to the other side of the square.
     reticle.classList.toggle("is-readout-flipped", anchor.x > 0.7);
     reticle.classList.add("is-visible");
-    reticle.classList.remove("is-adjusting");
+    reticle.classList.remove("is-adjusting", "is-held");
   }
 
   function handlePointerDown(event) {
     // A second finger turns the gesture into a pinch: zoom-ui.js takes over.
     if (activePointerId !== null && event.pointerId !== activePointerId) {
       activePointerId = null;
+      cancelLongPress();
       hideReticle();
       return;
     }
 
-    if (!canMeter && !canAdjustExposure) {
+    if (!canMeter && !canAdjustExposure && !onLongPress) {
       return;
     }
 
@@ -180,9 +212,19 @@ export function createExposureUiController({
     }
 
     activePointerId = event.pointerId;
+    dragStartX = event.clientX;
     dragStartY = event.clientY;
     hasLeftDeadZone = false;
     clearHideTimer();
+    scheduleLongPress(point);
+    overlayLayer.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+
+    // A camera without metering or EV still takes the hold, but a tap shows nothing.
+    if (!canMeter && !canAdjustExposure) {
+      return;
+    }
+
     placeReticle(point);
 
     if (canMeter) {
@@ -193,18 +235,19 @@ export function createExposureUiController({
     if (canAdjustExposure) {
       void exposureValue.apply(0);
     }
-
-    overlayLayer.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
   }
 
   function handlePointerMove(event) {
-    if (event.pointerId !== activePointerId || !canAdjustExposure) {
+    if (event.pointerId !== activePointerId) {
       return;
     }
 
     const travel = dragStartY - event.clientY;
-    if (!hasLeftDeadZone && Math.abs(travel) < DRAG_DEAD_ZONE_PX) {
+    if (Math.hypot(event.clientX - dragStartX, travel) >= DRAG_DEAD_ZONE_PX) {
+      cancelLongPress();
+    }
+
+    if (!canAdjustExposure || (!hasLeftDeadZone && Math.abs(travel) < DRAG_DEAD_ZONE_PX)) {
       return;
     }
 
@@ -225,6 +268,7 @@ export function createExposureUiController({
     }
 
     activePointerId = null;
+    cancelLongPress();
     scheduleHide();
   }
 
@@ -264,6 +308,7 @@ export function createExposureUiController({
     }
 
     clearHideTimer();
+    cancelLongPress();
     unsubscribeLocaleChange();
     overlayLayer.remove();
   }
@@ -272,6 +317,7 @@ export function createExposureUiController({
     canAdjustExposure = false;
     canMeter = false;
     activePointerId = null;
+    cancelLongPress();
     overlayLayer.classList.add("is-inert");
     hideReticle();
     exposureValue.reset();
@@ -298,7 +344,7 @@ export function createExposureUiController({
 
     // Nothing to drive means nothing to tap, so the layer stops swallowing
     // pointers over the preview.
-    overlayLayer.classList.toggle("is-inert", !canMeter && !canAdjustExposure);
+    overlayLayer.classList.toggle("is-inert", !canMeter && !canAdjustExposure && !onLongPress);
   }
 
   function handleExposureChange(nextExposure) {
