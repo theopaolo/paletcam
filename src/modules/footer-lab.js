@@ -13,12 +13,12 @@ export const FOOTER_LAB_OPTIONS = Object.freeze({
   look: Object.freeze(["lever", "keys", "prism"]),
 });
 
-/* Théo's pick after the phone tests: flat iris, ticks dial, M's drums. */
+/* Théo's pick after the phone tests: flat iris, slide count, M's drums, prism look. */
 const DEFAULT_FOOTER_LAB = Object.freeze({
   shutter: "flat",
-  count: "dial",
+  count: "shutter",
   panel: "drums",
-  look: "lever",
+  look: "prism",
 });
 
 /** @typedef {{ shutter: string, count: string, panel: string, look: string }} FooterLab */
