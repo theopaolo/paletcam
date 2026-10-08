@@ -4,7 +4,8 @@
  * builds (see config-panel.js), so production always runs the defaults.
  */
 
-const STORAGE_KEY = "paletcam.footerLab";
+/* v2: drops picks saved before the tray count became the default. */
+const STORAGE_KEY = "paletcam.footerLab.v2";
 
 export const FOOTER_LAB_OPTIONS = Object.freeze({
   shutter: Object.freeze(["titanium", "flat", "logo"]),
