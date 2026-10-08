@@ -24,7 +24,7 @@
  * @property {HTMLElement | null} tuneTray Tuning tray between the palette and the footer
  * @property {HTMLButtonElement | null} gridKey
  * @property {HTMLButtonElement | null} pinsKey
- * @property {HTMLElement | null} configPanel
+ * @property {(HTMLElement & { isTuningDisabled: boolean }) | null} configPanel
  * @property {HTMLButtonElement | null} viewCollectionButton
  * @property {HTMLDivElement} cameraViewportFrame
  * @property {HTMLDivElement} cameraSourceMount
@@ -72,7 +72,9 @@ export function createAppView(documentRef) {
     tuneTray: documentRef.getElementById("tuneTray"),
     gridKey: /** @type {HTMLButtonElement | null} */ (documentRef.getElementById("gridKey")),
     pinsKey: /** @type {HTMLButtonElement | null} */ (documentRef.getElementById("pinsKey")),
-    configPanel: /** @type {HTMLElement | null} */ (documentRef.querySelector("config-panel")),
+    configPanel: /** @type {(HTMLElement & { isTuningDisabled: boolean }) | null} */ (
+      documentRef.querySelector("config-panel")
+    ),
     viewCollectionButton: /** @type {HTMLButtonElement | null} */ (
       documentRef.querySelector(".btn-view-collection")
     ),

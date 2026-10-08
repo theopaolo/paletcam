@@ -1,4 +1,5 @@
 import { t } from "../i18n.js";
+import { bindDrag, drawIndex, prepareCanvas, readColors, tween } from "./panels/tune-panels.js";
 import { boundaryFeedback, detentFeedback, unlockUiFeedback } from "./ui-feedback.js";
 
 /** Same feel as the swatch drum: finger travel per detent, tap slop, end-stop damping. */
@@ -538,6 +539,172 @@ export function createShutterSlideUi({ button, values, value, onChange, onVertic
       readout.remove();
       bezel.before(button);
       bezel.remove();
+    },
+  };
+}
+
+/** Tray scroller: the thin tuning drum laid on its side. */
+const SCROLLER_WIDTH = 120;
+const SCROLLER_HEIGHT = 32;
+const SCROLLER_INSET = 5;
+/** Drum angle per count, and the fine ticks drawn between two counts. */
+const SCROLLER_STEP_DEG = 24;
+const SCROLLER_SUBTICKS = 3;
+
+/**
+ * Tray scroller: the tuning tray's thin drum turned horizontal, on the left of
+ * the tray's quick row. Drag it sideways (the ticks follow the finger, more
+ * colors come in from the right); a tap on either side of the index steps
+ * toward it. The count reads beside the drum.
+ *
+ * @param {CountControlOptions & { host: HTMLElement | null }} options
+ * @returns {CountControl}
+ */
+export function createTrayScrollerUi({ host, values, value, onChange }) {
+  if (!host) {
+    return { sync() {}, destroy() {} };
+  }
+
+  const control = document.createElement("div");
+  control.className = "count-scroller";
+  control.setAttribute("role", "group");
+  control.innerHTML =
+    '<span class="count-scroller-value" aria-hidden="true"></span><span class="count-scroller-drum"><canvas></canvas></span>';
+  const valueLabel = /** @type {HTMLElement} */ (control.querySelector(".count-scroller-value"));
+  const drum = /** @type {HTMLElement} */ (control.querySelector(".count-scroller-drum"));
+  const canvas = /** @type {HTMLCanvasElement} */ (drum.querySelector("canvas"));
+  host.prepend(control);
+  const context = prepareCanvas(canvas, SCROLLER_WIDTH, SCROLLER_HEIGHT);
+  const colors = readColors(host);
+
+  const last = values.length - 1;
+  /** Position among `values`, not the count. */
+  let current = positionOf(values, value);
+  /** Drawn position: fractional while dragging or gliding. */
+  let position = current;
+  let startPosition = 0;
+  let hitBoundary = false;
+  let cancelTween = () => {};
+
+  function draw() {
+    if (!context) {
+      return;
+    }
+    context.clearRect(0, 0, SCROLLER_WIDTH, SCROLLER_HEIGHT);
+    const center = SCROLLER_WIDTH / 2;
+    const middle = SCROLLER_HEIGHT / 2;
+    const r = center - 4;
+    context.strokeStyle = colors.tick;
+    context.lineCap = "round";
+    // Same cylinder as the vertical drum: ticks crowd and fade toward the
+    // ends, and stop at the first and last counts.
+    for (let tick = 0; tick <= last * SCROLLER_SUBTICKS; tick += 1) {
+      const angle = ((tick / SCROLLER_SUBTICKS - position) * SCROLLER_STEP_DEG * Math.PI) / 180;
+      if (Math.abs(angle) > 1.45) {
+        continue;
+      }
+      const cos = Math.cos(angle);
+      const isMajor = tick % SCROLLER_SUBTICKS === 0;
+      const length = (isMajor ? 16 : 9) * (0.7 + 0.3 * cos);
+      const x = center + r * Math.sin(angle);
+      context.globalAlpha = 0.1 + 0.55 * cos * cos;
+      context.lineWidth = 0.8 + 0.6 * cos;
+      context.beginPath();
+      context.moveTo(x, middle - length / 2);
+      context.lineTo(x, middle + length / 2);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+    // The drum's index, stood upright.
+    context.save();
+    context.translate(center, 0);
+    context.rotate(Math.PI / 2);
+    drawIndex(context, colors, SCROLLER_INSET, SCROLLER_HEIGHT - SCROLLER_INSET, 0, 1.6);
+    context.restore();
+  }
+
+  function paintValue() {
+    valueLabel.textContent = String(values[current]);
+    control.setAttribute(
+      "aria-label",
+      `${t("slider.colorCountAria")}: ${t("slider.colorCount", { count: values[current] })}`,
+    );
+  }
+
+  function glideTo(target, durationMs = 200) {
+    cancelTween();
+    cancelTween = tween(position, target, durationMs, (next) => {
+      position = next;
+      draw();
+    });
+  }
+
+  function select(next) {
+    if (next === current) {
+      return false;
+    }
+    current = next;
+    detentFeedback();
+    paintValue();
+    onChange(values[current]);
+    return true;
+  }
+
+  const drag = bindDrag(drum, {
+    axis: "x",
+    onStart() {
+      cancelTween();
+      startPosition = position;
+      hitBoundary = false;
+    },
+    onMove(travel) {
+      control.classList.add("is-active");
+      let raw = startPosition - travel / DETENT_PX;
+      if (raw < 0 || raw > last) {
+        const overshoot = raw < 0 ? raw : raw - last;
+        raw = (raw < 0 ? 0 : last) + overshoot * RUBBER_BAND_FACTOR;
+        if (
+          !hitBoundary &&
+          Math.abs(overshoot * DETENT_PX * RUBBER_BAND_FACTOR) > BOUNDARY_FEEDBACK_PX
+        ) {
+          hitBoundary = true;
+          boundaryFeedback();
+        }
+      } else {
+        hitBoundary = false;
+      }
+      position = raw;
+      select(clamp(Math.round(raw), 0, last));
+      draw();
+    },
+    onEnd(moved, event) {
+      control.classList.remove("is-active");
+      if (!moved && event.type === "pointerup") {
+        const bounds = drum.getBoundingClientRect();
+        const direction = event.clientX < bounds.left + bounds.width / 2 ? -1 : 1;
+        if (!select(clamp(current + direction, 0, last))) {
+          boundaryFeedback();
+        }
+      }
+      glideTo(current);
+    },
+  });
+
+  paintValue();
+  draw();
+
+  return {
+    sync(nextValue) {
+      current = positionOf(values, nextValue);
+      paintValue();
+      if (!drag.isActive()) {
+        glideTo(current, 320);
+      }
+    },
+    destroy() {
+      cancelTween();
+      drag.destroy();
+      control.remove();
     },
   };
 }

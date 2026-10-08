@@ -675,21 +675,26 @@ export function createRingCard(config) {
 }
 
 /**
- * A catch as a chip of its colors with no photo. It opens nothing: a tap on a
- * color searches the collection by it.
+ * A catch as a chip of its colors with no photo. A tap opens the viewer.
  * @param {object} config
  * @param {Palette} config.palette
  * @param {Palette["colors"]} config.colors Its colors in display order.
+ * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
  */
-export function createChipCard({ palette, colors }) {
+export function createChipCard({ palette, colors, onOpenViewer }) {
   const card = document.createElement("div");
   card.className = "palette-card palette-card--chip";
   card.classList.toggle("is-favorite", isPaletteFavorite(palette));
   card.dataset.paletteId = String(palette.id);
 
-  const trigger = document.createElement("div");
+  const trigger = document.createElement("button");
+  trigger.type = "button";
   trigger.className = "palette-card-trigger";
+  trigger.setAttribute("aria-label", t("viewer.openCapture"));
   trigger.appendChild(createColorBands(colors, "palette-chip-colors"));
+  trigger.addEventListener("click", () => {
+    void onOpenViewer?.(palette.id, trigger);
+  });
 
   card.append(trigger, createSelectionIndicator());
   return card;

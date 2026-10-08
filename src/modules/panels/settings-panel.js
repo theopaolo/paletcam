@@ -266,9 +266,7 @@ class SettingsPanel extends LitElement {
                   class="settings-action-button"
                   id="settingsBackupConnectButton"
                   type="button"
-                >
-                  ${t("settings.backup.connect")}
-                </button>
+                ></button>
               </div>
 
               <div class="settings-data-actions" id="settingsBackupActions" hidden>
@@ -308,9 +306,7 @@ class SettingsPanel extends LitElement {
                 class="settings-action-button"
                 id="settingsExportButton"
                 type="button"
-              >
-                ${t("settings.data.export")}
-              </button>
+              ></button>
 
               <label
                 class="panel-form-file-label settings-action-button"
@@ -322,9 +318,7 @@ class SettingsPanel extends LitElement {
                   type="file"
                   accept=".json"
                 />
-                <span class="panel-form-file-label-text">
-                  ${t("settings.data.importLabel")}
-                </span>
+                <span class="panel-form-file-label-text"></span>
               </label>
             </div>
 

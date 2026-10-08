@@ -466,6 +466,10 @@ function createSlideState(palette, index) {
       setSlideFlipped(slideState, !slideState.isFlipped);
     };
     flip.addEventListener("click", slideState.toggleFlip);
+    if (activeSession?.startOnVerso) {
+      void buildSlideVerso(slideState, palette);
+      setSlideFlipped(slideState, true);
+    }
   } else {
     flip.disabled = true;
   }
@@ -986,6 +990,7 @@ function bindViewerPanelEvents() {
 export function openPaletteViewerOverlay({
   palettes = [],
   initialIndex = 0,
+  startOnVerso = false,
   getPalettes,
   getPreviewAsset,
   onShare,
@@ -1020,6 +1025,7 @@ export function openPaletteViewerOverlay({
   activeSession = {
     palettes: [...palettes],
     activeIndex: clampIndex(initialIndex, palettes.length),
+    startOnVerso,
     slideStates: new Map(),
     getPalettes,
     getPreviewAsset,

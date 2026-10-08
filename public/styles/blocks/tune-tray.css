@@ -190,6 +190,52 @@
   padding: var(--space-16) var(--space-16) var(--space-16);
 }
 
+/* Tray scroller count (count-controls-ui.js): the thin tuning drum on its
+   side, on the free left of the row. Same finish as .tune-lever.is-thin
+   (config-drawer.css), turned 90°; no tokens cover it. */
+.count-scroller {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-right: auto;
+  user-select: none;
+}
+
+.count-scroller-value {
+  min-width: 1ch;
+  color: var(--color-accent-soft);
+  font: 600 var(--font-size-base) / 1 var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.count-scroller-drum {
+  position: relative;
+  width: 7.5rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, #030303, #111 24%, #171717 50%, #111 76%, #030303);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 6%),
+    0 1px 0 rgb(255 255 255 / 4%);
+  cursor: ew-resize;
+  touch-action: none;
+  transition: box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.count-scroller.is-active .count-scroller-drum {
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent-border),
+    0 1px 0 rgb(255 255 255 / 4%);
+}
+
+.count-scroller-drum canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .tray-key {
   display: inline-flex;
   align-items: center;

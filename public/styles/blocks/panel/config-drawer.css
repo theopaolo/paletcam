@@ -12,15 +12,13 @@ config-panel {
   padding: 0 var(--space-16) var(--space-16);
 }
 
-/* Single color has nothing to tune: the tray keeps its grid and pins keys. */
-body.is-ral-mode .config-drawer {
-  display: none;
-}
-
 /* ── Tuning panel host (tune-panels.js mounts arc, levers or rails) ── */
 .tune-panel {
   padding-top: var(--space-16);
   border-top: 1px solid var(--color-border-subtle);
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    filter var(--duration-fast) var(--easing-standard);
 }
 
 /* ── Arc: setting tabs above one curved ruler ── */
@@ -627,6 +625,9 @@ body.is-ral-mode .config-drawer {
   font: 600 var(--font-size-sm) / 1 var(--font-family-body);
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    filter var(--duration-fast) var(--easing-standard);
 }
 
 .config-drawer-action:disabled {
@@ -637,6 +638,15 @@ body.is-ral-mode .config-drawer {
 .config-drawer-guide {
   margin-left: auto;
   color: var(--color-text-muted);
+}
+
+/* Single color has nothing to tune, but the drawer keeps its place so the tray
+   doesn't jump: the settings gray out and go inert (config-panel.js). The
+   guide stays open to read. Same 0.4 as a disabled action; no token covers it. */
+body.is-ral-mode .config-drawer .tune-panel,
+body.is-ral-mode .config-drawer-action:not(.config-drawer-guide) {
+  opacity: 0.4;
+  filter: grayscale(1);
 }
 
 .config-drawer-icon {

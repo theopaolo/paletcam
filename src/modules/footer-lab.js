@@ -8,15 +8,16 @@ const STORAGE_KEY = "paletcam.footerLab";
 
 export const FOOTER_LAB_OPTIONS = Object.freeze({
   shutter: Object.freeze(["titanium", "flat", "logo"]),
-  count: Object.freeze(["dial", "numbered", "adj", "drum", "shutter"]),
+  count: Object.freeze(["dial", "numbered", "adj", "drum", "shutter", "tray"]),
   panel: Object.freeze(["arc", "thin", "rails", "drums"]),
   look: Object.freeze(["lever", "keys", "prism"]),
 });
 
-/* Théo's pick after the phone tests: flat iris, slide count, M's drums, prism look. */
+/* Théo's pick after the phone tests: flat iris, M's drums, prism look; the count
+   now tried as a sideways drum in the tray, off the shutter. */
 const DEFAULT_FOOTER_LAB = Object.freeze({
   shutter: "flat",
-  count: "shutter",
+  count: "tray",
   panel: "drums",
   look: "prism",
 });

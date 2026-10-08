@@ -339,7 +339,7 @@ const fr = {
   "config.production.neutralBalance.title": "Tons neutres",
   "config.production.neutralBalance.hint":
     "Choisissez si les emplacements favorisent les couleurs chromatiques ou les tons sombres, gris et clairs présents.",
-  "config.production.neutralBalance.color": "Couleurs",
+  "config.production.neutralBalance.color": "Vif",
   "config.production.neutralBalance.balanced": "Équilibré",
   "config.production.neutralBalance.neutrals": "Neutres",
   "camera.start.notAllowed": "Autorisez l'accès à la caméra pour capturer des palettes.",

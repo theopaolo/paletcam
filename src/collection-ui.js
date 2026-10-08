@@ -82,12 +82,7 @@ import {
 } from "./modules/panels/panel-manager.js";
 import { dismissToast, showToast, showUndoToast } from "./modules/toast-ui.js";
 import { boundaryFeedback, detentFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
-import {
-  deletePalette,
-  getSavedPaletteById,
-  getSavedPalettes,
-  setPaletteFavorites,
-} from "./palette-storage.js";
+import { deletePalette, getSavedPalettes, setPaletteFavorites } from "./palette-storage.js";
 
 const collectionView = createCollectionView(document);
 const {
@@ -765,8 +760,14 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
     return;
   }
 
-  const displayPalettes = getDisplayPalettes();
-  const initialIndex = displayPalettes.findIndex((palette) => palette.id === paletteId);
+  // The spectrum shows colors, not photos: its viewer swipes in wall order and
+  // every catch lands on the verso, the color details.
+  const isSpectrum = currentCollectionViewMode === "spectrum";
+  const getViewerPalettes = isSpectrum
+    ? () => orderPalettesBySpectrum(getDisplayPalettes()).map((entry) => entry.palette)
+    : getDisplayPalettes;
+  const viewerPalettes = getViewerPalettes();
+  const initialIndex = viewerPalettes.findIndex((palette) => palette.id === paletteId);
   if (initialIndex < 0) {
     return;
   }
@@ -775,9 +776,10 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
   try {
     await paletteViewerCoordinator.open(
       {
-        palettes: displayPalettes,
+        palettes: viewerPalettes,
         initialIndex,
-        getPalettes: getDisplayPalettes,
+        startOnVerso: isSpectrum,
+        getPalettes: getViewerPalettes,
         getPreviewAsset: getPaletteViewerPreviewAsset,
         getPublishAction: getPalettePublicationAction,
         canShare: canSharePalette,
@@ -895,7 +897,11 @@ function renderSpectrumWall(palettes) {
       wall.appendChild(heading);
     }
 
-    const card = createChipCard({ palette: entry.palette, colors: entry.colors });
+    const card = createChipCard({
+      palette: entry.palette,
+      colors: entry.colors,
+      onOpenViewer: openCollectionPaletteViewer,
+    });
     applyCardSelectionState(card);
     wall.appendChild(card);
     railEntries.push({
@@ -1362,8 +1368,9 @@ export async function openCollectionPanel() {
 }
 
 /**
- * Opens the palette viewer overlay directly for a single palette,
- * without opening the collection panel first.
+ * Opens the palette viewer overlay directly on one palette, without opening
+ * the collection panel first. The whole saved collection (newest first,
+ * collection filters ignored) is swipeable from there.
  * @param {number | string} paletteId
  * @returns {Promise<"opened" | "missing" | "pending-delete">}
  */
@@ -1377,10 +1384,13 @@ export async function openDirectPaletteViewer(paletteId) {
     return "pending-delete";
   }
 
-  const palette = await getSavedPaletteById(paletteId);
+  const savedPalettes = await getSavedPalettes();
   if (collectionLifecycle.isDestroyed() || !isCurrentOpenIntent()) {
     return "missing";
   }
+
+  const numericPaletteId = Number(paletteId);
+  const palette = savedPalettes.find((entry) => entry.id === numericPaletteId);
   if (!palette) {
     return "missing";
   }
@@ -1389,11 +1399,15 @@ export async function openDirectPaletteViewer(paletteId) {
     return "pending-delete";
   }
 
+  const getViewablePalettes = () =>
+    savedPalettes.filter((entry) => !isPalettePendingDeletion(entry.id));
+  const viewablePalettes = getViewablePalettes();
+
   const didOpen = await paletteViewerCoordinator.open(
     {
-      palettes: [palette],
-      initialIndex: 0,
-      getPalettes: () => (isPalettePendingDeletion(palette.id) ? [] : [palette]),
+      palettes: viewablePalettes,
+      initialIndex: viewablePalettes.indexOf(palette),
+      getPalettes: getViewablePalettes,
       getPreviewAsset: getPaletteViewerPreviewAsset,
       getPublishAction: getPalettePublicationAction,
       canShare: canSharePalette,
@@ -1954,15 +1968,18 @@ function bindCollectionUiEvents() {
   bindCollectionEventListener(collectionGrid, "pointerup", clearLongPress);
   bindCollectionEventListener(collectionGrid, "pointercancel", clearLongPress);
 
-  // In the bands, the mosaic and the spectrum a color is its own target: a tap
-  // on it searches by it, and only the photo opens the viewer. Capture runs
-  // this before the card's own click handler.
+  // In the bands and the mosaic a color is its own target: a tap on it searches
+  // by it, and only the photo opens the viewer. A spectrum chip has no photo,
+  // so the whole chip opens the viewer. Capture runs this before the card's
+  // own click handler.
   bindCollectionEventListener(
     collectionGrid,
     "click",
     (event) => {
       const color =
-        !selectionState.isActive() && event.target instanceof Element
+        !selectionState.isActive() &&
+        event.target instanceof Element &&
+        !event.target.closest(".palette-card--chip")
           ? getTappedCardColor(event.target)
           : null;
       if (!color) {

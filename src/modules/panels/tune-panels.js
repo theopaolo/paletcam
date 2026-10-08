@@ -159,7 +159,7 @@ function rubberBand(raw, model) {
 }
 
 /** Eases a value from `from` to `to`; returns a cancel function. */
-function tween(from, to, durationMs, onFrame) {
+export function tween(from, to, durationMs, onFrame) {
   let frameId = 0;
   const start = performance.now();
   const frame = (now) => {
@@ -188,7 +188,7 @@ function createDoubleTap() {
  * travel since the press; onEnd gets whether the finger moved past the tap
  * slop.
  */
-function bindDrag(target, { axis, onStart, onMove, onEnd }) {
+export function bindDrag(target, { axis, onStart, onMove, onEnd }) {
   let gesture = null;
   const travel = (event) => (axis === "x" ? event.clientX - gesture.x : gesture.y - event.clientY);
 
@@ -241,7 +241,7 @@ function bindDrag(target, { axis, onStart, onMove, onEnd }) {
 }
 
 /** Canvas sized in CSS pixels, drawn at the device ratio. */
-function prepareCanvas(canvas, width, height) {
+export function prepareCanvas(canvas, width, height) {
   const ratio = Math.min(3, window.devicePixelRatio || 1);
   canvas.width = Math.round(width * ratio);
   canvas.height = Math.round(height * ratio);
@@ -250,7 +250,7 @@ function prepareCanvas(canvas, width, height) {
   return context;
 }
 
-function readColors(root) {
+export function readColors(root) {
   const styles = getComputedStyle(root);
   const token = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
   return {
@@ -265,7 +265,7 @@ function readColors(root) {
 }
 
 /** The lit index across a drum, with a soft glow. */
-function drawIndex(context, colors, fromX, toX, y, width) {
+export function drawIndex(context, colors, fromX, toX, y, width) {
   context.save();
   context.shadowColor = colors.glow;
   context.shadowBlur = 7;
@@ -650,7 +650,7 @@ function createLever(model, setting, { thin, colors }) {
 /* ── The look's three stops ── */
 
 /* Each stop is drawn as a color wheel whose neutral share (config-drawer.css)
-   grows from Couleurs to Neutres. */
+   grows from Vif to Neutres. */
 const LOOK_MARKUP = Object.freeze({
   /* A slot with a knurled cap, the stops engraved beside it (after
      Fujifilm's S/C/M focus lever). Drag the cap or tap a stop. */
@@ -729,7 +729,7 @@ function createLookControl(model, setting, kind) {
           },
           onMove(travel) {
             element.classList.add("is-active");
-            // The lever's cap rides up toward Couleurs; the prism's face rolls
+            // The lever's cap rides up toward Vif; the prism's face rolls
             // up and brings the next one in from below.
             if (wraps) {
               position = startPosition + travel / LOOK_STOP_PX;

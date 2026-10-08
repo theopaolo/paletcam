@@ -330,7 +330,7 @@ const en = {
   "config.production.neutralBalance.title": "Neutral balance",
   "config.production.neutralBalance.hint":
     "Choose whether palette slots favor chromatic colors or significant dark, gray, and light anchors.",
-  "config.production.neutralBalance.color": "Color",
+  "config.production.neutralBalance.color": "Vivid",
   "config.production.neutralBalance.balanced": "Balanced",
   "config.production.neutralBalance.neutrals": "Neutrals",
   "camera.start.notAllowed": "Allow camera access to capture palettes.",

@@ -119,6 +119,7 @@ const FOOTER_LAB_ROWS = Object.freeze([
       ["adj", "ADJ"],
       ["drum", "Drum"],
       ["shutter", "Slide"],
+      ["tray", "Tray"],
     ],
   }),
   Object.freeze({
@@ -174,11 +175,14 @@ function renderFooterLab() {
 class ConfigPanel extends LitElement {
   static properties = {
     isGuideOpen: { state: true },
+    /** Single color has nothing to tune: the drawer stays put, grayed and out of reach. */
+    isTuningDisabled: { type: Boolean, attribute: false },
   };
 
   constructor() {
     super();
     this.isGuideOpen = false;
+    this.isTuningDisabled = false;
   }
 
   createRenderRoot() {
@@ -278,18 +282,30 @@ class ConfigPanel extends LitElement {
         aria-hidden="true"
         inert
       >
-        <div class="tune-panel" id="configTunePanel"></div>
+        <div class="tune-panel" id="configTunePanel" ?inert=${this.isTuningDisabled}></div>
 
         <div class="config-drawer-model" hidden>
           ${TUNING_FIELDS.map(renderTuningInput)} ${renderNeutralBalanceInputs()}
         </div>
 
         <div class="config-drawer-footer" role="group" aria-label=${t("config.history.aria")}>
-          <button class="config-drawer-action" id="configUndoButton" type="button" disabled>
+          <button
+            class="config-drawer-action"
+            id="configUndoButton"
+            type="button"
+            ?inert=${this.isTuningDisabled}
+            disabled
+          >
             <span class="config-drawer-icon config-drawer-icon-undo" aria-hidden="true"></span>
             ${t("config.history.undo")}
           </button>
-          <button class="config-drawer-action" id="configRedoButton" type="button" disabled>
+          <button
+            class="config-drawer-action"
+            id="configRedoButton"
+            type="button"
+            ?inert=${this.isTuningDisabled}
+            disabled
+          >
             <span class="config-drawer-icon config-drawer-icon-redo" aria-hidden="true"></span>
             ${t("config.history.redo")}
           </button>
@@ -301,7 +317,12 @@ class ConfigPanel extends LitElement {
             <span class="config-drawer-icon config-drawer-icon-guide" aria-hidden="true"></span>
             ${t("config.guide.open")}
           </button>
-          <button class="config-drawer-action" id="configResetButton" type="button">
+          <button
+            class="config-drawer-action"
+            id="configResetButton"
+            type="button"
+            ?inert=${this.isTuningDisabled}
+          >
             <span class="config-drawer-icon config-drawer-icon-reset" aria-hidden="true"></span>
             ${t("config.history.reset")}
           </button>

@@ -13,6 +13,7 @@ import {
   createAdjLeverUi,
   createCountDialUi,
   createShutterSlideUi,
+  createTrayScrollerUi,
 } from "./modules/count-controls-ui.js";
 import { getFooterLab, subscribeFooterLab } from "./modules/footer-lab.js";
 import { createIrisShutter } from "./modules/iris-shutter.js";
@@ -77,6 +78,7 @@ const {
   captureCameraStage,
   captureContainer,
   capturePaletteStage,
+  configPanel,
   frameCanvas,
   gridKey,
   outputPalette,
@@ -187,7 +189,7 @@ const footerControls = /** @type {HTMLElement | null} */ (
   captureButton?.closest(".btn-containers") ?? null
 );
 const irisShutter = createIrisShutter({ button: captureButton });
-/** The count control of the active footer variant (dial, ADJ lever or shutter slide); the drum is always built. */
+/** The count control of the active footer variant (dial, ADJ lever, shutter slide or tray scroller); the drum is always built. */
 let countControl = null;
 
 /** Single color reuses the RAL capture path: crosshair sample, catches saved as "ral". */
@@ -233,6 +235,11 @@ function applyFooterLab({ shutter, count }) {
     });
   } else if (count === "adj") {
     countControl = createAdjLeverUi({ ...countOptions, host: footerControls });
+  } else if (count === "tray") {
+    countControl = createTrayScrollerUi({
+      ...countOptions,
+      host: tuneTray?.querySelector(".tune-quick") ?? null,
+    });
   } else if (count === "shutter") {
     countControl = createShutterSlideUi({
       ...countOptions,
@@ -316,6 +323,7 @@ function syncCaptureMode(mode) {
 
   // Toggle camera UI elements
   document.body.classList.toggle("is-ral-mode", isRal);
+  if (configPanel) configPanel.isTuningDisabled = isRal;
   if (ralReticle) ralReticle.hidden = !isRal;
   if (ralLiveSwatch) ralLiveSwatch.hidden = !isRal;
   if (paletteCaptureStage) paletteCaptureStage.hidden = isRal;

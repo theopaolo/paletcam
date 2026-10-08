@@ -654,6 +654,8 @@ interface ShareResult {
 interface PaletteViewerOpenOptions {
   palettes?: Palette[];
   initialIndex?: number;
+  /** Every slide opens on its verso, the color details, instead of the photo. */
+  startOnVerso?: boolean;
   returnFocusTarget?: HTMLElement | null;
   getPalettes?: () => Palette[];
   getPreviewAsset?: (palette: Palette) => Promise<PreviewAsset>;
