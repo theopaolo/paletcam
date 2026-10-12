@@ -20,7 +20,12 @@ import { buildCommunityCatchPublishPayload } from "../modules/community-publish-
 import { beginCriticalOperation } from "../modules/critical-operation.js";
 import { reportAppError } from "../modules/error-reporting.js";
 import { createCommunityServiceError, mapApiError } from "./errors.js";
-import { applyPaletteRemoteState, getPaletteRemoteCatchId } from "./palette-state.js";
+import {
+  applyPaletteRemoteState,
+  getPaletteRemoteCatchId,
+  isPaletteListedInCommunity,
+  isPalettePublicationRejected,
+} from "./palette-state.js";
 import { blobToBase64 } from "../modules/blob-base64.js";
 import { COMMUNITY_API_CONTRACT_LIMITS } from "../community-api-contract.js";
 
@@ -594,15 +599,16 @@ async function publishPaletteToCommunityFeedOperation(palette, publicationSessio
     throw createCommunityServiceError("Palette is required.", { code: "MISSING_PALETTE" });
   }
 
-  const remoteCatchId = getPaletteRemoteCatchId(palette);
-  const currentModerationStatus = normalizeCatchStatus(palette?.moderationStatus);
-  const canRepublish =
-    currentModerationStatus === CATCH_MODERATION_STATUSES.REJECTED ||
-    currentModerationStatus === CATCH_MODERATION_STATUSES.PRIVATE;
+  if (isPalettePublicationRejected(palette)) {
+    throw createCommunityServiceError("Palette was rejected by moderation.", {
+      code: "PUBLICATION_REJECTED",
+    });
+  }
 
+  const remoteCatchId = getPaletteRemoteCatchId(palette);
   if (remoteCatchId) {
     assertPaletteRemoteOwner(palette, publicationSession);
-    if (!canRepublish) {
+    if (isPaletteListedInCommunity(palette)) {
       throw createCommunityServiceError("Palette already published.", {
         code: "ALREADY_PUBLISHED",
       });
@@ -803,8 +809,8 @@ async function unpublishPaletteFromCommunityFeedOperation(palette, publicationSe
     });
   }
 
-  const currentModerationStatus = normalizeCatchStatus(palette?.moderationStatus);
-  if (currentModerationStatus !== CATCH_MODERATION_STATUSES.PUBLIC) {
+  // A catch under review can be withdrawn too, not only a public one.
+  if (!isPaletteListedInCommunity(palette)) {
     throw createCommunityServiceError("Palette is not public.", { code: "NOT_PUBLIC" });
   }
 
