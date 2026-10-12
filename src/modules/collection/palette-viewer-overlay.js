@@ -82,6 +82,16 @@ function getPublishButtonCopy() {
       iconName: "unpublish",
       visibleLabel: t("viewer.action.unpublishLabel"),
     },
+    pending: {
+      label: t("viewer.action.unpublishAria"),
+      iconName: "unpublish",
+      visibleLabel: t("publication.status.pending"),
+    },
+    rejected: {
+      label: t("viewer.action.rejectedAria"),
+      iconName: "unpublish",
+      visibleLabel: t("viewer.action.rejectedLabel"),
+    },
   };
 }
 
@@ -173,6 +183,19 @@ function getPublishAction(palette = getActivePalette()) {
   return activeSession?.getPublishAction?.(palette) === "unpublish" ? "unpublish" : "publish";
 }
 
+/* What the pill shows: publish / unpublish, or a moderation state. Under
+   review it still taps to withdraw; rejected is final, so canPublish turns
+   the pill off. */
+function getPublishPillState(palette = getActivePalette()) {
+  const action = getPublishAction(palette);
+  const tone = palette ? activeSession?.getPublicationMeta?.(palette)?.tone : null;
+  if (tone === "rejected") {
+    return "rejected";
+  }
+
+  return action === "unpublish" && tone === "pending" ? "pending" : action;
+}
+
 // Previews only need a palette and a session that can supply the asset; the
 // per-slide load state tracks whether fetching it actually succeeds.
 function canLoadPreview(palette) {
@@ -245,9 +268,13 @@ function syncPublishButtonGlow() {
 }
 
 function syncPublishButtonCopy() {
-  const action = getPublishAction();
-  hydrateViewerActionButton(publishButton, getPublishButtonCopy()[action]);
-  publishButton?.setAttribute("data-publish-state", action);
+  const pillState = getPublishPillState();
+  hydrateViewerActionButton(publishButton, getPublishButtonCopy()[pillState]);
+  // pending keeps the quiet "unpublish" look; only "publish" glows.
+  publishButton?.setAttribute(
+    "data-publish-state",
+    pillState === "pending" ? "unpublish" : pillState,
+  );
   syncPublishButtonGlow();
 }
 
@@ -319,9 +346,12 @@ function syncViewerMeta() {
 
   if (metaDate) {
     const dateLabel = formatPaletteTimestamp(palette.timestamp);
-    const publishedLabel =
-      getPublishAction(palette) === "unpublish" ? t("viewer.meta.published") : "";
-    metaDate.textContent = [dateLabel, publishedLabel].filter(Boolean).join(" · ");
+    const publicationLabel = {
+      pending: t("publication.status.pending"),
+      rejected: t("viewer.action.rejectedLabel"),
+      unpublish: t("viewer.meta.published"),
+    }[getPublishPillState(palette)];
+    metaDate.textContent = [dateLabel, publicationLabel].filter(Boolean).join(" · ");
   }
 
   if (metaPosition) {
@@ -1000,6 +1030,7 @@ export function openPaletteViewerOverlay({
   onDelete,
   onToggleFavorite,
   getPublishAction,
+  getPublicationMeta,
   canShare,
   canExport,
   canPublish,
@@ -1036,6 +1067,7 @@ export function openPaletteViewerOverlay({
     onDelete,
     onToggleFavorite,
     getPublishAction,
+    getPublicationMeta,
     canShare,
     canExport,
     canPublish,

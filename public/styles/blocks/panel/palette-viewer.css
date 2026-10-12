@@ -71,11 +71,12 @@
 }
 
 /* Publishable state gets the accent treatment; once published
-   ("unpublish" action) the pill goes quiet and keeps the default shell.
+   ("unpublish" action) or rejected, the pill goes quiet and keeps the
+   default shell.
    The 2px ring is painted by the palette gradient itself (border-box
    layer under a padding-box fill), so it drifts along with the glow. */
 .palette-viewer-actions
-  .palette-action-publish:not([data-publish-state="unpublish"]) {
+  .palette-action-publish:not([data-publish-state="unpublish"], [data-publish-state="rejected"]) {
   color: var(--color-text-primary);
   border-color: transparent;
   background:
@@ -89,7 +90,7 @@
 }
 
 .palette-viewer-actions
-  .palette-action-publish:not([data-publish-state="unpublish"]):active {
+  .palette-action-publish:not([data-publish-state="unpublish"], [data-publish-state="rejected"]):active {
   background:
     linear-gradient(var(--color-surface-shell), var(--color-surface-shell))
       padding-box,
@@ -101,7 +102,7 @@
 
 /* Soft animated glow built from the previewed palette's own colors. */
 .palette-viewer-actions
-  .palette-action-publish:not([data-publish-state="unpublish"])::before {
+  .palette-action-publish:not([data-publish-state="unpublish"], [data-publish-state="rejected"])::before {
   content: "";
   position: absolute;
   inset: 0;

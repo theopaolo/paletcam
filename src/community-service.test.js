@@ -354,6 +354,25 @@ describe("publishPaletteToCommunityFeed", () => {
     expect(palette.remoteOwnerAccountKey).toBe(ownerAccountKey);
   });
 
+  test("refuses to resubmit or withdraw a catch rejected by moderation", async () => {
+    const { postCatchToCommunity, service, unpublishCatchFromCommunity } =
+      await loadCommunityService({ token: "session-token" });
+    const palette = createPublishablePalette({
+      remoteCatchId: "remote-catch-id",
+      remoteOwnerAccountKey: TEST_OWNER_ACCOUNT_KEY,
+      moderationStatus: "REJECTED",
+    });
+
+    await expect(service.publishPaletteToCommunityFeed(palette)).rejects.toMatchObject({
+      code: "PUBLICATION_REJECTED",
+    });
+    await expect(service.unpublishPaletteFromCommunityFeed(palette)).rejects.toMatchObject({
+      code: "NOT_PUBLIC",
+    });
+    expect(postCatchToCommunity).not.toHaveBeenCalled();
+    expect(unpublishCatchFromCommunity).not.toHaveBeenCalled();
+  });
+
   test("does not POST when durable publication recovery storage is unavailable", async () => {
     setTestLocalStorage(new UnwritableStorage());
     const { postCatchToCommunity, service, updatePaletteRemoteState } = await loadCommunityService({
@@ -741,6 +760,22 @@ describe("unpublishPaletteFromCommunityFeed", () => {
       }),
     );
     expect(palette.remoteOwnerAccountKey).toBe(TEST_OWNER_ACCOUNT_KEY);
+  });
+
+  test("withdraws an ownerless legacy palette that is still under review", async () => {
+    const { service, unpublishCatchFromCommunity } = await loadCommunityService({
+      token: "session-token",
+    });
+    const palette = createPublishedPalette();
+    palette.remoteOwnerAccountKey = null;
+    palette.moderationStatus = "TO_MODERATE";
+
+    expect(service.getPalettePublicationAction(palette)).toBe("unpublish");
+    await expect(service.unpublishPaletteFromCommunityFeed(palette)).resolves.toMatchObject({
+      moderationStatus: "PRIVATE",
+    });
+    expect(unpublishCatchFromCommunity).toHaveBeenCalledTimes(1);
+    expect(service.getPalettePublicationAction(palette)).toBe("publish");
   });
 
   test("does not claim an ownerless legacy palette when the server cannot verify it", async () => {
