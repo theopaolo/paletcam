@@ -298,6 +298,13 @@ class SettingsPanel extends LitElement {
                 >
                   ${t("settings.backup.disconnect")}
                 </button>
+                <button
+                  class="settings-action-button panel-form-danger-button"
+                  id="settingsBackupDeleteAccountButton"
+                  type="button"
+                >
+                  ${t("settings.backup.deleteAccount")}
+                </button>
               </div>
             </div>
 

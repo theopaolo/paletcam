@@ -118,3 +118,15 @@ export async function resolveBackupTombstones(backupUids) {
   }
   await db.backupTombstones.bulkDelete(uids);
 }
+
+/**
+ * Forgets what the server held after the account was deleted: every palette
+ * goes back to awaiting upload and pending tombstones are dropped. Palette
+ * content is untouched.
+ */
+export async function resetBackupLedger(resetAt = new Date().toISOString()) {
+  await db.transaction("rw", db.palettes, db.backupTombstones, async () => {
+    await db.palettes.toCollection().modify({ backupDirtyAt: resetAt, backupUploadedAt: null });
+    await db.backupTombstones.clear();
+  });
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BackupQuotaExceededError, createBackupStore, sha256HexOfBytes } from "./store.js";
@@ -105,6 +105,35 @@ describe("sync-server store", () => {
     await expect(
       store.putAsset(ACCOUNT_ID, sha256HexOfBytes(bigAsset), bigAsset),
     ).rejects.toBeInstanceOf(BackupQuotaExceededError);
+  });
+
+  test("a write queued behind an account delete does not recreate the account", async () => {
+    const { dataDir, store } = await createStore();
+    await store.putPalette(ACCOUNT_ID, PALETTE_UID, {
+      documentText: paletteDocument(),
+      referencedAssets: [],
+    });
+
+    const deleting = store.deleteAccount(ACCOUNT_ID);
+    const queuedWrite = store.putPalette(ACCOUNT_ID, PALETTE_UID, {
+      documentText: paletteDocument(),
+      referencedAssets: [],
+    });
+
+    await deleting;
+    await expect(queuedWrite).rejects.toThrow("deleted");
+    expect(await readdir(dataDir)).toEqual([]);
+  });
+
+  test("the sweep finishes an account removal that stopped after the rename", async () => {
+    const { dataDir, store } = await createStore();
+    const leftover = join(dataDir, `${ACCOUNT_ID}.deleted`, "palettes", PALETTE_UID);
+    await mkdir(leftover, { recursive: true });
+    await writeFile(join(leftover, "v1.json"), paletteDocument());
+
+    await store.sweepAllAccounts();
+
+    expect(await readdir(dataDir)).toEqual([]);
   });
 
   test("usage counts the latest metadata and assets", async () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createAccountRegistry } from "./accounts.js";
@@ -36,7 +36,7 @@ async function createTestApp(configOverrides = {}, storeOverrides = {}) {
     getClientIp: () => "test-ip",
   });
 
-  return { app, store };
+  return { app, dataDir, store };
 }
 
 async function pair(app) {
@@ -160,6 +160,55 @@ describe("sync-server app", () => {
     ).json();
     expect(manifest.tombstones[uid]).toBeDefined();
     expect(manifest.palettes[uid]).toBeUndefined();
+  });
+
+  test("account deletion purges the caller's data and keeps other accounts", async () => {
+    const { app, dataDir } = await createTestApp();
+    const doomed = await pair(app);
+    const kept = await pair(app);
+    const bytes = new Uint8Array([5, 5, 5]);
+    const hash = sha256HexOfBytes(bytes);
+    for (const { authorization } of [doomed, kept]) {
+      await app.request(`/v1/assets/${hash}`, {
+        method: "PUT",
+        headers: { authorization },
+        body: bytes,
+      });
+      for (const uid of ["11112222-3333-4444", "55556666-7777-8888"]) {
+        await app.request(`/v1/palettes/${uid}`, {
+          method: "PUT",
+          headers: { authorization },
+          body: paletteEnvelope([hash]),
+        });
+      }
+    }
+    await app.request("/v1/palettes/55556666-7777-8888", {
+      method: "DELETE",
+      headers: { authorization: doomed.authorization },
+    });
+
+    expect((await app.request("/v1/account", { method: "DELETE" })).status).toBe(401);
+
+    const deleted = await app.request("/v1/account", {
+      method: "DELETE",
+      headers: { authorization: doomed.authorization },
+    });
+    expect(await deleted.json()).toEqual({ ok: true });
+
+    // The secret, and so the recovery code built from it, stops working.
+    const headers = { authorization: doomed.authorization };
+    expect((await app.request("/v1/manifest", { headers })).status).toBe(401);
+    expect((await app.request("/v1/account", { method: "DELETE", headers })).status).toBe(401);
+    expect(await readdir(dataDir)).toEqual([kept.accountId]);
+
+    const { manifest } = await (
+      await app.request("/v1/manifest", { headers: { authorization: kept.authorization } })
+    ).json();
+    expect(Object.keys(manifest.palettes)).toHaveLength(2);
+    const download = await app.request(`/v1/assets/${hash}`, {
+      headers: { authorization: kept.authorization },
+    });
+    expect(new Uint8Array(await download.arrayBuffer())).toEqual(bytes);
   });
 
   test("quota exhaustion answers 507", async () => {

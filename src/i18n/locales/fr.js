@@ -236,6 +236,11 @@ const fr = {
   "settings.backup.disconnect": "Déconnecter",
   "settings.backup.disconnectConfirm":
     "Déconnecter la sauvegarde ? Vos palettes restent sur le serveur ; le code de récupération sera nécessaire pour vous reconnecter.",
+  "settings.backup.deleteAccount": "Supprimer la sauvegarde en ligne",
+  "settings.backup.deleteAccountConfirm":
+    "Supprimer la sauvegarde en ligne ? Vos palettes restent sur cet appareil, mais la copie en ligne sera effacée définitivement et le code de récupération ne fonctionnera plus.",
+  "settings.backup.accountDeleted": "Sauvegarde en ligne supprimée.",
+  "settings.backup.deleteAccountFailed": "Impossible de supprimer la sauvegarde en ligne.",
   "settings.backup.errorUnauthorized": "Code refusé par le serveur de sauvegarde.",
   "settings.backup.errorNetwork": "Serveur de sauvegarde injoignable.",
   "settings.backup.errorQuota": "Espace de sauvegarde plein.",

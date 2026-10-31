@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import {
   DEFAULT_RETRY_DELAY_MS,
+  deleteBackupAccount,
   fetchBackupManifest,
   getRetryDelayMs,
   MAX_RATE_LIMIT_RETRIES,
@@ -81,5 +82,21 @@ describe("backup api rate-limit handling", () => {
     });
 
     await expect(fetchBackupManifest(CREDENTIALS)).rejects.toMatchObject({ code: "network" });
+  });
+});
+
+describe("backup api account deletion", () => {
+  test("sends an authenticated DELETE to /v1/account", async () => {
+    const fetchMock = mock(async () => jsonResponse(200, { ok: true }));
+    globalThis.fetch = fetchMock;
+
+    await deleteBackupAccount(CREDENTIALS);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url.endsWith("/v1/account")).toBe(true);
+    expect(init.method).toBe("DELETE");
+    expect(init.headers.Authorization).toBe(
+      `Bearer ${CREDENTIALS.accountId}.${CREDENTIALS.secret}`,
+    );
   });
 });

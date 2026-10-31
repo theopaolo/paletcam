@@ -28,6 +28,7 @@ async function loadService({
   tombstones = [],
   photoBlob = new Blob(["photo-bytes"]),
   putPaletteImplementation,
+  deleteAccountImplementation,
 } = {}) {
   const api = {
     fetchBackupManifest: mock(async () => ({
@@ -39,6 +40,7 @@ async function loadService({
     putBackupPalette: mock(putPaletteImplementation ?? (async () => {})),
     putBackupAsset: mock(async () => {}),
     deleteBackupPalette: mock(async () => {}),
+    deleteBackupAccount: mock(deleteAccountImplementation ?? (async () => {})),
   };
   let batchIndex = 0;
   const ledger = {
@@ -51,14 +53,17 @@ async function loadService({
     markPaletteBackedUp: mock(async () => true),
     resolveBackupTombstones: mock(async () => {}),
     countBackupProgress: mock(async () => ({ total: 2, dirty: 0, backedUp: 2 })),
+    resetBackupLedger: mock(async () => {}),
   };
 
   mock.module(apiModuleUrl, () => api);
   mock.module(ledgerModuleUrl, () => ledger);
-  mock.module(credentialsModuleUrl, () => ({
+  const credentialsStore = {
     getBackupCredentials: () => credentials,
     saveBackupCredentials: mock(() => credentials),
-  }));
+    clearBackupCredentials: mock(() => {}),
+  };
+  mock.module(credentialsModuleUrl, () => credentialsStore);
   mock.module(assetsModuleUrl, () => ({
     readPalettePhotoBlobById: mock(async () => photoBlob),
   }));
@@ -66,7 +71,7 @@ async function loadService({
   mock.module(clientLogModuleUrl, () => ({ clientLog: () => {} }));
 
   const module = await import(`${serviceModuleUrl}?test=${Math.random()}`);
-  return { api, ledger, module };
+  return { api, credentialsStore, ledger, module };
 }
 
 afterEach(() => {
@@ -156,5 +161,33 @@ describe("backup service flush", () => {
     await Promise.all([module.runBackupFlush(), module.runBackupFlush()]);
 
     expect(api.fetchBackupManifest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("backup account removal", () => {
+  test("deletes the server account, then resets the ledger and forgets the credentials", async () => {
+    const { api, credentialsStore, ledger, module } = await loadService();
+
+    await module.removeBackupAccount();
+
+    expect(api.deleteBackupAccount).toHaveBeenCalledWith(CREDENTIALS);
+    expect(ledger.resetBackupLedger).toHaveBeenCalledTimes(1);
+    expect(credentialsStore.clearBackupCredentials).toHaveBeenCalledTimes(1);
+    expect(module.getBackupStatusSnapshot()).toMatchObject({ paired: false, errorCode: null });
+  });
+
+  test("clears nothing locally when the server call fails", async () => {
+    const { credentialsStore, ledger, module } = await loadService({
+      deleteAccountImplementation: async () => {
+        const error = new Error("offline");
+        error.code = "network";
+        throw error;
+      },
+    });
+
+    await expect(module.removeBackupAccount()).rejects.toMatchObject({ code: "network" });
+
+    expect(ledger.resetBackupLedger).not.toHaveBeenCalled();
+    expect(credentialsStore.clearBackupCredentials).not.toHaveBeenCalled();
   });
 });

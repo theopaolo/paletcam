@@ -136,3 +136,8 @@ export async function deleteBackupPalette(credentials, backupUid) {
     method: "DELETE",
   });
 }
+
+/** Deletes the whole account on the server. The credentials stop working. */
+export async function deleteBackupAccount(credentials) {
+  await backupRequest("/v1/account", { credentials, method: "DELETE" });
+}

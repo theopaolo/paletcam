@@ -19,11 +19,16 @@ All `/v1` routes except `/v1/pair` require `Authorization: Bearer <accountId>.<s
 | `GET /health` | liveness + pairing state |
 | `POST /v1/pair` | mint an account; returns the recovery code **once** |
 | `GET /v1/manifest` | palette uids + hashes, asset hashes, tombstones, usage |
+| `DELETE /v1/account` | delete the account and all its data |
 | `PUT /v1/palettes/:uid` | store `{palette, assets:[sha256]}` as a new version |
 | `GET /v1/palettes/:uid` | latest metadata document |
 | `DELETE /v1/palettes/:uid` | tombstone (idempotent) |
 | `PUT /v1/assets/:sha256` | store a photo blob; body must match the hash |
 | `GET /v1/assets/:sha256` | stream a photo blob |
+
+Deleting an account renames its directory to `<accountId>.deleted`, which
+revokes the credentials in one atomic step, then removes it. If the removal
+fails, the sweep at startup and every 24 hours finishes it.
 
 The recovery code (`paletcam-<accountId>-<secret>`) is shown to the user once
 at pairing and is the only way back in after a device wipe — the server stores

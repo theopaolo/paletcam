@@ -6,6 +6,7 @@ import { ACCOUNT_ID_PATTERN } from "./accounts.js";
 export const PALETTE_UID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]{7,63}$/;
 export const ASSET_HASH_PATTERN = /^[a-f0-9]{64}$/;
 export const MAX_ASSETS_PER_PALETTE = 8;
+const DELETED_ACCOUNT_DIR_PATTERN = /^[a-f0-9]{16}\.deleted$/;
 
 export class BackupQuotaExceededError extends Error {
   constructor() {
@@ -30,6 +31,7 @@ function createEmptyManifest() {
  *     manifest.json           authoritative index, written atomically
  *     palettes/<uid>/*.json   versioned metadata documents, newest kept last
  *     assets/<sha256>         immutable content-addressed photo blobs
+ *   <dataDir>/<accountId>.deleted/   a deleted account awaiting removal
  *
  * All mutating operations on one account are serialized through an in-process
  * lock; the manifest is rewritten via tmp-file + rename so a crash can never
@@ -44,6 +46,16 @@ export function createBackupStore({
 }) {
   /** @type {Map<string, Promise<unknown>>} */
   const accountLocks = new Map();
+  // A write that authenticated before the delete ran is still queued on the
+  // lock. Without this check its mkdir would recreate the account directory.
+  /** @type {Set<string>} */
+  const deletedAccountIds = new Set();
+
+  function assertAccountNotDeleted(accountId) {
+    if (deletedAccountIds.has(accountId)) {
+      throw new Error("The account was deleted.");
+    }
+  }
 
   function withAccountLock(accountId, operation) {
     const previous = accountLocks.get(accountId) ?? Promise.resolve();
@@ -123,6 +135,7 @@ export function createBackupStore({
    */
   function putPalette(accountId, uid, { documentText, referencedAssets }) {
     return withAccountLock(accountId, async () => {
+      assertAccountNotDeleted(accountId);
       const documentBytes = Buffer.byteLength(documentText, "utf8");
       const manifest = await readManifest(accountId);
       const replacedBytes = manifest.palettes[uid]?.bytes || 0;
@@ -193,6 +206,7 @@ export function createBackupStore({
 
   function putAsset(accountId, assetHash, bytes) {
     return withAccountLock(accountId, async () => {
+      assertAccountNotDeleted(accountId);
       const manifest = await readManifest(accountId);
       if (manifest.assets[assetHash]) {
         return { stored: false };
@@ -285,13 +299,49 @@ export function createBackupStore({
     });
   }
 
+  function deletedAccountDir(accountId) {
+    return join(dataDir, `${accountId}.deleted`);
+  }
+
+  async function removeDeletedAccountDir(path) {
+    await rm(path, { recursive: true, force: true }).catch((error) => {
+      console.error(`[sync-server] removing ${path} failed, the next sweep retries:`, error);
+    });
+  }
+
+  /**
+   * Deletes an account with everything it stored: credentials, palette
+   * versions, tombstones, assets and quota usage all live in its directory.
+   * Renaming that directory is the commit point. account.json moves with it,
+   * so the secret and the recovery code stop working in one atomic step. The
+   * removal that follows may fail halfway, and `sweepAllAccounts` then finishes it.
+   */
+  function deleteAccount(accountId) {
+    return withAccountLock(accountId, async () => {
+      try {
+        await rename(accountDir(accountId), deletedAccountDir(accountId));
+      } catch (error) {
+        // ENOENT: a concurrent delete of the same account already committed.
+        if (error?.code !== "ENOENT") throw error;
+      }
+      deletedAccountIds.add(accountId);
+      await removeDeletedAccountDir(deletedAccountDir(accountId));
+    });
+  }
+
   async function sweepAllAccounts(options = {}) {
-    let accountIds = [];
+    let entries = [];
     try {
-      accountIds = (await readdir(dataDir)).filter((entry) => ACCOUNT_ID_PATTERN.test(entry));
+      entries = await readdir(dataDir);
     } catch {
       return { accounts: 0 };
     }
+
+    for (const entry of entries.filter((name) => DELETED_ACCOUNT_DIR_PATTERN.test(name))) {
+      await removeDeletedAccountDir(join(dataDir, entry));
+    }
+
+    const accountIds = entries.filter((entry) => ACCOUNT_ID_PATTERN.test(entry));
 
     for (const accountId of accountIds) {
       await sweepAccount(accountId, options).catch((error) => {
@@ -302,6 +352,7 @@ export function createBackupStore({
   }
 
   return {
+    deleteAccount,
     getAssetPath,
     getManifestSnapshot,
     getPaletteDocument,

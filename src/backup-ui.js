@@ -8,6 +8,7 @@ import {
 import {
   connectBackupAccount,
   getBackupStatusSnapshot,
+  removeBackupAccount,
   requestBackupFlush,
   subscribeBackupStatus,
 } from "./backup-service.js";
@@ -24,6 +25,14 @@ const ERROR_MESSAGE_KEYS = Object.freeze({
 
 function getBackupErrorMessage(errorCode) {
   return t(ERROR_MESSAGE_KEYS[errorCode] ?? "settings.backup.errorGeneric");
+}
+
+/** Known codes get their own message, others the action's failure line plus the code. */
+function getBackupActionErrorMessage(error, failedKey) {
+  const errorCode = typeof error?.code === "string" ? error.code : "unknown";
+  return ERROR_MESSAGE_KEYS[errorCode]
+    ? getBackupErrorMessage(errorCode)
+    : `${t(failedKey)} (${errorCode})`;
 }
 
 /** @param {ParentNode} root */
@@ -48,9 +57,13 @@ export function initBackupUi(root) {
   );
   const copyCodeButton = root.querySelector("#settingsBackupCopyCodeButton");
   const disconnectButton = root.querySelector("#settingsBackupDisconnectButton");
+  const deleteAccountButton = /** @type {HTMLButtonElement | null} */ (
+    root.querySelector("#settingsBackupDeleteAccountButton")
+  );
 
   let isConnecting = false;
   let isRestoring = false;
+  let isDeletingAccount = false;
 
   function render() {
     const credentials = getBackupCredentials();
@@ -101,6 +114,11 @@ export function initBackupUi(root) {
     }
     if (restoreButton) {
       restoreButton.disabled = status.phase === "flushing" || isRestoring;
+    }
+    if (deleteAccountButton) {
+      deleteAccountButton.disabled =
+        status.phase === "flushing" || isRestoring || isDeletingAccount;
+      deleteAccountButton.classList.toggle("is-busy", isDeletingAccount);
     }
   }
 
@@ -193,13 +211,37 @@ export function initBackupUi(root) {
             : "settings.backup.restoreDone.other";
       showToast(t(doneKey, { count: restored }), { duration: 2500 });
     } catch (error) {
-      const errorCode = typeof error?.code === "string" ? error.code : "unknown";
-      const message = ERROR_MESSAGE_KEYS[errorCode]
-        ? getBackupErrorMessage(errorCode)
-        : `${t("settings.backup.restoreFailed")} (${errorCode})`;
-      showToast(message, { variant: "error", duration: 4000 });
+      showToast(getBackupActionErrorMessage(error, "settings.backup.restoreFailed"), {
+        variant: "error",
+        duration: 4000,
+      });
     } finally {
       isRestoring = false;
+      render();
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (isDeletingAccount) {
+      return;
+    }
+    const isConfirmed = globalThis.confirm?.(t("settings.backup.deleteAccountConfirm")) ?? true;
+    if (!isConfirmed) {
+      return;
+    }
+
+    isDeletingAccount = true;
+    render();
+    try {
+      await removeBackupAccount();
+      showToast(t("settings.backup.accountDeleted"), { duration: 2500 });
+    } catch (error) {
+      showToast(getBackupActionErrorMessage(error, "settings.backup.deleteAccountFailed"), {
+        variant: "error",
+        duration: 4000,
+      });
+    } finally {
+      isDeletingAccount = false;
       render();
     }
   }
@@ -209,6 +251,7 @@ export function initBackupUi(root) {
   restoreButton?.addEventListener("click", handleRestore);
   copyCodeButton?.addEventListener("click", handleCopyCode);
   disconnectButton?.addEventListener("click", handleDisconnect);
+  deleteAccountButton?.addEventListener("click", handleDeleteAccount);
   const unsubscribeStatus = subscribeBackupStatus(render);
   const unsubscribeCredentials = subscribeBackupCredentials(render);
   render();
@@ -219,6 +262,7 @@ export function initBackupUi(root) {
     restoreButton?.removeEventListener("click", handleRestore);
     copyCodeButton?.removeEventListener("click", handleCopyCode);
     disconnectButton?.removeEventListener("click", handleDisconnect);
+    deleteAccountButton?.removeEventListener("click", handleDeleteAccount);
     unsubscribeStatus();
     unsubscribeCredentials();
   };

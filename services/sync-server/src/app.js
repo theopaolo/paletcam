@@ -118,6 +118,14 @@ export function createSyncApp({
     return c.json({ ok: true, manifest: await store.getManifestSnapshot(accountId) });
   });
 
+  app.delete("/v1/account", async (c) => {
+    const accountId = await requireAccount(c);
+    if (!accountId) return c.json({ ok: false, error: "unauthorized" }, 401);
+
+    await store.deleteAccount(accountId);
+    return c.json({ ok: true });
+  });
+
   app.put("/v1/palettes/:uid", async (c) => {
     const accountId = await requireAccount(c);
     if (!accountId) return c.json({ ok: false, error: "unauthorized" }, 401);

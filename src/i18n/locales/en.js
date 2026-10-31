@@ -233,6 +233,11 @@ const en = {
   "settings.backup.disconnect": "Disconnect",
   "settings.backup.disconnectConfirm":
     "Disconnect the backup? Your palettes stay on the server; the recovery code will be needed to reconnect.",
+  "settings.backup.deleteAccount": "Delete online backup",
+  "settings.backup.deleteAccountConfirm":
+    "Delete the online backup? Your palettes stay on this device, but the online copy is erased for good and the recovery code stops working.",
+  "settings.backup.accountDeleted": "Online backup deleted.",
+  "settings.backup.deleteAccountFailed": "Could not delete the online backup.",
   "settings.backup.errorUnauthorized": "The backup server rejected the code.",
   "settings.backup.errorNetwork": "The backup server is unreachable.",
   "settings.backup.errorQuota": "Backup storage is full.",

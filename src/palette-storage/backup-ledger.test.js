@@ -53,6 +53,14 @@ function createLedgerDb({ palettes = [], tombstones = [] } = {}) {
         Object.assign(row, changes);
         return 1;
       },
+      toCollection() {
+        return {
+          async modify(changes) {
+            for (const row of paletteRows.values()) Object.assign(row, changes);
+            return paletteRows.size;
+          },
+        };
+      },
     },
     backupTombstones: {
       limit(count) {
@@ -64,6 +72,9 @@ function createLedgerDb({ palettes = [], tombstones = [] } = {}) {
       },
       async bulkDelete(keys) {
         for (const key of keys) tombstoneRows.delete(key);
+      },
+      async clear() {
+        tombstoneRows.clear();
       },
     },
     async transaction(_mode, ...args) {
@@ -181,5 +192,27 @@ describe("backup ledger", () => {
 
     await module.resolveBackupTombstones(["uid-1", "", null]);
     expect([...tombstoneRows.keys()]).toEqual(["uid-2"]);
+  });
+
+  test("reset marks every palette as awaiting upload, drops tombstones, keeps palette content", async () => {
+    const cleanRow = createValidPaletteRow(1, {
+      backupDirtyAt: null,
+      backupUploadedAt: "2026-08-10T00:00:00.000Z",
+    });
+    const { module, paletteRows, tombstoneRows } = await loadLedgerModule({
+      palettes: [cleanRow, createValidPaletteRow(2)],
+      tombstones: [{ backupUid: "uid-9", deletedAt: "2026-08-10T00:00:00.000Z" }],
+    });
+
+    await module.resetBackupLedger("2026-10-31T00:00:00.000Z");
+
+    expect(paletteRows.get(1)).toEqual({
+      ...cleanRow,
+      backupDirtyAt: "2026-10-31T00:00:00.000Z",
+      backupUploadedAt: null,
+    });
+    expect(paletteRows.size).toBe(2);
+    expect(tombstoneRows.size).toBe(0);
+    await expect(module.countBackupProgress()).resolves.toMatchObject({ dirty: 2, backedUp: 0 });
   });
 });

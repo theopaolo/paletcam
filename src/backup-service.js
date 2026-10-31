@@ -1,10 +1,15 @@
 import {
+  deleteBackupAccount,
   deleteBackupPalette,
   fetchBackupManifest,
   putBackupAsset,
   putBackupPalette,
 } from "./backup-api.js";
-import { getBackupCredentials, saveBackupCredentials } from "./backup-credentials.js";
+import {
+  clearBackupCredentials,
+  getBackupCredentials,
+  saveBackupCredentials,
+} from "./backup-credentials.js";
 import { registerAppTermination } from "./modules/app-terminal-lifecycle.js";
 import { clientLog } from "./modules/client-log.js";
 import { readPalettePhotoBlobById } from "./palette-storage/assets.js";
@@ -13,6 +18,7 @@ import {
   listPalettesAwaitingBackup,
   listPendingBackupTombstones,
   markPaletteBackedUp,
+  resetBackupLedger,
   resolveBackupTombstones,
 } from "./palette-storage/backup-ledger.js";
 
@@ -166,6 +172,29 @@ export async function connectBackupAccount(credentials) {
   saveBackupCredentials(credentials);
   notifyStatus({ paired: true, errorCode: null });
   void runBackupFlush();
+}
+
+/**
+ * Deletes the backup account on the server, then forgets it on this device.
+ * Nothing local changes until the server confirms, so a failed request leaves
+ * the app as it was. The ledger resets before the credentials go: if the reset
+ * fails, the app still shows a paired backup instead of wrongly marking
+ * palettes as backed up for a future account.
+ */
+export async function removeBackupAccount() {
+  const credentials = getBackupCredentials();
+  if (!credentials) {
+    return;
+  }
+  await deleteBackupAccount(credentials);
+  await resetBackupLedger();
+  clearBackupCredentials();
+  notifyStatus({
+    phase: "idle",
+    paired: false,
+    errorCode: null,
+    progress: await countBackupProgress(),
+  });
 }
 
 let debouncedFlushTimer = null;
