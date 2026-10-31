@@ -11,6 +11,7 @@ export {
 export {
   getPalettePublicationAction,
   getPalettePublicationMeta,
+  isPalettePublicationRejected,
 } from "./community-service/palette-state.js";
 export {
   cleanupPaletteRemoteCatch,

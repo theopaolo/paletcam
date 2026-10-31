@@ -179,6 +179,86 @@ test("publishes and unpublishes a seeded photo palette through mocked APIs", asy
   expect(requests[1].request.headers().authorization).toBe("Bearer test-community-token");
 });
 
+test("a catch under review shows as such and can be withdrawn", async ({ page, browserName }) => {
+  test.skip(
+    browserName === "webkit",
+    "Playwright WebKit cannot persist Blob-backed IndexedDB fixtures; verify publishing on a real iOS device.",
+  );
+  const requests = [];
+  await page.route("**/api/v1/catch/publish", async (route) => {
+    requests.push("publish");
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ catch: { id: "remote-9202", status: "TO_MODERATE" } }),
+    });
+  });
+  await page.route("**/api/v1/catch/remote-9202/unpublish", async (route) => {
+    requests.push("unpublish");
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+  await page.route("**/api/v1/catches/statuses", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ catches: [], deletedIds: [] }),
+    }),
+  );
+
+  await page.goto("/");
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+    key: SESSION_KEY,
+    value: { token: "test-community-token", email: "catcher@example.com", user: null },
+  });
+  await seedPalette(page, palette, {
+    photoBase64: ONE_PIXEL_PNG_BASE64,
+    photoType: "image/png",
+  });
+  await page.reload();
+  await page.locator(".btn-view-collection").click();
+  await page.locator(".palette-card .palette-card-trigger").first().click();
+
+  const publicationButton = page.locator("#catchDetailsPublishButton");
+  await publicationButton.click();
+  await expect(publicationButton).toHaveAccessibleName(/d.pub|unpublish/i);
+  await expect(publicationButton).toHaveText(/mod.ration|review/i);
+  await expect(publicationButton).toHaveAttribute("data-publish-state", "unpublish");
+
+  await publicationButton.click();
+  await expect(publicationButton).toHaveAccessibleName(/^(publier|publish)/i);
+  expect(requests).toEqual(["publish", "unpublish"]);
+});
+
+test("a catch rejected by moderation cannot be resubmitted", async ({ page, browserName }) => {
+  test.skip(
+    browserName === "webkit",
+    "Playwright WebKit cannot persist Blob-backed IndexedDB fixtures; verify publishing on a real iOS device.",
+  );
+  await page.goto("/");
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+    key: SESSION_KEY,
+    value: { token: "test-community-token", email: "catcher@example.com", user: null },
+  });
+  await seedPalette(
+    page,
+    {
+      ...palette,
+      remoteCatchId: "remote-9203",
+      remoteOwnerAccountKey: accountKeyForEmail("catcher@example.com"),
+      moderationStatus: "REJECTED",
+    },
+    { photoBase64: ONE_PIXEL_PNG_BASE64, photoType: "image/png" },
+  );
+  await page.reload();
+  await page.locator(".btn-view-collection").click();
+  await page.locator(".palette-card .palette-card-trigger").first().click();
+
+  const publicationButton = page.locator("#catchDetailsPublishButton");
+  await expect(publicationButton).toHaveText(/refus|reject/i);
+  await expect(publicationButton).toBeDisabled();
+  await expect(publicationButton).toHaveAttribute("data-publish-state", "rejected");
+});
+
 test("retains a failed cleanup outbox across reload and flushes it after reconnect", async ({
   page,
 }) => {

@@ -666,6 +666,7 @@ interface PaletteViewerOpenOptions {
   onDelete?: (palette: Palette) => void | Promise<void>;
   onToggleFavorite?: (palette: Palette) => unknown;
   getPublishAction?: (palette: Palette) => PublicationAction;
+  getPublicationMeta?: (palette: Palette) => PublicationMeta | null;
   canShare?: (palette: Palette) => boolean;
   canExport?: (palette: Palette) => boolean;
   canPublish?: (palette: Palette) => boolean;
