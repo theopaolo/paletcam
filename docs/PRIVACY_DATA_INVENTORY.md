@@ -68,7 +68,9 @@ queues its unpublish through the cleanup outbox.
 The Data tab backup section connects a recovery code and offers Back up now,
 Restore backup, Copy code, Disconnect, and Delete online backup. Disconnect only
 removes the code from the device. Local flush removes it too, so a later restore
-needs the code the user saved. Neither action touches the server copy. Delete
+needs the code the user saved. Neither action touches the server copy.
+Connecting a code puts every palette back in the upload queue, because the
+device does not record which account received each palette. Delete
 online backup asks for confirmation, then deletes the account on the server.
 The recovery code stops working, and the server removes the photos and metadata
 at once, without the 30-day grace period. The palettes on the phone stay. If the

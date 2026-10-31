@@ -17,6 +17,7 @@ import {
   countBackupProgress,
   listPalettesAwaitingBackup,
   listPendingBackupTombstones,
+  markAllPalettesForBackup,
   markPaletteBackedUp,
   resetBackupLedger,
   resolveBackupTombstones,
@@ -164,11 +165,15 @@ export function runBackupFlush() {
 
 /**
  * Validates a recovery code against the server before storing it, so a typo
- * can never silently replace working credentials.
+ * can never silently replace working credentials. Every palette then goes
+ * back in the upload queue: palettes uploaded to a previous account would
+ * otherwise never reach this one. Photos the server already holds are skipped
+ * by hash, so a reconnect re-sends only the metadata documents.
  * @param {BackupCredentials} credentials
  */
 export async function connectBackupAccount(credentials) {
   await fetchBackupManifest(credentials);
+  await markAllPalettesForBackup();
   saveBackupCredentials(credentials);
   notifyStatus({ paired: true, errorCode: null });
   void runBackupFlush();

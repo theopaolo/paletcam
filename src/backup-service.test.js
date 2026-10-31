@@ -54,6 +54,7 @@ async function loadService({
     resolveBackupTombstones: mock(async () => {}),
     countBackupProgress: mock(async () => ({ total: 2, dirty: 0, backedUp: 2 })),
     resetBackupLedger: mock(async () => {}),
+    markAllPalettesForBackup: mock(async () => {}),
   };
 
   mock.module(apiModuleUrl, () => api);
@@ -161,6 +162,35 @@ describe("backup service flush", () => {
     await Promise.all([module.runBackupFlush(), module.runBackupFlush()]);
 
     expect(api.fetchBackupManifest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("backup account connection", () => {
+  test("queues every palette for upload before storing the credentials", async () => {
+    const { credentialsStore, ledger, module } = await loadService({ credentials: null });
+    const calls = [];
+    ledger.markAllPalettesForBackup.mockImplementation(async () => calls.push("mark"));
+    credentialsStore.saveBackupCredentials.mockImplementation(() => calls.push("save"));
+
+    await module.connectBackupAccount(CREDENTIALS);
+
+    expect(calls).toEqual(["mark", "save"]);
+  });
+
+  test("changes nothing when the server rejects the code", async () => {
+    const { api, credentialsStore, ledger, module } = await loadService({ credentials: null });
+    api.fetchBackupManifest.mockImplementation(async () => {
+      const error = new Error("unauthorized");
+      error.code = "unauthorized";
+      throw error;
+    });
+
+    await expect(module.connectBackupAccount(CREDENTIALS)).rejects.toMatchObject({
+      code: "unauthorized",
+    });
+
+    expect(ledger.markAllPalettesForBackup).not.toHaveBeenCalled();
+    expect(credentialsStore.saveBackupCredentials).not.toHaveBeenCalled();
   });
 });
 

@@ -126,7 +126,16 @@ export async function resolveBackupTombstones(backupUids) {
  */
 export async function resetBackupLedger(resetAt = new Date().toISOString()) {
   await db.transaction("rw", db.palettes, db.backupTombstones, async () => {
-    await db.palettes.toCollection().modify({ backupDirtyAt: resetAt, backupUploadedAt: null });
+    await markAllPalettesForBackup(resetAt);
     await db.backupTombstones.clear();
   });
+}
+
+/**
+ * Puts every palette back in the upload queue. The ledger records that a
+ * palette was uploaded, not to which account, so connecting an account
+ * cannot trust it.
+ */
+export async function markAllPalettesForBackup(markedAt = new Date().toISOString()) {
+  await db.palettes.toCollection().modify({ backupDirtyAt: markedAt, backupUploadedAt: null });
 }
