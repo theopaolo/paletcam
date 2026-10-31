@@ -5,9 +5,15 @@
 
 ## Decision
 
-The camera capture shell is the only critical application entry graph. Collection,
-viewer, community publication, backup, and collection-preview code load through a
-dynamic ESM boundary when the collection or saved-capture viewer is opened.
+The camera capture shell is the only critical application entry graph. Collection
+code loads through a dynamic ESM boundary, `import("./collection-ui.js")` in
+`src/app.js`, when the collection or saved-capture viewer is opened. Behind it
+sit the grid, filters, rail, selection, bulk publication and deletion, and
+preview hydration (`palette-preview-assets.js`). The viewer overlay and the
+verso tools load in a second dynamic step on first use. File backup and import,
+the server backup client, sign-in, the community publication service, and the
+preview renderer used after a capture stay in the static graph, because
+`src/app.js`, the settings panel, and the capture controller import them.
 Import failure is a recoverable user-visible error and must not break camera use.
 
 Remote-delete outbox initialization is operational background work rather than a

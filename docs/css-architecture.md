@@ -1,17 +1,17 @@
 # CSS Architecture
 
-All design values live in a dedicated settings layer, [public/styles/settings/tokens.css](/Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/settings/tokens.css). Token usage is enforced by stylelint (`bun run lint:css`) via `stylelint-declaration-strict-value`; the one-off audit script that drove the original token migration was retired in July 2026 once the migration landed.
+All design values live in a dedicated settings layer, [public/styles/settings/tokens.css](../public/styles/settings/tokens.css). Stylelint (`bun run lint:css`) enforces tokens on color properties through `stylelint-declaration-strict-value`. The one-off audit script that drove the original token migration was retired in July 2026 once the migration landed.
 
 ## Workflow
 
-1. Before writing CSS, read `settings/tokens.css` — use tokens, never raw literals.
+1. Before writing CSS, read `settings/tokens.css` and use tokens instead of raw literals.
 2. When a value has no token, promote it into `settings/tokens.css` as a semantic alias (not a raw scale name) or flag it.
 3. Intentional hardcodes carry a `stylelint-disable-next-line scale-unlimited/declaration-strict-value` annotation.
 4. `bun run lint:css` is the gate.
 
 ## Folder Layout
 
-The stylesheet entrypoint stays at [public/styles/index.css](/Users/theogoedert/Documents/Webworks/5-ludique-dev/1-creative-coding/paletcam/public/styles/index.css), but the folder now follows a CUBE-friendly split:
+The stylesheet entrypoint stays at [public/styles/index.css](../public/styles/index.css), but the folder now follows a CUBE-friendly split:
 
 - `settings`: tokens and semantic aliases.
 - `generic`: reset and font-face declarations.
@@ -20,42 +20,25 @@ The stylesheet entrypoint stays at [public/styles/index.css](/Users/theogoedert/
 - `blocks`: component and UI block styles.
 - `exceptions`: mode and state overrides that cut across blocks.
 
-`blocks` is the component folder. Camera UI, buttons, sliders, panels, toast styles, and similar pieces belong there.
+`index.css` imports the folders in this order and uses no `@layer`. On equal specificity a later folder wins, so `exceptions` overrides everything above it.
 
-## CUBE Direction
-
-Recommended layering for this codebase:
-
-- `settings`: design tokens and theme aliases.
-- `generic`: reset and global defaults.
-- `composition`: reusable layout patterns such as shells, stacks, clusters, docks.
-- `blocks`: camera controls, panels, sliders, toasts.
-- `utilities`: one-purpose override classes.
-- `exceptions`: mode and state overrides that intentionally break the default block/composition rules.
-
-The current CSS is still flat, but the audit gives you the data needed to split files with confidence instead of guessing.
-
-## Priority Order
-
-Start with the values that currently produce the most duplication:
-
-- Dark surface colors and chrome borders.
-- Metallic gradients repeated across buttons, sliders, and panel chrome.
-- Accent gold states and yellow overlays.
-- Repeated bevel shadows for circular controls.
-- Spacing steps below `1rem`.
-- Transition durations and shared easing curves.
-
-Those are the easiest wins because they recur across multiple components and already behave like a design system even though they are still hard-coded.
+`blocks` is the component folder. Camera UI, buttons, sliders, panels, toast styles, and similar pieces belong there. `blocks/camera/` and `blocks/panel/` each import their files through their own `index.css`.
 
 ## Token Rules
 
-- Raw tokens belong in `settings/tokens.css`.
-- Semantic aliases should describe intent, for example `--color-surface-panel` or `--gradient-control-shell`.
+- All tokens belong in `settings/tokens.css`. There is one semantic tier, with no separate raw or primitive scale.
+- Semantic aliases should describe intent, for example `--color-surface-overlay` or `--gradient-control-shell`.
 - Components should consume semantic aliases where possible.
 - Utilities should not introduce new raw colors or gradients.
 - New CSS should prefer existing tokens before adding literals.
 
 ## Current Scope
 
-The audit currently scans `.css` files under `public`. It does not yet inspect Lit `css` template literals in `src`, so styles in custom elements still need a second pass if you want full repo coverage.
+`bun run lint:css` checks `public/styles/**/*.css`. The token rule covers any property whose name contains `color`, plus `fill` and `stroke`. On those it rejects hex and named colors. It does not check:
+
+- `rgb()` and `color-mix()` values. The plugin's default `ignoreFunctions: true` lets any function value pass.
+- Shorthands and shadows (`background`, `border`, `box-shadow`, `text-shadow`). `.stylelintrc.json` leaves `background` out on purpose because multi-layer gradients are hard to tokenize. Gradients and shadows in `blocks/` still carry raw colors.
+- Lit `css` template literals in `src/modules/performance-hud.js` and `src/modules/panels/shared-panel.js`.
+- `public/pwa-install.css`, which `public/index.html` loads on its own.
+
+Motion tokens are only partly adopted. `--duration-fast`, `--duration-settle` and the three `--easing-*` tokens exist, but about 40 transitions and animations still use literal durations. `cubic-bezier(0.22, 1, 0.36, 1)` repeats in 5 files with no token.

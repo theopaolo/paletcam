@@ -32,15 +32,20 @@ intact and retryable.
 Collection listings remain metadata-only. Gallery and viewer previews hydrate on
 demand through variant-keyed reads and bounded UI queues. New saves/imports never
 embed previews in metadata. Save, delete, and clear operations include every
-affected store in one transaction. Backups continue to omit derived previews,
-using them only as a recovery source when the master photo is unexpectedly
-missing.
+affected store in one transaction. Backups continue to omit derived previews.
+Since 4d85a5f an export fails with an error naming the palette when its master
+photo is missing (`getExportPhotoBlobOrThrow` in `src/palette-storage/backup.js`),
+instead of falling back to a preview. The server backup sends only the master
+photo.
 
-Runtime-dependent legacy render settings are backfilled once. A completed marker
+Startup maintenance (`initializePaletteStorage` in
+`src/palette-storage/maintenance.js`) discards stale import staging sessions,
+then backfills runtime-dependent legacy render settings once. A completed marker
 is checked and written in the same IndexedDB transaction as the backfill; an
 aborted transaction writes no marker and must retry. Normal startup does not run
 orphan scans after version-4 migration. Explicit repair tooling may still perform
-key-only orphan cleanup.
+key-only orphan cleanup. `pruneOrphanPaletteAssets()` in the same file
+implements it, and no UI or script calls it today.
 
 ## Consequences
 
