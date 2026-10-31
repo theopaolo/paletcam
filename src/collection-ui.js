@@ -14,7 +14,9 @@ import {
 import {
   getCurrentCommunitySession,
   getPalettePublicationAction,
+  getPalettePublicationMeta,
   isCommunityPublicationSessionCurrent,
+  isPalettePublicationRejected,
   publishPaletteToCommunityFeed,
   syncPublishedPalettesModerationStatus,
   unpublishPaletteFromCommunityFeed,
@@ -349,7 +351,7 @@ function isRalCapture(palette) {
 }
 
 function canPublishPalette(palette) {
-  if (isRalCapture(palette)) {
+  if (isRalCapture(palette) || isPalettePublicationRejected(palette)) {
     return false;
   }
 
@@ -782,6 +784,7 @@ async function openCollectionPaletteViewer(paletteId, returnFocusTarget = null) 
         getPalettes: getViewerPalettes,
         getPreviewAsset: getPaletteViewerPreviewAsset,
         getPublishAction: getPalettePublicationAction,
+        getPublicationMeta: getPalettePublicationMeta,
         canShare: canSharePalette,
         canExport: canExportPalette,
         canPublish: canPublishPalette,
@@ -1195,17 +1198,24 @@ function bindCollectionPinch() {
   bindCollectionEventListener(scrollRoot, "gesturestart", (event) => event.preventDefault());
 }
 
+const PUBLICATION_ERROR_MESSAGE_KEYS = {
+  REMOTE_OWNER_UNKNOWN: "collection.publication.ownerUnknown",
+  REMOTE_OWNER_MISMATCH: "collection.publication.ownerMismatch",
+  MISSING_PHOTO: "collection.publication.missingPhoto",
+  INVALID_PHOTO: "collection.publication.missingPhoto",
+  PUBLICATION_REJECTED: "collection.publication.rejected",
+};
+
+// Service errors carry English developer text; the toast shows a translated
+// line and keeps the code underneath for support.
 function getPublicationErrorMessage(error, fallbackMessage) {
   const apiMessage = error?.cause?.payload?.message;
   if (typeof apiMessage === "string" && apiMessage.trim()) {
     return apiMessage.trim();
   }
 
-  if (typeof error?.message === "string" && error.message.trim()) {
-    return error.message.trim();
-  }
-
-  return fallbackMessage;
+  const messageKey = PUBLICATION_ERROR_MESSAGE_KEYS[error?.code];
+  return messageKey ? t(messageKey) : fallbackMessage;
 }
 
 function getPublicationActionConfig(action) {
@@ -1410,6 +1420,7 @@ export async function openDirectPaletteViewer(paletteId) {
       getPalettes: getViewablePalettes,
       getPreviewAsset: getPaletteViewerPreviewAsset,
       getPublishAction: getPalettePublicationAction,
+      getPublicationMeta: getPalettePublicationMeta,
       canShare: canSharePalette,
       canExport: canExportPalette,
       canPublish: canPublishPalette,

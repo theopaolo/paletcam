@@ -362,10 +362,9 @@ export async function seedPalette(
 ) {
   await page.evaluate(
     async ({ record, photoBase64Value, photoTypeValue }) => {
-      // Dexie maps schema version 7 to native IndexedDB version 70. Fixture writes
-      // must open the current version after app startup; requesting an older
-      // version would fail with VersionError instead of seeding the test record.
-      const request = indexedDB.open("PaletcamDB", 70);
+      // Open whatever version the app created at startup; pinning a Dexie
+      // version here goes stale (VersionError) on every schema bump.
+      const request = indexedDB.open("PaletcamDB");
       const database = await new Promise((resolve, reject) => {
         request.onupgradeneeded = () => {
           const nextDatabase = request.result;

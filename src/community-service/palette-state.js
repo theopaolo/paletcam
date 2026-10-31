@@ -39,18 +39,42 @@ export function applyPaletteRemoteState(palette, patch) {
 }
 
 /**
+ * A catch sent to the community stays listed (public or under review) until
+ * it is rejected or made private. Only a private one can be published again.
+ * @param {Palette} palette
+ * @returns {boolean}
+ */
+export function isPaletteListedInCommunity(palette) {
+  if (!getPaletteRemoteCatchId(palette)) {
+    return false;
+  }
+
+  const moderationStatus = normalizeCatchStatus(palette?.moderationStatus);
+  return (
+    moderationStatus !== CATCH_MODERATION_STATUSES.REJECTED &&
+    moderationStatus !== CATCH_MODERATION_STATUSES.PRIVATE
+  );
+}
+
+/**
+ * Moderation's refusal is final: the catch can be neither resubmitted nor
+ * withdrawn (withdrawing would make it private, and so publishable again).
+ * @param {Palette} palette
+ * @returns {boolean}
+ */
+export function isPalettePublicationRejected(palette) {
+  return (
+    Boolean(getPaletteRemoteCatchId(palette)) &&
+    normalizeCatchStatus(palette?.moderationStatus) === CATCH_MODERATION_STATUSES.REJECTED
+  );
+}
+
+/**
  * @param {Palette} palette
  * @returns {PublicationAction}
  */
 export function getPalettePublicationAction(palette) {
-  const remoteCatchId = getPaletteRemoteCatchId(palette);
-  const moderationStatus = normalizeCatchStatus(palette?.moderationStatus);
-
-  if (remoteCatchId && moderationStatus === CATCH_MODERATION_STATUSES.PUBLIC) {
-    return "unpublish";
-  }
-
-  return "publish";
+  return isPaletteListedInCommunity(palette) ? "unpublish" : "publish";
 }
 
 /**
