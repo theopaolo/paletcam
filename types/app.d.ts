@@ -77,6 +77,8 @@ interface Palette {
   backupDirtyAt?: string | null;
   /** ISO timestamp of the last successful backup upload, or `null` before the first one. */
   backupUploadedAt?: string | null;
+  /** sha256 of the server document this device last uploaded or applied, or `null` when unknown. */
+  backupRemoteHash?: string | null;
 }
 
 /** Pending server-side deletion for a palette that was removed locally. */
@@ -96,6 +98,8 @@ interface BackupServiceStatus {
   paired: boolean;
   errorCode: string | null;
   progress: { total: number; dirty: number; backedUp: number } | null;
+  /** Downloads of the running sync pass, or `null` when nothing is downloading. */
+  pullProgress: { phase: "preparing" | "downloading"; fetched: number; total: number } | null;
   lastFlushAt: string | null;
 }
 

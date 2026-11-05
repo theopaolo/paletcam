@@ -18,6 +18,7 @@ function createValidPaletteRow(id, overrides = {}) {
 function createLedgerDb({ palettes = [], tombstones = [] } = {}) {
   const paletteRows = new Map(palettes.map((row) => [row.id, structuredClone(row)]));
   const tombstoneRows = new Map(tombstones.map((row) => [row.backupUid, structuredClone(row)]));
+  const deletedAssetIds = [];
 
   const db = {
     palettes: {
@@ -53,6 +54,9 @@ function createLedgerDb({ palettes = [], tombstones = [] } = {}) {
         Object.assign(row, changes);
         return 1;
       },
+      async delete(id) {
+        paletteRows.delete(id);
+      },
       toCollection() {
         return {
           async modify(changes) {
@@ -61,6 +65,14 @@ function createLedgerDb({ palettes = [], tombstones = [] } = {}) {
           },
         };
       },
+    },
+    paletteAssets: {
+      async delete(id) {
+        deletedAssetIds.push(id);
+      },
+    },
+    palettePreviews: {
+      async bulkDelete() {},
     },
     backupTombstones: {
       limit(count) {
@@ -83,7 +95,7 @@ function createLedgerDb({ palettes = [], tombstones = [] } = {}) {
     },
   };
 
-  return { db, paletteRows, tombstoneRows };
+  return { db, deletedAssetIds, paletteRows, tombstoneRows };
 }
 
 async function loadLedgerModule(state) {
@@ -152,11 +164,13 @@ describe("backup ledger", () => {
       module.markPaletteBackedUp(1, {
         dirtyAtSeen: dirtyAt,
         uploadedAt: "2026-08-15T10:00:00.000Z",
+        remoteHash: "A".repeat(64),
       }),
     ).resolves.toBe(true);
     expect(paletteRows.get(1)).toMatchObject({
       backupDirtyAt: null,
       backupUploadedAt: "2026-08-15T10:00:00.000Z",
+      backupRemoteHash: "a".repeat(64),
     });
   });
 
@@ -194,25 +208,73 @@ describe("backup ledger", () => {
     expect([...tombstoneRows.keys()]).toEqual(["uid-2"]);
   });
 
-  test("reset marks every palette as awaiting upload, drops tombstones, keeps palette content", async () => {
+  test("reset forgets server versions, drops tombstones, keeps palette content and dirty stamps", async () => {
     const cleanRow = createValidPaletteRow(1, {
       backupDirtyAt: null,
       backupUploadedAt: "2026-08-10T00:00:00.000Z",
+      backupRemoteHash: "a".repeat(64),
     });
+    const dirtyRow = createValidPaletteRow(2);
     const { module, paletteRows, tombstoneRows } = await loadLedgerModule({
-      palettes: [cleanRow, createValidPaletteRow(2)],
+      palettes: [cleanRow, dirtyRow],
       tombstones: [{ backupUid: "uid-9", deletedAt: "2026-08-10T00:00:00.000Z" }],
     });
 
-    await module.resetBackupLedger("2026-10-31T00:00:00.000Z");
+    await module.resetBackupLedger();
 
-    expect(paletteRows.get(1)).toEqual({
-      ...cleanRow,
-      backupDirtyAt: "2026-10-31T00:00:00.000Z",
-      backupUploadedAt: null,
-    });
-    expect(paletteRows.size).toBe(2);
+    expect(paletteRows.get(1)).toEqual({ ...cleanRow, backupRemoteHash: null });
+    expect(paletteRows.get(2)).toEqual({ ...dirtyRow, backupRemoteHash: null });
     expect(tombstoneRows.size).toBe(0);
-    await expect(module.countBackupProgress()).resolves.toMatchObject({ dirty: 2, backedUp: 0 });
+  });
+
+  test("applies another device's version only while the row is as expected", async () => {
+    const { module, paletteRows } = await loadLedgerModule({
+      palettes: [
+        createValidPaletteRow(1, { backupDirtyAt: null }),
+        createValidPaletteRow(2, { backupDirtyAt: "2026-08-20T00:00:00.000Z" }),
+      ],
+    });
+    const remotePalette = { favoritedAt: "2026-08-21T00:00:00.000Z", colors: "ignored" };
+
+    await expect(
+      module.applyRemotePaletteState(1, {
+        expectedDirtyAt: null,
+        remotePalette,
+        remoteHash: "c".repeat(64),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      module.applyRemotePaletteState(2, {
+        expectedDirtyAt: null,
+        remotePalette,
+        remoteHash: "c".repeat(64),
+      }),
+    ).resolves.toBe(false);
+
+    expect(paletteRows.get(1)).toMatchObject({
+      favoritedAt: "2026-08-21T00:00:00.000Z",
+      colors: [{ r: 12, g: 34, b: 56 }],
+      backupRemoteHash: "c".repeat(64),
+    });
+    expect(paletteRows.get(2).favoritedAt).toBeUndefined();
+  });
+
+  test("a remote delete removes only clean rows still at the version this device saw", async () => {
+    const seenHash = "a".repeat(64);
+    const { deletedAssetIds, module, paletteRows } = await loadLedgerModule({
+      palettes: [
+        createValidPaletteRow(1, { backupDirtyAt: null, backupRemoteHash: seenHash }),
+        createValidPaletteRow(2, { backupRemoteHash: seenHash }),
+        createValidPaletteRow(3, { backupDirtyAt: null, backupRemoteHash: "b".repeat(64) }),
+      ],
+    });
+
+    const deleted = await module.deletePalettesForRemoteTombstones(
+      [1, 2, 3].map((id) => ({ id, backupUid: `uid-${id}`, remoteHash: seenHash })),
+    );
+
+    expect(deleted).toBe(1);
+    expect([...paletteRows.keys()]).toEqual([2, 3]);
+    expect(deletedAssetIds).toEqual([1]);
   });
 });

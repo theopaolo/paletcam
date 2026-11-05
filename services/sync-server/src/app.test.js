@@ -3,7 +3,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createAccountRegistry } from "./accounts.js";
-import { createSyncApp, parsePaletteEnvelope } from "./app.js";
+import { createSyncApp, parsePaletteEnvelope, parseWritePrecondition } from "./app.js";
 import { createBackupStore, sha256HexOfBytes } from "./store.js";
 
 const ALLOWED_ORIGIN = "https://app.example.test";
@@ -47,6 +47,14 @@ async function pair(app) {
 
 function paletteEnvelope(assets = []) {
   return JSON.stringify({ palette: { colors: [{ r: 1, g: 2, b: 3 }] }, assets });
+}
+
+function putPalette(app, authorization, uid, headers = {}, assets = []) {
+  return app.request(`/v1/palettes/${uid}`, {
+    method: "PUT",
+    headers: { authorization, ...headers },
+    body: paletteEnvelope(assets),
+  });
 }
 
 afterEach(async () => {
@@ -97,7 +105,135 @@ describe("sync-server app", () => {
 
     const getResponse = await app.request(`/v1/palettes/${uid}`, { headers: { authorization } });
     expect(getResponse.status).toBe(200);
+    expect(getResponse.headers.get("etag")).toBe(`"${hash}"`);
     expect((await getResponse.json()).palette.colors).toHaveLength(1);
+  });
+
+  test("write preconditions parse bare, quoted and uppercase hashes and reject the rest", () => {
+    const hash = "ab".repeat(32);
+    expect(parseWritePrecondition(undefined, undefined)).toEqual({});
+    expect(parseWritePrecondition(hash, undefined)).toEqual({ expectedHash: hash });
+    expect(parseWritePrecondition(`"${hash.toUpperCase()}"`, undefined)).toEqual({
+      expectedHash: hash,
+    });
+    expect(parseWritePrecondition(undefined, "*")).toEqual({ expectAbsent: true });
+    expect(parseWritePrecondition("*", undefined)).toBeNull();
+    expect(parseWritePrecondition(`W/"${hash}"`, undefined)).toBeNull();
+    expect(parseWritePrecondition(`"${hash}`, undefined)).toBeNull();
+    expect(parseWritePrecondition(undefined, `"${hash}"`)).toBeNull();
+    expect(parseWritePrecondition(hash, "*")).toBeNull();
+  });
+
+  test("If-Match writes only over the version the client read", async () => {
+    const { app } = await createTestApp();
+    const { authorization } = await pair(app);
+    const uid = "11112222-3333-4444";
+    const { hash } = await (await putPalette(app, authorization, uid)).json();
+
+    const matched = await putPalette(app, authorization, uid, { "if-match": `"${hash}"` }, [
+      "a".repeat(64),
+    ]);
+    expect(matched.status).toBe(200);
+    const { hash: newHash } = await matched.json();
+    expect(newHash).not.toBe(hash);
+
+    const stale = await putPalette(app, authorization, uid, { "if-match": hash });
+    expect(stale.status).toBe(409);
+    const { manifest } = await (
+      await app.request("/v1/manifest", { headers: { authorization } })
+    ).json();
+    expect(await stale.json()).toEqual({
+      ok: false,
+      error: "conflict",
+      current: { hash: newHash, updatedAt: manifest.palettes[uid].updatedAt },
+      tombstoned: false,
+    });
+
+    const malformed = await putPalette(app, authorization, uid, { "if-match": "*" });
+    expect(malformed.status).toBe(400);
+    expect(await malformed.json()).toEqual({ ok: false, error: "invalid_precondition" });
+  });
+
+  test("If-Match on a tombstoned palette answers 409 without a current version", async () => {
+    const { app } = await createTestApp();
+    const { authorization } = await pair(app);
+    const uid = "11112222-3333-4444";
+    const { hash } = await (await putPalette(app, authorization, uid)).json();
+    await app.request(`/v1/palettes/${uid}`, { method: "DELETE", headers: { authorization } });
+
+    const response = await putPalette(app, authorization, uid, { "if-match": hash });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: "conflict",
+      current: null,
+      tombstoned: true,
+    });
+  });
+
+  test("If-None-Match: * creates or revives, and refuses a live palette", async () => {
+    const { app } = await createTestApp();
+    const { authorization } = await pair(app);
+    const uid = "11112222-3333-4444";
+    const ifNoneMatch = { "if-none-match": "*" };
+
+    const created = await putPalette(app, authorization, uid, ifNoneMatch);
+    expect(created.status).toBe(200);
+    const { hash } = await created.json();
+
+    const live = await putPalette(app, authorization, uid, ifNoneMatch);
+    expect(live.status).toBe(409);
+    expect(await live.json()).toMatchObject({ current: { hash }, tombstoned: false });
+
+    await app.request(`/v1/palettes/${uid}`, { method: "DELETE", headers: { authorization } });
+    const revived = await putPalette(app, authorization, uid, ifNoneMatch);
+    expect(revived.status).toBe(200);
+    const { manifest } = await (
+      await app.request("/v1/manifest", { headers: { authorization } })
+    ).json();
+    expect(manifest.palettes[uid].hash).toBe(hash);
+    expect(manifest.tombstones[uid]).toBeUndefined();
+  });
+
+  test("a write without preconditions overwrites unconditionally", async () => {
+    const { app } = await createTestApp();
+    const { authorization } = await pair(app);
+    const uid = "11112222-3333-4444";
+
+    await putPalette(app, authorization, uid);
+    const overwrite = await putPalette(app, authorization, uid, {}, ["a".repeat(64)]);
+    expect(overwrite.status).toBe(200);
+    const { hash } = await overwrite.json();
+
+    const getResponse = await app.request(`/v1/palettes/${uid}`, { headers: { authorization } });
+    expect(getResponse.headers.get("etag")).toBe(`"${hash}"`);
+  });
+
+  test("CORS allows the precondition headers and exposes ETag", async () => {
+    const { app } = await createTestApp();
+    const { authorization } = await pair(app);
+    const uid = "11112222-3333-4444";
+
+    const preflight = await app.request(`/v1/palettes/${uid}`, {
+      method: "OPTIONS",
+      headers: {
+        origin: ALLOWED_ORIGIN,
+        "access-control-request-method": "PUT",
+        "access-control-request-headers": "authorization, if-match, if-none-match",
+      },
+    });
+    expect(preflight.status).toBe(204);
+    const allowed = preflight.headers.get("access-control-allow-headers").toLowerCase();
+    expect(allowed.split(/,\s*/)).toEqual(
+      expect.arrayContaining(["if-match", "if-none-match", "authorization", "content-type"]),
+    );
+
+    await putPalette(app, authorization, uid);
+    const response = await app.request(`/v1/palettes/${uid}`, {
+      headers: { authorization, origin: ALLOWED_ORIGIN },
+    });
+    const exposed = response.headers.get("access-control-expose-headers").toLowerCase();
+    expect(exposed.split(/,\s*/)).toEqual(expect.arrayContaining(["etag", "retry-after"]));
   });
 
   test("asset uploads verify the digest, deduplicate, and stream back", async () => {

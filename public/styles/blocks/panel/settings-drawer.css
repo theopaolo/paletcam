@@ -185,6 +185,22 @@ settings-panel.is-open .settings-drawer {
   display: none;
 }
 
+.settings-backup-new-code {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* The code is 68 characters without a space, so it must wrap on a phone. */
+.settings-backup-code {
+  margin: 0;
+  padding-left: var(--space-16);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .settings-data-actions {
   display: flex;
   flex-wrap: wrap;

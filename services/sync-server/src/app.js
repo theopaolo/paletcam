@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
   ASSET_HASH_PATTERN,
+  BackupConflictError,
   BackupQuotaExceededError,
   MAX_ASSETS_PER_PALETTE,
   PALETTE_UID_PATTERN,
@@ -38,6 +39,25 @@ export function parsePaletteEnvelope(rawText) {
   return { referencedAssets: [...new Set(assets)] };
 }
 
+const IF_MATCH_PATTERN = /^(?:([a-f0-9]{64})|"([a-f0-9]{64})")$/i;
+
+/**
+ * Reads the optional write precondition into `putPalette` options. Returns
+ * null for a malformed header: ignoring it would turn a client bug into an
+ * unconditional overwrite.
+ */
+export function parseWritePrecondition(ifMatch, ifNoneMatch) {
+  if (ifMatch !== undefined && ifNoneMatch !== undefined) return null;
+  if (ifMatch !== undefined) {
+    const match = IF_MATCH_PATTERN.exec(ifMatch.trim());
+    return match ? { expectedHash: (match[1] ?? match[2]).toLowerCase() } : null;
+  }
+  if (ifNoneMatch !== undefined) {
+    return ifNoneMatch.trim() === "*" ? { expectAbsent: true } : null;
+  }
+  return {};
+}
+
 export function createSyncApp({
   config,
   accounts,
@@ -56,10 +76,13 @@ export function createSyncApp({
         return config.allowedOrigins.includes(origin) ? origin : null;
       },
       allowMethods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
-      // Without this the browser hides Retry-After from cross-origin JS and
-      // the client cannot pace its rate-limit backoff.
-      exposeHeaders: ["Retry-After"],
+      // If-Match and If-None-Match are not CORS-safelisted, so the preflight
+      // fails unless they are listed here.
+      allowHeaders: ["Content-Type", "Authorization", "If-Match", "If-None-Match"],
+      // Without this the browser hides these headers from cross-origin JS:
+      // the client could not pace its rate-limit backoff or record which
+      // palette version it fetched.
+      exposeHeaders: ["Retry-After", "ETag"],
       maxAge: 600,
     }),
   );
@@ -135,6 +158,14 @@ export function createSyncApp({
       return c.json({ ok: false, error: "invalid_palette_uid" }, 400);
     }
 
+    const precondition = parseWritePrecondition(
+      c.req.header("if-match"),
+      c.req.header("if-none-match"),
+    );
+    if (!precondition) {
+      return c.json({ ok: false, error: "invalid_precondition" }, 400);
+    }
+
     let documentText;
     try {
       documentText = await readBoundedRequestText(c.req.raw, config.maxMetadataBytes);
@@ -154,9 +185,16 @@ export function createSyncApp({
       const { hash } = await store.putPalette(accountId, uid, {
         documentText,
         referencedAssets: envelope.referencedAssets,
+        ...precondition,
       });
       return c.json({ ok: true, hash });
     } catch (error) {
+      if (error instanceof BackupConflictError) {
+        return c.json(
+          { ok: false, error: "conflict", current: error.current, tombstoned: error.tombstoned },
+          409,
+        );
+      }
       if (error instanceof BackupQuotaExceededError) {
         return c.json({ ok: false, error: "quota_exceeded" }, 507);
       }
@@ -173,11 +211,16 @@ export function createSyncApp({
       return c.json({ ok: false, error: "invalid_palette_uid" }, 400);
     }
 
-    const documentText = await store.getPaletteDocument(accountId, uid);
-    if (documentText === null) {
+    const palette = await store.getPaletteDocument(accountId, uid);
+    if (palette === null) {
       return c.json({ ok: false, error: "not_found" }, 404);
     }
-    return c.body(documentText, 200, { "Content-Type": "application/json" });
+    // The client keeps this hash for its next If-Match: the manifest it read
+    // earlier may already be stale.
+    return c.body(palette.documentText, 200, {
+      "Content-Type": "application/json",
+      ETag: `"${palette.hash}"`,
+    });
   });
 
   app.delete("/v1/palettes/:uid", async (c) => {

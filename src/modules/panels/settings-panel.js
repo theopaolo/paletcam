@@ -252,6 +252,19 @@ class SettingsPanel extends LitElement {
               <p class="settings-storage-status" id="settingsBackupStatus"></p>
               <p class="settings-storage-hint" id="settingsBackupProgress" hidden></p>
 
+              <div class="settings-backup-new-code" id="settingsBackupNewCode" hidden>
+                <p class="settings-storage-hint">${t("settings.backup.newCodeHint")}</p>
+                <p class="settings-backup-code" id="settingsBackupNewCodeValue"></p>
+              </div>
+
+              <div class="settings-data-actions" id="settingsBackupCreateRow">
+                <button
+                  class="settings-action-button"
+                  id="settingsBackupCreateButton"
+                  type="button"
+                ></button>
+              </div>
+
               <div class="panel-form-field" id="settingsBackupConnectField">
                 <input
                   class="panel-form-text-input"
@@ -276,13 +289,6 @@ class SettingsPanel extends LitElement {
                   type="button"
                 >
                   ${t("settings.backup.backupNow")}
-                </button>
-                <button
-                  class="settings-action-button"
-                  id="settingsBackupRestoreButton"
-                  type="button"
-                >
-                  ${t("settings.backup.restore")}
                 </button>
                 <button
                   class="settings-action-button"

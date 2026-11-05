@@ -1,13 +1,36 @@
 import { getBackupApiBaseUrl } from "./config.js";
 
 export class BackupApiError extends Error {
-  /** @param {string} message @param {{code: string, status?: number}} details */
-  constructor(message, { code, status }) {
+  /** @param {string} message @param {{code: string, status?: number, body?: any}} details */
+  constructor(message, { code, status, body = null }) {
     super(message);
     this.name = "BackupApiError";
     this.code = code;
     this.status = status;
+    // A 409 body says what the server holds: `{current: {hash} | null, tombstoned}`.
+    this.body = body;
   }
+}
+
+const HASH_PATTERN = /^[a-f0-9]{64}$/;
+
+function normalizeHash(value) {
+  const hash = String(value ?? "")
+    .replace(/^W\//, "")
+    .replaceAll('"', "")
+    .trim()
+    .toLowerCase();
+  return HASH_PATTERN.test(hash) ? hash : null;
+}
+
+function getErrorCode(status, body) {
+  if (status === 401) return "unauthorized";
+  if (status === 404) return "not_found";
+  if (status === 409) return "conflict";
+  if (status === 429) return "rate_limited";
+  if (status === 507) return "quota_exceeded";
+  if (status === 403 && body?.error === "pairing_disabled") return "pairing_disabled";
+  return "server";
 }
 
 function authorizationHeader({ accountId, secret }) {
@@ -44,17 +67,21 @@ export function getRetryDelayMs(response) {
  * are retried after the server-advertised delay before giving up.
  *
  * @param {string} path
- * @param {{credentials: BackupCredentials, method?: string, body?: BodyInit, contentType?: string}} options
+ * @param {{credentials: BackupCredentials | null, method?: string, body?: BodyInit, contentType?: string, headers?: Record<string, string>, retryRateLimit?: boolean}} options
  */
-async function backupRequest(path, { credentials, method = "GET", body, contentType }) {
+async function backupRequest(
+  path,
+  { credentials, method = "GET", body, contentType, headers = {}, retryRateLimit = true },
+) {
   for (let attempt = 0; ; attempt += 1) {
     let response;
     try {
       response = await fetch(`${getBackupApiBaseUrl()}${path}`, {
         method,
         headers: {
-          Authorization: authorizationHeader(credentials),
+          ...(credentials ? { Authorization: authorizationHeader(credentials) } : {}),
           ...(contentType ? { "Content-Type": contentType } : {}),
+          ...headers,
         },
         body,
       });
@@ -69,22 +96,16 @@ async function backupRequest(path, { credentials, method = "GET", body, contentT
       return response;
     }
 
-    if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
+    if (response.status === 429 && retryRateLimit && attempt < MAX_RATE_LIMIT_RETRIES) {
       await sleepImplementation(getRetryDelayMs(response));
       continue;
     }
 
-    const code =
-      response.status === 401
-        ? "unauthorized"
-        : response.status === 507
-          ? "quota_exceeded"
-          : response.status === 429
-            ? "rate_limited"
-            : "server";
+    const errorBody = await response.json().catch(() => null);
     throw new BackupApiError(`The backup server answered ${response.status}.`, {
-      code,
+      code: getErrorCode(response.status, errorBody),
       status: response.status,
+      body: errorBody,
     });
   }
 }
@@ -96,13 +117,22 @@ export async function fetchBackupManifest(credentials) {
   return body.manifest;
 }
 
-export async function putBackupPalette(credentials, backupUid, envelope) {
-  await backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
+/**
+ * Writes a palette only if the server still holds the version this device
+ * last saw (`baseHash`), or holds no live version when `baseHash` is null.
+ * A mismatch throws a BackupApiError with code "conflict".
+ * @returns {Promise<string | null>} hash of the stored document
+ */
+export async function putBackupPalette(credentials, backupUid, envelope, { baseHash = null } = {}) {
+  const response = await backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
     credentials,
     method: "PUT",
     body: JSON.stringify(envelope),
     contentType: "application/json",
+    headers: baseHash ? { "If-Match": `"${baseHash}"` } : { "If-None-Match": "*" },
   });
+  const body = await response.json().catch(() => null);
+  return normalizeHash(body?.hash);
 }
 
 export async function putBackupAsset(credentials, assetHash, blob) {
@@ -114,12 +144,17 @@ export async function putBackupAsset(credentials, assetHash, blob) {
   });
 }
 
-/** @returns {Promise<{schemaVersion?: number, palette: object, assets?: string[]}>} */
+/**
+ * The hash comes from the ETag, so it names the version actually downloaded
+ * even when the manifest read earlier is already stale.
+ * @returns {Promise<{envelope: {schemaVersion?: number, palette: object, assets?: string[]}, hash: string | null}>}
+ */
 export async function fetchBackupPalette(credentials, backupUid) {
   const response = await backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
     credentials,
   });
-  return response.json();
+  const hash = normalizeHash(response.headers.get("etag"));
+  return { envelope: await response.json(), hash };
 }
 
 /** @returns {Promise<Blob>} */
@@ -140,4 +175,27 @@ export async function deleteBackupPalette(credentials, backupUid) {
 /** Deletes the whole account on the server. The credentials stop working. */
 export async function deleteBackupAccount(credentials) {
   await backupRequest("/v1/account", { credentials, method: "DELETE" });
+}
+
+/**
+ * Mints a new backup account. Pairing is rate limited per IP for an hour, so
+ * a 429 fails at once instead of waiting through the usual retries.
+ * @returns {Promise<BackupCredentials>}
+ */
+export async function pairBackupAccount() {
+  const response = await backupRequest("/v1/pair", {
+    credentials: null,
+    method: "POST",
+    retryRateLimit: false,
+  });
+  const body = await response.json().catch(() => null);
+  const accountId = String(body?.accountId ?? "");
+  const secret = String(body?.secret ?? "");
+  if (!/^[a-f0-9]{16}$/.test(accountId) || !/^[a-f0-9]{48}$/.test(secret)) {
+    throw new BackupApiError("The backup server sent malformed credentials.", {
+      code: "server",
+      status: response.status,
+    });
+  }
+  return { accountId, secret };
 }

@@ -5,6 +5,7 @@ import {
   parseBackupRecoveryCode,
   subscribeBackupCredentials,
 } from "./backup-credentials.js";
+import { pairBackupAccount } from "./backup-api.js";
 import {
   connectBackupAccount,
   getBackupStatusSnapshot,
@@ -12,7 +13,6 @@ import {
   requestBackupFlush,
   subscribeBackupStatus,
 } from "./backup-service.js";
-import { runBackupRestore } from "./backup-restore.js";
 import { t } from "./i18n.js";
 import { showToast } from "./modules/toast-ui.js";
 
@@ -21,6 +21,7 @@ const ERROR_MESSAGE_KEYS = Object.freeze({
   network: "settings.backup.errorNetwork",
   quota_exceeded: "settings.backup.errorQuota",
   rate_limited: "settings.backup.errorRateLimited",
+  pairing_disabled: "settings.backup.errorPairingDisabled",
 });
 
 function getBackupErrorMessage(errorCode) {
@@ -50,11 +51,14 @@ export function initBackupUi(root) {
   const connectButton = /** @type {HTMLButtonElement | null} */ (
     root.querySelector("#settingsBackupConnectButton")
   );
+  const createRow = root.querySelector("#settingsBackupCreateRow");
+  const createButton = /** @type {HTMLButtonElement | null} */ (
+    root.querySelector("#settingsBackupCreateButton")
+  );
+  const newCodeBlock = root.querySelector("#settingsBackupNewCode");
+  const newCodeValue = root.querySelector("#settingsBackupNewCodeValue");
   const actionsRow = root.querySelector("#settingsBackupActions");
   const backupNowButton = root.querySelector("#settingsBackupNowButton");
-  const restoreButton = /** @type {HTMLButtonElement | null} */ (
-    root.querySelector("#settingsBackupRestoreButton")
-  );
   const copyCodeButton = root.querySelector("#settingsBackupCopyCodeButton");
   const disconnectButton = root.querySelector("#settingsBackupDisconnectButton");
   const deleteAccountButton = /** @type {HTMLButtonElement | null} */ (
@@ -62,8 +66,12 @@ export function initBackupUi(root) {
   );
 
   let isConnecting = false;
-  let isRestoring = false;
+  let isCreating = false;
   let isDeletingAccount = false;
+  // The code of an account created in this session. It stays on screen until
+  // the backup is disconnected or deleted, so the user has time to save it.
+  /** @type {string | null} */
+  let createdRecoveryCode = null;
 
   function render() {
     const credentials = getBackupCredentials();
@@ -80,8 +88,14 @@ export function initBackupUi(root) {
     }
 
     if (progressLine) {
-      if (isRestoring) {
-        // Restore progress writes the line itself; keep it visible.
+      if (paired && status.pullProgress) {
+        const { phase, fetched, total } = status.pullProgress;
+        progressLine.textContent = t(
+          phase === "preparing"
+            ? "settings.backup.restorePreparing"
+            : "settings.backup.restoreProgress",
+          { fetched, total },
+        );
         progressLine.hidden = false;
       } else if (paired && status.errorCode) {
         progressLine.textContent = getBackupErrorMessage(status.errorCode);
@@ -97,6 +111,21 @@ export function initBackupUi(root) {
       }
     }
 
+    if (newCodeBlock instanceof HTMLElement) {
+      newCodeBlock.hidden = createdRecoveryCode === null;
+    }
+    if (newCodeValue) {
+      newCodeValue.textContent = createdRecoveryCode ?? "";
+    }
+    if (createRow instanceof HTMLElement) {
+      createRow.hidden = paired;
+    }
+    if (createButton) {
+      createButton.disabled = isCreating || isConnecting;
+      createButton.textContent = isCreating
+        ? t("settings.backup.createBusy")
+        : t("settings.backup.create");
+    }
     if (connectField instanceof HTMLElement) {
       connectField.hidden = paired;
     }
@@ -104,20 +133,16 @@ export function initBackupUi(root) {
       actionsRow.hidden = !paired;
     }
     if (connectButton) {
-      connectButton.disabled = isConnecting;
+      connectButton.disabled = isConnecting || isCreating;
       connectButton.textContent = isConnecting
         ? t("settings.backup.connectBusy")
         : t("settings.backup.connect");
     }
     if (backupNowButton instanceof HTMLButtonElement) {
-      backupNowButton.disabled = status.phase === "flushing" || isRestoring;
-    }
-    if (restoreButton) {
-      restoreButton.disabled = status.phase === "flushing" || isRestoring;
+      backupNowButton.disabled = status.phase === "flushing";
     }
     if (deleteAccountButton) {
-      deleteAccountButton.disabled =
-        status.phase === "flushing" || isRestoring || isDeletingAccount;
+      deleteAccountButton.disabled = status.phase === "flushing" || isDeletingAccount;
       deleteAccountButton.classList.toggle("is-busy", isDeletingAccount);
     }
   }
@@ -150,6 +175,43 @@ export function initBackupUi(root) {
     }
   }
 
+  /**
+   * The code is on screen before the connect step runs. If that step fails,
+   * the account exists but is not connected, and the code in the input lets
+   * the user retry with Connect instead of minting another account.
+   */
+  async function handleCreate() {
+    if (isCreating || isConnecting) {
+      return;
+    }
+
+    isCreating = true;
+    render();
+    try {
+      const credentials = await pairBackupAccount();
+      createdRecoveryCode = formatBackupRecoveryCode(credentials);
+      render();
+      try {
+        await connectBackupAccount(credentials);
+      } catch (error) {
+        if (codeInput) {
+          codeInput.value = createdRecoveryCode;
+        }
+        throw error;
+      }
+      showToast(t("settings.backup.created"), { duration: 2500 });
+    } catch (error) {
+      const message =
+        error?.code === "rate_limited"
+          ? t("settings.backup.errorPairRateLimited")
+          : getBackupActionErrorMessage(error, "settings.backup.createFailed");
+      showToast(message, { variant: "error", duration: 4000 });
+    } finally {
+      isCreating = false;
+      render();
+    }
+  }
+
   async function handleCopyCode() {
     const credentials = getBackupCredentials();
     if (!credentials) {
@@ -168,58 +230,12 @@ export function initBackupUi(root) {
     if (!isConfirmed) {
       return;
     }
+    createdRecoveryCode = null;
     clearBackupCredentials();
     render();
   }
 
   const handleBackupNow = () => void requestBackupFlush({ immediate: true });
-
-  async function handleRestore() {
-    if (isRestoring) {
-      return;
-    }
-    const isConfirmed = globalThis.confirm?.(t("settings.backup.restoreConfirm")) ?? true;
-    if (!isConfirmed) {
-      return;
-    }
-
-    isRestoring = true;
-    render();
-    if (progressLine) {
-      progressLine.textContent = t("settings.backup.restoreStarting");
-      progressLine.hidden = false;
-    }
-    try {
-      const { restored } = await runBackupRestore({
-        onProgress: ({ phase, fetched, total }) => {
-          if (progressLine) {
-            progressLine.textContent = t(
-              phase === "preparing"
-                ? "settings.backup.restorePreparing"
-                : "settings.backup.restoreProgress",
-              { fetched, total },
-            );
-            progressLine.hidden = false;
-          }
-        },
-      });
-      const doneKey =
-        restored === 0
-          ? "settings.backup.restoreDone.zero"
-          : restored === 1
-            ? "settings.backup.restoreDone.one"
-            : "settings.backup.restoreDone.other";
-      showToast(t(doneKey, { count: restored }), { duration: 2500 });
-    } catch (error) {
-      showToast(getBackupActionErrorMessage(error, "settings.backup.restoreFailed"), {
-        variant: "error",
-        duration: 4000,
-      });
-    } finally {
-      isRestoring = false;
-      render();
-    }
-  }
 
   async function handleDeleteAccount() {
     if (isDeletingAccount) {
@@ -234,6 +250,7 @@ export function initBackupUi(root) {
     render();
     try {
       await removeBackupAccount();
+      createdRecoveryCode = null;
       showToast(t("settings.backup.accountDeleted"), { duration: 2500 });
     } catch (error) {
       showToast(getBackupActionErrorMessage(error, "settings.backup.deleteAccountFailed"), {
@@ -246,9 +263,9 @@ export function initBackupUi(root) {
     }
   }
 
+  createButton?.addEventListener("click", handleCreate);
   connectButton?.addEventListener("click", handleConnect);
   backupNowButton?.addEventListener("click", handleBackupNow);
-  restoreButton?.addEventListener("click", handleRestore);
   copyCodeButton?.addEventListener("click", handleCopyCode);
   disconnectButton?.addEventListener("click", handleDisconnect);
   deleteAccountButton?.addEventListener("click", handleDeleteAccount);
@@ -257,9 +274,9 @@ export function initBackupUi(root) {
   render();
 
   return () => {
+    createButton?.removeEventListener("click", handleCreate);
     connectButton?.removeEventListener("click", handleConnect);
     backupNowButton?.removeEventListener("click", handleBackupNow);
-    restoreButton?.removeEventListener("click", handleRestore);
     copyCodeButton?.removeEventListener("click", handleCopyCode);
     disconnectButton?.removeEventListener("click", handleDisconnect);
     deleteAccountButton?.removeEventListener("click", handleDeleteAccount);

@@ -118,12 +118,15 @@ Restore from the online backup:
 
 1. In Settings > Data, paste the recovery code (`cc-…`, older codes start with
    `paletcam-`) and connect.
-2. Tap Restore backup. Palettes already on the phone stay. The restore skips
-   palettes whose `backupUid` is already present, and keeps one copy of server
-   entries that share the first photo hash and capture time
-   (`src/backup-restore.js`).
+2. The first sync pass downloads every palette the phone lacks. Palettes
+   already on the phone stay. Server entries that copy one capture (same
+   capture time and colors) land once, under the lowest uid
+   (`src/backup-pull.js`). The Data tab shows "Preparing N / M" while it reads
+   metadata, then "Restoring N / M" while it downloads photos.
 3. Large restores pause for about a minute each time the server's rate limit
-   runs out, then resume. Each palette costs about two requests.
+   runs out, then resume. Each palette costs about two requests. Palettes are
+   committed 25 at a time. An interrupted restore keeps the committed palettes,
+   and the next pass downloads the rest.
 
 Restore from an export file:
 
@@ -210,8 +213,11 @@ addresses and origins, so back them up only within that period.
 
 - The volume at `/app/data` holds the only off-device copy of every backed-up
   palette. Include it in the VPS backup routine.
-- Keep `PAIRING_ENABLED=false`. Pairing mints a new account. A user connects a
-  new phone with their existing recovery code.
+- Keep `PAIRING_ENABLED=true` while users create backups from the app
+  (Settings > Data > Create online backup). `POST /v1/pair` mints one account
+  per call and allows `PAIR_RATE_LIMIT_MAX` (5) calls per IP per hour. Set it to
+  `false` to stop new accounts. A user connects another phone with their
+  existing recovery code.
 - `ALLOWED_ORIGINS` must list every PWA origin that uses the backup.
 - A user deletes their account from Settings > Data with `DELETE /v1/account`.
   The server renames the account directory to `<accountId>.deleted` and then
@@ -223,4 +229,4 @@ addresses and origins, so back them up only within that period.
 - `RATE_LIMIT_MAX` defaults to 240 requests a minute. Raising it to 600 shortens
   the pauses during large restores.
 - `curl -s https://ccbackup.ludique.dev/health` should return `"ok":true` and
-  `"pairingEnabled":false`.
+  `"pairingEnabled":true`.

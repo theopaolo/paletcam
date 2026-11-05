@@ -9,14 +9,14 @@ public privacy notice. It does not replace them.
 | Master captured photo | Local IndexedDB (`paletteAssets`) | Saved capture, export, share, optional publish and online backup | Until user deletes capture or flushes local data |
 | Gallery/viewer previews | Local IndexedDB (`palettePreviews`) | Faster collection/viewer display | Deleted with capture/local flush; regenerable |
 | Palette colors and capture metadata (capture time, crop, render settings, favourite date, publication state) | Local IndexedDB (`palettes`) | Collection and rendering | Deleted with capture/local flush |
-| Backup ledger: a random `backupUid` per palette with dirty and uploaded stamps, plus `backupTombstones` (uid and deletion time of each locally deleted palette) | Local IndexedDB (`palettes`, `backupTombstones`) | Upload only changed palettes and pass local deletions to the backup server | Ledger fields go with their capture. A tombstone is removed once the server accepts it. Local flush does not clear `backupTombstones`. Delete online backup marks every palette as awaiting upload and clears `backupTombstones` |
+| Backup ledger: a random `backupUid` per palette with dirty and uploaded stamps and the hash of the last server version seen, plus `backupTombstones` (uid and deletion time of each locally deleted palette) | Local IndexedDB (`palettes`, `backupTombstones`) | Upload only changed palettes and pass local deletions to the backup server | Ledger fields go with their capture. A tombstone is removed once the server accepts it. Local flush does not clear `backupTombstones`. Delete online backup forgets every server hash and clears `backupTombstones` |
 | Provisional imported photos and palette records | Local IndexedDB (`paletteImportStaging`) | Validate a complete backup before one atomic commit | Removed after commit/failed import/local flush; stale crash residue is reclaimed after the bounded lease expires |
 | App settings, camera grid, performance HUD position, install-prompt dismissal | Local storage (`paletcam:settings:v1`, `paletcam:grid:v1`, `paletcam:performance-hud-position:v1`, `pwa-install-dismissed`) | User preferences | Until local flush/site-data deletion |
 | Footer variant picks | Local storage (`paletcam.footerLab.v2`), written only by the debug-build switches | Preprod footer tests | Until site-data deletion. Local flush skips this key because local-data-reset.js only matches the `paletcam:` prefix |
 | Community token, email, user ID, and display name | Local storage | Authenticated community actions and account display | Until logout, account deletion, or local flush |
 | Account-deletion cleanup marker (hashed account keys) | Local storage (`paletcam:account-deletion-cleanup-pending:v1`) | Finish clearing local publication metadata after a remote account deletion | Removed after cleanup or local flush |
 | Backup recovery code (account ID and secret) | Local storage (`paletcam:backup:credentials:v1`), and the clipboard after Copy code | Authenticate backup uploads and restores | Until Disconnect, Delete online backup, or local flush. The server stores only the SHA-256 of the secret |
-| Backed-up palettes: the palette metadata record without its local id (colors, capture time and crop, favourite date, publication state including remote catch ID and hashed account key, `backupUid`) and the master photo | Backup server (`services/sync-server`, ccbackup.ludique.dev), one directory per account on a persistent volume | User-connected backup and restore after a device wipe | The server keeps the last 5 versions of each metadata document. A local delete becomes a tombstone, and the daily sweep purges it after 30 days (`TOMBSTONE_RETENTION_DAYS`) along with photos no other palette references. Disconnect and local flush leave the server copy in place. Delete online backup (`DELETE /v1/account`) removes the account directory with every version, tombstone and photo at once |
+| Backed-up palettes: the palette metadata record without its local id (colors, capture time and crop, favourite date, publication state including remote catch ID and hashed account key, `backupUid`) and the master photo | Backup server (`services/sync-server`, ccbackup.ludique.dev), one directory per account on a persistent volume | User-connected backup and restore after a device wipe | The server keeps the last 5 versions of each metadata document. A local delete becomes a tombstone. After 30 days (`TOMBSTONE_RETENTION_DAYS`) the daily sweep purges its metadata and the photos no other palette references, and keeps only the uid and deletion time so offline devices still learn about the delete. Disconnect and local flush leave the server copy in place. Delete online backup (`DELETE /v1/account`) removes the account directory with every version, tombstone and photo at once |
 | Backup account record (account ID, secret hash, creation time) | Backup server (`account.json`) | Verify the bearer credentials | Until the user deletes the online backup or the operator deletes the account directory |
 | Remote cleanup outbox (hashed account key, remote catch ID, retry/lease metadata) | Local IndexedDB (`communityDeleteOutbox`); legacy local-storage entries are migrated once | Retry failed unpublish cleanup without retaining raw account credentials | Removed after success or local flush; the legacy local-storage key is removed after migration |
 | Publication recovery operation key and remote catch state | Local storage | Reconcile a remote publication when local state persistence and compensating unpublish both fail | Bounded to 20 entries; removed after reconciliation or local flush |
@@ -43,11 +43,14 @@ public privacy notice. It does not replace them.
   is the sole identifier exception.
 - Mutating community requests are user-initiated and are not automatically
   replayed without a dedicated outbox/idempotency contract.
-- Backup uploads start only after the user connects a recovery code. From then
-  on `backup-service.js` uploads without asking: on connect, 8 seconds after
-  app start, and every 5 minutes. The PWA does not create backup accounts. The
-  operator mints one with `POST /v1/pair`, gated by `PAIRING_ENABLED`, and hands
-  the recovery code to the user.
+- Backup uploads start only after the user creates an online backup or
+  connects a recovery code. From then on `backup-service.js` syncs without
+  asking: on connect, 8 seconds after app start, every 5 minutes, and a few
+  seconds after a capture or a delete. A sync pass also downloads palettes
+  and favourite or publication changes that other devices on the same account
+  uploaded, and deletes local palettes another device deleted. Create online
+  backup calls `POST /v1/pair`, which works only while `PAIRING_ENABLED` is
+  true and allows 5 accounts per IP per hour.
 - Capture-count delivery is best-effort at-least-once. A successful request
   followed by a crash before the acknowledged local count is removed can replay
   that batch, so server-side reporting must tolerate occasional duplicates.
@@ -65,12 +68,14 @@ remote account deletion; they are not equivalent operations.
 Deleting a published capture locally requires the owning community login and
 queues its unpublish through the cleanup outbox.
 
-The Data tab backup section connects a recovery code and offers Back up now,
-Restore backup, Copy code, Disconnect, and Delete online backup. Disconnect only
-removes the code from the device. Local flush removes it too, so a later restore
-needs the code the user saved. Neither action touches the server copy.
-Connecting a code puts every palette back in the upload queue, because the
-device does not record which account received each palette. Delete
+The Data tab backup section creates an online backup or connects a recovery
+code, and offers Sync now, Copy code, Disconnect, and Delete online backup.
+Disconnect only removes the code from the device. Local flush removes it too,
+so a later restore needs the code the user saved. Neither action touches the
+server copy. Connecting a code makes the device forget which server version
+it saw of each palette, because it does not record which account received
+them. The next sync pass downloads what the account holds and uploads what it
+lacks. Delete
 online backup asks for confirmation, then deletes the account on the server.
 The recovery code stops working, and the server removes the photos and metadata
 at once, without the 30-day grace period. The palettes on the phone stay. If the

@@ -399,20 +399,33 @@ The service worker owns this layer entirely. Chapter 7 covers it.
 
 The browser, a cleaner app or the user can wipe origin storage, so palettes
 also go to a private backup server: `services/sync-server/`, deployed at
-ccbackup.ludique.dev. Despite the folder name, the server does backup and
-restore only. It does not sync.
+ccbackup.ludique.dev. Several devices can share one account. The server does
+not merge anything. Each device syncs through it with conditional writes.
 
-- `src/backup-service.js` runs the flush. It reads the server manifest, sends
-  the tombstones, then uploads dirty palettes in batches of 10. Photos are
-  addressed by their SHA-256 (`crypto.subtle.digest`), so each photo uploads
-  once. The flush runs 8 s after startup, every 5 minutes, and when you tap
-  the "Back up now" button.
-- `src/backup-restore.js` reads the manifest, skips palettes already on the
-  device (by `backupUid`), fetches the rest and commits them through the
-  staged import path.
+- `src/backup-service.js` runs the sync pass. It reads the server manifest,
+  pulls, sends the tombstones, then uploads dirty palettes in batches of 10.
+  Photos are addressed by their SHA-256 (`crypto.subtle.digest`), so each
+  photo uploads once. A pass runs 8 s after startup, every 5 minutes, a few
+  seconds after a capture or a delete, and when you tap "Sync now".
+- Each palette keeps the hash of the server document it last uploaded or
+  applied (`backupRemoteHash`). An upload sends it as `If-Match`, or
+  `If-None-Match: *` when the hash is unknown. On a 409 the newest change
+  wins, compared on the `backupDirtyAt` stamp each document carries.
+  Connecting a recovery code forgets every hash, so the first pass downloads
+  what the account holds and uploads what it lacks.
+- `src/backup-pull.js` applies what other devices changed. Clean palettes get
+  the new favourite and publication state. New palettes are downloaded and
+  committed 25 at a time through the staged import path, so an interrupted
+  pass keeps the committed ones. Copies of one capture under two
+  uids (one file imported on two devices) collapse to the lowest uid. A remote
+  delete removes a local palette only if it is clean and the device saw its
+  current server version. A pass that would delete more than 10 palettes and
+  more than half the collection deletes nothing and logs
+  `backup:pull-delete-guard`.
 - `src/backup-credentials.js` keeps the recovery code in localStorage,
   `src/backup-api.js` is the HTTP layer, and `src/backup-ui.js` draws the
-  backup section of the settings Data tab.
+  backup section of the settings Data tab. Its Create online backup button
+  calls `POST /v1/pair` and shows the new recovery code.
 
 The same tab shows whether the browser granted persistent storage
 (`inspectStorageHealth()` in `modules/storage-health.js`) and the date of the

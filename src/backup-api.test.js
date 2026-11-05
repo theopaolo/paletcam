@@ -3,8 +3,11 @@ import {
   DEFAULT_RETRY_DELAY_MS,
   deleteBackupAccount,
   fetchBackupManifest,
+  fetchBackupPalette,
   getRetryDelayMs,
   MAX_RATE_LIMIT_RETRIES,
+  pairBackupAccount,
+  putBackupPalette,
   setBackupApiSleepForTests,
 } from "./backup-api.js";
 
@@ -98,5 +101,65 @@ describe("backup api account deletion", () => {
     expect(init.headers.Authorization).toBe(
       `Bearer ${CREDENTIALS.accountId}.${CREDENTIALS.secret}`,
     );
+  });
+});
+
+describe("backup api sync contract", () => {
+  const HASH = "d".repeat(64);
+
+  test("a palette write names the server version it expects", async () => {
+    const fetchMock = mock(async () => jsonResponse(200, { ok: true, hash: HASH }));
+    globalThis.fetch = fetchMock;
+
+    await expect(
+      putBackupPalette(CREDENTIALS, "uid-one", { palette: {} }, { baseHash: HASH }),
+    ).resolves.toBe(HASH);
+    await putBackupPalette(CREDENTIALS, "uid-one", { palette: {} });
+
+    expect(fetchMock.mock.calls[0][1].headers["If-Match"]).toBe(`"${HASH}"`);
+    expect(fetchMock.mock.calls[1][1].headers["If-None-Match"]).toBe("*");
+    expect(fetchMock.mock.calls[1][1].headers["If-Match"]).toBeUndefined();
+  });
+
+  test("a conflict carries the server's answer", async () => {
+    const body = { ok: false, error: "conflict", current: null, tombstoned: true };
+    globalThis.fetch = mock(async () => jsonResponse(409, body));
+
+    await expect(
+      putBackupPalette(CREDENTIALS, "uid-one", { palette: {} }, { baseHash: HASH }),
+    ).rejects.toMatchObject({ code: "conflict", status: 409, body });
+  });
+
+  test("a palette download reports its version from the ETag", async () => {
+    globalThis.fetch = mock(async () =>
+      jsonResponse(200, { palette: { timestamp: "t" } }, { etag: `"${HASH.toUpperCase()}"` }),
+    );
+
+    await expect(fetchBackupPalette(CREDENTIALS, "uid-one")).resolves.toEqual({
+      envelope: { palette: { timestamp: "t" } },
+      hash: HASH,
+    });
+  });
+
+  test("pairing sends no credentials and does not wait out a 429", async () => {
+    const fetchMock = mock(async () =>
+      jsonResponse(201, { ok: true, accountId: "0123456789abcdef", secret: "e".repeat(48) }),
+    );
+    globalThis.fetch = fetchMock;
+
+    await expect(pairBackupAccount()).resolves.toEqual({
+      accountId: "0123456789abcdef",
+      secret: "e".repeat(48),
+    });
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBeUndefined();
+
+    const sleptDelays = [];
+    setBackupApiSleepForTests(async (delayMs) => sleptDelays.push(delayMs));
+    globalThis.fetch = mock(async () => jsonResponse(429, { error: "rate_limited" }));
+    await expect(pairBackupAccount()).rejects.toMatchObject({ code: "rate_limited" });
+    expect(sleptDelays).toEqual([]);
+
+    globalThis.fetch = mock(async () => jsonResponse(403, { error: "pairing_disabled" }));
+    await expect(pairBackupAccount()).rejects.toMatchObject({ code: "pairing_disabled" });
   });
 });

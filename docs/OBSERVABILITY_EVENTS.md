@@ -59,8 +59,10 @@ The registry also accepts diagnostic events outside this table. They cover
 `reportAppError` messages such as `Failed to save palette.`, storage and
 collection timings (`getSavedPalettes:*`, `loadCollectionUi:*`,
 `paletteStorageMaintenance:*`), `storage:health` quota and persistence readings,
-camera resume (`Restarting camera after app resume.`), and backup-server
-failures (`backup:flush-failed`, `backup:restore-failed`). The registry file is
+camera resume (`Restarting camera after app resume.`), backup-server
+failures (`backup:flush-failed`, and `backup:restore-failed` from app versions
+before sync), and `backup:pull-delete-guard` when a sync pass refuses to delete
+more than half the collection. The registry file is
 the authoritative list of names and fields.
 `src/modules/telemetry-contract-coverage.test.js` fails when app code emits a
 name the registry lacks.

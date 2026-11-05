@@ -15,6 +15,16 @@ export class BackupQuotaExceededError extends Error {
   }
 }
 
+/** A conditional palette write found a different state than the client expected. */
+export class BackupConflictError extends Error {
+  constructor({ current, tombstoned }) {
+    super("The palette changed since the client last read it.");
+    this.name = "BackupConflictError";
+    this.current = current;
+    this.tombstoned = tombstoned;
+  }
+}
+
 export function sha256HexOfBytes(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -130,15 +140,30 @@ export function createBackupStore({
 
   /**
    * Stores one metadata document as a new immutable version and updates the
-   * manifest. Only the latest version counts toward the quota — older
+   * manifest. Only the latest version counts toward the quota. Older
    * versions are few (`maxPaletteVersions`) and small by contract.
+   *
+   * `expectedHash` writes only over that exact live version, `expectAbsent`
+   * only when the uid is not live. The check runs under the account lock, so
+   * of two writes against the same version only the first succeeds.
    */
-  function putPalette(accountId, uid, { documentText, referencedAssets }) {
+  function putPalette(
+    accountId,
+    uid,
+    { documentText, referencedAssets, expectedHash, expectAbsent = false },
+  ) {
     return withAccountLock(accountId, async () => {
       assertAccountNotDeleted(accountId);
       const documentBytes = Buffer.byteLength(documentText, "utf8");
       const manifest = await readManifest(accountId);
-      const replacedBytes = manifest.palettes[uid]?.bytes || 0;
+      const live = manifest.palettes[uid];
+      if ((expectedHash !== undefined && live?.hash !== expectedHash) || (expectAbsent && live)) {
+        throw new BackupConflictError({
+          current: live ? { hash: live.hash, updatedAt: live.updatedAt } : null,
+          tombstoned: Object.hasOwn(manifest.tombstones, uid),
+        });
+      }
+      const replacedBytes = live?.bytes || 0;
       if (manifest.usageBytes - replacedBytes + documentBytes > maxAccountBytes) {
         throw new BackupQuotaExceededError();
       }
@@ -167,12 +192,14 @@ export function createBackupStore({
     });
   }
 
+  /** Returns the latest document with the hash from the same manifest entry. */
   async function getPaletteDocument(accountId, uid) {
     const manifest = await readManifest(accountId);
     const entry = manifest.palettes[uid];
     if (!entry?.file) return null;
     try {
-      return await readFile(join(paletteDir(accountId, uid), entry.file), "utf8");
+      const documentText = await readFile(join(paletteDir(accountId, uid), entry.file), "utf8");
+      return { documentText, hash: entry.hash };
     } catch {
       return null;
     }
@@ -259,8 +286,10 @@ export function createBackupStore({
   }
 
   /**
-   * Purges tombstones older than the retention window, then garbage-collects
-   * assets no live palette or surviving tombstone still references.
+   * Removes the files of tombstones older than the retention window, then
+   * garbage-collects assets no live palette or unpurged tombstone references.
+   * The tombstone uid stays in the manifest for good, so a device that was
+   * offline longer than the window still learns the palette was deleted.
    */
   function sweepAccount(accountId, { nowMs = now().getTime() } = {}) {
     return withAccountLock(accountId, async () => {
@@ -268,11 +297,19 @@ export function createBackupStore({
       const retentionMs = tombstoneRetentionDays * 24 * 60 * 60 * 1000;
       let purgedPalettes = 0;
 
+      // ponytail: the sweep keeps purged tombstones, so the manifest grows by
+      // about 100 bytes per deleted palette. Compact them if that ever matters.
       for (const [uid, tombstone] of Object.entries(manifest.tombstones)) {
+        if (tombstone.purgedAt) continue;
         const deletedAtMs = Date.parse(tombstone.deletedAt || "");
         if (!Number.isFinite(deletedAtMs) || nowMs - deletedAtMs >= retentionMs) {
           await rm(paletteDir(accountId, uid), { recursive: true, force: true });
-          delete manifest.tombstones[uid];
+          const purgedAt = new Date(nowMs).toISOString();
+          // Dropping assets, file and bytes frees the photos for the GC below.
+          manifest.tombstones[uid] = {
+            deletedAt: Number.isFinite(deletedAtMs) ? tombstone.deletedAt : purgedAt,
+            purgedAt,
+          };
           purgedPalettes += 1;
         }
       }

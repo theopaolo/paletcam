@@ -31,7 +31,10 @@ import {
   isPaletteFavorite,
 } from "./modules/collection/collection-filter.js";
 import { createCollectionLifecycle } from "./modules/collection/collection-lifecycle.js";
-import { PALETTE_DELETED_EVENT } from "./modules/collection/collection-events.js";
+import {
+  PALETTE_DELETED_EVENT,
+  PALETTES_SYNCED_EVENT,
+} from "./modules/collection/collection-events.js";
 import { createCollectionLoadCoordinator } from "./modules/collection/collection-load-coordinator.js";
 import {
   createCollectionView,
@@ -83,6 +86,7 @@ import {
 import { dismissToast, showToast, showUndoToast } from "./modules/toast-ui.js";
 import { boundaryFeedback, detentFeedback, unlockUiFeedback } from "./modules/ui-feedback.js";
 import { deletePalette, getSavedPalettes, setPaletteFavorites } from "./palette-storage.js";
+import { requestBackupFlush } from "./backup-service.js";
 
 const collectionView = createCollectionView(document);
 const {
@@ -647,6 +651,7 @@ async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = fal
     if (!result.success) throw result.error;
 
     pendingDeletionIds.delete(palette.id);
+    requestBackupFlush();
     if (result.remoteFlushError) {
       reportAppError(result.remoteFlushError, {
         logMessage: "Failed to process the remote deletion outbox.",
@@ -2037,6 +2042,12 @@ function bindCollectionUiEvents() {
     subscribeSharedPanelClosing("collection", handleCollectionPanelClosing),
   );
   collectionLifecycle.registerCleanup(subscribeAppSettings(handleCollectionSettingsChange));
+  // A closed collection reads fresh data on its next open anyway.
+  bindCollectionEventListener(globalThis, PALETTES_SYNCED_EVENT, () => {
+    if (collectionPanel?.classList.contains("visible")) {
+      void loadCollectionUi();
+    }
+  });
   syncCollectionPanelChrome();
 }
 

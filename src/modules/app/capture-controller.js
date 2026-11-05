@@ -1,4 +1,5 @@
 import { getAppSettings } from "../../app-settings.js";
+import { requestBackupFlush } from "../../backup-service.js";
 import { trackCaptureStatAsync } from "../../capture-stat-service.js";
 import { t } from "../../i18n.js";
 import { savePalette } from "../../palette-storage.js";
@@ -150,6 +151,7 @@ export function createCaptureController({
           });
           scheduleSavedPalettePreviewWarmup(savedPalette, "gallery");
           trackCaptureStatAsync();
+          requestBackupFlush();
           photoOutputController.setPaletteId(savedPalette?.id);
         }
         recordMetric("capture-save", {

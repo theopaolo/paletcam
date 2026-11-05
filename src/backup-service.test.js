@@ -4,11 +4,21 @@ const serviceModuleUrl = new URL("./backup-service.js", import.meta.url).href;
 const apiModuleUrl = new URL("./backup-api.js", import.meta.url).href;
 const credentialsModuleUrl = new URL("./backup-credentials.js", import.meta.url).href;
 const ledgerModuleUrl = new URL("./palette-storage/backup-ledger.js", import.meta.url).href;
+const pullModuleUrl = new URL("./backup-pull.js", import.meta.url).href;
 const assetsModuleUrl = new URL("./palette-storage/assets.js", import.meta.url).href;
 const lifecycleModuleUrl = new URL("./modules/app-terminal-lifecycle.js", import.meta.url).href;
 const clientLogModuleUrl = new URL("./modules/client-log.js", import.meta.url).href;
 
 const CREDENTIALS = { accountId: "0123456789abcdef", secret: "a".repeat(48) };
+const STORED_HASH = "f".repeat(64);
+const BASE_HASH = "b".repeat(64);
+const REMOTE_HASH = "c".repeat(64);
+
+function createConflictError() {
+  const error = new Error("conflict");
+  error.code = "conflict";
+  return error;
+}
 
 function createDirtyPalette(id, backupUid) {
   return {
@@ -28,7 +38,9 @@ async function loadService({
   tombstones = [],
   photoBlob = new Blob(["photo-bytes"]),
   putPaletteImplementation,
+  fetchPaletteImplementation,
   deleteAccountImplementation,
+  pullResult = { imported: 0, updated: 0, rekeyed: 0, deleted: 0 },
 } = {}) {
   const api = {
     fetchBackupManifest: mock(async () => ({
@@ -37,7 +49,8 @@ async function loadService({
       tombstones: {},
       usageBytes: 0,
     })),
-    putBackupPalette: mock(putPaletteImplementation ?? (async () => {})),
+    putBackupPalette: mock(putPaletteImplementation ?? (async () => STORED_HASH)),
+    fetchBackupPalette: mock(fetchPaletteImplementation ?? (async () => null)),
     putBackupAsset: mock(async () => {}),
     deleteBackupPalette: mock(async () => {}),
     deleteBackupAccount: mock(deleteAccountImplementation ?? (async () => {})),
@@ -54,10 +67,13 @@ async function loadService({
     resolveBackupTombstones: mock(async () => {}),
     countBackupProgress: mock(async () => ({ total: 2, dirty: 0, backedUp: 2 })),
     resetBackupLedger: mock(async () => {}),
-    markAllPalettesForBackup: mock(async () => {}),
+    forgetBackupRemoteHashes: mock(async () => {}),
+    applyRemotePaletteState: mock(async () => true),
   };
+  const pull = { pullBackupChanges: mock(async () => pullResult) };
 
   mock.module(apiModuleUrl, () => api);
+  mock.module(pullModuleUrl, () => pull);
   mock.module(ledgerModuleUrl, () => ledger);
   const credentialsStore = {
     getBackupCredentials: () => credentials,
@@ -72,7 +88,7 @@ async function loadService({
   mock.module(clientLogModuleUrl, () => ({ clientLog: () => {} }));
 
   const module = await import(`${serviceModuleUrl}?test=${Math.random()}`);
-  return { api, credentialsStore, ledger, module };
+  return { api, credentialsStore, ledger, module, pull };
 }
 
 afterEach(() => {
@@ -105,10 +121,127 @@ describe("backup service flush", () => {
     expect(envelope.palette.id).toBeUndefined();
     expect(envelope.palette.backupUid).toBe("uid-one");
     expect(envelope.assets).toHaveLength(1);
+    // No known server version: the write must not overwrite a live copy.
+    expect(api.putBackupPalette.mock.calls[0][3]).toEqual({ baseHash: null });
     expect(ledger.markPaletteBackedUp).toHaveBeenCalledWith(1, {
       dirtyAtSeen: palette.backupDirtyAt,
+      remoteHash: STORED_HASH,
     });
     expect(status.errorCode).toBeNull();
+  });
+
+  test("pulls before it uploads and announces local changes", async () => {
+    const calls = [];
+    const dispatchEvent = mock(() => true);
+    globalThis.dispatchEvent = dispatchEvent;
+    const { api, module, pull } = await loadService({
+      dirtyBatches: [[createDirtyPalette(1, "uid-one")], []],
+      pullResult: { imported: 1, updated: 0, rekeyed: 0, deleted: 0 },
+    });
+    pull.pullBackupChanges.mockImplementation(async () => {
+      calls.push("pull");
+      return { imported: 1, updated: 0, rekeyed: 0, deleted: 0 };
+    });
+    api.putBackupPalette.mockImplementation(async () => {
+      calls.push("push");
+      return STORED_HASH;
+    });
+
+    await module.runBackupFlush();
+
+    expect(calls).toEqual(["pull", "push"]);
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    delete globalThis.dispatchEvent;
+  });
+
+  test("writes against the server version it last saw and keeps that hash out of the envelope", async () => {
+    const palette = { ...createDirtyPalette(1, "uid-one"), backupRemoteHash: BASE_HASH };
+    const { api, module } = await loadService({ dirtyBatches: [[palette], []] });
+
+    await module.runBackupFlush();
+
+    const [, , envelope, options] = api.putBackupPalette.mock.calls[0];
+    expect(options).toEqual({ baseHash: BASE_HASH });
+    expect(envelope.palette.backupRemoteHash).toBeUndefined();
+  });
+
+  test("on a conflict with a newer server version it takes that version", async () => {
+    const palette = { ...createDirtyPalette(1, "uid-one"), backupRemoteHash: BASE_HASH };
+    const remotePalette = { backupDirtyAt: "2026-09-01T00:00:00.000Z", favoritedAt: null };
+    const { api, ledger, module } = await loadService({
+      dirtyBatches: [[palette], []],
+      putPaletteImplementation: async () => {
+        throw createConflictError();
+      },
+      fetchPaletteImplementation: async () => ({
+        envelope: { palette: remotePalette },
+        hash: REMOTE_HASH,
+      }),
+    });
+
+    await module.runBackupFlush();
+
+    expect(api.putBackupPalette).toHaveBeenCalledTimes(1);
+    expect(ledger.applyRemotePaletteState).toHaveBeenCalledWith(1, {
+      expectedDirtyAt: palette.backupDirtyAt,
+      remotePalette,
+      remoteHash: REMOTE_HASH,
+    });
+    expect(ledger.markPaletteBackedUp).not.toHaveBeenCalled();
+  });
+
+  test("on a conflict with an older server version it retries against that version", async () => {
+    const palette = { ...createDirtyPalette(1, "uid-one"), backupRemoteHash: BASE_HASH };
+    let attempts = 0;
+    const { api, ledger, module } = await loadService({
+      dirtyBatches: [[palette], []],
+      putPaletteImplementation: async () => {
+        attempts += 1;
+        if (attempts === 1) throw createConflictError();
+        return STORED_HASH;
+      },
+      fetchPaletteImplementation: async () => ({
+        envelope: { palette: { backupDirtyAt: "2026-07-01T00:00:00.000Z" } },
+        hash: REMOTE_HASH,
+      }),
+    });
+
+    await module.runBackupFlush();
+
+    expect(api.putBackupPalette.mock.calls.map((call) => call[3])).toEqual([
+      { baseHash: BASE_HASH },
+      { baseHash: REMOTE_HASH },
+    ]);
+    expect(ledger.applyRemotePaletteState).not.toHaveBeenCalled();
+    expect(ledger.markPaletteBackedUp).toHaveBeenCalledWith(1, {
+      dirtyAtSeen: palette.backupDirtyAt,
+      remoteHash: STORED_HASH,
+    });
+  });
+
+  test("an edited palette that was deleted elsewhere comes back", async () => {
+    const palette = { ...createDirtyPalette(1, "uid-one"), backupRemoteHash: BASE_HASH };
+    let attempts = 0;
+    const { api, module } = await loadService({
+      dirtyBatches: [[palette], []],
+      putPaletteImplementation: async () => {
+        attempts += 1;
+        if (attempts === 1) throw createConflictError();
+        return STORED_HASH;
+      },
+      fetchPaletteImplementation: async () => {
+        const error = new Error("gone");
+        error.code = "not_found";
+        throw error;
+      },
+    });
+
+    await module.runBackupFlush();
+
+    expect(api.putBackupPalette.mock.calls.map((call) => call[3])).toEqual([
+      { baseHash: BASE_HASH },
+      { baseHash: null },
+    ]);
   });
 
   test("skips re-uploading an asset the manifest already holds", async () => {
@@ -166,15 +299,15 @@ describe("backup service flush", () => {
 });
 
 describe("backup account connection", () => {
-  test("queues every palette for upload before storing the credentials", async () => {
+  test("forgets every known server version before storing the credentials", async () => {
     const { credentialsStore, ledger, module } = await loadService({ credentials: null });
     const calls = [];
-    ledger.markAllPalettesForBackup.mockImplementation(async () => calls.push("mark"));
+    ledger.forgetBackupRemoteHashes.mockImplementation(async () => calls.push("forget"));
     credentialsStore.saveBackupCredentials.mockImplementation(() => calls.push("save"));
 
     await module.connectBackupAccount(CREDENTIALS);
 
-    expect(calls).toEqual(["mark", "save"]);
+    expect(calls).toEqual(["forget", "save"]);
   });
 
   test("changes nothing when the server rejects the code", async () => {
@@ -189,7 +322,7 @@ describe("backup account connection", () => {
       code: "unauthorized",
     });
 
-    expect(ledger.markAllPalettesForBackup).not.toHaveBeenCalled();
+    expect(ledger.forgetBackupRemoteHashes).not.toHaveBeenCalled();
     expect(credentialsStore.saveBackupCredentials).not.toHaveBeenCalled();
   });
 });

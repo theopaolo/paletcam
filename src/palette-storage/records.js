@@ -64,6 +64,37 @@ export function normalizeBackupUid(value) {
   return normalized && normalized.length <= BACKUP_UID_MAX_LENGTH ? normalized : null;
 }
 
+const BACKUP_REMOTE_HASH_PATTERN = /^[a-f0-9]{64}$/;
+
+/** The sha256 of the server document this device last uploaded or applied. */
+export function normalizeBackupRemoteHash(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return BACKUP_REMOTE_HASH_PATTERN.test(normalized) ? normalized : null;
+}
+
+/**
+ * The palette fields another device may change. Everything else is fixed at
+ * capture, so sync compares and copies only these.
+ * @returns {Pick<Palette, 'favoritedAt' | 'remoteCatchId' | 'remoteOwnerAccountKey' | 'moderationStatus' | 'postedAt' | 'moderationUpdatedAt' | 'lastModerationCheckAt'>}
+ */
+export function pickSyncedPaletteFields(palette) {
+  const remoteCatchId = normalizeRemoteCatchId(palette?.remoteCatchId);
+  return {
+    favoritedAt: normalizeIsoString(palette?.favoritedAt),
+    remoteCatchId,
+    remoteOwnerAccountKey: remoteCatchId
+      ? normalizeRemoteOwnerAccountKey(palette?.remoteOwnerAccountKey)
+      : null,
+    moderationStatus: normalizeModerationStatus(palette?.moderationStatus),
+    postedAt: normalizeIsoString(palette?.postedAt),
+    moderationUpdatedAt: normalizeIsoString(palette?.moderationUpdatedAt),
+    lastModerationCheckAt: normalizeIsoString(palette?.lastModerationCheckAt),
+  };
+}
+
 export function normalizeRemoteCatchId(value) {
   if (value === null || value === undefined) {
     return null;
@@ -314,6 +345,9 @@ export function parseStoredPaletteMetadataRecord(candidate) {
   const favoritedAt = parseStoredOptionalIsoString(candidate.favoritedAt);
   const backupDirtyAt = parseStoredOptionalIsoString(candidate.backupDirtyAt);
   const backupUploadedAt = parseStoredOptionalIsoString(candidate.backupUploadedAt);
+  // A damaged sync hash only costs one extra download, so it reads as unknown
+  // instead of hiding the palette like the other invalid fields do.
+  const backupRemoteHash = normalizeBackupRemoteHash(candidate.backupRemoteHash);
   const backupUid =
     candidate.backupUid === undefined || candidate.backupUid === null
       ? null
@@ -386,6 +420,7 @@ export function parseStoredPaletteMetadataRecord(candidate) {
     backupUid,
     backupDirtyAt,
     backupUploadedAt,
+    backupRemoteHash,
     hasPhotoAsset: candidate.hasPhotoAsset === true,
   });
 }
@@ -426,6 +461,7 @@ export function normalizeStoredPaletteRecord(
     backupUid: normalizeBackupUid(palette?.backupUid),
     backupDirtyAt: normalizeIsoString(palette?.backupDirtyAt),
     backupUploadedAt: normalizeIsoString(palette?.backupUploadedAt),
+    backupRemoteHash: normalizeBackupRemoteHash(palette?.backupRemoteHash),
     previewFooterLabel: normalizePreviewFooterLabel(palette?.previewFooterLabel),
     hasPhotoAsset: Boolean(
       palette?.hasPhotoAsset || photoBlob instanceof Blob || palette?.photoBlob instanceof Blob,
@@ -497,6 +533,7 @@ export function createPaletteMetadataRecord({
   backupUid = null,
   backupDirtyAt = null,
   backupUploadedAt = null,
+  backupRemoteHash = null,
 }) {
   /** @type {PaletteMetadataRecord} */
   const record = {
@@ -522,6 +559,7 @@ export function createPaletteMetadataRecord({
     backupUid: normalizeBackupUid(backupUid) ?? createBackupUid(),
     backupDirtyAt: normalizeIsoString(backupDirtyAt) ?? new Date().toISOString(),
     backupUploadedAt: normalizeIsoString(backupUploadedAt),
+    backupRemoteHash: normalizeBackupRemoteHash(backupRemoteHash),
     hasPhotoAsset: Boolean(hasPhotoAsset),
   };
 
