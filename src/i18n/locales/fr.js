@@ -104,6 +104,12 @@ const fr = {
   "collection.publish.success": "Capture publiée. Modération en cours.",
   "collection.publish.already": "Capture déjà publiée.",
   "collection.publish.failure": "Publication échouée.",
+  "collection.publication.ownerUnknown":
+    "Impossible de vérifier le compte qui a publié cette capture.",
+  "collection.publication.ownerMismatch": "Cette capture a été publiée avec un autre compte.",
+  "collection.publication.missingPhoto": "Cette capture n'a pas de photo à publier.",
+  "collection.publication.rejected":
+    "Cette capture a été refusée, elle ne peut pas être republiée.",
   "collection.publish.cta": "Mes captures",
   "collection.publication.sessionChanged": "Votre compte communautaire a changé. Réessayez.",
   "collection.unpublish.auth": "Connectez votre email pour dépublier.",
@@ -129,6 +135,8 @@ const fr = {
   "viewer.action.publishLabel": "publier",
   "viewer.action.unpublishAria": "Dépublier la palette",
   "viewer.action.unpublishLabel": "dépubliée",
+  "viewer.action.rejectedAria": "Capture refusée par la modération",
+  "viewer.action.rejectedLabel": "refusée",
   "viewer.action.exportAria": "Exporter la palette",
   "viewer.action.shareAria": "Partager la palette",
   "viewer.action.favoriteAria": "Ajouter aux favoris",
