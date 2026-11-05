@@ -113,6 +113,7 @@ const EVENT_FIELDS = Object.freeze({
     errorName: "error-name",
   },
   "Failed to load collection.": { errorCode: "error-code", errorName: "error-name" },
+  "Failed to load community feed.": { errorCode: "error-code", errorName: "error-name" },
   "Failed to load palette collection.": {
     errorCode: "error-code",
     errorName: "error-name",
@@ -155,6 +156,14 @@ const EVENT_FIELDS = Object.freeze({
     status: "http-status",
   },
   "Failed to release a collection resource.": {
+    errorCode: "error-code",
+    errorName: "error-name",
+  },
+  "Failed to update the community collection.": {
+    errorCode: "error-code",
+    errorName: "error-name",
+  },
+  "Failed to release a community resource.": {
     errorCode: "error-code",
     errorName: "error-name",
   },

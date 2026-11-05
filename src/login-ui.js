@@ -13,6 +13,9 @@ import { showToast } from "./modules/toast-ui.js";
 
 let pendingCommunityEmail = "";
 let isCommunityAuthBusy = false;
+let termsAttentionTimer = 0;
+
+const TERMS_ATTENTION_DURATION_MS = 600;
 
 function getCommunityAuthErrorKey(error) {
   switch (error?.code) {
@@ -76,12 +79,46 @@ function setCommunityCodeFieldVisible(communityCodeField, shouldShow) {
   communityCodeField.hidden = !shouldShow;
 }
 
+function hasAcceptedCommunityTerms(refs) {
+  return Boolean(refs.communityTermsCheckbox?.checked);
+}
+
+function syncRequestCodeButtonState(refs) {
+  const button = refs.communityRequestCodeButton;
+  if (!button) {
+    return;
+  }
+
+  // Terms gating uses aria-disabled (not `disabled`) so a click still reaches
+  // the handler and can draw attention to the terms checkbox.
+  button.disabled = isCommunityAuthBusy;
+  button.setAttribute("aria-busy", String(isCommunityAuthBusy));
+  button.setAttribute("aria-disabled", String(!hasAcceptedCommunityTerms(refs)));
+}
+
+function drawAttentionToCommunityTerms(refs) {
+  const termsBlock = refs.communityTermsCheckbox?.closest("label");
+  if (!termsBlock) {
+    return;
+  }
+
+  clearTimeout(termsAttentionTimer);
+  termsBlock.classList.remove("is-attention");
+  void termsBlock.offsetWidth;
+  termsBlock.classList.add("is-attention");
+  termsAttentionTimer = setTimeout(() => {
+    termsBlock.classList.remove("is-attention");
+  }, TERMS_ATTENTION_DURATION_MS);
+}
+
+function setCommunityAuthProgress(refs, isActive) {
+  refs.communityAuthProgress?.classList.toggle("is-active", Boolean(isActive));
+}
+
 function setCommunityAuthBusy(refs, nextBusy) {
   isCommunityAuthBusy = Boolean(nextBusy);
 
-  if (refs.communityRequestCodeButton) {
-    refs.communityRequestCodeButton.disabled = isCommunityAuthBusy;
-  }
+  syncRequestCodeButtonState(refs);
 
   if (refs.communityVerifyCodeButton) {
     refs.communityVerifyCodeButton.disabled = isCommunityAuthBusy;
@@ -141,6 +178,11 @@ async function requestCommunityCode(refs) {
     return;
   }
 
+  if (!hasAcceptedCommunityTerms(refs)) {
+    drawAttentionToCommunityTerms(refs);
+    return;
+  }
+
   const rawEmail = refs.communityEmailInput?.value?.trim() || pendingCommunityEmail;
   if (!rawEmail) {
     setCommunityAuthHintMessage(refs.communityAuthHint, t("login.hint.enterEmail"), {
@@ -150,6 +192,7 @@ async function requestCommunityCode(refs) {
   }
 
   setCommunityAuthBusy(refs, true);
+  setCommunityAuthProgress(refs, true);
 
   try {
     pendingCommunityEmail = await sendCommunityLoginOtp(rawEmail, { signal: refs.requestSignal });
@@ -181,6 +224,7 @@ async function requestCommunityCode(refs) {
       details: formatErrorDetails(error),
     });
   } finally {
+    setCommunityAuthProgress(refs, false);
     setCommunityAuthBusy(refs, false);
   }
 }
@@ -280,7 +324,14 @@ export function initLoginUi(root = globalThis.document) {
   const communityRequestCodeButton = /** @type {HTMLButtonElement | null} */ (
     queryById("communityRequestCodeButton")
   );
+  const communityTermsCheckbox = /** @type {HTMLInputElement | null} */ (
+    queryById("communityTermsCheckbox")
+  );
+  const communityTermsLink = /** @type {HTMLAnchorElement | null} */ (
+    queryById("communityTermsLink")
+  );
   const communityAuthHint = queryById("communityAuthHint");
+  const communityAuthProgress = queryById("communityAuthProgress");
   const communityCodeField = queryById("communityCodeField");
   const communityCodeInput = /** @type {HTMLInputElement | null} */ (
     queryById("communityCodeInput")
@@ -299,13 +350,16 @@ export function initLoginUi(root = globalThis.document) {
   );
 
   if (communityMyCatchesLink) communityMyCatchesLink.href = buildCommunityUrl("/my/catches");
+  if (communityTermsLink) communityTermsLink.href = buildCommunityUrl("/terms");
 
   const refs = {
     communityAccountState,
     communityEmailField,
     communityEmailInput,
     communityRequestCodeButton,
+    communityTermsCheckbox,
     communityAuthHint,
+    communityAuthProgress,
     communityCodeField,
     communityCodeInput,
     communityVerifyCodeButton,
@@ -329,6 +383,15 @@ export function initLoginUi(root = globalThis.document) {
     unsubscribeLocale();
     return () => {};
   }
+
+  syncRequestCodeButtonState(refs);
+  communityTermsCheckbox?.addEventListener(
+    "change",
+    () => {
+      syncRequestCodeButtonState(refs);
+    },
+    { signal: lifecycleController.signal },
+  );
 
   communityRequestCodeButton.addEventListener(
     "click",
@@ -386,6 +449,7 @@ export function initLoginUi(root = globalThis.document) {
   syncCommunitySessionUi(refs);
 
   return () => {
+    clearTimeout(termsAttentionTimer);
     lifecycleController.abort();
     unsubscribeLocale();
     unsubscribeSession();

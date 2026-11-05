@@ -327,3 +327,74 @@ Passe un catch au statut `private`, le retirant de la grille publique sans le su
 | `401` | Token manquant ou invalide                 |
 | `403` | Le catch appartient à un autre utilisateur |
 | `404` | ID inconnu                                 |
+
+---
+
+### GET /catches
+
+Une page des catches publics, du plus récent au plus ancien. **Aucune authentification requise.**
+
+| Paramètre | Type    | Description                                       |
+|-----------|---------|---------------------------------------------------|
+| `after`   | string  | Curseur `next_cursor` de la page précédente (ULID) |
+| `limit`   | integer | 1 à 48 (24 par défaut)                            |
+
+Avec `Authorization: Bearer {token}`, chaque item porte en plus `collected` (bool) : le catch est-il dans la collection de l'utilisateur ? La réponse ajoute aussi `collected_count`, le nombre de catches publics collectés par l'utilisateur. Sans token, ces champs sont absents.
+
+**Réponse `200`**
+
+```json
+{
+  "items": [
+    {
+      "id": "01M6M9KRP61V9Z7W0ADVQYMKWE",
+      "user_name": "nuagelait",
+      "caught_at": "2026-02-20T12:44:14+00:00",
+      "colors": ["#ffc800", "#000000"],
+      "square_url": "https://…/catch/square/…",
+      "polaroid_url": "https://…/catch/polaroid/…",
+      "url": "https://…/c/…",
+      "collected": true
+    }
+  ],
+  "next_cursor": "01M6M9KRP61V9Z7W0ADVQYMKWE"
+}
+```
+
+`next_cursor` vaut `null` sur la dernière page.
+
+---
+
+### GET /collection
+
+> **Authentification requise** — `Authorization: Bearer {token}`
+
+La collection par défaut de l'utilisateur, du plus récemment collecté au plus ancien. Même format que `GET /catches` (tous les items ont `collected: true`, et `collected_count` donne le total de la collection, quel que soit le curseur). Un catch devenu non public disparaît de la liste sans être retiré de la collection.
+
+| Paramètre | Type    | Description                                              |
+|-----------|---------|----------------------------------------------------------|
+| `after`   | integer | Curseur `next_cursor` de la page précédente (un nombre) |
+| `limit`   | integer | 1 à 48 (24 par défaut)                                   |
+
+**Erreurs** : `401` token manquant ou invalide, `422` paramètre invalide.
+
+---
+
+### PUT /catch/{id}/collect · DELETE /catch/{id}/collect
+
+> **Authentification requise** — `Authorization: Bearer {token}`
+
+Ajoute le catch à la collection par défaut (`PUT`) ou l'en retire (`DELETE`). Les deux sont idempotents.
+
+**Réponse `200`**
+
+```json
+{ "collected": true }
+```
+
+**Erreurs**
+
+| Code  | Cause                                                                      |
+|-------|----------------------------------------------------------------------------|
+| `401` | Token manquant ou invalide                                                 |
+| `404` | `PUT` sur un catch inconnu ou non public (le `DELETE` reste permis)        |

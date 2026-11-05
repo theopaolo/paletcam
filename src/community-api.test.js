@@ -193,3 +193,114 @@ describe("community API contract boundary", () => {
     });
   });
 });
+
+describe("community feed request", () => {
+  const item = {
+    id: "01M6M9KRP61V9Z7W0ADVQYMKWE",
+    user_name: "nuagelait",
+    caught_at: "2026-02-20T12:44:14+00:00",
+    colors: ["#ffc800", "#000000", "#112233"],
+    square_url: "https://community.test/catch/square/01M6M9KRP61V9Z7W0ADVQYMKWE",
+    polaroid_url: "https://community.test/catch/polaroid/01M6M9KRP61V9Z7W0ADVQYMKWE",
+    url: "https://community.test/c/01M6M9KRP61V9Z7W0ADVQYMKWE",
+  };
+
+  test("fetches an unauthenticated page with the cursor and limit", async () => {
+    const controller = new AbortController();
+    const { api, requestJson } = await loadApi({ items: [item], next_cursor: "next" });
+
+    const page = await api.fetchCommunityFeed({
+      after: "cursor-1",
+      limit: 24,
+      signal: controller.signal,
+    });
+
+    expect(page.nextCursor).toBe("next");
+    expect(page.items[0]).toMatchObject({ id: item.id, userName: "nuagelait" });
+    const [url, requestInit] = requestJson.mock.calls[0];
+    expect(url).toBe("https://community.test/api/v1/catches?after=cursor-1&limit=24");
+    expect(requestInit.method).toBe("GET");
+    expect(requestInit.headers.has("Authorization")).toBe(false);
+    expect(requestInit.signal).toBe(controller.signal);
+  });
+
+  test("omits empty query parameters", async () => {
+    const { api, requestJson } = await loadApi({ items: [], next_cursor: null });
+
+    await api.fetchCommunityFeed();
+
+    expect(requestJson.mock.calls[0][0]).toBe("https://community.test/api/v1/catches");
+  });
+
+  test("rejects items pointing at a foreign origin as an invalid response", async () => {
+    const { api } = await loadApi({
+      items: [{ ...item, square_url: "https://evil.test/x.webp" }],
+      next_cursor: null,
+    });
+
+    await expect(api.fetchCommunityFeed()).rejects.toMatchObject({
+      name: "CommunityApiError",
+      status: 502,
+      payload: { failureKind: "invalid_response" },
+    });
+  });
+
+  test("sends the bearer token when the reader is signed in", async () => {
+    const { api, requestJson } = await loadApi({
+      items: [{ ...item, collected: true }],
+      next_cursor: null,
+    });
+
+    const page = await api.fetchCommunityFeed({ token: "secret" });
+
+    expect(requestJson.mock.calls[0][1].headers.get("Authorization")).toBe("Bearer secret");
+    expect(page.items[0].collected).toBe(true);
+  });
+});
+
+describe("community collection requests", () => {
+  const item = {
+    id: "01M6M9KRP61V9Z7W0ADVQYMKWE",
+    user_name: "nuagelait",
+    caught_at: "2026-02-20T12:44:14+00:00",
+    colors: ["#ffc800", "#000000"],
+    square_url: "https://community.test/catch/square/01M6M9KRP61V9Z7W0ADVQYMKWE",
+    polaroid_url: "https://community.test/catch/polaroid/01M6M9KRP61V9Z7W0ADVQYMKWE",
+    url: "https://community.test/c/01M6M9KRP61V9Z7W0ADVQYMKWE",
+    collected: true,
+  };
+
+  test("pages through the collection with the token and a numeric cursor", async () => {
+    const { api, requestJson } = await loadApi({ items: [item], next_cursor: "17" });
+
+    const page = await api.fetchCommunityCollection({ token: "secret", after: "42", limit: 24 });
+
+    expect(page.nextCursor).toBe("17");
+    const [url, requestInit] = requestJson.mock.calls[0];
+    expect(url).toBe("https://community.test/api/v1/collection?after=42&limit=24");
+    expect(requestInit.headers.get("Authorization")).toBe("Bearer secret");
+  });
+
+  test("collects with PUT and uncollects with DELETE", async () => {
+    const collect = await loadApi({ collected: true });
+    await expect(
+      collect.api.setCatchCollected({ token: "secret", catchId: "abc/1", collected: true }),
+    ).resolves.toEqual({ collected: true });
+    const [collectUrl, collectInit] = collect.requestJson.mock.calls[0];
+    expect(collectUrl).toBe("https://community.test/api/v1/catch/abc%2F1/collect");
+    expect(collectInit.method).toBe("PUT");
+    expect(collectInit.headers.get("Authorization")).toBe("Bearer secret");
+
+    const uncollect = await loadApi({ collected: false });
+    await uncollect.api.setCatchCollected({ token: "secret", catchId: "abc", collected: false });
+    expect(uncollect.requestJson.mock.calls[0][1].method).toBe("DELETE");
+  });
+
+  test("treats a malformed answer as an invalid response", async () => {
+    const { api } = await loadApi({ ok: true });
+
+    await expect(
+      api.setCatchCollected({ token: "secret", catchId: "abc", collected: true }),
+    ).rejects.toMatchObject({ status: 502, payload: { failureKind: "invalid_response" } });
+  });
+});

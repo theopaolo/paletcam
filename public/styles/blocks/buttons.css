@@ -107,6 +107,7 @@
 }
 
 .btn-containers .btn-view-collection,
+.btn-containers .btn-community-feed,
 .btn-containers .btn-rotate {
   display: grid;
   place-content: center;
@@ -119,6 +120,30 @@
   box-shadow: var(--shadow-chrome);
   background: var(--gradient-control-shell);
   appearance: none;
+}
+
+/* The community key's LED, lit while signed in (signed-in-indicator.js).
+   Same housing as the tray keys' LEDs, but green: it reports a status, not a
+   toggle, and yellow read as "pending". */
+.btn-containers .btn-community-feed {
+  position: relative;
+}
+
+.btn-containers .btn-community-feed::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--color-surface-base);
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 80%);
+}
+
+.btn-containers .btn-community-feed.is-signed-in::after {
+  background-color: var(--color-success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 65%, transparent);
 }
 
 .btn-containers .camera-action-icon {
@@ -134,6 +159,7 @@
 }
 
 .btn-containers .btn-view-collection:active,
+.btn-containers .btn-community-feed:active,
 .btn-containers .btn-rotate:active {
   border: 3px solid var(--color-surface-ink);
   box-shadow: var(--shadow-chrome);
@@ -141,6 +167,7 @@
 }
 
 .btn-containers .btn-view-collection:active .camera-action-icon,
+.btn-containers .btn-community-feed:active .camera-action-icon,
 .btn-containers .btn-rotate:active .camera-action-icon {
   transform: scale(0.9);
 }
@@ -316,8 +343,7 @@
 }
 
 .btn-open-settings,
-.btn-open-login,
-.btn-community {
+.btn-open-login {
   position: relative;
   display: grid;
   place-content: center;
@@ -337,8 +363,7 @@
 }
 
 .btn-open-settings img,
-.btn-open-login img,
-.btn-community img {
+.btn-open-login img {
   width: 1.2rem;
   height: 1.2rem;
   transition: transform 0.14s var(--easing-standard);
@@ -350,15 +375,13 @@
 }
 
 .btn-open-settings:active,
-.btn-open-login:active,
-.btn-community:active {
+.btn-open-login:active {
   transform: translateY(1px);
   border-color: rgb(255 200 0 / 40%);
   background: var(--gradient-surface-panel), var(--color-surface-overlay);
 }
 
 .btn-open-settings:active img,
-.btn-open-login:active img,
-.btn-community:active img {
+.btn-open-login:active img {
   transform: scale(0.94);
 }

@@ -45,6 +45,8 @@ async function loadPaletteCardModule({
 
   mock.module(imageElementLoaderModuleUrl, () => ({
     loadImageElementBlobSource,
+    loadImageElementAsset: (image, asset, options) =>
+      loadImageElementBlobSource(image, asset?.blob, options),
   }));
 
   mock.module(palettePreviewAssetsModuleUrl, () => ({

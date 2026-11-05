@@ -1,9 +1,8 @@
 import { expect, mock, test } from "bun:test";
 import { COMMUNITY_API_CONTRACT_LIMITS } from "./community-api-contract.js";
-import { initCommunityHomepageLink } from "./community-homepage-link.js";
+import { bindSignedInIndicator } from "./modules/app/signed-in-indicator.js";
 
 const SESSION_STORAGE_KEY = "paletcam:community:session:v1";
-const MAGIC_LINK = "https://colorcatchers.co/auth/magic/account-a";
 
 function createMemoryStorage(initialEntries = []) {
   const values = new Map(initialEntries);
@@ -95,28 +94,19 @@ const accountB = {
   user: { id: "b", name: "Account B", email: "b@example.com" },
 };
 
-function createFakeLink() {
-  const handlers = new Map();
+/** Stands in for the community key whose LED follows the session. */
+function createFakeKey() {
+  const classes = new Set();
   return {
-    href: "https://colorcatchers.co/",
-    target: "",
-    rel: "",
-    classList: { toggle() {} },
-    addEventListener(type, listener) {
-      handlers.set(type, listener);
-    },
-    removeEventListener(type, listener) {
-      if (handlers.get(type) === listener) {
-        handlers.delete(type);
-      }
-    },
-    fire(type) {
-      handlers.get(type)?.();
+    classList: {
+      toggle(name, force) {
+        if (force) classes.add(name);
+        else classes.delete(name);
+      },
+      contains: (name) => classes.has(name),
     },
   };
 }
-
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 test("storage events notify subscribers for account replacement and logout only", async () => {
   const harness = await createHarness(accountA);
@@ -291,63 +281,46 @@ test("a failed login persistence write cannot restore an older stored account", 
   }
 });
 
-test("cross-tab account replacement resets a minted homepage magic link", async () => {
+test("a cross-tab logout puts the signed-in LED out", async () => {
   const harness = await createHarness(accountA);
-  const link = createFakeLink();
-  let dispose = () => {};
+  const key = createFakeKey();
+  const release = bindSignedInIndicator(key, {
+    getToken: harness.module.getCommunityAccessToken,
+    subscribeSession: harness.module.subscribeCommunitySession,
+  });
   try {
-    dispose = initCommunityHomepageLink({
-      link,
-      getToken: harness.module.getCommunityAccessToken,
-      subscribeSession: harness.module.subscribeCommunitySession,
-      requestMagicLink: mock(async () => ({
-        magic_link: MAGIC_LINK,
-        expires_at: "2099-01-01T00:00:00.000Z",
-      })),
-    });
+    expect(key.classList.contains("is-signed-in")).toBe(true);
 
-    link.fire("pointerenter");
-    await flush();
-    expect(link.href).toBe(MAGIC_LINK);
+    harness.emitStorage({ newValue: null });
 
-    harness.emitStorage({ newValue: JSON.stringify(accountB) });
-    expect(link.href).toBe("https://colorcatchers.co/?ref=browser");
+    expect(key.classList.contains("is-signed-in")).toBe(false);
   } finally {
-    dispose();
+    release();
     harness.restore();
   }
 });
 
 test("a getter before the queued storage event still notifies account replacement once", async () => {
   const harness = await createHarness(accountA);
-  const link = createFakeLink();
+  const key = createFakeKey();
   const listener = mock(() => {});
-  let dispose = () => {};
+  const release = bindSignedInIndicator(key, {
+    getToken: harness.module.getCommunityAccessToken,
+    subscribeSession: harness.module.subscribeCommunitySession,
+  });
   try {
     harness.module.subscribeCommunitySession(listener);
-    dispose = initCommunityHomepageLink({
-      link,
-      getToken: harness.module.getCommunityAccessToken,
-      subscribeSession: harness.module.subscribeCommunitySession,
-      requestMagicLink: mock(async () => ({
-        magic_link: MAGIC_LINK,
-        expires_at: "2099-01-01T00:00:00.000Z",
-      })),
-    });
-    link.fire("pointerenter");
-    await flush();
-    expect(link.href).toBe(MAGIC_LINK);
 
     const accountBValue = JSON.stringify(accountB);
     harness.storage.setItem(SESSION_STORAGE_KEY, accountBValue);
     expect(harness.module.getCommunityAccessToken()).toBe("token-b");
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(link.href).toBe("https://colorcatchers.co/?ref=browser");
+    expect(key.classList.contains("is-signed-in")).toBe(true);
 
     harness.emitStorage({ newValue: accountBValue, commit: false });
     expect(listener).toHaveBeenCalledTimes(1);
   } finally {
-    dispose();
+    release();
     harness.restore();
   }
 });

@@ -5,6 +5,8 @@ import {
   COMMUNITY_API_CONTRACT_LIMITS,
   validateAcknowledgement,
   validateCatchPublication,
+  validateCollectedState,
+  validateCommunityFeed,
   validateLoginVerification,
   validateMagicLink,
   validateModerationStatuses,
@@ -12,6 +14,8 @@ import {
 
 const REQUEST_TIMEOUT_MS = 15000;
 const MODERATION_STATUSES_PATH = "/catches/statuses";
+const COMMUNITY_FEED_PATH = "/catches";
+const COMMUNITY_COLLECTION_PATH = "/collection";
 const PUBLICATION_IDEMPOTENCY_KEY_PATTERN = /^paletcam-publish-[a-f0-9]{16,64}$/;
 
 export const CATCH_MODERATION_STATUSES = Object.freeze({
@@ -332,4 +336,88 @@ export async function fetchCatchModerationStatuses({ token, remoteCatchIds, sign
   }
 
   return result;
+}
+
+/**
+ * @param {string} basePath
+ * @param {{ after?: string | null, limit?: number }} page
+ */
+function buildPagedPath(basePath, { after = null, limit } = {}) {
+  const query = new URLSearchParams();
+  if (after) {
+    query.set("after", after);
+  }
+  if (Number.isSafeInteger(limit) && limit > 0) {
+    query.set("limit", String(limit));
+  }
+  const queryString = query.toString();
+  return queryString ? `${basePath}?${queryString}` : basePath;
+}
+
+/**
+ * One page of catches in the shape the feed and a collection share.
+ * @param {string} basePath
+ * @param {{ after?: string | null, limit?: number, signal?: AbortSignal, token?: string }} options
+ * @returns {Promise<{ items: CommunityFeedItem[], nextCursor: string | null, collectedCount?: number }>}
+ */
+async function fetchCatchPage(basePath, { after, limit, signal, token = "" }) {
+  const payload = await requestCommunityApi(buildPagedPath(basePath, { after, limit }), {
+    signal,
+    token,
+  });
+  return validateCommunityResponse(
+    basePath,
+    (value) => validateCommunityFeed(value, { allowedOrigin: new URL(buildApiUrl("/")).origin }),
+    payload,
+  );
+}
+
+/**
+ * One page of the public community feed. It needs no account; with a token the
+ * items also say which catches the reader collected.
+ *
+ * @param {object} [options]
+ * @param {string | null} [options.after] Cursor returned by the previous page.
+ * @param {number} [options.limit]
+ * @param {AbortSignal} [options.signal]
+ * @param {string} [options.token]
+ * @returns {Promise<{ items: CommunityFeedItem[], nextCursor: string | null, collectedCount?: number }>}
+ */
+export function fetchCommunityFeed({ after = null, limit, signal, token = "" } = {}) {
+  return fetchCatchPage(COMMUNITY_FEED_PATH, { after, limit, signal, token });
+}
+
+/**
+ * One page of the signed-in reader's collection, newest collected first.
+ *
+ * @param {object} options
+ * @param {string} options.token
+ * @param {string | null} [options.after]
+ * @param {number} [options.limit]
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<{ items: CommunityFeedItem[], nextCursor: string | null, collectedCount?: number }>}
+ */
+export function fetchCommunityCollection({ token, after = null, limit, signal }) {
+  return fetchCatchPage(COMMUNITY_COLLECTION_PATH, { after, limit, signal, token });
+}
+
+/**
+ * Puts a catch in, or takes it out of, the reader's collection. Both are
+ * idempotent on the server, so a retry after a dropped connection is safe.
+ *
+ * @param {object} options
+ * @param {string} options.token
+ * @param {string} options.catchId
+ * @param {boolean} options.collected The state the catch should end in.
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<{ collected: boolean }>}
+ */
+export async function setCatchCollected({ token, catchId, collected, signal }) {
+  const path = `/catch/${encodeURIComponent(String(catchId || "").trim())}/collect`;
+  const payload = await requestCommunityApi(path, {
+    method: collected ? "PUT" : "DELETE",
+    token,
+    signal,
+  });
+  return validateCommunityResponse(path, validateCollectedState, payload);
 }

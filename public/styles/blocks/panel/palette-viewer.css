@@ -242,6 +242,13 @@
   text-transform: uppercase;
 }
 
+/* The author of a community catch: a link to their page on the site. */
+.palette-viewer-meta-author {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .palette-viewer-meta-position {
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);

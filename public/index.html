@@ -49,23 +49,8 @@
 
       <h1 class="shell-nameplate">Color Catchers</h1>
 
-      <a
-        id="communityHomepageLink"
-        class="btn-community"
-        href="https://colorcatchers.co"
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Catchers Community"
-        data-i18n-aria-label="header.community"
-      >
-        <img
-          src="icons/community.svg"
-          width="24"
-          height="24"
-          alt=""
-          aria-hidden="true"
-        />
-      </a>
+      <!-- Keeps the name centred now that the right-hand key is gone. -->
+      <span class="shell-header-balance" aria-hidden="true"></span>
     </header>
 
     <div class="capture-stage-shell">
@@ -565,6 +550,150 @@
       </div>
     </shared-panel>
 
+    <!-- Community Gallery Panel: the public catches, drawn like the collection.
+         It slides in from the left, the collection from the right. -->
+    <shared-panel
+      class="community-panel"
+      data-panel-name="community"
+      panel-title="Communauté"
+      close-label="Fermer la communauté"
+      data-i18n-panel-title="community.panelTitle"
+      data-i18n-close-label="community.panelClose"
+      hidden
+    >
+      <p
+        class="collection-tally"
+        slot="header-actions"
+        data-i18n="community.heading"
+      >
+        Catchers Community
+      </p>
+      <div class="collection-panel-content">
+        <div class="collection-panel-body">
+          <div class="collection-grid" id="communityGrid" aria-live="polite"></div>
+          <div class="community-status" id="communityStatus" role="status" hidden>
+            <p class="community-status-message" id="communityStatusMessage"></p>
+            <button
+              class="panel-action-button community-retry-button"
+              id="communityRetryButton"
+              type="button"
+              hidden
+              data-i18n="community.retry"
+            >
+              Réessayer
+            </button>
+          </div>
+          <div
+            class="community-sentinel"
+            id="communitySentinel"
+            aria-hidden="true"
+          ></div>
+        </div>
+        <div class="collection-panel-footer">
+          <div class="collection-panel-toolbar toolbar">
+            <!-- The reader's collection instead of the whole feed; shown only
+                 when signed in. -->
+            <button
+              class="collection-toolbar-button collection-filter-button collection-filter-button--icon panel-action-button"
+              id="communityFilterCollectedButton"
+              type="button"
+              hidden
+              aria-pressed="false"
+              aria-label="Afficher mes catches collectés"
+              data-i18n-aria-label="community.filter.collectedAria"
+            >
+              <svg
+                class="collection-filter-icon"
+                viewBox="0 0 256 256"
+                aria-hidden="true"
+              >
+                <path
+                  d="M239.2,97.29a16,16,0,0,0-13.81-11L166,81.17,142.72,25.81h0a15.95,15.95,0,0,0-29.44,0L90.07,81.17,30.61,86.32a16,16,0,0,0-9.11,28.06L66.61,153.8,53.09,212.34a16,16,0,0,0,23.84,17.34l51-31,51.11,31a16,16,0,0,0,23.84-17.34l-13.51-58.6,45.1-39.36A16,16,0,0,0,239.2,97.29Z"
+                />
+              </svg>
+            </button>
+
+            <!-- Shown while a tapped color filters the catches; tapping it
+                 clears the filter. -->
+            <button
+              class="collection-toolbar-button collection-filter-button collection-filter-button--icon panel-action-button"
+              id="communityFilterColorButton"
+              type="button"
+              hidden
+              aria-label="Retirer le filtre de couleur"
+              data-i18n-aria-label="collection.filter.colorAria"
+            >
+              <span class="collection-filter-swatch" aria-hidden="true"></span>
+            </button>
+
+            <div
+              class="collection-view-switch"
+              role="group"
+              aria-label="Mode d'affichage des captures"
+              data-i18n-aria-label="collection.viewModeGroup"
+            >
+              <button
+                class="collection-view-option"
+                id="communityViewGridButton"
+                type="button"
+                aria-label="Afficher les photos en grille"
+                data-i18n-aria-label="collection.view.gridAria"
+                aria-pressed="true"
+              >
+                <img src="/icons/capture-grid.svg" alt="" />
+              </button>
+
+              <button
+                class="collection-view-option"
+                id="communityViewBandsButton"
+                type="button"
+                hidden
+                aria-label="Afficher les palettes en bandes"
+                data-i18n-aria-label="collection.view.bandsAria"
+                aria-pressed="false"
+              >
+                <img src="/icons/capture-list.svg" alt="" />
+              </button>
+
+              <button
+                class="collection-view-option"
+                id="communityViewSwatchButton"
+                type="button"
+                aria-label="Afficher les captures en nuancier"
+                data-i18n-aria-label="collection.view.swatchAria"
+                aria-pressed="false"
+              >
+                <img src="/icons/swatches.svg" alt="" />
+              </button>
+
+              <button
+                class="collection-view-option"
+                id="communityViewSpectrumButton"
+                type="button"
+                aria-label="Trier les palettes par couleur"
+                data-i18n-aria-label="collection.view.spectrumAria"
+                aria-pressed="false"
+              >
+                <img src="/icons/spectrum.svg" alt="" />
+              </button>
+
+              <button
+                class="collection-view-option"
+                id="communityViewRingsButton"
+                type="button"
+                hidden
+                aria-label="Afficher les palettes en bagues"
+                data-i18n-aria-label="collection.view.ringsAria"
+                aria-pressed="false"
+              >
+                <img src="/icons/rings.svg" alt="" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </shared-panel>
+
     <!-- Btn containers -->
     <div class="btn-containers">
       <div class="camera-preview-dock" id="cameraPreviewDock">
@@ -585,6 +714,21 @@
           aria-hidden="true"
         ></div>
       </div>
+
+      <button
+        class="btn-community-feed"
+        type="button"
+        disabled
+        aria-label="Ouvrir le flux de la communauté"
+        data-i18n-aria-label="capture.communityOpen"
+      >
+        <img
+          class="camera-action-icon"
+          src="icons/community.svg"
+          alt=""
+          aria-hidden="true"
+        />
+      </button>
 
       <div class="mini-output">
         <img class="output-img" id="photo" aria-hidden="true" hidden />
