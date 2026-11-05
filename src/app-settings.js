@@ -47,15 +47,22 @@ function normalizeCollectionViewMode(value) {
   return VALID_COLLECTION_VIEW_MODES.has(value) ? value : "grid";
 }
 
-/** @returns {Record<CollectionViewMode, number>} */
-function normalizeCollectionColumns(value) {
+/**
+ * @param {unknown} value
+ * @param {"initial" | "min"} [fallback] The step a view starts on: the collection
+ *   opens on its usual density, the community gallery on the largest cards.
+ * @returns {Record<CollectionViewMode, number>}
+ */
+function normalizeCollectionColumns(value, fallback = "initial") {
   return /** @type {Record<CollectionViewMode, number>} */ (
     Object.fromEntries(
-      Object.entries(COLLECTION_COLUMN_RANGES).map(([mode, { min, max, initial }]) => {
+      Object.entries(COLLECTION_COLUMN_RANGES).map(([mode, range]) => {
         const columns = value?.[mode];
         return [
           mode,
-          Number.isInteger(columns) && columns >= min && columns <= max ? columns : initial,
+          Number.isInteger(columns) && columns >= range.min && columns <= range.max
+            ? columns
+            : range[fallback],
         ];
       }),
     )
@@ -86,6 +93,7 @@ function normalizeLastBackupAt(value) {
 const DEFAULT_SETTINGS = Object.freeze({
   collectionViewMode: "grid",
   collectionColumns: normalizeCollectionColumns(null),
+  communityColumns: normalizeCollectionColumns(null, "min"),
   locale: "fr",
   performanceHudEnabled: false,
   oneMoreColor: true,
@@ -189,6 +197,7 @@ function normalizeSettings(candidate) {
   return {
     collectionViewMode: normalizeCollectionViewMode(candidate?.collectionViewMode),
     collectionColumns: normalizeCollectionColumns(candidate?.collectionColumns),
+    communityColumns: normalizeCollectionColumns(candidate?.communityColumns, "min"),
     locale: normalizeLocale(candidate?.locale),
     performanceHudEnabled: Boolean(candidate?.performanceHudEnabled),
     oneMoreColor: Boolean(candidate?.oneMoreColor),
@@ -268,6 +277,7 @@ export function getDefaultAppSettings() {
     medianCut: { ...DEFAULT_SETTINGS.medianCut },
     hybrid: { ...DEFAULT_SETTINGS.hybrid },
     collectionColumns: { ...DEFAULT_SETTINGS.collectionColumns },
+    communityColumns: { ...DEFAULT_SETTINGS.communityColumns },
   };
 }
 
@@ -283,6 +293,7 @@ export function getAppSettings() {
     medianCut: { ...settingsStore.currentSettings.medianCut },
     hybrid: { ...settingsStore.currentSettings.hybrid },
     collectionColumns: { ...settingsStore.currentSettings.collectionColumns },
+    communityColumns: { ...settingsStore.currentSettings.communityColumns },
   };
 }
 
@@ -305,6 +316,10 @@ export function updateAppSettings(partialSettings) {
     collectionColumns: {
       ...settingsStore.currentSettings.collectionColumns,
       ...(partialSettings?.collectionColumns ?? {}),
+    },
+    communityColumns: {
+      ...settingsStore.currentSettings.communityColumns,
+      ...(partialSettings?.communityColumns ?? {}),
     },
   });
 

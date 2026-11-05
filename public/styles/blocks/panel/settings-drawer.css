@@ -107,6 +107,56 @@ settings-panel.is-open .settings-drawer {
   display: none;
 }
 
+.settings-login-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-16);
+}
+
+.settings-login-progress {
+  position: relative;
+  height: var(--space-4);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-dim);
+  visibility: hidden;
+}
+
+.settings-login-progress.is-active {
+  visibility: visible;
+}
+
+.settings-login-progress::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--color-accent);
+}
+
+.settings-login-progress.is-active::before {
+  animation: settings-login-progress-slide 1.1s var(--easing-in-out) infinite;
+}
+
+@keyframes settings-login-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-login-progress.is-active::before {
+    width: 100%;
+    animation: settings-action-busy-pulse 1.1s ease-in-out infinite;
+  }
+}
+
 .settings-login-status {
   display: flex;
   align-items: center;
@@ -267,7 +317,8 @@ settings-panel.is-open .settings-drawer {
   outline-offset: var(--focus-ring-offset);
 }
 
-.settings-action-button:disabled {
+.settings-action-button:disabled,
+.settings-action-button[aria-disabled="true"] {
   opacity: 0.5;
   cursor: default;
 }

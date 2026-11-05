@@ -25,7 +25,13 @@ export const COMMUNITY_API_CONTRACT_LIMITS = Object.freeze({
   // Twenty sequential 100-id requests covers the supported 2,000-palette import ceiling.
   moderationBatchIds: 100,
   moderationRequestIds: 2_000,
+  // Public feed page: the server caps pages at 48 items; leave room for growth.
+  feedPageItems: 100,
+  feedPaletteColors: 12,
+  feedUrlCharacters: 2_048,
 });
+
+const FEED_HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function isRecord(value) {
@@ -84,6 +90,20 @@ export function validateAcknowledgement(payload, endpoint) {
     throw invalidResponse(endpoint, "expected an empty response or JSON object");
   }
   return payload === null || payload === undefined ? null : {};
+}
+
+/**
+ * What the server says after a collect or an uncollect: the state it left the
+ * catch in, which the app checks against what it asked for.
+ * @param {unknown} payload
+ * @returns {{ collected: boolean }}
+ */
+export function validateCollectedState(payload) {
+  const response = requireRecord(payload, "catch collection");
+  if (typeof response.collected !== "boolean") {
+    throw invalidResponse("catch collection", "collected must be a boolean");
+  }
+  return { collected: response.collected };
 }
 
 /** @param {unknown} payload */
@@ -266,4 +286,121 @@ export function validateModerationStatuses(payload, normalizeStatus, options = {
     return remoteCatchId;
   });
   return { statuses, deletedIds: normalizedDeletedIds };
+}
+
+/**
+ * @param {unknown} value
+ * @param {string} field
+ * @param {string} allowedOrigin
+ */
+function normalizeFeedUrl(value, field, allowedOrigin) {
+  if (typeof value !== "string" || value.length > COMMUNITY_API_CONTRACT_LIMITS.feedUrlCharacters) {
+    throw invalidResponse("community feed", `${field} must be a URL string`);
+  }
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw invalidResponse("community feed", `${field} must be an absolute URL`);
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw invalidResponse("community feed", `${field} must use HTTP or HTTPS`);
+  }
+  if (allowedOrigin && url.origin !== new URL(allowedOrigin).origin) {
+    throw invalidResponse("community feed", `${field} origin is not allowed`);
+  }
+  return url.toString();
+}
+
+/**
+ * Public community feed page. Item URLs must share the community origin so a
+ * compromised or misconfigured response cannot point the app at another host.
+ *
+ * @param {unknown} payload
+ * @param {{allowedOrigin?: string}} [options]
+ * @returns {{items: CommunityFeedItem[], nextCursor: string | null, collectedCount?: number}}
+ */
+export function validateCommunityFeed(payload, options = {}) {
+  const allowedOrigin = options.allowedOrigin ?? "";
+  const response = requireRecord(payload, "community feed");
+  if (!Array.isArray(response.items)) {
+    throw invalidResponse("community feed", "items must be an array");
+  }
+  if (response.items.length > COMMUNITY_API_CONTRACT_LIMITS.feedPageItems) {
+    throw invalidResponse(
+      "community feed",
+      `items must contain at most ${COMMUNITY_API_CONTRACT_LIMITS.feedPageItems} entries`,
+    );
+  }
+
+  const seenIds = new Set();
+  const items = response.items.map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw invalidResponse("community feed", `items[${index}] must be an object`);
+    }
+    const id = normalizeRemoteId(entry.id, "community feed", `items[${index}].id`);
+    if (seenIds.has(id)) {
+      throw invalidResponse("community feed", `items[${index}].id duplicates another item`);
+    }
+    seenIds.add(id);
+
+    if (
+      typeof entry.user_name !== "string" ||
+      entry.user_name.length > COMMUNITY_API_CONTRACT_LIMITS.userNameCharacters
+    ) {
+      throw invalidResponse("community feed", `items[${index}].user_name must be a short string`);
+    }
+    if (typeof entry.caught_at !== "string" || Number.isNaN(Date.parse(entry.caught_at))) {
+      throw invalidResponse("community feed", `items[${index}].caught_at must be a date`);
+    }
+    if (
+      !Array.isArray(entry.colors) ||
+      entry.colors.length > COMMUNITY_API_CONTRACT_LIMITS.feedPaletteColors ||
+      !entry.colors.every(
+        (color) => typeof color === "string" && FEED_HEX_COLOR_PATTERN.test(color),
+      )
+    ) {
+      throw invalidResponse("community feed", `items[${index}].colors must be hex colors`);
+    }
+
+    if (entry.collected !== undefined && typeof entry.collected !== "boolean") {
+      throw invalidResponse("community feed", `items[${index}].collected must be a boolean`);
+    }
+
+    return {
+      id,
+      userName: entry.user_name,
+      caughtAt: new Date(entry.caught_at).toISOString(),
+      colors: entry.colors.map((color) => color.toLowerCase()),
+      squareUrl: normalizeFeedUrl(entry.square_url, `items[${index}].square_url`, allowedOrigin),
+      polaroidUrl: normalizeFeedUrl(
+        entry.polaroid_url,
+        `items[${index}].polaroid_url`,
+        allowedOrigin,
+      ),
+      url: normalizeFeedUrl(entry.url, `items[${index}].url`, allowedOrigin),
+      // Only a signed-in reader's feed says which catches they collected.
+      ...(entry.collected === undefined
+        ? {}
+        : { collected: /** @type {boolean} */ (entry.collected) }),
+    };
+  });
+
+  const nextCursor =
+    response.next_cursor === null || response.next_cursor === undefined
+      ? null
+      : normalizeRemoteId(response.next_cursor, "community feed", "next_cursor");
+  // How many catches the signed-in reader collected; absent for an anonymous reader.
+  const collectedCount = response.collected_count;
+  if (collectedCount === undefined) {
+    return { items, nextCursor };
+  }
+  if (
+    typeof collectedCount !== "number" ||
+    !Number.isSafeInteger(collectedCount) ||
+    collectedCount < 0
+  ) {
+    throw invalidResponse("community feed", "collected_count must be a non-negative integer");
+  }
+  return { items, nextCursor, collectedCount };
 }

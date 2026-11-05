@@ -1,7 +1,7 @@
 import { getPalettePublicationMeta } from "../../community-service.js";
 import { t } from "../../i18n.js";
 import { reportAppError } from "../error-reporting.js";
-import { loadImageElementBlobSource } from "../image-element-loader.js";
+import { loadImageElementAsset } from "../image-element-loader.js";
 import { isPaletteFavorite } from "./collection-filter.js";
 import { getPolaroidPhotoCrop } from "./palette-polaroid-renderer.js";
 import {
@@ -10,6 +10,13 @@ import {
   getStoredPaletteGalleryPreviewAssetSync,
   refreshPaletteGalleryAsset,
 } from "./palette-preview-assets.js";
+
+/**
+ * @typedef {object} PalettePreviewSource
+ * @property {(palette: Palette) => Promise<PreviewAsset>} [getAsset]
+ * @property {(palette: Palette) => PreviewAsset | null} [getCachedAsset]
+ * @property {(palette: Palette, paletteId: number | string) => Promise<void> | void} [refreshAsset]
+ */
 
 const PREVIEW_OBSERVER_ROOT_MARGIN = "500px 0px";
 const SWATCH_PREVIEW_OBSERVER_ROOT_MARGIN = "40px 0px";
@@ -202,6 +209,11 @@ function schedulePreviewStart(start, order) {
   };
 }
 
+/** @type {NonNullable<PalettePreviewSource["getCachedAsset"]>} */
+const getLocalCachedAsset = (palette) => getStoredPaletteGalleryPreviewAssetSync(palette);
+/** @type {NonNullable<PalettePreviewSource["refreshAsset"]>} */
+const refreshLocalAsset = (palette, paletteId) => refreshPaletteGalleryAsset(palette, paletteId);
+
 function bindLazyPreviewLoad({
   card,
   observeTarget = card,
@@ -211,6 +223,8 @@ function bindLazyPreviewLoad({
   previewLoader,
   scrollRoot,
   getAsset,
+  getCachedAsset = getLocalCachedAsset,
+  refreshAsset = refreshLocalAsset,
   onOpenViewer,
   paletteId,
   rootMargin = PREVIEW_OBSERVER_ROOT_MARGIN,
@@ -288,7 +302,7 @@ function bindLazyPreviewLoad({
       return false;
     }
 
-    const cachedAsset = getStoredPaletteGalleryPreviewAssetSync(palette);
+    const cachedAsset = getCachedAsset(palette);
     if (!cachedAsset?.source) {
       return false;
     }
@@ -317,7 +331,7 @@ function bindLazyPreviewLoad({
 
       scheduleLoaderReveal();
       try {
-        const { source } = await loadImageElementBlobSource(previewImage, asset.blob);
+        const { source } = await loadImageElementAsset(previewImage, asset);
         asset.source = source;
       } catch (loadError) {
         if (!isCardConnected(card) || hasRetriedBlobLoad) {
@@ -326,7 +340,7 @@ function bindLazyPreviewLoad({
 
         hasRetriedBlobLoad = true;
         previewAssetPromise = undefined;
-        await refreshPaletteGalleryAsset(palette, paletteId);
+        await refreshAsset(palette, paletteId);
         hasStartedPreviewLoad = false;
         previewImage.hidden = true;
         previewImage.removeAttribute("src");
@@ -460,8 +474,14 @@ function bindLazyPreviewLoad({
  * @param {Palette} config.palette
  * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
  * @param {Element | null} [config.scrollRoot]
+ * @param {PalettePreviewSource} [config.previewSource] Where the picture comes from; a local capture by default.
  */
-export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) {
+export function createPaletteCard({
+  palette,
+  onOpenViewer,
+  scrollRoot = null,
+  previewSource = {},
+}) {
   const card = document.createElement("div");
   card.className = "palette-card";
   card.classList.toggle("is-favorite", isPaletteFavorite(palette));
@@ -501,7 +521,9 @@ export function createPaletteCard({ palette, onOpenViewer, scrollRoot = null }) 
     previewImage,
     previewLoader,
     scrollRoot,
-    getAsset: () => getPaletteGalleryPreviewAsset(palette),
+    getAsset: () => (previewSource.getAsset ?? getPaletteGalleryPreviewAsset)(palette),
+    getCachedAsset: previewSource.getCachedAsset,
+    refreshAsset: previewSource.refreshAsset,
     onOpenViewer,
     paletteId: palette.id,
   });
@@ -561,10 +583,18 @@ function applyPolaroidPhotoCrop(image) {
  * @param {Palette} config.palette
  * @param {(paletteId: number, trigger: HTMLButtonElement) => void | Promise<void>} [config.onOpenViewer]
  * @param {Element | null} [config.scrollRoot]
+ * @param {PalettePreviewSource} [config.previewSource]
  * @param {string} config.modifier
  * @param {(trigger: HTMLButtonElement, photo: HTMLElement) => void} config.assemble
  */
-function createPhotoCutoutCard({ palette, onOpenViewer, scrollRoot = null, modifier, assemble }) {
+function createPhotoCutoutCard({
+  palette,
+  onOpenViewer,
+  scrollRoot = null,
+  previewSource = {},
+  modifier,
+  assemble,
+}) {
   const card = document.createElement("div");
   card.className = `palette-card palette-card--${modifier}`;
   card.classList.toggle("is-favorite", isPaletteFavorite(palette));
@@ -603,7 +633,9 @@ function createPhotoCutoutCard({ palette, onOpenViewer, scrollRoot = null, modif
     previewImage,
     previewLoader,
     scrollRoot,
-    getAsset: () => getPaletteGalleryPreviewAsset(palette),
+    getAsset: () => (previewSource.getAsset ?? getPaletteGalleryPreviewAsset)(palette),
+    getCachedAsset: previewSource.getCachedAsset,
+    refreshAsset: previewSource.refreshAsset,
     onOpenViewer,
     paletteId: palette.id,
     observeTarget: mediaTile,

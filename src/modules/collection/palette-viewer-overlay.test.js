@@ -148,6 +148,7 @@ describe("palette viewer terminal lifecycle", () => {
     mock.module(errorReportingModuleUrl, () => ({ reportAppError: mock(() => {}) }));
     mock.module(imageLoaderModuleUrl, () => ({
       loadImageElementBlobSource: mock(async () => ({ source: "data:image/webp;base64," })),
+      loadImageElementAsset: mock(async () => ({ source: "data:image/webp;base64," })),
     }));
     mock.module(panelManagerModuleUrl, () => ({
       closeSharedPanel,

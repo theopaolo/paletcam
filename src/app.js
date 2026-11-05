@@ -42,13 +42,17 @@ import {
   createCollectionEntryController,
   VIEWER_SURFACE_NAME,
 } from "./modules/app/collection-entry-controller.js";
+import {
+  COMMUNITY_SURFACE_NAME,
+  createCommunityEntryController,
+} from "./modules/app/community-entry-controller.js";
 import { isIOSDevice, supportsCameraStartup } from "./modules/platform.js";
 import { createPhotoOutputController } from "./modules/app/photo-output.js";
+import { bindSignedInIndicator } from "./modules/app/signed-in-indicator.js";
 import { createRalPreviewController } from "./modules/app/ral-preview.js";
 import { createViewportHeightController } from "./modules/app/viewport-height.js";
 import { createAppView, hasRequiredAppViewElements } from "./modules/app/app-view.js";
 import { terminateAppLifetime } from "./modules/app-terminal-lifecycle.js";
-import { initCommunityHomepageLink } from "./community-homepage-link.js";
 import "./modules/panels/config-panel.js";
 import "./modules/panels/settings-panel.js";
 import { initializePaletteStorage, subscribePaletteDatabaseLifecycle } from "./palette-storage.js";
@@ -96,6 +100,7 @@ const {
   swatchCountDrum,
   tuneTray,
   viewCollectionButton,
+  communityButton,
 } = appView;
 const paletteCaptureStage = capturePaletteStage;
 paletteOriginsOverlay.className = "palette-origins-overlay";
@@ -128,7 +133,7 @@ let unsubscribeFromAppSettings = () => {};
 let unsubscribeFromFooterLab = () => {};
 let tuneTrayControl = { beginDrag() {}, destroy() {} };
 let unsubscribeFromDatabaseLifecycle = () => {};
-let destroyCommunityHomepageLink = () => {};
+let unbindSignedInIndicator = () => {};
 let cancelDeferredDeleteOutboxInitialization = () => {};
 let isAppDestroyed = false;
 let currentLocale = getAppSettings().locale;
@@ -556,6 +561,17 @@ const cameraSurfaceLifecycleController = createCameraSurfaceLifecycleController(
   },
 });
 
+const communityEntryController = createCommunityEntryController({
+  communityButton,
+  loadCommunityModule: () => import("./community-ui.js"),
+  onLoadError: (error) => {
+    reportAppError(error, { logMessage: "Failed to load community feed." });
+    showToast(t("community.loadErrorToast"), { variant: "error", duration: 1800 });
+  },
+  onSurfaceOpening: cameraSurfaceLifecycleController.open,
+  onSurfaceOpenAbandoned: cameraSurfaceLifecycleController.close,
+});
+
 const collectionEntryController = createCollectionEntryController({
   photoOutput,
   viewCollectionButton,
@@ -581,7 +597,11 @@ const collectionEntryController = createCollectionEntryController({
 
 function handleSharedPanelClosed(event) {
   const panelName = event?.detail?.panelName;
-  if (panelName === COLLECTION_SURFACE_NAME || panelName === VIEWER_SURFACE_NAME) {
+  if (
+    panelName === COLLECTION_SURFACE_NAME ||
+    panelName === VIEWER_SURFACE_NAME ||
+    panelName === COMMUNITY_SURFACE_NAME
+  ) {
     cameraSurfaceLifecycleController.close(panelName);
   }
 }
@@ -632,6 +652,7 @@ function initializeApp() {
   bindCameraPermissionEvents();
   bindCaptureEvents();
   collectionEntryController.bindEvents();
+  communityEntryController.bindEvents();
   zoomUi.bindEvents();
   exposureUi.bindEvents();
   gridUi.bindEvents();
@@ -679,6 +700,9 @@ function initializeApp() {
   captureButton.disabled = false;
   if (viewCollectionButton) {
     viewCollectionButton.disabled = false;
+  }
+  if (communityButton) {
+    communityButton.disabled = false;
   }
   document.documentElement.dataset.appReady = "true";
 
@@ -790,6 +814,7 @@ function destroyApp() {
   tuneTrayControl.destroy();
   panelCameraUi.destroy();
   collectionEntryController.destroy();
+  communityEntryController.destroy();
   cameraController.destroy?.();
   paletteExtractionWorker.destroy();
   performanceHud.destroy?.();
@@ -799,14 +824,15 @@ function destroyApp() {
   unsubscribeFromDatabaseLifecycle = () => {};
   cancelDeferredDeleteOutboxInitialization();
   cancelDeferredDeleteOutboxInitialization = () => {};
-  destroyCommunityHomepageLink();
-  destroyCommunityHomepageLink = () => {};
+  unbindSignedInIndicator();
+  unbindSignedInIndicator = () => {};
   eventAbortController.abort();
   unbindUncaughtErrorHandlers();
   clearPhotoOutput();
 }
 
-destroyCommunityHomepageLink = initCommunityHomepageLink();
+// The community key carries a LED, lit while the reader is signed in.
+unbindSignedInIndicator = bindSignedInIndicator(communityButton);
 void initializeStorageHealth();
 initializeBackupService();
 initializeApp();

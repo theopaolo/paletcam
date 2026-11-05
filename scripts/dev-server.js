@@ -26,6 +26,15 @@ const communityApiProxyTarget = resolveCommunityApiBaseUrl(
   "",
 );
 const logApiBaseUrl = resolveLogApiBaseUrl(process.env.PALETCAM_LOG_API_BASE_URL, "");
+
+// The app calls the community API (and loads catch pictures) straight from the
+// browser, so a non-default target such as a local ccs.test must be allowed.
+const devSecurityExtensions = {
+  additionalConnectUrls: [communityApiProxyTarget, logApiBaseUrl],
+  additionalImageUrls: [communityApiProxyTarget],
+};
+const withDevSecurityHeaders = (headersInit) =>
+  withSecurityHeaders(headersInit, devSecurityExtensions);
 const fallbackPorts = [
   ...Array.from({ length: 120 }, (_, index) => initialPort + index),
   5173,
@@ -129,7 +138,7 @@ async function proxyCommunityApiRequest(request, urlPathname, searchParams) {
       `Community API proxy failed: ${lastProxyError?.message || "unknown error"}`,
       {
         status: 502,
-        headers: withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }),
+        headers: withDevSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }),
       },
     );
   }
@@ -145,7 +154,7 @@ async function proxyCommunityApiRequest(request, urlPathname, searchParams) {
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: withSecurityHeaders(responseHeaders),
+    headers: withDevSecurityHeaders(responseHeaders),
   });
 }
 
@@ -163,7 +172,7 @@ async function serveFile(filePath) {
     headers.set("Content-Type", contentType);
   }
 
-  return new Response(file, { headers: withSecurityHeaders(headers) });
+  return new Response(file, { headers: withDevSecurityHeaders(headers) });
 }
 
 function isSourceJavaScriptFile(filePath) {
@@ -205,7 +214,7 @@ async function bundleSourceModule(filePath) {
 
     return new Response(errorLogs || `Failed to bundle ${filePath}`, {
       status: 500,
-      headers: withSecurityHeaders({
+      headers: withDevSecurityHeaders({
         "Cache-Control": "no-store",
         "Content-Type": "text/plain; charset=utf-8",
       }),
@@ -215,7 +224,7 @@ async function bundleSourceModule(filePath) {
   const bundledCode = await buildResult.outputs[0].text();
 
   return new Response(bundledCode, {
-    headers: withSecurityHeaders({
+    headers: withDevSecurityHeaders({
       "Cache-Control": "no-store",
       "Content-Type": "text/javascript; charset=utf-8",
     }),
@@ -247,7 +256,7 @@ async function serveDebugImageManifest() {
   entries.sort((a, b) => (a.set || "").localeCompare(b.set || "") || a.name.localeCompare(b.name));
 
   return new Response(JSON.stringify(entries), {
-    headers: withSecurityHeaders({ "Content-Type": "application/json; charset=utf-8" }),
+    headers: withDevSecurityHeaders({ "Content-Type": "application/json; charset=utf-8" }),
   });
 }
 
@@ -281,7 +290,7 @@ async function handleRequest(request) {
 
   return new Response("Not found", {
     status: 404,
-    headers: withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }),
+    headers: withDevSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }),
   });
 }
 

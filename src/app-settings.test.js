@@ -121,6 +121,27 @@ describe("app-settings collectionViewMode", () => {
     expect(module.getAppSettings().collectionColumns.swatch).toBe(5);
   });
 
+  test("the community gallery starts on the largest cards and zooms on its own", async () => {
+    const { module } = await loadAppSettingsModule({ collectionColumns: { grid: 3 } });
+
+    expect(module.getAppSettings().communityColumns).toEqual({
+      grid: 1,
+      bands: 1,
+      swatch: 3,
+      spectrum: 3,
+      rings: 3,
+    });
+
+    module.updateAppSettings({ communityColumns: { grid: 2 } });
+
+    expect(module.getAppSettings().communityColumns.grid).toBe(2);
+    expect(module.getAppSettings().collectionColumns.grid).toBe(3);
+
+    module.updateAppSettings({ collectionColumns: { grid: 4 } });
+
+    expect(module.getAppSettings().communityColumns.grid).toBe(2);
+  });
+
   // Representative persist-to-localStorage assertion for the whole settings store.
   test("persists updates and notifies listeners", async () => {
     const { module, localStorageMock } = await loadAppSettingsModule();

@@ -82,3 +82,19 @@ export async function loadImageElementBlobSource(image, blob, options = {}) {
   await loadImageElementSource(image, source, options);
   return { source };
 }
+
+/**
+ * Loads a preview asset into an image: a local capture carries its pixels as a
+ * `blob`, a catch from the community feed only a `url` the browser fetches.
+ * @param {HTMLImageElement} image
+ * @param {{ blob?: Blob, url?: string }} asset
+ * @param {{ timeoutMs?: number }} [options]
+ * @returns {Promise<{ source: string }>}
+ */
+export async function loadImageElementAsset(image, asset, options = {}) {
+  if (typeof asset?.url === "string" && asset.url) {
+    await loadImageElementSource(image, asset.url, options);
+    return { source: asset.url };
+  }
+  return loadImageElementBlobSource(image, asset?.blob, options);
+}

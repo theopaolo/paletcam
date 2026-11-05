@@ -25,6 +25,12 @@ body {
   padding: var(--space-4) var(--space-16);
 }
 
+/* Stands where the right-hand key was, so the name stays centred. */
+.shell-header-balance {
+  flex: none;
+  width: 2.5rem;
+}
+
 .header-actions {
   --toolbar-gap: var(--space-control-padding);
 }

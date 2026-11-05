@@ -60,6 +60,15 @@
   pointer-events: none;
 }
 
+/* No catch yet, or its picture still loading: the empty square stays unseen
+   instead of sitting there black. Its box is kept (opacity, not display) so
+   the caught palette still flies to where it will appear, and it fades in
+   once the picture is there. */
+.btn-containers .mini-output:has(.output-img[hidden]) {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mini-output .output-img[hidden] + .output-palette,
 .mini-output .output-empty-hint {
   display: none;

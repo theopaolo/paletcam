@@ -1,6 +1,6 @@
 import { getIntlLocale, subscribeLocaleChange, t } from "../../i18n.js";
 import { reportAppError } from "../error-reporting.js";
-import { loadImageElementBlobSource } from "../image-element-loader.js";
+import { loadImageElementAsset } from "../image-element-loader.js";
 import {
   closeSharedPanel,
   openSharedPanel,
@@ -284,35 +284,45 @@ function syncFavoriteButton() {
   }
 
   const isFavorite = isPaletteFavorite(getActivePalette());
+  // A session can name the star for what it does there: "collect" in the community.
+  const labels = activeSession?.getFavoriteLabels?.() ?? {
+    favorite: t("viewer.action.favoriteAria"),
+    unfavorite: t("viewer.action.unfavoriteAria"),
+  };
   favoriteButton.setAttribute("aria-pressed", String(isFavorite));
   hydrateViewerActionButton(favoriteButton, {
-    label: isFavorite ? t("viewer.action.unfavoriteAria") : t("viewer.action.favoriteAria"),
+    label: isFavorite ? labels.unfavorite : labels.favorite,
     iconName: "favorite",
   });
 }
 
 function syncActionButtons() {
+  // Someone else's catch: it can be looked at and turned over, nothing more.
+  const isReadOnly = Boolean(activeSession?.readOnly);
   if (shareButton) {
-    shareButton.disabled = isBusy || !getCapability("canShare");
+    shareButton.hidden = isReadOnly;
+    shareButton.disabled = isReadOnly || isBusy || !getCapability("canShare");
   }
 
   if (exportButton) {
-    const hideExportButton = !getCapability("canExport");
+    const hideExportButton = isReadOnly || !getCapability("canExport");
     exportButton.hidden = hideExportButton;
     exportButton.disabled = hideExportButton || isBusy;
   }
 
   if (publishButton) {
-    const hidePublishButton = isRalCapture();
+    const hidePublishButton = isReadOnly || isRalCapture();
     publishButton.hidden = hidePublishButton;
     publishButton.disabled = hidePublishButton || isBusy || !getCapability("canPublish");
   }
 
   if (deleteButton) {
-    deleteButton.disabled = isBusy || !getCapability("canDelete");
+    deleteButton.hidden = isReadOnly;
+    deleteButton.disabled = isReadOnly || isBusy || !getCapability("canDelete");
   }
 
   if (favoriteButton) {
+    // Read-only keeps the star when the session gives it a job (collecting).
     const hideFavoriteButton = typeof activeSession?.onToggleFavorite !== "function";
     favoriteButton.hidden = hideFavoriteButton;
     favoriteButton.disabled = hideFavoriteButton || isBusy;
@@ -346,19 +356,37 @@ function syncViewerMeta() {
 
   if (metaDate) {
     const dateLabel = formatPaletteTimestamp(palette.timestamp);
-    const publicationLabel = {
-      pending: t("publication.status.pending"),
-      rejected: t("viewer.action.rejectedLabel"),
-      unpublish: t("viewer.meta.published"),
-    }[getPublishPillState(palette)];
-    metaDate.textContent = [dateLabel, publicationLabel].filter(Boolean).join(" · ");
+    const publicationLabel = activeSession.readOnly
+      ? ""
+      : {
+          pending: t("publication.status.pending"),
+          rejected: t("viewer.action.rejectedLabel"),
+          unpublish: t("viewer.meta.published"),
+        }[getPublishPillState(palette)];
+    const text = [dateLabel, publicationLabel].filter(Boolean).join(" · ");
+    const attribution = activeSession.getAttribution?.(palette) ?? null;
+    if (attribution?.label) {
+      // The author is a link to their page; rebuilt per catch, so no stale href lingers.
+      const author = document.createElement("a");
+      author.className = "palette-viewer-meta-author";
+      author.textContent = attribution.label;
+      if (attribution.href) {
+        author.href = attribution.href;
+        author.target = "_blank";
+        author.rel = "noopener noreferrer";
+      }
+      metaDate.replaceChildren(author, ...(text ? [` · ${text}`] : []));
+    } else {
+      metaDate.textContent = text;
+    }
   }
 
   if (metaPosition) {
     const total = activeSession.palettes.length;
     const current = activeSession.activeIndex + 1;
-    metaPosition.hidden = total <= 1;
-    metaPosition.textContent = total > 1 ? `${current} / ${total}` : "";
+    const showPosition = total > 1 && activeSession.showPosition !== false;
+    metaPosition.hidden = !showPosition;
+    metaPosition.textContent = showPosition ? `${current} / ${total}` : "";
     metaPosition.setAttribute("aria-label", t("viewer.meta.positionAria", { current, total }));
   }
 }
@@ -597,7 +625,7 @@ async function loadSlideAsset(index) {
       return;
     }
 
-    await loadImageElementBlobSource(slideState.image, asset.blob);
+    await loadImageElementAsset(slideState.image, asset);
     if (
       activeSession !== session ||
       session.slideStates.get(index) !== slideState ||
@@ -778,6 +806,7 @@ function updateActiveIndex(nextIndex) {
   renderViewerWindow();
   syncViewerChrome();
   preloadNearbySlides();
+  activeSession.onActiveIndexChange?.(clampedIndex, activeSession.palettes.length);
 }
 
 function getTrackActiveIndex() {
@@ -1000,6 +1029,7 @@ function bindViewerPanelEvents() {
     () => {
       closePaletteViewerOverlay();
       closeSharedPanel("collection");
+      closeSharedPanel("community");
     },
     { signal },
   );
@@ -1035,6 +1065,11 @@ export function openPaletteViewerOverlay({
   canExport,
   canPublish,
   canDelete,
+  readOnly = false,
+  showPosition = true,
+  getAttribution,
+  getFavoriteLabels,
+  onActiveIndexChange,
   returnFocusTarget: requestedReturnFocusTarget,
 }) {
   if (isViewerDestroyed) {
@@ -1072,6 +1107,11 @@ export function openPaletteViewerOverlay({
     canExport,
     canPublish,
     canDelete,
+    readOnly,
+    showPosition,
+    getAttribution,
+    getFavoriteLabels,
+    onActiveIndexChange,
     returnFocusTarget,
   };
 
@@ -1082,6 +1122,7 @@ export function openPaletteViewerOverlay({
   openSharedPanel("catch-details", { closeOtherPanels: false, returnFocusTarget });
   scheduleTrackAlignment();
   playFlipPeekHint();
+  onActiveIndexChange?.(activeSession.activeIndex, activeSession.palettes.length);
   return true;
 }
 

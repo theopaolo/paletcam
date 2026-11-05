@@ -7,7 +7,9 @@ const CONNECT_SOURCES = [
   "https://ccbackup.ludique.dev",
 ];
 
-function createContentSecurityPolicy(connectSources) {
+const IMAGE_SOURCES = ["'self'", "data:", "blob:", "https://colorcatchers.co"];
+
+function createContentSecurityPolicy(connectSources, imageSources = IMAGE_SOURCES) {
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -15,7 +17,7 @@ function createContentSecurityPolicy(connectSources) {
     "font-src 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "img-src 'self' data: blob:",
+    `img-src ${imageSources.join(" ")}`,
     "manifest-src 'self'",
     "media-src 'self' blob: data:",
     "object-src 'none'",
@@ -25,32 +27,35 @@ function createContentSecurityPolicy(connectSources) {
   ].join("; ");
 }
 
-function createBuildConnectSources(additionalConnectUrls) {
-  const connectSources = new Set(CONNECT_SOURCES);
-
-  for (const value of additionalConnectUrls) {
-    if (!String(value || "").trim()) continue;
-
-    let url;
-    try {
-      url = new URL(value);
-    } catch {
-      throw new Error("Additional CSP connect targets must be absolute URLs.");
-    }
-
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new Error("Additional CSP connect targets must use HTTP or HTTPS.");
-    }
-    if (url.username || url.password || url.search || url.hash) {
-      throw new Error(
-        "Additional CSP connect targets must not contain credentials, query strings, or fragments.",
-      );
-    }
-
-    connectSources.add(url.origin);
+function parseAdditionalOrigin(value, kind) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`Additional CSP ${kind} targets must be absolute URLs.`);
   }
 
-  return [...connectSources];
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Additional CSP ${kind} targets must use HTTP or HTTPS.`);
+  }
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error(
+      `Additional CSP ${kind} targets must not contain credentials, query strings, or fragments.`,
+    );
+  }
+
+  return url.origin;
+}
+
+function createBuildSources(baseSources, additionalUrls, kind) {
+  const sources = new Set(baseSources);
+
+  for (const value of additionalUrls) {
+    if (!String(value || "").trim()) continue;
+    sources.add(parseAdditionalOrigin(value, kind));
+  }
+
+  return [...sources];
 }
 
 const CONTENT_SECURITY_POLICY = createContentSecurityPolicy(CONNECT_SOURCES);
@@ -120,28 +125,48 @@ const NETLIFY_ROUTE_HEADERS = [
   },
 ];
 
-export function withSecurityHeaders(headersInit = {}) {
+/**
+ * @param {HeadersInit} [headersInit]
+ * @param {{ additionalConnectUrls?: string[], additionalImageUrls?: string[] }} [extensions]
+ *   Extra origins for a non-production server (the dev server talking to a
+ *   local community API). Validated like the build's.
+ */
+export function withSecurityHeaders(headersInit = {}, extensions = {}) {
+  const { additionalConnectUrls = [], additionalImageUrls = [] } = extensions;
   const headers = new Headers(headersInit);
+  const hasExtensions = additionalConnectUrls.length > 0 || additionalImageUrls.length > 0;
 
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     if (name === "Strict-Transport-Security") {
       continue;
     }
 
-    headers.set(name, value);
+    headers.set(
+      name,
+      name === "Content-Security-Policy" && hasExtensions
+        ? createContentSecurityPolicy(
+            createBuildSources(CONNECT_SOURCES, additionalConnectUrls, "connect"),
+            createBuildSources(IMAGE_SOURCES, additionalImageUrls, "image"),
+          )
+        : value,
+    );
   }
 
   return headers;
 }
 
-export function createNetlifyHeadersFile({ additionalConnectUrls = [] } = {}) {
+export function createNetlifyHeadersFile({
+  additionalConnectUrls = [],
+  additionalImageUrls = [],
+} = {}) {
   const securityHeaders =
-    additionalConnectUrls.length === 0
+    additionalConnectUrls.length === 0 && additionalImageUrls.length === 0
       ? SECURITY_HEADERS
       : {
           ...SECURITY_HEADERS,
           "Content-Security-Policy": createContentSecurityPolicy(
-            createBuildConnectSources(additionalConnectUrls),
+            createBuildSources(CONNECT_SOURCES, additionalConnectUrls, "connect"),
+            createBuildSources(IMAGE_SOURCES, additionalImageUrls, "image"),
           ),
         };
   const lines = ["/*"];
@@ -165,9 +190,9 @@ export function createBuildNetlifyHeadersFile({
   communityBaseUrl = "",
   logApiBaseUrl = "",
 }) {
+  const isProduction = isProductionDeploy(deployBranchName);
   return createNetlifyHeadersFile({
-    additionalConnectUrls: isProductionDeploy(deployBranchName)
-      ? []
-      : [communityBaseUrl, logApiBaseUrl],
+    additionalConnectUrls: isProduction ? [] : [communityBaseUrl, logApiBaseUrl],
+    additionalImageUrls: isProduction ? [] : [communityBaseUrl],
   });
 }

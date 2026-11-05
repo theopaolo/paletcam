@@ -140,13 +140,34 @@ class SettingsPanel extends LitElement {
                 autocomplete="email"
                 placeholder=${t("login.emailPlaceholder")}
               />
-              <button
-                class="settings-action-button"
-                id="communityRequestCodeButton"
-                type="button"
-              >
-                <span>${t("login.requestCode")}</span>
-              </button>
+              <div class="settings-login-request">
+                <button
+                  class="settings-action-button"
+                  id="communityRequestCodeButton"
+                  type="button"
+                  aria-disabled="true"
+                >
+                  <span>${t("login.requestCode")}</span>
+                </button>
+                <label class="panel-form-checkbox panel-form-checkbox--terms" for="communityTermsCheckbox">
+                  <input
+                    class="panel-form-checkbox-input"
+                    id="communityTermsCheckbox"
+                    type="checkbox"
+                  />
+                  <span class="panel-form-checkbox-box" aria-hidden="true"></span>
+                  <span class="panel-form-checkbox-label">
+                    ${t("login.terms.accept")}
+                    <a
+                      id="communityTermsLink"
+                      href="#"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >${t("login.terms.link")}</a>
+                  </span>
+                </label>
+              </div>
+              <div class="settings-login-progress" id="communityAuthProgress" aria-hidden="true"></div>
               <p class="panel-form-hint" id="communityAuthHint" hidden></p>
             </div>
 

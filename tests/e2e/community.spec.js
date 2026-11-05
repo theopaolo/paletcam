@@ -54,6 +54,7 @@ test("login reports a mocked API failure, then persists a verified session", asy
     if (await fulfillCorsPreflight(route)) return;
     loginAttempts += 1;
     if (loginAttempts === 1) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
       await route.fulfill({
         status: 503,
         contentType: "application/json",
@@ -79,11 +80,21 @@ test("login reports a mocked API failure, then persists a verified session", asy
   await page.locator(".btn-open-settings").click();
   const email = page.locator("#communityEmailInput");
   await email.fill(" Catcher@Example.com ");
+  await expect(page.locator("#communityRequestCodeButton")).toBeDisabled();
+  await page.locator("#communityRequestCodeButton").click({ force: true });
+  await expect(page.locator(".panel-form-checkbox--terms")).toHaveClass(/is-attention/);
+  await expect(page.locator("#communityCodeField")).toBeHidden();
+  await expect(page.locator(".panel-form-checkbox--terms")).not.toHaveClass(/is-attention/);
+  await expect(page.locator("#communityTermsLink")).toHaveAttribute("href", /\/terms\?/);
+  await page.locator("#communityTermsCheckbox").check({ force: true });
+  await expect(page.locator("#communityRequestCodeButton")).toBeEnabled();
   await page.locator("#communityRequestCodeButton").click();
+  await expect(page.locator("#communityAuthProgress")).toHaveClass(/is-active/);
   await expect.poll(() => loginAttempts).toBe(1);
   await expect(page.locator("#communityAuthHint")).toContainText(
     "Community temporarily unavailable",
   );
+  await expect(page.locator("#communityAuthProgress")).not.toHaveClass(/is-active/);
   await expect(page.locator("#communityCodeField")).toBeHidden();
 
   await page.locator("#communityRequestCodeButton").click();

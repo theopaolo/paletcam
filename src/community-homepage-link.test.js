@@ -1,7 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
   createCommunityAutoLoginOpener,
-  initCommunityHomepageLink,
   resolveCommunityHomepageUrl,
 } from "./community-homepage-link.js";
 
@@ -11,34 +10,7 @@ const MAGIC = "https://colorcatchers.co/auth/magic/42?expires=1&signature=abc";
 const MAGIC_EXPIRY = "2099-01-01T00:00:00.000Z";
 const magicPayload = () => ({ magic_link: MAGIC, expires_at: MAGIC_EXPIRY });
 
-function createFakeLink({ href = FALLBACK } = {}) {
-  const handlers = {};
-  return {
-    href,
-    target: "",
-    rel: "",
-    classList: { toggle() {} },
-    addEventListener: (type, fn) => {
-      handlers[type] = fn;
-    },
-    removeEventListener: (type, fn) => {
-      if (handlers[type] === fn) delete handlers[type];
-    },
-    fire(type) {
-      handlers[type]?.();
-    },
-  };
-}
-
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-function createDeferred() {
-  let resolve;
-  const promise = new Promise((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
-}
 
 describe("resolveCommunityHomepageUrl", () => {
   test("returns the fallback url when there is no token", async () => {
@@ -115,109 +87,6 @@ describe("resolveCommunityHomepageUrl", () => {
         now,
       }),
     ).resolves.toBe(FALLBACK);
-  });
-});
-
-describe("initCommunityHomepageLink", () => {
-  test("opens natively in a new tab via target=_blank", () => {
-    const link = createFakeLink();
-
-    initCommunityHomepageLink({
-      link,
-      getToken: () => "tok",
-      requestMagicLink: mock(async () => magicPayload()),
-    });
-
-    expect(link.target).toBe("_blank");
-    expect(link.rel).toBe("noopener noreferrer");
-  });
-
-  test("refreshes the href to a magic link when an authenticated user interacts", async () => {
-    const link = createFakeLink();
-    const requestMagicLink = mock(async () => magicPayload());
-
-    initCommunityHomepageLink({ link, getToken: () => "tok", requestMagicLink });
-
-    link.fire("pointerenter");
-    await flush();
-
-    expect(requestMagicLink).toHaveBeenCalledWith({
-      token: "tok",
-      signal: expect.any(AbortSignal),
-    });
-    expect(link.href).toBe(MAGIC);
-  });
-
-  test("leaves the plain href untouched for anonymous users", async () => {
-    const link = createFakeLink();
-    const requestMagicLink = mock(async () => magicPayload());
-
-    initCommunityHomepageLink({ link, getToken: () => "", requestMagicLink });
-
-    link.fire("pointerdown");
-    await flush();
-
-    expect(requestMagicLink).not.toHaveBeenCalled();
-    expect(link.href).toBe(HEADER_FALLBACK);
-  });
-
-  test("does not fire overlapping fetches while one is pending", async () => {
-    const link = createFakeLink();
-    const requestMagicLink = mock(async () => magicPayload());
-
-    initCommunityHomepageLink({ link, getToken: () => "tok", requestMagicLink });
-
-    link.fire("pointerenter");
-    link.fire("pointerdown");
-    link.fire("focus");
-    await flush();
-
-    expect(requestMagicLink).toHaveBeenCalledTimes(1);
-  });
-
-  test("resets on logout and ignores a stale completion from the previous account", async () => {
-    const link = createFakeLink();
-    const deferred = createDeferred();
-    let token = "account-a";
-    let sessionListener = () => {};
-    const unsubscribe = mock(() => {});
-    const dispose = initCommunityHomepageLink({
-      link,
-      getToken: () => token,
-      requestMagicLink: mock(() => deferred.promise),
-      subscribeSession: (listener) => {
-        sessionListener = listener;
-        return unsubscribe;
-      },
-    });
-
-    link.fire("pointerenter");
-    token = "account-b";
-    sessionListener({ token });
-    deferred.resolve(magicPayload());
-    await flush();
-
-    expect(link.href).toBe(HEADER_FALLBACK);
-    dispose();
-    expect(unsubscribe).toHaveBeenCalledTimes(1);
-  });
-
-  test("dispose aborts pending work and removes interaction listeners", async () => {
-    const link = createFakeLink();
-    const requestMagicLink = mock(async () => magicPayload());
-    const dispose = initCommunityHomepageLink({
-      link,
-      getToken: () => "tok",
-      requestMagicLink,
-      subscribeSession: () => () => {},
-    });
-
-    dispose();
-    link.fire("pointerdown");
-    await flush();
-
-    expect(requestMagicLink).not.toHaveBeenCalled();
-    expect(link.href).toBe(HEADER_FALLBACK);
   });
 });
 

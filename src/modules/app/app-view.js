@@ -26,6 +26,7 @@
  * @property {HTMLButtonElement | null} pinsKey
  * @property {(HTMLElement & { isTuningDisabled: boolean }) | null} configPanel
  * @property {HTMLButtonElement | null} viewCollectionButton
+ * @property {HTMLButtonElement | null} communityButton Footer button that opens the community feed
  * @property {HTMLDivElement} cameraViewportFrame
  * @property {HTMLDivElement} cameraSourceMount
  * @property {HTMLCanvasElement} paletteOriginsOverlay
@@ -77,6 +78,9 @@ export function createAppView(documentRef) {
     ),
     viewCollectionButton: /** @type {HTMLButtonElement | null} */ (
       documentRef.querySelector(".btn-view-collection")
+    ),
+    communityButton: /** @type {HTMLButtonElement | null} */ (
+      documentRef.querySelector(".btn-community-feed")
     ),
     cameraViewportFrame: documentRef.createElement("div"),
     cameraSourceMount: documentRef.createElement("div"),

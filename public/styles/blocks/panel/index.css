@@ -4,6 +4,7 @@
 @import url("settings-drawer.css");
 @import url("panel-forms.css");
 @import url("collection-panel.css");
+@import url("community-panel.css");
 @import url("palette-card.css");
 @import url("favorite-star.css");
 @import url("palette-viewer.css");
@@ -11,12 +12,14 @@
 
 /* Shared panels */
 .collection-panel,
+.community-panel,
 .login-panel,
 .catch-details-panel {
   --shared-panel-z-index: 1000;
 }
 
-.collection-panel {
+.collection-panel,
+.community-panel {
   --shared-panel-shell-overflow-y: hidden;
   --shared-panel-body-display: grid;
   --shared-panel-body-overflow: hidden;

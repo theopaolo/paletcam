@@ -49,6 +49,13 @@ interface Palette {
   id: number;
   timestamp: string;
   colors: RgbColor[];
+  /** Set on a catch from the community feed, which has no local record. */
+  community?: {
+    userName: string;
+    polaroidUrl: string;
+    squareUrl: string;
+    url: string;
+  };
   photoBlob?: Blob | null;
   previewBlob?: Blob | null;
   previewFooterLabel?: string | null;
@@ -183,6 +190,8 @@ interface AppSettings {
   collectionViewMode: CollectionViewMode;
   /** Cards per row in each collection view, its zoom level. */
   collectionColumns: Record<CollectionViewMode, number>;
+  /** Same for the community gallery, which keeps its own zoom and starts on the largest cards. */
+  communityColumns: Record<CollectionViewMode, number>;
   locale: "fr" | "en";
   performanceHudEnabled: boolean;
   oneMoreColor: boolean;
@@ -198,6 +207,7 @@ interface AppSettings {
 interface AppSettingsPatch {
   collectionViewMode?: CollectionViewMode;
   collectionColumns?: Partial<Record<CollectionViewMode, number>>;
+  communityColumns?: Partial<Record<CollectionViewMode, number>>;
   locale?: "fr" | "en";
   performanceHudEnabled?: boolean;
   oneMoreColor?: boolean;
@@ -271,6 +281,21 @@ type PublicationAction = "publish" | "unpublish";
 interface ModerationEntry {
   remoteCatchId: string;
   status: ModerationStatus;
+}
+
+interface CommunityFeedItem {
+  id: string;
+  userName: string;
+  /** ISO 8601 */
+  caughtAt: string;
+  /** Lowercase `#rrggbb` */
+  colors: string[];
+  squareUrl: string;
+  polaroidUrl: string;
+  /** Public page of the catch on the community site. */
+  url: string;
+  /** Whether the signed-in reader collected it; absent for an anonymous reader. */
+  collected?: boolean;
 }
 
 interface PaletteExportProgress {
@@ -642,7 +667,10 @@ interface CollectionCardLifecycle {
 }
 
 interface PreviewAsset {
-  blob: Blob;
+  /** The pixels of a local capture. A catch from the community feed has a `url` instead. */
+  blob?: Blob;
+  /** Where the browser fetches a catch from the community feed. */
+  url?: string;
   objectUrl?: string;
   source?: string;
 }
@@ -675,6 +703,16 @@ interface PaletteViewerOpenOptions {
   canExport?: (palette: Palette) => boolean;
   canPublish?: (palette: Palette) => boolean;
   canDelete?: (palette: Palette) => boolean;
+  /** Someone else's catch: it can be looked at and turned over, nothing more. */
+  readOnly?: boolean;
+  /** Shows "n / total" over the slides; off when the total is only what has loaded so far. */
+  showPosition?: boolean;
+  /** Who made the catch, shown beside its date; with an `href` the name links to their page. */
+  getAttribution?: (palette: Palette) => { label: string; href?: string } | null;
+  /** Names the star button for what it does in this session, e.g. "collect". */
+  getFavoriteLabels?: () => { favorite: string; unfavorite: string };
+  /** Called as the reader lands on a catch, so a paged list can fetch what comes next. */
+  onActiveIndexChange?: (index: number, total: number) => void;
 }
 
 // ---------------------------------------------------------------------------
