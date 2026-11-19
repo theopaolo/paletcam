@@ -21,6 +21,9 @@ export function createCollectionEntryController({
   let isDestroyed = false;
   let isCollectionModuleDestroyed = false;
   let pendingViewerOpen = null;
+  /* The palette print lies on top of the photo print, partly outside it, so
+     the whole stack takes the tap. */
+  const thumbnail = photoOutput?.parentElement ?? null;
 
   function destroyCollectionModuleOnce(module) {
     if (isCollectionModuleDestroyed) {
@@ -155,7 +158,7 @@ export function createCollectionEntryController({
     isBound = true;
     photoOutput?.addEventListener("load", handlePhotoLoad);
     photoOutput?.addEventListener("error", handlePhotoError);
-    photoOutput?.addEventListener("click", openMiniOutputViewer);
+    thumbnail?.addEventListener("click", openMiniOutputViewer);
     viewCollectionButton?.addEventListener("click", openCollection);
     deletedEventTarget?.addEventListener(PALETTE_DELETED_EVENT, handlePaletteDeleted);
   }
@@ -169,7 +172,7 @@ export function createCollectionEntryController({
     if (isBound) {
       photoOutput?.removeEventListener("load", handlePhotoLoad);
       photoOutput?.removeEventListener("error", handlePhotoError);
-      photoOutput?.removeEventListener("click", openMiniOutputViewer);
+      thumbnail?.removeEventListener("click", openMiniOutputViewer);
       viewCollectionButton?.removeEventListener("click", openCollection);
       deletedEventTarget?.removeEventListener(PALETTE_DELETED_EVENT, handlePaletteDeleted);
       isBound = false;

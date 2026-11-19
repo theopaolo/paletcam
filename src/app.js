@@ -159,7 +159,7 @@ const captureMicroInteractions = createCaptureMicroInteractions({
   captureButton,
   captureContainer,
   paletteSource: capturePaletteStage,
-  thumbnailTarget: photoOutput?.closest(".mini-output") ?? null,
+  thumbnailTarget: outputPalette,
 });
 const visualEffects = createVisualEffects({ captureButton });
 const ralPreview = createRalPreviewController({
