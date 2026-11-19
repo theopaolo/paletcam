@@ -141,16 +141,6 @@ const FOOTER_LAB_ROWS = Object.freeze([
       ["prism", "Prism"],
     ],
   }),
-  Object.freeze({
-    key: "thumb",
-    label: "Thumb",
-    options: [
-      ["stripes", "Stripes"],
-      ["band", "Band"],
-      ["stack", "Stack"],
-      ["swap", "Swap"],
-    ],
-  }),
 ]);
 
 function renderFooterLab() {

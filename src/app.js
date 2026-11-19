@@ -221,10 +221,9 @@ function handleCountControlChange(nextSwatchCount) {
   swatchCountDrumUi.initialize(nextSwatchCount);
 }
 
-function applyFooterLab({ shutter, count, thumb }) {
+function applyFooterLab({ shutter, count }) {
   document.body.dataset.footerShutter = shutter;
   document.body.dataset.footerCount = count;
-  document.body.dataset.footerThumb = thumb;
   irisShutter.setLook(shutter);
   countControl?.destroy();
   countControl = null;

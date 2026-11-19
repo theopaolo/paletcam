@@ -1,7 +1,6 @@
 /**
  * Footer variants under test on preprod: the shutter face, the color-count
- * control, the tuning panel in the tray, the look control on its levers and
- * how the last-catch thumbnail shows the photo next to its palette. The choice is stored per device; the switches only render in debug
+ * control, the tuning panel in the tray and the look control on its levers. The choice is stored per device; the switches only render in debug
  * builds (see config-panel.js), so production always runs the defaults.
  */
 
@@ -13,7 +12,6 @@ export const FOOTER_LAB_OPTIONS = Object.freeze({
   count: Object.freeze(["dial", "numbered", "adj", "drum", "shutter", "tray"]),
   panel: Object.freeze(["arc", "thin", "rails", "drums"]),
   look: Object.freeze(["lever", "keys", "prism"]),
-  thumb: Object.freeze(["stripes", "band", "stack", "swap"]),
 });
 
 /* Théo's pick after the phone tests: flat iris, M's drums, prism look; the count
@@ -23,10 +21,9 @@ const DEFAULT_FOOTER_LAB = Object.freeze({
   count: "tray",
   panel: "drums",
   look: "prism",
-  thumb: "band",
 });
 
-/** @typedef {{ shutter: string, count: string, panel: string, look: string, thumb: string }} FooterLab */
+/** @typedef {{ shutter: string, count: string, panel: string, look: string }} FooterLab */
 
 /** @param {Partial<FooterLab> | null | undefined} candidate @returns {FooterLab} */
 function normalizeFooterLab(candidate) {
@@ -43,9 +40,6 @@ function normalizeFooterLab(candidate) {
     look: FOOTER_LAB_OPTIONS.look.includes(candidate?.look ?? "")
       ? /** @type {string} */ (candidate?.look)
       : DEFAULT_FOOTER_LAB.look,
-    thumb: FOOTER_LAB_OPTIONS.thumb.includes(candidate?.thumb ?? "")
-      ? /** @type {string} */ (candidate?.thumb)
-      : DEFAULT_FOOTER_LAB.thumb,
   };
 }
 

@@ -124,7 +124,15 @@ export function createCaptureMicroInteractions({
     });
     document.body.append(flight);
 
-    const target = `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${to.width / from.width}, ${to.height / from.height})`;
+    // Land centre on centre, at the print's own size and tilt: the rect above
+    // is the tilted print's bounding box, offsetWidth/Height its real size.
+    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    const tilt = getComputedStyle(thumbnailTarget).rotate;
+    const rotate = tilt && tilt !== "none" ? tilt : "0deg";
+    const scaleX = thumbnailTarget.offsetWidth / from.width;
+    const scaleY = thumbnailTarget.offsetHeight / from.height;
+    const target = `translate(${dx}px, ${dy}px) rotate(${rotate}) scale(${scaleX}, ${scaleY})`;
     const animation = flight.animate([{ transform: "none" }, { transform: target }], {
       duration: PALETTE_FLIGHT_MS,
       easing: "cubic-bezier(0.55, 0, 0.2, 1)",

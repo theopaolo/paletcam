@@ -463,7 +463,6 @@ body:not([data-footer-count="drum"]) .btn-containers > .mini-output {
   position: fixed;
   z-index: 30;
   display: flex;
-  transform-origin: 0 0;
   box-shadow: var(--shadow-card-lift);
   pointer-events: none;
 }

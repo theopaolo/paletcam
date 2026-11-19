@@ -15,14 +15,6 @@
   object-fit: cover;
 }
 
-.mini-output .output-img {
-  width: 100%;
-  height: 100%;
-  flex: none;
-  object-fit: cover;
-  object-position: center;
-}
-
 .output-palette {
   display: flex;
   height: 100%;
@@ -52,35 +44,9 @@
   line-height: 1.2;
 }
 
-/* Last-catch thumbnail: the caught palette's stripes cover the photo, which
-   stays underneath to take the tap and to show or hide the whole thumbnail. */
-.mini-output .output-palette {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* Footer lab "thumb": three ways to show the photo next to its palette inside
-   the same square, since the shutter row has no room to spare. "stripes"
-   shows the palette alone. */
-
-/* Band: the photo fills the square, the palette runs along its bottom like
-   the polaroid footer. */
-body[data-footer-thumb="band"] .mini-output .output-palette {
-  inset-block-start: auto;
-  height: 32%;
-  box-shadow: 0 -1px 0 var(--color-surface-shell);
-}
-
-/* Stack: two prints, the photo tilted behind, the palette in front. */
-body[data-footer-thumb="stack"] .btn-containers .mini-output {
-  overflow: visible;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-
-body[data-footer-thumb="stack"] .mini-output :is(.output-img, .output-palette) {
+/* Last-catch thumbnail: two prints. The photo, in its 4:3 frame, lies tilted
+   under the palette. */
+.mini-output :is(.output-img, .output-palette) {
   position: absolute;
   overflow: hidden;
   border: 3px solid var(--color-surface-shell);
@@ -88,67 +54,50 @@ body[data-footer-thumb="stack"] .mini-output :is(.output-img, .output-palette) {
   box-shadow: var(--shadow-chrome-tight);
 }
 
-body[data-footer-thumb="stack"] .mini-output .output-img {
+.mini-output .output-img {
   inset: 0 auto auto 0;
-  width: 80%;
-  height: 80%;
+  width: 84%;
+  height: 63%;
+  object-fit: cover;
   rotate: -7deg;
+  transition:
+    translate var(--duration-settle) var(--easing-spring),
+    scale var(--duration-settle) var(--easing-spring),
+    rotate var(--duration-settle) var(--easing-spring);
 }
 
-body[data-footer-thumb="stack"] .mini-output .output-palette {
+/* Once the picture has loaded, its print slides out from under the palette. */
+@starting-style {
+  .mini-output .output-img {
+    translate: 30% 60%;
+    scale: 0.7;
+    rotate: 4deg;
+  }
+}
+
+.mini-output .output-palette {
   inset: auto 0 0 auto;
-  width: 64%;
-  height: 64%;
+  width: 62%;
+  height: 62%;
   rotate: 4deg;
 }
 
-/* Swap: the stripes turn edge-on like venetian blinds to show the photo, then
-   turn back. The swatches are rebuilt on each catch, so every new catch
-   starts on its palette. */
-body[data-footer-thumb="swap"] .mini-output .output-swatch {
-  animation: thumb-blinds 8s var(--easing-in-out) infinite;
-}
-
-@keyframes thumb-blinds {
-  0%,
-  40%,
-  100% {
-    scale: 1 1;
-  }
-
-  50%,
-  90% {
-    scale: 0 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  body[data-footer-thumb="swap"] .mini-output .output-swatch {
-    animation: none;
-  }
-
-  body[data-footer-thumb="swap"] .mini-output .output-palette {
-    inset-block-start: auto;
-    height: 32%;
+  .mini-output .output-img {
+    transition: none;
   }
 }
 
-/* No catch yet, or its picture still loading: the empty square stays unseen
-   instead of sitting there black. Its box is kept (opacity, not display) so
-   the caught palette still flies to where it will appear, and it fades in
-   once the picture is there. */
-.btn-containers .mini-output:has(.output-img[hidden]) {
+/* No catch yet: the square stays unseen instead of sitting there empty. Its
+   box is kept (opacity, not display) so the caught palette still flies to
+   where it will appear. */
+.btn-containers .mini-output:has(.output-img:not([src])) {
   opacity: 0;
   pointer-events: none;
 }
 
 .mini-output .output-empty-hint {
   display: none;
-}
-
-/* visibility keeps the palette's box, which the capture flight lands on. */
-.mini-output .output-img[hidden] + .output-palette {
-  visibility: hidden;
 }
 
 .counter {
