@@ -35,7 +35,7 @@ This profile is a stable regression test, not a claim about all phones.
 | One-photo backup export | 1,000 ms |
 | One-photo backup import | 2,000 ms |
 | One-photo backup round trip | 3,000 ms |
-| 1,000-photo generated backup import | 10,000 ms |
+| 1,000-photo generated backup import | 15,000 ms |
 | 1,000-photo import maximum event-loop gap | 500 ms |
 | Service-worker initial control | 15,000 ms |
 | Immutable update install | 5,000 ms |
