@@ -60,6 +60,79 @@
   pointer-events: none;
 }
 
+/* Footer lab "thumb": three ways to show the photo next to its palette inside
+   the same square, since the shutter row has no room to spare. "stripes"
+   shows the palette alone. */
+
+/* Band: the photo fills the square, the palette runs along its bottom like
+   the polaroid footer. */
+body[data-footer-thumb="band"] .mini-output .output-palette {
+  inset-block-start: auto;
+  height: 32%;
+  box-shadow: 0 -1px 0 var(--color-surface-shell);
+}
+
+/* Stack: two prints, the photo tilted behind, the palette in front. */
+body[data-footer-thumb="stack"] .btn-containers .mini-output {
+  overflow: visible;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+body[data-footer-thumb="stack"] .mini-output :is(.output-img, .output-palette) {
+  position: absolute;
+  overflow: hidden;
+  border: 3px solid var(--color-surface-shell);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-chrome-tight);
+}
+
+body[data-footer-thumb="stack"] .mini-output .output-img {
+  inset: 0 auto auto 0;
+  width: 80%;
+  height: 80%;
+  rotate: -7deg;
+}
+
+body[data-footer-thumb="stack"] .mini-output .output-palette {
+  inset: auto 0 0 auto;
+  width: 64%;
+  height: 64%;
+  rotate: 4deg;
+}
+
+/* Swap: the stripes turn edge-on like venetian blinds to show the photo, then
+   turn back. The swatches are rebuilt on each catch, so every new catch
+   starts on its palette. */
+body[data-footer-thumb="swap"] .mini-output .output-swatch {
+  animation: thumb-blinds 8s var(--easing-in-out) infinite;
+}
+
+@keyframes thumb-blinds {
+  0%,
+  40%,
+  100% {
+    scale: 1 1;
+  }
+
+  50%,
+  90% {
+    scale: 0 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-footer-thumb="swap"] .mini-output .output-swatch {
+    animation: none;
+  }
+
+  body[data-footer-thumb="swap"] .mini-output .output-palette {
+    inset-block-start: auto;
+    height: 32%;
+  }
+}
+
 /* No catch yet, or its picture still loading: the empty square stays unseen
    instead of sitting there black. Its box is kept (opacity, not display) so
    the caught palette still flies to where it will appear, and it fades in
@@ -69,9 +142,13 @@
   pointer-events: none;
 }
 
-.mini-output .output-img[hidden] + .output-palette,
 .mini-output .output-empty-hint {
   display: none;
+}
+
+/* visibility keeps the palette's box, which the capture flight lands on. */
+.mini-output .output-img[hidden] + .output-palette {
+  visibility: hidden;
 }
 
 .counter {

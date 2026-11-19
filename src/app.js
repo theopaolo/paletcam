@@ -159,7 +159,7 @@ const captureMicroInteractions = createCaptureMicroInteractions({
   captureButton,
   captureContainer,
   paletteSource: capturePaletteStage,
-  thumbnailTarget: photoOutput?.closest(".mini-output") ?? null,
+  thumbnailTarget: outputPalette,
 });
 const visualEffects = createVisualEffects({ captureButton });
 const ralPreview = createRalPreviewController({
@@ -221,9 +221,10 @@ function handleCountControlChange(nextSwatchCount) {
   swatchCountDrumUi.initialize(nextSwatchCount);
 }
 
-function applyFooterLab({ shutter, count }) {
+function applyFooterLab({ shutter, count, thumb }) {
   document.body.dataset.footerShutter = shutter;
   document.body.dataset.footerCount = count;
+  document.body.dataset.footerThumb = thumb;
   irisShutter.setLook(shutter);
   countControl?.destroy();
   countControl = null;

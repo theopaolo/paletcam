@@ -8,7 +8,7 @@ const THUMBNAIL_POP_MS = 220;
  * @param {HTMLElement | null} [options.captureButton]
  * @param {HTMLElement | null} [options.captureContainer]
  * @param {HTMLElement | null} [options.paletteSource] The live palette strip the flight starts from.
- * @param {HTMLElement | null} [options.thumbnailTarget] The last-catch thumbnail it lands in.
+ * @param {HTMLElement | null} [options.thumbnailTarget] The last-catch palette it lands on, wherever the thumbnail layout puts it.
  * @param {number} [options.capturePopMs]
  * @param {number} [options.captureFlashMs]
  * @returns {CaptureMicroInteractions}
