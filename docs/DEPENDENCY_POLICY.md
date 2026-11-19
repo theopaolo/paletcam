@@ -22,8 +22,8 @@ The log-server and sync-server containers use the versioned
 digest recorded in each Dockerfile. Each service has its own frozen production
 lockfile, and both depend only on `hono`. When Dependabot proposes a base
 update, verify the tag and index digest against the official registry metadata
-before merging both values together. Dependabot and CI cover only the
-log-server, so sync-server updates are manual. Do not restore floating major
+before merging both values together. Dependabot and CI cover both services. Do
+not restore floating major
 tags, a tag without its digest, or a non-frozen fallback install in Docker
 builds.
 

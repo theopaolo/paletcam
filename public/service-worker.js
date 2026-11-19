@@ -77,7 +77,7 @@ function shouldBypassRequest(request, requestUrl) {
   );
 }
 
-function isCacheFirstAssetRequest(request) {
+function isCodeRequest(request) {
   return (
     request.destination === "script" ||
     request.destination === "style" ||
@@ -118,6 +118,19 @@ async function fetchAndCache(request, cache, { cacheKey = request, freshRequest 
   }
 }
 
+// A versioned cache holds exactly one build. A hit is served as is and never
+// refreshed in the background: after a deploy, a refresh would write the new
+// build's `index.html` and `app.js` into this cache, and they import chunks
+// this worker never cached, so the next offline launch would not start. The
+// new build arrives with its own worker and its own cache. Only a miss (an
+// optional asset that failed to precache) goes to the network.
+async function respondFromBuildCache(request, cache, { cacheKey = request, freshRequest } = {}) {
+  return (
+    (await cache.match(cacheKey)) ??
+    (await fetchAndCache(request, cache, { cacheKey, freshRequest }))
+  );
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(cacheAppShell());
 });
@@ -155,49 +168,27 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Exact precached documents such as offline.html retain their own cache key
-  // and continue through the manifest-bound request policy below. Root/index
-  // navigations may refresh the canonical app shell. Unknown server routes are
-  // network-first and may fall back to the shell, but can never overwrite it.
+  // and continue through the manifest-bound request policy below. Unknown
+  // server routes are network-first and may fall back to the shell, but can
+  // never overwrite it.
   if (
     request.mode === "navigate" &&
     (isAppShellNavigation(requestUrl) || !isExactPrecachedNavigation(requestUrl))
   ) {
-    const shouldRefreshAppShell = isAppShellNavigation(requestUrl);
-    const cachePromise = caches.open(CACHE_NAME);
-    const networkResponsePromise = shouldRefreshAppShell
-      ? cachePromise.then((cache) =>
-          fetchAndCache(request, cache, { cacheKey: INDEX_FALLBACK_URL }),
-        )
-      : fetch(createFreshRequest(request)).catch(() => null);
-    event.waitUntil(networkResponsePromise);
-
+    const isAppShell = isAppShellNavigation(requestUrl);
     event.respondWith(
       (async () => {
-        const cache = await cachePromise;
+        const cache = await caches.open(CACHE_NAME);
+        const response = isAppShell
+          ? await respondFromBuildCache(request, cache, { cacheKey: INDEX_FALLBACK_URL })
+          : await fetch(createFreshRequest(request)).catch(() => null);
 
-        if (shouldRefreshAppShell) {
-          const appShell = await cache.match(INDEX_FALLBACK_URL);
-          if (appShell) {
-            return appShell;
-          }
-        }
-
-        const networkResponse = await networkResponsePromise;
-        if (networkResponse) {
-          return networkResponse;
-        }
-
-        const appShellFallback = await cache.match(INDEX_FALLBACK_URL);
-        if (appShellFallback) {
-          return appShellFallback;
-        }
-
-        const fallbackResponse = await cache.match(OFFLINE_FALLBACK_URL);
-        if (fallbackResponse) {
-          return fallbackResponse;
-        }
-
-        return new Response("Offline", { status: 503, statusText: "Offline" });
+        return (
+          response ??
+          (await cache.match(INDEX_FALLBACK_URL)) ??
+          (await cache.match(OFFLINE_FALLBACK_URL)) ??
+          new Response("Offline", { status: 503, statusText: "Offline" })
+        );
       })(),
     );
     return;
@@ -212,54 +203,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (isCacheFirstAssetRequest(request)) {
-    const cachePromise = caches.open(CACHE_NAME);
-    const networkResponsePromise = cachePromise.then((cache) => fetchAndCache(request, cache));
-    event.waitUntil(networkResponsePromise);
-
-    event.respondWith(
-      (async () => {
-        const cache = await cachePromise;
-        const cachedResponse = await cache.match(request);
-
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        const networkResponse = await networkResponsePromise;
-        if (networkResponse) {
-          return networkResponse;
-        }
-
-        return new Response("Offline", { status: 503, statusText: "Offline" });
-      })(),
-    );
-    return;
-  }
-
-  const cachePromise = caches.open(CACHE_NAME);
-  // Stale-while-revalidate for ordinary same-origin requests; respect the HTTP
-  // cache rather than forcing a fresh fetch.
-  const networkResponsePromise = cachePromise.then((cache) =>
-    fetchAndCache(request, cache, { freshRequest: false }),
-  );
-  event.waitUntil(networkResponsePromise);
-
   event.respondWith(
     (async () => {
-      const cache = await cachePromise;
-      const cachedResponse = await cache.match(request);
-
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      const networkResponse = await networkResponsePromise;
-      if (networkResponse) {
-        return networkResponse;
-      }
-
-      return new Response("Offline", { status: 503, statusText: "Offline" });
+      const cache = await caches.open(CACHE_NAME);
+      const response = await respondFromBuildCache(request, cache, {
+        // Code is fetched past the HTTP cache. Other assets may use it.
+        freshRequest: isCodeRequest(request),
+      });
+      return response ?? new Response("Offline", { status: 503, statusText: "Offline" });
     })(),
   );
 });

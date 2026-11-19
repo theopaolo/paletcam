@@ -3,7 +3,11 @@ import {
   PALETTE_IMPORT_CONFLICT_ERROR_CODE,
   PALETTE_IMPORT_INTERRUPTED_ERROR_CODE,
 } from "./backup-error-codes.js";
-import { createPaletteAssetRecord, createPaletteMetadataRecord } from "./records.js";
+import {
+  createPaletteAssetRecord,
+  createPaletteMetadataRecord,
+  parseStoredPaletteMetadataRecord,
+} from "./records.js";
 
 export {
   PALETTE_IMPORT_CONFLICT_ERROR_CODE,
@@ -100,6 +104,24 @@ function createImportedMetadata(palette, fallbackRenderSettings) {
     backupUid: paletteMetadata.backupUid ?? null,
     hasPhotoAsset: true,
   });
+}
+
+/**
+ * Whether the collection will be able to read this palette once imported. A
+ * row the read boundary rejects is invisible and cannot be deleted, so callers
+ * that take palettes from a server check this before staging.
+ */
+export function isImportablePaletteMetadata(palette, fallbackRenderSettings) {
+  try {
+    return (
+      parseStoredPaletteMetadataRecord({
+        ...createImportedMetadata(palette ?? {}, fallbackRenderSettings),
+        id: 1,
+      }) !== null
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

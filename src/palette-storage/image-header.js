@@ -182,3 +182,32 @@ export function hasCompleteRasterImageContainer(bytes, mimeType) {
 
   return false;
 }
+
+const SNIFF_HEADER_BYTES = 12;
+const RASTER_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/**
+ * Names the supported raster format from the magic bytes, or null.
+ * @param {Uint8Array} bytes
+ */
+export function sniffRasterImageMimeType(bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.length < SNIFF_HEADER_BYTES) return null;
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+  if (bytes[0] === 0x89 && ascii(bytes, 1, 3) === "PNG") return "image/png";
+  if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WEBP") return "image/webp";
+  return null;
+}
+
+/**
+ * The backup server serves photos as `application/octet-stream`. Share, export
+ * and file naming all read `blob.type`, so a blob without an image type gets
+ * the type its bytes announce. Returns null when the bytes are no supported image.
+ * @param {Blob} blob
+ * @returns {Promise<Blob | null>}
+ */
+export async function withRasterImageType(blob) {
+  if (RASTER_IMAGE_MIME_TYPES.has(blob.type)) return blob;
+  const header = new Uint8Array(await blob.slice(0, SNIFF_HEADER_BYTES).arrayBuffer());
+  const type = sniffRasterImageMimeType(header);
+  return type ? new Blob([blob], { type }) : null;
+}

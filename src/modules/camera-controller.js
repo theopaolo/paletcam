@@ -244,6 +244,8 @@ export function createCameraController({
     }
   }
 
+  let trackControlApplyId = 0;
+
   async function applyTrackControls() {
     if (!videoTrack?.getCapabilities || !videoTrack.applyConstraints) {
       return false;
@@ -290,16 +292,27 @@ export function createCameraController({
       return true;
     }
 
+    // During a pinch several calls overlap. Only the newest one reads the
+    // track back: an older call would overwrite the requested zoom with its
+    // own, older value and make the readout step backward mid-gesture.
+    trackControlApplyId += 1;
+    const applyId = trackControlApplyId;
     try {
       await videoTrack.applyConstraints({
         advanced: [/** @type {MediaTrackConstraintSet} */ (nextConstraintSet)],
       });
+      if (applyId !== trackControlApplyId) {
+        return true;
+      }
       syncTrackControlsFromSettings();
       notifyZoomChange();
       notifyExposureChange();
       return true;
     } catch (error) {
       reportControlError("Error applying camera controls:", error);
+      if (applyId !== trackControlApplyId) {
+        return false;
+      }
       syncTrackControlsFromSettings();
       notifyZoomChange();
       notifyExposureChange();

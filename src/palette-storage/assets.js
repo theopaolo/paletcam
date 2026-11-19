@@ -1,6 +1,7 @@
 import { reportAppError } from "../modules/error-reporting.js";
 import { recordIndexedDbFailure } from "../modules/operational-metrics.js";
 import { db } from "./db.js";
+import { withRasterImageType } from "./image-header.js";
 import {
   createPaletteAssetRecord,
   createPalettePreviewRecord,
@@ -55,7 +56,7 @@ async function repairLegacyPaletteAssetRecord(paletteId, legacyPaletteRecord) {
 export async function readPalettePhotoBlobById(paletteId) {
   const paletteAsset = await db.paletteAssets.get(paletteId);
   if (paletteAsset?.photoBlob instanceof Blob) {
-    return paletteAsset.photoBlob;
+    return (await withRasterImageType(paletteAsset.photoBlob)) ?? paletteAsset.photoBlob;
   }
 
   const legacyPaletteRecord = await db.palettes.get(paletteId);
@@ -95,14 +96,14 @@ export async function readPalettePhotoBlobsByIds(ids) {
     const paletteAssets = await bulkGetTableRecords(db.paletteAssets, batchIds);
     const missingIds = [];
 
-    batchIds.forEach((paletteId, batchIndex) => {
+    for (const [batchIndex, paletteId] of batchIds.entries()) {
       const photoBlob = paletteAssets[batchIndex]?.photoBlob;
       if (photoBlob instanceof Blob) {
-        photoBlobs.set(paletteId, photoBlob);
+        photoBlobs.set(paletteId, (await withRasterImageType(photoBlob)) ?? photoBlob);
       } else {
         missingIds.push(paletteId);
       }
-    });
+    }
     if (missingIds.length === 0) {
       continue;
     }
@@ -230,7 +231,14 @@ export async function readPalettePreviewBlobById(id, variant = "viewer") {
     };
   }
 
-  return repairLegacyPalettePreviewRecord(paletteId, normalizedVariant);
+  // Viewer previews are not persisted, so every viewer open misses here. Only
+  // a row that still carries legacy preview fields needs the repair
+  // transaction. The batch reader below applies the same rule.
+  const paletteRecord = await db.palettes.get(paletteId);
+  const hasLegacyFields = LEGACY_PREVIEW_FIELDS[normalizedVariant].some((field) =>
+    Object.hasOwn(paletteRecord ?? {}, field),
+  );
+  return hasLegacyFields ? repairLegacyPalettePreviewRecord(paletteId, normalizedVariant) : null;
 }
 
 /**

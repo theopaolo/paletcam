@@ -350,6 +350,9 @@ export function createCameraLifecycleController({
     pauseCameraPreview();
 
     if (!getShouldKeepCameraWarmInBackground()) {
+      // stopStream invalidates a start still waiting on getUserMedia. Keeping
+      // its promise would make the resume reuse a start that resolves false.
+      activeCameraStartPromise = null;
       cameraController.stopStream();
     }
   }
@@ -458,6 +461,10 @@ export function createCameraLifecycleController({
     handleWindowPageShow,
     isStartPending() {
       return Boolean(activeCameraStartPromise);
+    },
+    /** The stream is down for a background stay and comes back on foreground. */
+    isResumePending() {
+      return shouldResumeCameraOnForeground;
     },
     rotateCamera,
     setSurfaceSuspended(nextIsSuspended) {

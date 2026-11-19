@@ -460,7 +460,9 @@ export function normalizeTelemetryPayload(body) {
   const message = payload.message;
   if (typeof message !== "string") return null;
   /** @type {Record<string, string> | undefined} */
-  const eventFields = Reflect.get(EVENT_FIELDS, message);
+  const eventFields = Object.hasOwn(EVENT_FIELDS, message)
+    ? Reflect.get(EVENT_FIELDS, message)
+    : undefined;
   if (!eventFields) return null;
 
   const candidateContext = payload.context;

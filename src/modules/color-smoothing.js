@@ -122,9 +122,8 @@ function createOklabColorSmoother() {
   }
 
   function smooth(rawColors, lerpFactor) {
-    const rawLabs = rawColors.map((color) => rgbToOklab(color.r, color.g, color.b));
-
-    if (!previousLabs || previousLabs.length !== rawLabs.length) {
+    if (!previousLabs || previousLabs.length !== rawColors.length) {
+      const rawLabs = rawColors.map((color) => rgbToOklab(color.r, color.g, color.b));
       previousLabs = rawLabs;
       displayColors = rawColors;
       lastRawColorsRef = rawColors;
@@ -133,17 +132,17 @@ function createOklabColorSmoother() {
       return rawColors;
     }
 
-    // Reorder incoming colors to best match previous palette positions.
-    // This prevents false jumps when extraction returns the same colors
-    // in a different order due to scoring instability / camera noise.
-    const alignedLabs = reorderToMatchReference(rawLabs, previousLabs);
-
     // Accumulate aligned extractions and average them so transient outliers
     // from camera noise / scorer instability are filtered out.
-    // Only push when we receive a genuinely new extraction (different ref).
+    // Only a genuinely new extraction (different ref) is converted and pushed:
+    // this runs every frame, extractions arrive a few times per second.
     if (rawColors !== lastRawColorsRef) {
       lastRawColorsRef = rawColors;
-      labAccumulator.push(alignedLabs);
+      const rawLabs = rawColors.map((color) => rgbToOklab(color.r, color.g, color.b));
+      // Reorder incoming colors to best match previous palette positions.
+      // This prevents false jumps when extraction returns the same colors
+      // in a different order due to scoring instability / camera noise.
+      labAccumulator.push(reorderToMatchReference(rawLabs, previousLabs));
       if (labAccumulator.length > ACCUMULATOR_MAX_SIZE) {
         labAccumulator.shift();
       }

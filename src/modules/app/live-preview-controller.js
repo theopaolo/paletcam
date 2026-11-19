@@ -19,7 +19,11 @@ import { getCenteredAspectCropRect, getTargetFrameHeight } from "./geometry.js";
 import { createLivePreviewExtractionPipeline } from "./live-preview-extraction-pipeline.js";
 import { createLivePreviewFrameAcquisition } from "./live-preview-frame-acquisition.js";
 import { createLivePreviewOriginMarkerModel } from "./live-preview-origin-marker-model.js";
-import { createLivePreviewTiming, EXTRACTION_MIN_INTERVAL_MS } from "./live-preview-timing.js";
+import {
+  createLivePreviewTiming,
+  EXTRACTION_MIN_INTERVAL_MS,
+  scaleEasingFactor,
+} from "./live-preview-timing.js";
 
 const PREVIEW_SMOOTHING_FACTOR = 0.16;
 /** Single color samples the crosshair this often: enough to follow the aim. */
@@ -147,8 +151,31 @@ export function createLivePreviewController({
     timing.schedule(isStreaming);
   }
 
+  // With no colors yet the loop asks for an extraction on every frame. Once a
+  // frame is on its way to the worker, the normal cadence applies: grabbing a
+  // bitmap per frame only to replace the queued one is wasted work.
+  let isAwaitingFirstWorkerResult = false;
+  // NaN until the first smoothed frame: the easing then uses its tuned factor.
+  let lastSmoothedFrameAt = Number.NaN;
+
+  // What the overlay currently shows. The badges ease toward their target and
+  // never quite land, so an unchanged signature skips the clear-and-redraw
+  // that would otherwise run every frame on a still scene.
+  let drawnMarkerSignature = "";
+
+  /** Positions round to half a CSS pixel: below that a redraw shows nothing new. */
+  function getMarkerSignature(markers, frameWidth, frameHeight) {
+    let signature = `${frameWidth}x${frameHeight}`;
+    for (const marker of markers) {
+      const { color } = marker;
+      signature += `|${Math.round(marker.x * frameWidth * 2)},${Math.round(marker.y * frameHeight * 2)},${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},${marker.label},${marker.frozen ? 1 : 0},${marker.scale ?? 1},${marker.alpha ?? 1},${marker.rotation ?? 0}`;
+    }
+    return signature;
+  }
+
   function clearOriginMarkers() {
     originMarkerModel.reset();
+    drawnMarkerSignature = "";
     if (originsOverlayContext && originsOverlayCanvas) {
       const { frameHeight, frameWidth } = frameAcquisition.getDimensions();
       originsOverlayContext.clearRect(0, 0, frameWidth || 0, frameHeight || 0);
@@ -343,11 +370,18 @@ export function createLivePreviewController({
       frameWidth,
       frameHeight,
     });
+    const signature = getMarkerSignature(markers, frameWidth, frameHeight);
+    if (signature === drawnMarkerSignature) {
+      return;
+    }
+    drawnMarkerSignature = signature;
     drawOriginMarkers(originsOverlayContext, markers, frameWidth, frameHeight);
   }
 
   function reset() {
+    lastSmoothedFrameAt = Number.NaN;
     frameGrabGeneration += 1;
+    isAwaitingFirstWorkerResult = false;
     extractionPipeline.reset();
     clearOriginMarkers();
     frozenPins.reset();
@@ -405,6 +439,7 @@ export function createLivePreviewController({
       return;
     }
     isFrameGrabPending = true;
+    isAwaitingFirstWorkerResult = true;
     timing.markExtracted(frameStartTime);
     const generation = frameGrabGeneration;
     frameAcquisition
@@ -416,24 +451,31 @@ export function createLivePreviewController({
         if (!frame) {
           return;
         }
-        // A reset (camera switch, stop) while the frame was being taken makes it stale.
-        const extraction =
-          generation === frameGrabGeneration && isStreaming
-            ? extractionPipeline.request({
-                bitmap: frame.bitmap,
-                mirror: frame.mirror,
-                width: frame.width,
-                height: frame.height,
-                swatchCount: getEffectiveSwatchCount(),
-                medianCutSettings: getMedianCutExtractionSettings(),
-                hybridSettings: getHybridSettings(),
-                frozenEntries: frozenPins.getEntries(),
-              })
-            : null;
-        if (!extraction?.delegated) {
-          frame.bitmap.close();
+        let delegated = false;
+        try {
+          // A reset (camera switch, stop) while the frame was being taken makes it stale.
+          const extraction =
+            generation === frameGrabGeneration && isStreaming
+              ? extractionPipeline.request({
+                  bitmap: frame.bitmap,
+                  mirror: frame.mirror,
+                  width: frame.width,
+                  height: frame.height,
+                  swatchCount: getEffectiveSwatchCount(),
+                  medianCutSettings: getMedianCutExtractionSettings(),
+                  hybridSettings: getHybridSettings(),
+                  frozenEntries: frozenPins.getEntries(),
+                })
+              : null;
+          delegated = extraction?.delegated === true;
+        } finally {
+          if (!delegated) {
+            frame.bitmap.close();
+          }
         }
       })
+      // A failed grab is retried at the next cadence tick.
+      .catch(() => {})
       .finally(() => {
         isFrameGrabPending = false;
       });
@@ -464,6 +506,8 @@ export function createLivePreviewController({
           ralPreview.update(color);
         }
       })
+      // A failed read is retried at the next sample interval.
+      .catch(() => {})
       .finally(() => {
         isCenterSamplePending = false;
       });
@@ -537,7 +581,7 @@ export function createLivePreviewController({
     } else {
       const shouldExtract = timing.shouldExtract(
         frameStartTime,
-        Boolean(extractionPipeline.getSnapshot().colors),
+        Boolean(extractionPipeline.getSnapshot().colors) || isAwaitingFirstWorkerResult,
       );
       if (shouldExtract && canReadFramesOffThread()) {
         requestOffThreadExtraction(frameStartTime);
@@ -577,7 +621,11 @@ export function createLivePreviewController({
         return;
       }
 
-      const smoothedColors = colorSmoother.smooth(extractedColors, PREVIEW_SMOOTHING_FACTOR);
+      const smoothedColors = colorSmoother.smooth(
+        extractedColors,
+        scaleEasingFactor(PREVIEW_SMOOTHING_FACTOR, frameStartTime - lastSmoothedFrameAt),
+      );
+      lastSmoothedFrameAt = frameStartTime;
       const liveColors = getOneMoreColor() ? removeDarkestColor(smoothedColors) : smoothedColors;
       const displayColors = frozenPins.applyToColors(liveColors);
 

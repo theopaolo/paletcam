@@ -94,7 +94,9 @@ export function createGalleryPresenter({
   let rail = null;
 
   const isVisible = () => Boolean(panel?.classList.contains("visible"));
-  const getShellScrollRoot = () => panel?.shadowRoot?.querySelector(".panel-shell") ?? null;
+  // The body is the element that scrolls (the panel shell has overflow hidden
+  // here). Observers rooted anywhere else get their targets clipped by the
+  // body, and their rootMargin, the mount-ahead distance, has no effect.
   const getBodyScrollRoot = () => grid.closest(".collection-panel-body");
   const getColumns = () => getAppSettings()[columnsKey][viewMode];
 
@@ -120,7 +122,7 @@ export function createGalleryPresenter({
   function getCardCreator() {
     const createCard = CARD_CREATORS[viewMode] ?? createPaletteCard;
     return (palette) =>
-      createCard({ palette, scrollRoot: getShellScrollRoot(), ...getCardOptions() });
+      createCard({ palette, scrollRoot: getBodyScrollRoot(), ...getCardOptions() });
   }
 
   function createDayGroupElement(dayGroup) {
@@ -188,6 +190,64 @@ export function createGalleryPresenter({
   function destroyVirtualizer() {
     activeDayVirtualizer?.destroy();
     activeDayVirtualizer = null;
+    renderedDays = [];
+  }
+
+  /**
+   * The day groups on screen, in order, so a grown list can keep the ones that
+   * did not change. See `renderKeepingScroll`.
+   * @type {Array<{signature: string, element: HTMLElement, railEntries: import("./collection-rail.js").RailEntry[], mosaicCellsAfter: number}>}
+   */
+  let renderedDays = [];
+  let renderedViewKey = "";
+  const getViewKey = () => `${viewMode}|${getColumns()}`;
+  const getDaySignature = (dayGroup) =>
+    `${dayGroup.title}|${dayGroup.dateLabel}|${dayGroup.palettes.map((palette) => palette.id).join(",")}`;
+
+  /**
+   * Adds one day group at the end of the grid.
+   * The mosaic's days are separate grids: each one starts at the column where
+   * the previous day stopped and tucks into its last row, so no row has holes.
+   * `mosaicCells` is the cell count of the days before this one.
+   */
+  function appendDay(dayGroup, mosaicCells) {
+    const dayRender = createDayGroupElement(dayGroup);
+    let mosaicCellsAfter = mosaicCells;
+    if (viewMode === "swatch") {
+      dayRender.element.style.setProperty("--mosaic-offset", String(mosaicCells));
+      mosaicCellsAfter += dayGroup.palettes.reduce(
+        (cells, palette) => cells + 1 + (palette.colors?.length ?? 0),
+        0,
+      );
+    }
+    grid.appendChild(dayRender.element);
+    activeDayVirtualizer.register({
+      element: dayRender.element,
+      contentContainer: dayRender.contentContainer,
+      mountContent: dayRender.mountContent,
+      unmountContent: dayRender.unmountContent,
+      dayGroup,
+      viewMode,
+      columns: getColumns(),
+    });
+    const label = `${dayGroup.dateLabel || dayGroup.title} · ${dayGroup.paletteCount}`;
+    renderedDays.push({
+      signature: getDaySignature(dayGroup),
+      element: dayRender.element,
+      railEntries: dayGroup.palettes.map((palette) => ({
+        color: toRgbCss(getPaletteKeyColor(palette).color),
+        label,
+        target: dayRender.element,
+      })),
+      mosaicCellsAfter,
+    });
+  }
+
+  function appendDays(dayGroups) {
+    for (const dayGroup of dayGroups) {
+      appendDay(dayGroup, renderedDays.at(-1)?.mosaicCellsAfter ?? 0);
+    }
+    getRail()?.setEntries(renderedDays.flatMap((day) => day.railEntries));
   }
 
   /** Draws the display palettes in the current view. */
@@ -227,50 +287,54 @@ export function createGalleryPresenter({
     syncChrome?.();
 
     activeDayVirtualizer = createDayContentVirtualizer({
-      scrollRoot: getShellScrollRoot(),
+      scrollRoot: getBodyScrollRoot(),
       onCardMount,
     });
 
-    const railEntries = [];
-    // The mosaic's days are separate grids: each one starts at the column where
-    // the previous day stopped and tucks into its last row, so no row has holes.
-    let mosaicCells = 0;
-    dayGroups.forEach((dayGroup) => {
-      const dayRender = createDayGroupElement(dayGroup);
-      if (viewMode === "swatch") {
-        dayRender.element.style.setProperty("--mosaic-offset", String(mosaicCells));
-        mosaicCells += dayGroup.palettes.reduce(
-          (cells, palette) => cells + 1 + (palette.colors?.length ?? 0),
-          0,
-        );
-      }
-      grid.appendChild(dayRender.element);
-      activeDayVirtualizer.register({
-        element: dayRender.element,
-        contentContainer: dayRender.contentContainer,
-        mountContent: dayRender.mountContent,
-        unmountContent: dayRender.unmountContent,
-        dayGroup,
-        viewMode,
-        columns: getColumns(),
-      });
-      const label = `${dayGroup.dateLabel || dayGroup.title} · ${dayGroup.paletteCount}`;
-      dayGroup.palettes.forEach((palette) => {
-        railEntries.push({
-          color: toRgbCss(getPaletteKeyColor(palette).color),
-          label,
-          target: dayRender.element,
-        });
-      });
-    });
-    getRail()?.setEntries(railEntries);
+    renderedViewKey = getViewKey();
+    appendDays(dayGroups);
 
     afterRender?.({ isEmpty: false });
     return true;
   }
 
-  /** Same draw, with the scroll position kept: the feed grows at its far end. */
+  /**
+   * Draws a list that grew at its far end (the feed loading an older page).
+   * Day groups that did not change stay in place with their cards and loaded
+   * images. Only the changed tail, usually the last day, is rebuilt, and the
+   * new days are appended. Anything else falls back to a full draw that
+   * restores the scroll position.
+   */
   function renderKeepingScroll() {
+    if (lifecycle.isDestroyed()) {
+      return false;
+    }
+
+    const dayGroups = groupForCurrentView(getDisplayPalettes());
+    if (
+      activeDayVirtualizer &&
+      renderedDays.length > 0 &&
+      dayGroups.length > 0 &&
+      renderedViewKey === getViewKey()
+    ) {
+      let keptCount = 0;
+      while (
+        keptCount < renderedDays.length &&
+        keptCount < dayGroups.length &&
+        renderedDays[keptCount].signature === getDaySignature(dayGroups[keptCount])
+      ) {
+        keptCount += 1;
+      }
+      for (const day of renderedDays.splice(keptCount)) {
+        activeDayVirtualizer.unregister(day.element);
+        day.element.remove();
+      }
+      syncChrome?.();
+      appendDays(dayGroups.slice(keptCount));
+      afterRender?.({ isEmpty: false });
+      return true;
+    }
+
     const scrollRoot = getBodyScrollRoot();
     const top = scrollRoot?.scrollTop ?? 0;
     const height = grid.offsetHeight;
@@ -465,7 +529,7 @@ export function createGalleryPresenter({
     destroyVirtualizer,
     findCard: (paletteId) =>
       /** @type {HTMLElement | null} */ (
-        grid.querySelector(`.palette-card[data-palette-id="${String(paletteId)}"]`)
+        grid.querySelector(`.palette-card[data-palette-id="${CSS.escape(String(paletteId))}"]`)
       ),
     getColumns,
     getLocale: () => locale,

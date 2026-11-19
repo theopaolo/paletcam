@@ -103,6 +103,13 @@ describe("sync-server app", () => {
     const { manifest } = await manifestResponse.json();
     expect(manifest.palettes[uid].hash).toBe(hash);
 
+    const etag = manifestResponse.headers.get("etag");
+    const unchanged = await app.request("/v1/manifest", {
+      headers: { authorization, "if-none-match": etag },
+    });
+    expect(unchanged.status).toBe(304);
+    expect(unchanged.headers.get("etag")).toBe(etag);
+
     const getResponse = await app.request(`/v1/palettes/${uid}`, { headers: { authorization } });
     expect(getResponse.status).toBe(200);
     expect(getResponse.headers.get("etag")).toBe(`"${hash}"`);

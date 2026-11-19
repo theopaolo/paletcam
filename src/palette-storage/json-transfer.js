@@ -1,4 +1,8 @@
-import { hasCompleteRasterImageContainer, hasSafeRasterImageDimensions } from "./image-header.js";
+import {
+  hasCompleteRasterImageContainer,
+  hasSafeRasterImageDimensions,
+  sniffRasterImageMimeType,
+} from "./image-header.js";
 import {
   PALETTE_BACKUP_INTEGRITY_ERROR_CODE,
   PALETTE_BACKUP_SIZE_LIMIT_ERROR_CODE,
@@ -330,7 +334,12 @@ async function blobToValidatedDataUrl(blob) {
   }
 
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  const mimeType = String(blob.type || "").toLowerCase();
+  // Photos restored from the backup server before the pull retyped them carry
+  // `application/octet-stream`, so the bytes decide when the type does not.
+  const declaredMimeType = String(blob.type || "").toLowerCase();
+  const mimeType = VALID_IMPORTED_PHOTO_MIME_TYPES.has(declaredMimeType)
+    ? declaredMimeType
+    : (sniffRasterImageMimeType(bytes) ?? declaredMimeType);
   if (
     !VALID_IMPORTED_PHOTO_MIME_TYPES.has(mimeType) ||
     !hasSafeRasterImageDimensions(bytes, mimeType, PALETTE_IMPORT_MAX_PHOTO_PIXELS) ||

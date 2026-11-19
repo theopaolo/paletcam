@@ -35,6 +35,12 @@ const pairRateLimiter = createIpRateLimiter({
   maxRequests: config.pairRateLimitMax,
   windowMs: config.pairRateLimitWindowMs,
 });
+const globalPairRateLimiter = createIpRateLimiter({
+  bucketTtlMs: RATE_LIMIT_BUCKET_TTL_MS,
+  maxBuckets: 1,
+  maxRequests: config.pairGlobalRateLimitMax,
+  windowMs: config.pairRateLimitWindowMs,
+});
 
 setInterval(() => {
   rateLimiter.prune();
@@ -61,7 +67,15 @@ function getClientIp(c) {
   });
 }
 
-const app = createSyncApp({ config, accounts, store, rateLimiter, pairRateLimiter, getClientIp });
+const app = createSyncApp({
+  config,
+  accounts,
+  store,
+  rateLimiter,
+  pairRateLimiter,
+  globalPairRateLimiter,
+  getClientIp,
+});
 
 console.log(`[sync-server] listening on :${config.port}`);
 console.log(`[sync-server] environment: ${config.environment}`);

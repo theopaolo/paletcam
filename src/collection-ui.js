@@ -53,6 +53,7 @@ import {
   disposePalettePreviewDownloads,
   downloadBlob,
   exportPalettePolaroidImage,
+  exportPalettePolaroidImages,
   getPaletteViewerPreviewAsset,
   hasPaletteMasterPhoto,
   sharePalettePolaroidImage,
@@ -97,6 +98,9 @@ const collectionSelectionPublishLabel =
   collectionSelectionPublish?.querySelector(".palette-action-label") ?? null;
 const DELETE_UNDO_DURATION_MS = 5000;
 const pendingDeletionIds = new Set();
+// Ids deleted for good in this session. The direct viewer works on a snapshot
+// of the collection, and a committed delete leaves `pendingDeletionIds`.
+const committedDeletionIds = new Set();
 const selectionState = createCollectionSelectionState();
 let currentPalettes = [];
 /** Set by a tap on a color in the bands, mosaic or spectrum. @type {((palette: Palette) => boolean) | null} */
@@ -607,6 +611,7 @@ async function commitPaletteDeletion(palette, { fallbackIndex = -1, silent = fal
     const result = await deletePaletteWithCleanup(palette);
     if (!result.success) throw result.error;
 
+    committedDeletionIds.add(palette.id);
     pendingDeletionIds.delete(palette.id);
     requestBackupFlush();
     if (result.remoteFlushError) {
@@ -1047,7 +1052,9 @@ export async function openDirectPaletteViewer(paletteId) {
   }
 
   const getViewablePalettes = () =>
-    savedPalettes.filter((entry) => !isPalettePendingDeletion(entry.id));
+    savedPalettes.filter(
+      (entry) => !isPalettePendingDeletion(entry.id) && !committedDeletionIds.has(entry.id),
+    );
   const viewablePalettes = getViewablePalettes();
 
   const didOpen = await paletteViewerCoordinator.open(
@@ -1308,9 +1315,18 @@ async function handleSelectionFavorite() {
 async function handleSelectionExport() {
   const toExport = selectionState.getSelected(getDisplayPalettes(), canExportPalette);
   exitSelectMode();
-  for (const palette of toExport) {
-    await handleExportPalette(palette);
+  if (toExport.length === 0) {
+    return;
   }
+  if (toExport.length === 1) {
+    await handleExportPalette(toExport[0]);
+    return;
+  }
+  const exported = await exportPalettePolaroidImages(toExport);
+  showToast(exported ? t("collection.exportSuccess") : t("collection.exportFailed"), {
+    variant: exported ? "default" : "error",
+    duration: exported ? 1400 : 1800,
+  });
 }
 
 async function handleSelectionPublish() {

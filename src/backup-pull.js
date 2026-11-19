@@ -7,6 +7,7 @@ import {
   deletePalettesForRemoteTombstones,
   listAllPendingBackupTombstoneUids,
   listBackupSyncIndex,
+  listStoredBackupUids,
   markPalettesForBackup,
   markPalettesPulled,
   rekeyPaletteBackupUid,
@@ -15,10 +16,12 @@ import {
   abortImportSession,
   beginImportSession,
   commitImportSession,
+  isImportablePaletteMetadata,
   PALETTE_IMPORT_STAGING_BATCH_SIZE,
   PaletteImportConflictError,
   stageImportBatch,
 } from "./palette-storage/import-staging.js";
+import { withRasterImageType } from "./palette-storage/image-header.js";
 import { pickSyncedPaletteFields } from "./palette-storage/records.js";
 
 // A server bug or a rollback must not empty the phone. Above this count, a
@@ -86,8 +89,27 @@ function getTimestampMs(palette) {
 }
 
 /**
+ * The photo of a remote palette with an image type, or null when the server
+ * no longer holds it or the bytes are no supported image.
+ */
+async function fetchRemotePhotoOrNull(credentials, assetHash) {
+  try {
+    return await withRasterImageType(await fetchBackupAsset(credentials, assetHash));
+  } catch (error) {
+    if (error?.code === "not_found") return null;
+    throw error;
+  }
+}
+
+/**
  * Downloads and commits new palettes in chunks. Each chunk is its own
  * transactional import, so an interrupted pass keeps what already landed.
+ *
+ * A palette this device cannot use (no photo, or a document the collection
+ * would refuse to read) is skipped, so one bad item never blocks the rest of
+ * the pass or the upload that follows.
+ * ponytail: skipped items are fetched again on every pass. Remember their
+ * hashes if a broken remote palette ever shows up in the request counts.
  */
 async function importRemotePalettes(credentials, items, result, onProgress) {
   const fallbackRenderSettings = { footerLabel: getAppSettings().polaroidFooterLabel };
@@ -98,12 +120,17 @@ async function importRemotePalettes(credentials, items, result, onProgress) {
     for (const item of items.slice(start, start + PALETTE_IMPORT_STAGING_BATCH_SIZE)) {
       const assetHash = Array.isArray(item.envelope.assets) ? item.envelope.assets[0] : undefined;
       downloaded += 1;
-      if (!assetHash) {
+      const palette = { ...item.envelope.palette, ...item.fields, backupUid: item.uid };
+      if (!isImportablePaletteMetadata(palette, fallbackRenderSettings)) {
+        result.invalid += 1;
+        continue;
+      }
+      const photoBlob = assetHash ? await fetchRemotePhotoOrNull(credentials, assetHash) : null;
+      if (!photoBlob) {
         result.missingPhoto += 1;
         continue;
       }
-      const photoBlob = await fetchBackupAsset(credentials, assetHash);
-      chunk.push({ item, photoBlob });
+      chunk.push({ item, palette, photoBlob });
       onProgress?.({ phase: "downloading", fetched: downloaded, total: items.length });
     }
     if (chunk.length === 0) {
@@ -121,12 +148,7 @@ async function importRemotePalettes(credentials, items, result, onProgress) {
     try {
       await stageImportBatch(
         sessionId,
-        chunk.map(({ item, photoBlob }) => ({
-          ...item.envelope.palette,
-          ...item.fields,
-          backupUid: item.uid,
-          photoBlob,
-        })),
+        chunk.map(({ palette, photoBlob }) => ({ ...palette, photoBlob })),
       );
       result.imported += await commitImportSession(sessionId, fallbackRenderSettings);
     } catch (error) {
@@ -169,12 +191,13 @@ export async function pullBackupChanges(credentials, manifest, { onProgress } = 
     deleted: 0,
     deduplicated: 0,
     missingPhoto: 0,
+    invalid: 0,
   };
   const remotePalettes = manifest?.palettes ?? {};
   const remoteTombstones = manifest?.tombstones ?? {};
   const pendingTombstoneUids = new Set(await listAllPendingBackupTombstoneUids());
   const localPalettes = await listBackupSyncIndex();
-  const localByUid = new Map(localPalettes.map((palette) => [palette.backupUid, palette]));
+  const storedUids = new Set(await listStoredBackupUids());
 
   const changedPalettes = localPalettes.filter(
     (palette) =>
@@ -183,7 +206,7 @@ export async function pullBackupChanges(credentials, manifest, { onProgress } = 
       remotePalettes[palette.backupUid].hash !== palette.backupRemoteHash,
   );
   const newUids = Object.keys(remotePalettes).filter(
-    (uid) => !localByUid.has(uid) && !pendingTombstoneUids.has(uid),
+    (uid) => !storedUids.has(uid) && !pendingTombstoneUids.has(uid),
   );
   const metadataTotal = changedPalettes.length + newUids.length;
   let metadataFetched = 0;

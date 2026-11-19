@@ -28,3 +28,15 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+
+  - package-ecosystem: npm
+    directory: /services/sync-server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /services/sync-server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

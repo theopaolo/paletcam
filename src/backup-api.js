@@ -61,19 +61,51 @@ export function getRetryDelayMs(response) {
   return Math.min(parsedSeconds * 1000, MAX_RETRY_DELAY_MS);
 }
 
+// A stalled connection must not hold the single-flight sync pass forever.
+// Photos get a longer allowance: 16 MB on a slow uplink is a legitimate wait.
+const JSON_REQUEST_TIMEOUT_MS = 30_000;
+const ASSET_REQUEST_TIMEOUT_MS = 180_000;
+
+/** @type {Set<AbortController>} */
+const activeRequestControllers = new Set();
+
+/** Cancels every request in flight, for a disconnect or an account switch. */
+export function abortBackupRequests() {
+  for (const controller of activeRequestControllers) {
+    controller.abort();
+  }
+}
+
 /**
  * A restore fetches hundreds of small documents quickly, so hitting the
  * server's per-IP rate limit is normal operation, not an error: 429 responses
  * are retried after the server-advertised delay before giving up.
  *
+ * `read` consumes the body inside the timeout, so a download that stalls
+ * after the headers arrived is cancelled too.
+ *
+ * @template Result
  * @param {string} path
- * @param {{credentials: BackupCredentials | null, method?: string, body?: BodyInit, contentType?: string, headers?: Record<string, string>, retryRateLimit?: boolean}} options
+ * @param {{credentials: BackupCredentials | null, method?: string, body?: BodyInit, contentType?: string, headers?: Record<string, string>, retryRateLimit?: boolean, timeoutMs?: number, read?: (response: Response) => Result | Promise<Result>}} options
+ * @returns {Promise<Result>}
  */
 async function backupRequest(
   path,
-  { credentials, method = "GET", body, contentType, headers = {}, retryRateLimit = true },
+  {
+    credentials,
+    method = "GET",
+    body,
+    contentType,
+    headers = {},
+    retryRateLimit = true,
+    timeoutMs = JSON_REQUEST_TIMEOUT_MS,
+    read = (response) => /** @type {any} */ (response),
+  },
 ) {
   for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    activeRequestControllers.add(controller);
     let response;
     try {
       response = await fetch(`${getBackupApiBaseUrl()}${path}`, {
@@ -84,16 +116,20 @@ async function backupRequest(
           ...headers,
         },
         body,
+        signal: controller.signal,
       });
+      // 304 only answers a request that carried If-None-Match.
+      if (response.ok || response.status === 304) {
+        return await read(response);
+      }
     } catch (_error) {
       throw new BackupApiError("The backup server could not be reached.", {
         code: "network",
         status: undefined,
       });
-    }
-
-    if (response.ok) {
-      return response;
+    } finally {
+      clearTimeout(timeoutId);
+      activeRequestControllers.delete(controller);
     }
 
     if (response.status === 429 && retryRateLimit && attempt < MAX_RATE_LIMIT_RETRIES) {
@@ -112,9 +148,28 @@ async function backupRequest(
 
 /** @returns {Promise<{palettes: Record<string, {hash: string}>, assets: string[], tombstones: Record<string, object>, usageBytes: number}>} */
 export async function fetchBackupManifest(credentials) {
-  const response = await backupRequest("/v1/manifest", { credentials });
-  const body = await response.json();
+  const body = await backupRequest("/v1/manifest", {
+    credentials,
+    read: (response) => response.json(),
+  });
   return body.manifest;
+}
+
+/**
+ * The manifest with its ETag, or null when the server still holds the version
+ * `knownEtag` names.
+ * @param {BackupCredentials} credentials
+ * @param {string | null} knownEtag
+ */
+export async function fetchBackupManifestIfChanged(credentials, knownEtag) {
+  return backupRequest("/v1/manifest", {
+    credentials,
+    headers: knownEtag ? { "If-None-Match": knownEtag } : {},
+    read: async (response) =>
+      response.status === 304
+        ? null
+        : { manifest: (await response.json()).manifest, etag: response.headers.get("etag") },
+  });
 }
 
 /**
@@ -124,14 +179,14 @@ export async function fetchBackupManifest(credentials) {
  * @returns {Promise<string | null>} hash of the stored document
  */
 export async function putBackupPalette(credentials, backupUid, envelope, { baseHash = null } = {}) {
-  const response = await backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
+  const body = await backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
     credentials,
     method: "PUT",
     body: JSON.stringify(envelope),
     contentType: "application/json",
     headers: baseHash ? { "If-Match": `"${baseHash}"` } : { "If-None-Match": "*" },
+    read: (response) => response.json().catch(() => null),
   });
-  const body = await response.json().catch(() => null);
   return normalizeHash(body?.hash);
 }
 
@@ -141,6 +196,7 @@ export async function putBackupAsset(credentials, assetHash, blob) {
     method: "PUT",
     body: blob,
     contentType: "application/octet-stream",
+    timeoutMs: ASSET_REQUEST_TIMEOUT_MS,
   });
 }
 
@@ -150,19 +206,22 @@ export async function putBackupAsset(credentials, assetHash, blob) {
  * @returns {Promise<{envelope: {schemaVersion?: number, palette: object, assets?: string[]}, hash: string | null}>}
  */
 export async function fetchBackupPalette(credentials, backupUid) {
-  const response = await backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
+  return backupRequest(`/v1/palettes/${encodeURIComponent(backupUid)}`, {
     credentials,
+    read: async (response) => ({
+      envelope: await response.json(),
+      hash: normalizeHash(response.headers.get("etag")),
+    }),
   });
-  const hash = normalizeHash(response.headers.get("etag"));
-  return { envelope: await response.json(), hash };
 }
 
 /** @returns {Promise<Blob>} */
 export async function fetchBackupAsset(credentials, assetHash) {
-  const response = await backupRequest(`/v1/assets/${encodeURIComponent(assetHash)}`, {
+  return backupRequest(`/v1/assets/${encodeURIComponent(assetHash)}`, {
     credentials,
+    timeoutMs: ASSET_REQUEST_TIMEOUT_MS,
+    read: (response) => response.blob(),
   });
-  return response.blob();
 }
 
 export async function deleteBackupPalette(credentials, backupUid) {
@@ -183,18 +242,21 @@ export async function deleteBackupAccount(credentials) {
  * @returns {Promise<BackupCredentials>}
  */
 export async function pairBackupAccount() {
-  const response = await backupRequest("/v1/pair", {
+  const { body, status } = await backupRequest("/v1/pair", {
     credentials: null,
     method: "POST",
     retryRateLimit: false,
+    read: async (response) => ({
+      body: await response.json().catch(() => null),
+      status: response.status,
+    }),
   });
-  const body = await response.json().catch(() => null);
   const accountId = String(body?.accountId ?? "");
   const secret = String(body?.secret ?? "");
   if (!/^[a-f0-9]{16}$/.test(accountId) || !/^[a-f0-9]{48}$/.test(secret)) {
     throw new BackupApiError("The backup server sent malformed credentials.", {
       code: "server",
-      status: response.status,
+      status,
     });
   }
   return { accountId, secret };

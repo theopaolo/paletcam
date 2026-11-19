@@ -39,13 +39,19 @@ export function createRalPreviewController({
 
   function paintName(sampledColor) {
     colorNamesPromise ??= import("../color-name-api.js");
-    void colorNamesPromise.then(async ({ getColorNames }) => {
-      const [name] = await getColorNames([sampledColor]);
-      // A newer sample may have landed while the name list loaded.
-      if (ralLiveSwatchName && currentPreview?.sampledColor === sampledColor) {
-        ralLiveSwatchName.textContent = name ?? "";
-      }
-    });
+    colorNamesPromise
+      .then(async ({ getColorNames }) => {
+        const [name] = await getColorNames([sampledColor]);
+        // A newer sample may have landed while the name list loaded.
+        if (ralLiveSwatchName && currentPreview?.sampledColor === sampledColor) {
+          ralLiveSwatchName.textContent = name ?? "";
+        }
+      })
+      .catch(() => {
+        // The chunk failed to load (offline, deploy in progress). Forget the
+        // failed import so the next sample tries again.
+        colorNamesPromise = null;
+      });
   }
 
   function sync(match, sampledColor) {

@@ -41,6 +41,7 @@ async function loadService({
   fetchPaletteImplementation,
   deleteAccountImplementation,
   pullResult = { imported: 0, updated: 0, rekeyed: 0, deleted: 0 },
+  manifestEtag = null,
 } = {}) {
   const api = {
     fetchBackupManifest: mock(async () => ({
@@ -54,6 +55,12 @@ async function loadService({
     putBackupAsset: mock(async () => {}),
     deleteBackupPalette: mock(async () => {}),
     deleteBackupAccount: mock(deleteAccountImplementation ?? (async () => {})),
+    abortBackupRequests: mock(() => {}),
+    fetchBackupManifestIfChanged: mock(async (requestCredentials, knownEtag) =>
+      manifestEtag && knownEtag === manifestEtag
+        ? null
+        : { manifest: await api.fetchBackupManifest(requestCredentials), etag: manifestEtag },
+    ),
   };
   let batchIndex = 0;
   const ledger = {
@@ -287,6 +294,40 @@ describe("backup service flush", () => {
 
     expect(status.errorCode).toBe("quota_exceeded");
     expect(ledger.markPaletteBackedUp).not.toHaveBeenCalled();
+  });
+
+  test("a palette the server refuses does not block the ones after it", async () => {
+    const refused = createDirtyPalette(1, "uid-refused");
+    const accepted = createDirtyPalette(2, "uid-accepted");
+    const { api, ledger, module } = await loadService({
+      dirtyBatches: [[refused, accepted], [refused], [refused]],
+      putPaletteImplementation: async (_credentials, uid) => {
+        if (uid === "uid-refused") {
+          throw Object.assign(new Error("413"), { code: "server", status: 413 });
+        }
+        return STORED_HASH;
+      },
+    });
+
+    const status = await module.runBackupFlush();
+
+    expect(api.putBackupPalette.mock.calls.map((call) => call[1])).toContain("uid-accepted");
+    expect(ledger.markPaletteBackedUp).toHaveBeenCalledTimes(1);
+    expect(status.errorCode).toBe("server");
+  });
+
+  test("skips the pull while the server manifest is unchanged", async () => {
+    const { api, module, pull } = await loadService({ manifestEtag: '"v1"' });
+
+    await module.runBackupFlush();
+    const status = await module.runBackupFlush();
+
+    expect(api.fetchBackupManifestIfChanged.mock.calls.map((call) => call[1])).toEqual([
+      null,
+      '"v1"',
+    ]);
+    expect(pull.pullBackupChanges).toHaveBeenCalledTimes(1);
+    expect(status.errorCode).toBeNull();
   });
 
   test("concurrent flush calls share one run", async () => {

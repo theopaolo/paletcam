@@ -148,9 +148,10 @@ export async function downloadBlob(blob, filename) {
   };
 
   if (isIOS) {
-    window.open(downloadUrl, "_blank");
+    // A blocked popup returns null: nothing reached the user.
+    const opened = window.open(downloadUrl, "_blank");
     revokeUrlLater();
-    return true;
+    return opened !== null;
   }
 
   const link = document.createElement("a");
@@ -371,6 +372,50 @@ export async function exportPalettePolaroidImage(palette) {
     return downloadBlob(blob, `palette-${palette.id}.${ext}`);
   } catch (error) {
     console.error("Failed to render export image:", error);
+    return false;
+  }
+}
+
+/**
+ * Exports several palettes. iOS allows one share sheet per tap, so all the
+ * images go into a single share there. A loop of single exports would deliver
+ * the first image and drop the rest.
+ * @param {Palette[]} palettes
+ * @returns {Promise<boolean>} whether every image was handed over
+ */
+export async function exportPalettePolaroidImages(palettes) {
+  try {
+    const files = [];
+    for (const palette of palettes) {
+      const blob = await renderHighQualityPalettePolaroidBlob(palette);
+      if (!blob) {
+        return false;
+      }
+      const ext = blob.type === "image/webp" ? "webp" : "jpg";
+      files.push(
+        new File([blob], `palette-${palette.id}.${ext}`, { type: blob.type || "image/jpeg" }),
+      );
+    }
+
+    if (isIOSDevice() && typeof navigator.share === "function" && navigator.canShare?.({ files })) {
+      try {
+        await navigator.share({ files });
+        return true;
+      } catch (shareError) {
+        if (shareError instanceof Error && shareError.name === "AbortError") {
+          return false;
+        }
+        // Fall through to one export per image.
+      }
+    }
+
+    let allDelivered = true;
+    for (const file of files) {
+      allDelivered = (await downloadBlob(file, file.name)) && allDelivered;
+    }
+    return allDelivered;
+  } catch (error) {
+    console.error("Failed to render export images:", error);
     return false;
   }
 }

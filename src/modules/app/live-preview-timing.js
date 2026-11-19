@@ -69,3 +69,21 @@ export function createLivePreviewTiming({
     },
   };
 }
+
+const REFERENCE_FRAME_MS = 1000 / 60;
+const MAX_FRAME_DELTA_MS = 100;
+
+/**
+ * Easing factors were tuned as "fraction of the remaining distance per frame"
+ * at 60 Hz. Applied once per rAF they converge twice as fast on a 120 Hz
+ * screen and at half speed when the phone drops to 30 fps. This converts the
+ * tuned factor to the time that actually passed since the previous frame.
+ * @param {number} factorAt60Hz
+ * @param {number} deltaMs time since the previous frame, unknown or 0 on the first one
+ */
+export function scaleEasingFactor(factorAt60Hz, deltaMs) {
+  if (!(deltaMs > 0)) {
+    return factorAt60Hz;
+  }
+  return 1 - (1 - factorAt60Hz) ** (Math.min(deltaMs, MAX_FRAME_DELTA_MS) / REFERENCE_FRAME_MS);
+}

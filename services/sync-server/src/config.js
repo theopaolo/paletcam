@@ -5,6 +5,7 @@ const DEFAULTS = Object.freeze({
   rateLimitMaxBuckets: 10_000,
   pairRateLimitWindowMs: 3_600_000,
   pairRateLimitMax: 5,
+  pairGlobalRateLimitMax: 30,
   maxMetadataBytes: 64 * 1024,
   maxAssetBytes: 25 * 1024 * 1024,
   maxAccountBytes: 2 * 1024 * 1024 * 1024,
@@ -98,6 +99,14 @@ export function createSyncServerConfig(env = {}) {
       env.PAIR_RATE_LIMIT_MAX,
       DEFAULTS.pairRateLimitMax,
       { key: "PAIR_RATE_LIMIT_MAX", min: 1, max: 1_000 },
+      issues,
+    ),
+    // Across all clients, per pair window: bounds how much quota new accounts
+    // can claim on the shared volume when pairing is left open.
+    pairGlobalRateLimitMax: parseInteger(
+      env.PAIR_GLOBAL_RATE_LIMIT_MAX,
+      DEFAULTS.pairGlobalRateLimitMax,
+      { key: "PAIR_GLOBAL_RATE_LIMIT_MAX", min: 1, max: 100_000 },
       issues,
     ),
     maxMetadataBytes: parseInteger(

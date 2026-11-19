@@ -22,3 +22,29 @@ export function resolveClientIp(getHeader, { trustProxyHeaders = false, getSocke
 
   return getHeader("x-real-ip")?.trim() || socketAddress();
 }
+
+/**
+ * One IPv6 customer holds a whole /64, so a limiter keyed on the full address
+ * hands out a fresh bucket per address. The key is the /64 prefix. IPv4 and
+ * IPv4-mapped addresses key on the IPv4 address.
+ * @param {string} ip
+ */
+export function toRateLimitKey(ip) {
+  const address = String(ip).split("%")[0].toLowerCase();
+  if (!address.includes(":")) return address;
+
+  const mappedIpv4 = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(address);
+  if (mappedIpv4) return mappedIpv4[1];
+
+  const [head, tail] = address.split("::");
+  const headGroups = head ? head.split(":") : [];
+  const tailGroups = tail ? tail.split(":") : [];
+  const zeroGroups =
+    tail === undefined
+      ? []
+      : Array(Math.max(0, 8 - headGroups.length - tailGroups.length)).fill("0");
+  const prefix = [...headGroups, ...zeroGroups, ...tailGroups]
+    .slice(0, 4)
+    .map((group) => group.replace(/^0+(?=.)/, ""));
+  return `${prefix.join(":")}::/64`;
+}

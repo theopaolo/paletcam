@@ -115,6 +115,12 @@ export function createIrisShutter({ button }) {
     return LOOKS[look] ?? LOOKS.titanium;
   }
 
+  // The live palette repaints the blades many times per second while colors
+  // ease. Geometry only moves with the count, the look or an animation, so the
+  // path strings are rebuilt and written only when one of those changed.
+  let drawnGeometryKey = "";
+  let drawnBlades = [];
+
   function draw() {
     if (look === "logo") {
       return;
@@ -123,13 +129,19 @@ export function createIrisShutter({ button }) {
     const palette = colors.length === 0 ? GRAPHITE : colors;
     const count = colors.length < 3 ? 6 : colors.length;
     const { bend, rotation, bladesPerColor } = currentLook();
-    const blades = irisBladePaths({
-      count,
-      perColor: bladesPerColor(count),
-      aperture,
-      twist: twist + rotation,
-      bend,
-    });
+    const geometryKey = `${look}|${count}|${aperture}|${twist}`;
+    const geometryChanged = geometryKey !== drawnGeometryKey;
+    if (geometryChanged) {
+      drawnGeometryKey = geometryKey;
+      drawnBlades = irisBladePaths({
+        count,
+        perColor: bladesPerColor(count),
+        aperture,
+        twist: twist + rotation,
+        bend,
+      });
+    }
+    const blades = drawnBlades;
 
     // Reuse path nodes while the blade count holds, so fills can transition.
     while (bladeGroup.childElementCount > blades.length) bladeGroup.lastElementChild?.remove();
@@ -143,9 +155,14 @@ export function createIrisShutter({ button }) {
       const { r, g, b } =
         palette === GRAPHITE ? GRAPHITE[i % 2] : palette[blade.colorIndex % palette.length];
       const bladeNode = bladeGroup.children[i];
-      bladeNode.setAttribute("d", blade.d);
-      bladeNode.setAttribute("fill", `rgb(${Math.round(r)} ${Math.round(g)} ${Math.round(b)})`);
-      edgeGroup.children[i].setAttribute("d", blade.edge);
+      const fill = `rgb(${Math.round(r)} ${Math.round(g)} ${Math.round(b)})`;
+      if (bladeNode.getAttribute("fill") !== fill) {
+        bladeNode.setAttribute("fill", fill);
+      }
+      if (geometryChanged) {
+        bladeNode.setAttribute("d", blade.d);
+        edgeGroup.children[i].setAttribute("d", blade.edge);
+      }
     });
   }
 

@@ -8,6 +8,6 @@
     "dev": "bun --watch src/server.js"
   },
   "dependencies": {
-    "hono": "^4.7.0"
+    "hono": "^4.13.19"
   }
 }

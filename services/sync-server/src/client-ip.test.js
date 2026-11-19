@@ -36,3 +36,14 @@ test("falls back to the socket address when trusted but no forwarding headers ar
     resolveClientIp(() => "", { trustProxyHeaders: true, getSocketAddress: () => "198.51.100.9" }),
   ).toBe("198.51.100.9");
 });
+
+test("rate-limit keys use the IPv6 /64 and leave IPv4 alone", async () => {
+  const { toRateLimitKey } = await import("./client-ip.js");
+  expect(toRateLimitKey("203.0.113.7")).toBe("203.0.113.7");
+  expect(toRateLimitKey("::ffff:203.0.113.7")).toBe("203.0.113.7");
+  expect(toRateLimitKey("2001:db8:1:2:aaaa:bbbb:cccc:dddd")).toBe("2001:db8:1:2::/64");
+  expect(toRateLimitKey("2001:0DB8:0001:0002::1")).toBe("2001:db8:1:2::/64");
+  expect(toRateLimitKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
+  expect(toRateLimitKey("::1")).toBe("0:0:0:0::/64");
+  expect(toRateLimitKey("fe80::1%eth0")).toBe("fe80:0:0:0::/64");
+});

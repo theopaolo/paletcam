@@ -1,7 +1,9 @@
 import {
+  abortBackupRequests,
   deleteBackupAccount,
   deleteBackupPalette,
   fetchBackupManifest,
+  fetchBackupManifestIfChanged,
   fetchBackupPalette,
   putBackupAsset,
   putBackupPalette,
@@ -47,6 +49,19 @@ let status = {
 };
 /** @type {Promise<BackupServiceStatus> | null} */
 let activeFlush = null;
+/**
+ * The manifest the last pull ran against. While the server still answers that
+ * version, no other device changed anything and the pull has nothing to do.
+ * @type {{accountId: string, etag: string, manifest: any} | null}
+ */
+let pulledManifest = null;
+/**
+ * Photo hash per palette id. A master photo never changes once saved, so a
+ * palette that is dirty again (a star, a publication) skips reading and
+ * hashing megabytes it already uploaded.
+ * @type {Map<number, string>}
+ */
+const assetHashByPaletteId = new Map();
 
 function notifyStatus(patch) {
   status = { ...status, ...patch };
@@ -149,12 +164,23 @@ async function pushPalette(credentials, palette, referencedAssets) {
   return "gave-up";
 }
 
+/** The server refused this one document. Other palettes can still upload. */
+function isPaletteRejection(error) {
+  return error?.code === "server" && error.status >= 400 && error.status < 500;
+}
+
+/**
+ * @returns {Promise<{tookRemote: boolean, rejection: unknown}>} `rejection` is
+ * the first error the server answered for a single palette. Those palettes
+ * stay dirty and the pass reports the error once everything else uploaded.
+ */
 async function flushDirtyPalettes(credentials, uploadedAssets) {
   let tookRemote = false;
+  let rejection = null;
   for (let batch = 0; batch < MAX_BATCHES_PER_FLUSH; batch += 1) {
     const palettes = await listPalettesAwaitingBackup(BACKUP_FLUSH_BATCH_SIZE);
     if (palettes.length === 0) {
-      return tookRemote;
+      return { tookRemote, rejection };
     }
 
     let progressed = false;
@@ -163,20 +189,33 @@ async function flushDirtyPalettes(credentials, uploadedAssets) {
         continue;
       }
 
-      let referencedAssets = [];
-      if (palette.hasPhotoAsset) {
-        const photoBlob = await readPalettePhotoBlobById(palette.id);
-        if (photoBlob instanceof Blob) {
-          const assetHash = await sha256HexOfBlob(photoBlob);
-          if (!uploadedAssets.has(assetHash)) {
-            await putBackupAsset(credentials, assetHash, photoBlob);
-            uploadedAssets.add(assetHash);
+      let outcome;
+      try {
+        let referencedAssets = [];
+        if (palette.hasPhotoAsset) {
+          let assetHash = assetHashByPaletteId.get(palette.id) ?? null;
+          if (!assetHash || !uploadedAssets.has(assetHash)) {
+            assetHash = null;
+            const photoBlob = await readPalettePhotoBlobById(palette.id);
+            if (photoBlob instanceof Blob) {
+              assetHash = await sha256HexOfBlob(photoBlob);
+              assetHashByPaletteId.set(palette.id, assetHash);
+              if (!uploadedAssets.has(assetHash)) {
+                await putBackupAsset(credentials, assetHash, photoBlob);
+                uploadedAssets.add(assetHash);
+              }
+            }
           }
-          referencedAssets = [assetHash];
+          if (assetHash) {
+            referencedAssets = [assetHash];
+          }
         }
+        outcome = await pushPalette(credentials, palette, referencedAssets);
+      } catch (error) {
+        if (!isPaletteRejection(error)) throw error;
+        rejection ??= error;
+        continue;
       }
-
-      const outcome = await pushPalette(credentials, palette, referencedAssets);
       if (outcome === "gave-up") {
         continue;
       }
@@ -188,10 +227,10 @@ async function flushDirtyPalettes(credentials, uploadedAssets) {
     // A batch that only contained skippable rows would loop forever; bail and
     // let the next scheduled flush retry after the ledger changes.
     if (!progressed) {
-      return tookRemote;
+      return { tookRemote, rejection };
     }
   }
-  return tookRemote;
+  return { tookRemote, rejection };
 }
 
 /**
@@ -215,17 +254,25 @@ export function runBackupFlush() {
     notifyStatus({ phase: "flushing", paired: true, errorCode: null });
     let localDataChanged = false;
     try {
-      const manifest = await fetchBackupManifest(credentials);
-      const pulled = await pullBackupChanges(credentials, manifest, {
-        onProgress: (pullProgress) => notifyStatus({ pullProgress }),
-      });
-      localDataChanged = pulled.imported + pulled.updated + pulled.rekeyed + pulled.deleted > 0;
+      const known = pulledManifest?.accountId === credentials.accountId ? pulledManifest : null;
+      const fetched = await fetchBackupManifestIfChanged(credentials, known?.etag ?? null);
+      const manifest = fetched?.manifest ?? known?.manifest;
+      if (fetched) {
+        const pulled = await pullBackupChanges(credentials, manifest, {
+          onProgress: (pullProgress) => notifyStatus({ pullProgress }),
+        });
+        localDataChanged = pulled.imported + pulled.updated + pulled.rekeyed + pulled.deleted > 0;
+        pulledManifest = fetched.etag
+          ? { accountId: credentials.accountId, etag: fetched.etag, manifest }
+          : null;
+      }
       notifyStatus({ pullProgress: null, progress: await countBackupProgress() });
 
       const uploadedAssets = new Set(manifest.assets);
       await flushTombstones(credentials);
-      localDataChanged =
-        (await flushDirtyPalettes(credentials, uploadedAssets)) || localDataChanged;
+      const { tookRemote, rejection } = await flushDirtyPalettes(credentials, uploadedAssets);
+      localDataChanged ||= tookRemote;
+      if (rejection) throw rejection;
       notifyStatus({
         phase: "idle",
         errorCode: null,
@@ -233,6 +280,11 @@ export function runBackupFlush() {
         lastFlushAt: new Date().toISOString(),
       });
     } catch (error) {
+      if (getBackupCredentials()?.accountId !== credentials.accountId) {
+        // Disconnected or switched account mid-pass: the abort is not a failure.
+        notifyStatus({ phase: "idle", errorCode: null, pullProgress: null });
+        return status;
+      }
       const errorCode = typeof error?.code === "string" ? error.code : "unknown";
       clientLog("backup:flush-failed", { errorCode });
       notifyStatus({
@@ -264,10 +316,26 @@ export function runBackupFlush() {
  */
 export async function connectBackupAccount(credentials) {
   await fetchBackupManifest(credentials);
+  // A pass still running for the previous account would write that account's
+  // server versions into the ledger after the reset below.
+  await stopActiveFlush();
+  pulledManifest = null;
   await forgetBackupRemoteHashes();
   saveBackupCredentials(credentials);
   notifyStatus({ paired: true, errorCode: null });
   void runBackupFlush();
+}
+
+async function stopActiveFlush() {
+  abortBackupRequests();
+  await activeFlush?.catch(() => {});
+}
+
+/** Forgets the account on this device and stops the pass using it. */
+export function disconnectBackupAccount() {
+  clearBackupCredentials();
+  abortBackupRequests();
+  notifyStatus({ paired: false, errorCode: null, pullProgress: null });
 }
 
 /**
@@ -282,6 +350,7 @@ export async function removeBackupAccount() {
   if (!credentials) {
     return;
   }
+  await stopActiveFlush();
   await deleteBackupAccount(credentials);
   await resetBackupLedger();
   clearBackupCredentials();

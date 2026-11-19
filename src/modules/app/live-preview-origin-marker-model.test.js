@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 
 import { createLivePreviewOriginMarkerModel } from "./live-preview-origin-marker-model.js";
+import { scaleEasingFactor } from "./live-preview-timing.js";
 
 const RED = { r: 220, g: 30, b: 20 };
 const BLUE = { r: 20, g: 40, b: 210 };
@@ -67,16 +68,21 @@ describe("live origin marker positioning", () => {
     });
     expect(first[0].scale).toBeCloseTo(easeOutBack(0), 12);
 
+    // The 0.1 factor is per 60 Hz frame. 175 ms between builds eases by the
+    // time that passed, capped at 100 ms.
+    const factor = scaleEasingFactor(0.1, 175);
+    expect(factor).toBeCloseTo(1 - 0.9 ** 6, 12);
+
     fixture.setTime(275);
     const moving = fixture.model.build(markerFrame({ origins: [{ x: 0.8, y: 0.9 }] }));
-    expect(moving[0].x).toBeCloseTo(0.26, 12);
-    expect(moving[0].y).toBeCloseTo(0.36, 12);
+    expect(moving[0].x).toBeCloseTo(0.2 + 0.6 * factor, 12);
+    expect(moving[0].y).toBeCloseTo(0.3 + 0.6 * factor, 12);
     expect(moving[0].scale).toBeCloseTo(easeOutBack(0.5), 12);
 
     fixture.setTime(450);
     const settled = fixture.model.build(markerFrame({ origins: [{ x: 0.8, y: 0.9 }] }));
-    expect(settled[0].x).toBeCloseTo(0.314, 12);
-    expect(settled[0].y).toBeCloseTo(0.414, 12);
+    expect(settled[0].x).toBeCloseTo(moving[0].x + (0.8 - moving[0].x) * factor, 12);
+    expect(settled[0].y).toBeCloseTo(moving[0].y + (0.9 - moving[0].y) * factor, 12);
     expect(settled[0].scale).toBe(1);
     expect(fixture.clock).toHaveBeenCalledTimes(3);
   });

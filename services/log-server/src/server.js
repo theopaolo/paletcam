@@ -7,7 +7,7 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createBoundedWriteQueue } from "./bounded-write-queue.js";
 import { createLogServerConfig } from "./config.js";
-import { resolveClientIp } from "./client-ip.js";
+import { resolveClientIp, toRateLimitKey } from "./client-ip.js";
 import { createDashboardSecurityHeaders } from "./dashboard-security.js";
 import { probeLogDirectoryWritable } from "./log-directory-probe.js";
 import { readDailyLogEntries } from "./log-reader.js";
@@ -167,7 +167,7 @@ const dashboardAuth = DASHBOARD_ENABLED
   : (c) => c.json({ ok: false, error: "dashboard_disabled" }, 503);
 
 async function dashboardRateLimit(c, next) {
-  if (!dashboardRateLimiter.isRateLimited(getClientIp(c))) return next();
+  if (!dashboardRateLimiter.isRateLimited(toRateLimitKey(getClientIp(c)))) return next();
 
   c.header("Retry-After", String(Math.max(1, Math.ceil(RATE_LIMIT_WINDOW_MS / 1_000))));
   return c.json({ ok: false, error: "rate_limited" }, 429);
@@ -225,7 +225,7 @@ app.post("/clientlog", async (c) => {
   }
 
   const ip = getClientIp(c);
-  if (rateLimiter.isRateLimited(ip)) {
+  if (rateLimiter.isRateLimited(toRateLimitKey(ip))) {
     return c.json({ ok: false, error: "rate_limited" }, 429);
   }
 
@@ -299,7 +299,7 @@ console.log(
 );
 console.log(`[log-server] max pending writes: ${LOG_WRITE_QUEUE_MAX_PENDING}`);
 console.log(
-  `[log-server] allowed origins: ${ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS.join(", ") : "(none — all POSTs rejected)"}`,
+  `[log-server] allowed origins: ${ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS.join(", ") : "(none — every origin accepted, development only)"}`,
 );
 console.log(
   `[log-server] dashboard: ${DASHBOARD_ENABLED ? "enabled (basic auth)" : "disabled (set DASHBOARD_USER + DASHBOARD_PASSWORD)"}`,

@@ -205,6 +205,38 @@ describe("sync-server store", () => {
     expect(await readdir(dataDir)).toEqual([]);
   });
 
+  test("a damaged manifest fails the write instead of replacing the index", async () => {
+    const { dataDir, store } = await createStore();
+    await store.putPalette(ACCOUNT_ID, PALETTE_UID, {
+      documentText: paletteDocument(),
+      referencedAssets: [],
+    });
+    const manifestFile = join(dataDir, ACCOUNT_ID, "manifest.json");
+    await writeFile(manifestFile, '{"palettes":{"trunc');
+
+    await expect(
+      store.putPalette(ACCOUNT_ID, "eeeeffff-0000-1111", {
+        documentText: paletteDocument(),
+        referencedAssets: [],
+      }),
+    ).rejects.toThrow();
+    await expect(store.sweepAccount(ACCOUNT_ID)).rejects.toThrow();
+    expect(await readFile(manifestFile, "utf8")).toBe('{"palettes":{"trunc');
+  });
+
+  test("the sweep keeps a fresh asset no palette references yet", async () => {
+    const { store } = await createStore();
+    const bytes = new TextEncoder().encode("photo");
+    const assetHash = sha256HexOfBytes(bytes);
+    await store.putAsset(ACCOUNT_ID, assetHash, bytes);
+
+    await store.sweepAccount(ACCOUNT_ID);
+    expect(await store.hasAsset(ACCOUNT_ID, assetHash)).toBe(true);
+
+    await store.sweepAccount(ACCOUNT_ID, { nowMs: Date.now() + 25 * 60 * 60 * 1000 });
+    expect(await store.hasAsset(ACCOUNT_ID, assetHash)).toBe(false);
+  });
+
   test("usage counts the latest metadata and assets", async () => {
     const { store } = await createStore();
     const assetBytes = new Uint8Array([9, 9, 9, 9, 9]);

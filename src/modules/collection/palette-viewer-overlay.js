@@ -846,9 +846,31 @@ function syncSessionPalettes({
     }
   }
 
+  // A background refresh (next feed page, sync, moderation poll) must not
+  // rebuild the slide under the finger: slides whose palette is still in the
+  // session keep their image and their flipped side, at their new index.
+  const previousStatesByPaletteId = new Map();
+  activeSession.slideStates.forEach((slideState) => {
+    previousStatesByPaletteId.set(slideState.paletteId, slideState);
+  });
+  const keptStates = new Map();
+  nextPalettes.forEach((palette, index) => {
+    const slideState = previousStatesByPaletteId.get(palette?.id);
+    // A load in flight answers to the index it started at, so a moved slide
+    // that is still loading starts over.
+    if (slideState && (slideState.index === index || slideState.loadState !== "loading")) {
+      slideState.index = index;
+      slideState.slide.dataset.index = String(index);
+      keptStates.set(index, slideState);
+      previousStatesByPaletteId.delete(palette.id);
+    }
+  });
+  previousStatesByPaletteId.forEach(disposeSlideState);
+
   activeSession.palettes = [...nextPalettes];
   activeSession.activeIndex = nextIndex;
-  renderViewerWindow({ reset: true });
+  activeSession.slideStates = keptStates;
+  renderViewerWindow();
   syncViewerChrome();
   scheduleTrackAlignment();
   return true;

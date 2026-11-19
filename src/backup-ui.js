@@ -1,5 +1,4 @@
 import {
-  clearBackupCredentials,
   formatBackupRecoveryCode,
   getBackupCredentials,
   parseBackupRecoveryCode,
@@ -8,6 +7,7 @@ import {
 import { pairBackupAccount } from "./backup-api.js";
 import {
   connectBackupAccount,
+  disconnectBackupAccount,
   getBackupStatusSnapshot,
   removeBackupAccount,
   requestBackupFlush,
@@ -231,7 +231,7 @@ export function initBackupUi(root) {
       return;
     }
     createdRecoveryCode = null;
-    clearBackupCredentials();
+    disconnectBackupAccount();
     render();
   }
 

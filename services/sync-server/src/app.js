@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { toRateLimitKey } from "./client-ip.js";
 import {
   ASSET_HASH_PATTERN,
   BackupConflictError,
@@ -64,6 +65,7 @@ export function createSyncApp({
   store,
   rateLimiter,
   pairRateLimiter,
+  globalPairRateLimiter,
   getClientIp,
 }) {
   const app = new Hono();
@@ -100,7 +102,7 @@ export function createSyncApp({
 
   app.use("/v1/*", async (c, next) => {
     if (c.req.method === "OPTIONS") return next();
-    if (rateLimiter.isRateLimited(getClientIp(c))) {
+    if (rateLimiter.isRateLimited(toRateLimitKey(getClientIp(c)))) {
       c.header("Retry-After", String(Math.max(1, Math.ceil(config.rateLimitWindowMs / 1_000))));
       return c.json({ ok: false, error: "rate_limited" }, 429);
     }
@@ -115,7 +117,12 @@ export function createSyncApp({
     if (!config.pairingEnabled) {
       return c.json({ ok: false, error: "pairing_disabled" }, 403);
     }
-    if (pairRateLimiter.isRateLimited(getClientIp(c))) {
+    // The per-address limit runs first, so one blocked client cannot spend the
+    // instance-wide budget that caps how fast accounts (and their quotas) appear.
+    if (
+      pairRateLimiter.isRateLimited(toRateLimitKey(getClientIp(c))) ||
+      globalPairRateLimiter?.isRateLimited("all")
+    ) {
       c.header("Retry-After", String(Math.max(1, Math.ceil(config.pairRateLimitWindowMs / 1_000))));
       return c.json({ ok: false, error: "rate_limited" }, 429);
     }
@@ -138,7 +145,14 @@ export function createSyncApp({
     const accountId = await requireAccount(c);
     if (!accountId) return c.json({ ok: false, error: "unauthorized" }, 401);
 
-    return c.json({ ok: true, manifest: await store.getManifestSnapshot(accountId) });
+    // Clients poll this every few minutes. The ETag lets an unchanged account
+    // answer 304 instead of resending every palette entry.
+    const body = JSON.stringify({ ok: true, manifest: await store.getManifestSnapshot(accountId) });
+    const etag = `"${sha256HexOfBytes(Buffer.from(body, "utf8"))}"`;
+    if (c.req.header("if-none-match") === etag) {
+      return c.body(null, 304, { ETag: etag });
+    }
+    return c.body(body, 200, { "Content-Type": "application/json", ETag: etag });
   });
 
   app.delete("/v1/account", async (c) => {

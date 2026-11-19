@@ -712,7 +712,12 @@ async function runOutboxFlush({ force = false } = {}) {
       result = { success: false };
     }
 
-    const claimFinalized = await finalizeClaim(claimedEntry, result.success === true);
+    // A permanent refusal leaves the queue like a success: retrying it on every
+    // return to the foreground would only fill the outbox.
+    const claimFinalized = await finalizeClaim(
+      claimedEntry,
+      result.success === true || result.permanent === true,
+    );
     if (claimFinalized && result.success) {
       dequeuedCount += 1;
     }

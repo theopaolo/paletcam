@@ -215,7 +215,9 @@ addresses and origins, so back them up only within that period.
   palette. Include it in the VPS backup routine.
 - Keep `PAIRING_ENABLED=true` while users create backups from the app
   (Settings > Data > Create online backup). `POST /v1/pair` mints one account
-  per call and allows `PAIR_RATE_LIMIT_MAX` (5) calls per IP per hour. Set it to
+  per call and allows `PAIR_RATE_LIMIT_MAX` (5) calls per IP per hour, and
+  `PAIR_GLOBAL_RATE_LIMIT_MAX` (30) across all clients. IPv6 clients are counted
+  per /64. Set it to
   `false` to stop new accounts. A user connects another phone with their
   existing recovery code.
 - `ALLOWED_ORIGINS` must list every PWA origin that uses the backup.

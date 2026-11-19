@@ -359,13 +359,24 @@ function applyAppSettings({
     syncUserFacingCopy();
   }
 
+  // Only what feeds the extraction restarts the live preview. A reset drops
+  // the pins and the smoother, which a locale or footer-label change must not.
+  const nextCaptureMode = getCaptureModeForCount(swatchCount);
+  const extractionChanged =
+    nextCaptureMode !== currentCaptureMode ||
+    Boolean(nextOneMoreColor) !== oneMoreColor ||
+    JSON.stringify(medianCut) !== JSON.stringify(medianCutExtractionSettings) ||
+    JSON.stringify(hybrid) !== JSON.stringify(hybridSettings);
+
   oneMoreColor = Boolean(nextOneMoreColor);
   originBadgesEnabled = Boolean(nextOriginBadgesEnabled);
   pinsKey?.setAttribute("aria-pressed", String(originBadgesEnabled));
   performanceHud.setEnabled(performanceHudEnabled);
   medianCutExtractionSettings = { ...medianCut };
   hybridSettings = { ...hybrid };
-  syncCaptureMode(getCaptureModeForCount(swatchCount));
+  if (extractionChanged) {
+    syncCaptureMode(nextCaptureMode);
+  }
 }
 
 bindManagedEventListener(pinsKey, "click", () => {
@@ -373,9 +384,10 @@ bindManagedEventListener(pinsKey, "click", () => {
 });
 
 /** The Pins key previews its markers in the live palette's first two colors. */
+const pinDots = [...(pinsKey?.querySelectorAll(".pin-dots b") ?? [])];
+
 function paintPinDots(colors) {
-  const dots = pinsKey?.querySelectorAll(".pin-dots b") ?? [];
-  dots.forEach((dot, index) => {
+  pinDots.forEach((dot, index) => {
     const color = colors[index];
     if (dot instanceof HTMLElement && color) {
       dot.style.backgroundColor = `rgb(${Math.round(color.r)} ${Math.round(color.g)} ${Math.round(color.b)})`;
@@ -545,7 +557,8 @@ const cameraSurfaceLifecycleController = createCameraSurfaceLifecycleController(
   isCameraActive: () =>
     Boolean(livePreviewController?.getIsStreaming()) ||
     Boolean(cameraController.getStreamState().hasStream) ||
-    Boolean(cameraLifecycleController?.isStartPending()),
+    Boolean(cameraLifecycleController?.isStartPending()) ||
+    Boolean(cameraLifecycleController?.isResumePending()),
   suspendCamera: ({ shouldResume }) => {
     cameraLifecycleController?.setSurfaceSuspended(true);
     cameraLifecycleController?.stopCurrentStream({ preserveResumeIntent: shouldResume });
@@ -621,7 +634,12 @@ function handleCaptureButtonClick(event) {
   unlockUiFeedback();
   shutterFeedback();
   irisShutter.snap();
-  void captureController?.captureCurrentFrame();
+  // Save failures are reported inside. This covers a throw while the frame is
+  // drawn or read, before the save starts.
+  captureController?.captureCurrentFrame().catch((error) => {
+    reportAppError(error, { logMessage: "Failed to save palette." });
+    showToast(t("camera.captureSaveFailed"), { variant: "error", duration: 2500 });
+  });
 }
 
 function handleWindowBeforeUnload() {
@@ -648,6 +666,9 @@ function initializeApp() {
   viewportHeightController?.sync();
   globalThis.requestIdleCallback?.(prepareUiFeedback, { timeout: 3000 });
   applyAppSettings(getAppSettings());
+  // applyAppSettings only syncs the capture mode when the extraction inputs
+  // changed, and at startup they have not.
+  syncCaptureMode(getCaptureModeForCount(swatchCount));
   setPreviewExpanded(true);
   bindCameraPermissionEvents();
   bindCaptureEvents();

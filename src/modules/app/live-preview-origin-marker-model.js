@@ -1,3 +1,5 @@
+import { scaleEasingFactor } from "./live-preview-timing.js";
+
 /** @typedef {{r: number, g: number, b: number, population?: number}} MarkerColor */
 /** @typedef {{x: number, y: number}} MarkerPosition */
 /**
@@ -75,8 +77,10 @@ export function createLivePreviewOriginMarkerModel({
   let markerBornAt = [];
   /** @type {FallingBadge[]} */
   let fallingBadges = [];
+  let lastBuildAt = Number.NaN;
 
   function reset() {
+    lastBuildAt = Number.NaN;
     smoothedMarkerPositions = [];
     lastRenderedMarkers = [];
     markerBornAt = [];
@@ -164,6 +168,11 @@ export function createLivePreviewOriginMarkerModel({
    */
   function build({ displayColors, rawColors, origins, frozenBySlot, frameWidth, frameHeight }) {
     const frameNow = now();
+    const smoothingFactor = scaleEasingFactor(
+      ORIGIN_MARKER_SMOOTHING_FACTOR,
+      frameNow - lastBuildAt,
+    );
+    lastBuildAt = frameNow;
     /** @type {OriginMarker[]} */
     const markers = [];
 
@@ -199,12 +208,8 @@ export function createLivePreviewOriginMarkerModel({
       }
       const nextPosition = previousPosition
         ? {
-            x:
-              previousPosition.x +
-              (targetOrigin.x - previousPosition.x) * ORIGIN_MARKER_SMOOTHING_FACTOR,
-            y:
-              previousPosition.y +
-              (targetOrigin.y - previousPosition.y) * ORIGIN_MARKER_SMOOTHING_FACTOR,
+            x: previousPosition.x + (targetOrigin.x - previousPosition.x) * smoothingFactor,
+            y: previousPosition.y + (targetOrigin.y - previousPosition.y) * smoothingFactor,
           }
         : { x: targetOrigin.x, y: targetOrigin.y };
 

@@ -2,6 +2,10 @@ import { extractPaletteColors } from "../modules/palette-extraction.js";
 import { computeColorPresence, createSwatchOriginTracker } from "../modules/palette-origins.js";
 
 const originTracker = createSwatchOriginTracker();
+// The pipeline bumps the generation on every reset (camera flip, count change,
+// return from background). Region hysteresis must not carry over from the
+// previous scene.
+let originTrackerGeneration = -1;
 const MAX_EXTRACTION_PIXELS = 4_194_304;
 const MAX_SWATCH_COUNT = 16;
 /** @type {OffscreenCanvasRenderingContext2D | null} */
@@ -91,6 +95,10 @@ globalThis.addEventListener("message", (event) => {
       payload.options,
     );
 
+    if (payload.generation !== originTrackerGeneration) {
+      originTracker.reset();
+      originTrackerGeneration = payload.generation;
+    }
     const origins = originTracker.compute(imageData, payload.width, payload.height, result.colors);
     const frozenPresence = computeFrozenPresence(
       imageData,

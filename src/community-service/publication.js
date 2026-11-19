@@ -523,6 +523,9 @@ async function cleanupRemoteCatchOperation(remoteCatchId, session = getCommunity
     return {
       attempted: true,
       error: mappedError,
+      // The server says this account does not own the catch. No retry can
+      // change that, so the delete outbox drops the entry.
+      permanent: Number(error?.status) === 403,
       remoteCatchId: safeRemoteCatchId,
       status: "failed",
       success: false,

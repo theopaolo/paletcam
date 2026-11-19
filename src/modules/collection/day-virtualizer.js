@@ -136,6 +136,19 @@ export function createDayContentVirtualizer({ scrollRoot, onCardMount } = {}) {
 
       handleMount(handler);
     },
+    /** Stops managing one day and disposes its mounted cards. */
+    unregister(element) {
+      const handler = handlers.get(element);
+      if (!handler) {
+        return;
+      }
+      observer?.unobserve(element);
+      if (handler.isMounted) {
+        handler.unmountContent(0);
+        handler.isMounted = false;
+      }
+      handlers.delete(element);
+    },
     /** Re-sizes the placeholders of unmounted days after the view zooms. */
     relayout(columns) {
       handlers.forEach((handler) => {

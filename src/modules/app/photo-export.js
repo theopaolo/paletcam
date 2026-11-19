@@ -82,6 +82,11 @@ export function canvasToBlob(canvas, type, quality) {
   });
 }
 
+// A browser without a WebP encoder answers toBlob with a PNG. One capture is
+// enough to learn that, after which the full-resolution trial encode is skipped.
+/** @type {boolean | null} */
+let canEncodeWebp = null;
+
 export async function exportPhotoBlob({
   fallbackCanvas,
   fallbackWidth,
@@ -105,9 +110,12 @@ export async function exportPhotoBlob({
     return canvasToBlob(fallbackCanvas, "image/jpeg", PHOTO_EXPORT_QUALITY);
   }
 
-  const webpBlob = await canvasToBlob(photoCanvas, "image/webp", PHOTO_EXPORT_QUALITY);
-  if (webpBlob?.type === "image/webp") {
-    return webpBlob;
+  if (canEncodeWebp !== false) {
+    const webpBlob = await canvasToBlob(photoCanvas, "image/webp", PHOTO_EXPORT_QUALITY);
+    canEncodeWebp = webpBlob?.type === "image/webp";
+    if (canEncodeWebp) {
+      return webpBlob;
+    }
   }
 
   return canvasToBlob(photoCanvas, "image/jpeg", PHOTO_EXPORT_QUALITY);

@@ -58,6 +58,16 @@ export async function listBackupSyncIndex() {
 }
 
 /**
+ * Every backup uid stored on this device, including rows the strict parse
+ * hides. The pull must not download a uid a hidden row already holds: the
+ * unique index would reject it on every pass.
+ * @returns {Promise<string[]>}
+ */
+export async function listStoredBackupUids() {
+  return /** @type {Promise<string[]>} */ (db.palettes.orderBy("backupUid").keys());
+}
+
+/**
  * Clears the dirty flag only when the record is unchanged since the upload
  * read it. A palette edited mid-upload keeps its newer dirty stamp and is
  * picked up again by the next flush.

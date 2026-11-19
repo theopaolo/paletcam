@@ -7,6 +7,9 @@ export const PALETTE_UID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]{7,63}$/;
 export const ASSET_HASH_PATTERN = /^[a-f0-9]{64}$/;
 export const MAX_ASSETS_PER_PALETTE = 8;
 const DELETED_ACCOUNT_DIR_PATTERN = /^[a-f0-9]{16}\.deleted$/;
+// A client uploads the photo, then the palette that references it. The sweep
+// leaves young unreferenced assets alone so it cannot delete one in between.
+const UNREFERENCED_ASSET_GRACE_MS = 24 * 60 * 60 * 1000;
 
 export class BackupQuotaExceededError extends Error {
   constructor() {
@@ -93,19 +96,27 @@ export function createBackupStore({
     return join(accountDir(accountId), "assets", assetHash);
   }
 
+  /**
+   * Only a missing file means an empty account. An I/O error or a damaged
+   * manifest throws: answering "empty" would let the next write replace the
+   * index of every stored palette with a single entry.
+   */
   async function readManifest(accountId) {
+    let text;
     try {
-      const parsed = JSON.parse(await readFile(manifestPath(accountId), "utf8"));
-      return {
-        palettes: parsed?.palettes && typeof parsed.palettes === "object" ? parsed.palettes : {},
-        assets: parsed?.assets && typeof parsed.assets === "object" ? parsed.assets : {},
-        tombstones:
-          parsed?.tombstones && typeof parsed.tombstones === "object" ? parsed.tombstones : {},
-        usageBytes: Number.isFinite(parsed?.usageBytes) ? parsed.usageBytes : 0,
-      };
-    } catch {
-      return createEmptyManifest();
+      text = await readFile(manifestPath(accountId), "utf8");
+    } catch (error) {
+      if (error?.code === "ENOENT") return createEmptyManifest();
+      throw error;
     }
+    const parsed = JSON.parse(text);
+    return {
+      palettes: parsed?.palettes && typeof parsed.palettes === "object" ? parsed.palettes : {},
+      assets: parsed?.assets && typeof parsed.assets === "object" ? parsed.assets : {},
+      tombstones:
+        parsed?.tombstones && typeof parsed.tombstones === "object" ? parsed.tombstones : {},
+      usageBytes: Number.isFinite(parsed?.usageBytes) ? parsed.usageBytes : 0,
+    };
   }
 
   async function writeManifest(accountId, manifest) {
@@ -119,6 +130,9 @@ export function createBackupStore({
     let usageBytes = 0;
     for (const entry of Object.values(manifest.palettes)) usageBytes += entry.bytes || 0;
     for (const entry of Object.values(manifest.assets)) usageBytes += entry.bytes || 0;
+    // A deleted palette keeps its files until the retention sweep, so it keeps
+    // counting until then. Otherwise put-then-delete stores data for free.
+    for (const entry of Object.values(manifest.tombstones)) usageBytes += entry.bytes || 0;
     manifest.usageBytes = usageBytes;
   }
 
@@ -248,7 +262,7 @@ export function createBackupStore({
       await writeFile(temporaryPath, bytes);
       await rename(temporaryPath, path);
 
-      manifest.assets[assetHash] = { bytes: bytes.byteLength };
+      manifest.assets[assetHash] = { bytes: bytes.byteLength, uploadedAt: now().toISOString() };
       recomputeUsageBytes(manifest);
       await writeManifest(accountId, manifest);
       return { stored: true };
@@ -325,6 +339,9 @@ export function createBackupStore({
       let purgedAssets = 0;
       for (const assetHash of Object.keys(manifest.assets)) {
         if (referencedAssets.has(assetHash)) continue;
+        // Assets stored before `uploadedAt` existed read as old.
+        const uploadedAtMs = Date.parse(manifest.assets[assetHash]?.uploadedAt || "");
+        if (nowMs - uploadedAtMs < UNREFERENCED_ASSET_GRACE_MS) continue;
         await unlink(assetPath(accountId, assetHash)).catch(() => {});
         delete manifest.assets[assetHash];
         purgedAssets += 1;

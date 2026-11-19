@@ -247,6 +247,8 @@ interface ModerationSyncResult {
 interface PaletteDeleteRemoteCleanupResult {
   attempted: boolean;
   error?: Error;
+  /** The server refused for good (not the owner). Retrying cannot succeed. */
+  permanent?: boolean;
   remoteCatchId: string;
   status:
     | "not_published"
@@ -772,6 +774,8 @@ interface PaletcamDexieTable<TRecord = Palette, TKey = number> {
   delete(key: TKey): Promise<void>;
   clear(): Promise<void>;
   orderBy(index: string): PaletcamDexieTable<TRecord, TKey>;
+  /** After `orderBy(index)`: the indexed values, without loading the records. */
+  keys(): Promise<unknown[]>;
   reverse(): PaletcamDexieTable<TRecord, TKey>;
   toArray(): Promise<TRecord[]>;
   toCollection(): PaletcamDexieCollection<TRecord, TKey>;

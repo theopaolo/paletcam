@@ -297,7 +297,13 @@ async function handleRequest(request) {
 function startServer() {
   for (const port of fallbackPorts) {
     try {
-      const server = Bun.serve({ port, fetch: handleRequest });
+      // Loopback by default: the dev server exposes src/ and an API proxy.
+      // HOST=0.0.0.0 opens it to the local network on purpose.
+      const server = Bun.serve({
+        port,
+        hostname: process.env.HOST || "127.0.0.1",
+        fetch: handleRequest,
+      });
       return { server, usedFallback: port !== initialPort };
     } catch (error) {
       if (error?.code === "EPERM") {

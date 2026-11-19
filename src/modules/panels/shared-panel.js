@@ -421,7 +421,10 @@ class SharedPanelElement extends LitElement {
   }
 
   finalizeHidden() {
-    if (this.open) {
+    // `visible` covers a reopen that has not reached its first frame yet:
+    // `open` is still false there, and a late transitionend from the closing
+    // slide would hide the panel that is about to slide back in.
+    if (this.open || this.classList.contains("visible")) {
       return;
     }
 

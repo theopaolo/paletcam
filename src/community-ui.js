@@ -260,11 +260,21 @@ function setStatus({ message, canRetry }) {
  * Observes the end-of-grid sentinel while older pages remain. Re-observing
  * after each render matters: a short page can leave the sentinel in view, and
  * an observer only reports changes.
+ *
+ * The color filter narrows the loaded catches only. Its grid is short, so the
+ * sentinel would stay in view and each page would request the next until the
+ * whole feed was downloaded.
  * @param {CommunityFeedState} state
  */
 function watchSentinel(state) {
   loadMoreObserver?.disconnect();
-  if (state.status !== "ready" || !state.hasMore || state.isLoadingMore || state.loadMoreFailed) {
+  if (
+    state.status !== "ready" ||
+    !state.hasMore ||
+    state.isLoadingMore ||
+    state.loadMoreFailed ||
+    filters.isActive("color")
+  ) {
     return;
   }
   loadMoreObserver?.observe(elements.sentinel);
@@ -493,6 +503,7 @@ function findCatchesWithColor(color) {
   }
   detentFeedback("analyze", true);
   galleryPresenter.render();
+  watchSentinel(activeController().getState());
   elements.body?.scrollTo({ top: 0 });
 }
 
@@ -559,6 +570,7 @@ function bindCommunityUiEvents() {
     filters.toggle("color");
     colorFilterMatch = null;
     galleryPresenter.render();
+    watchSentinel(activeController().getState());
   });
   listen(elements.filterCollectedButton, "click", () => {
     setView(view === "collected" ? "all" : "collected");

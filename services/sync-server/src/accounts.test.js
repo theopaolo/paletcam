@@ -33,9 +33,10 @@ describe("sync-server accounts", () => {
     const registry = await createRegistry();
     const { accountId, secret } = await registry.pairNewAccount();
 
-    await expect(registry.verifyCredentials(accountId, secret.replace(/./, "0"))).resolves.toBe(
-      false,
-    );
+    // Flip the first character: replacing it with a fixed "0" leaves one secret
+    // in sixteen unchanged.
+    const wrongSecret = secret.replace(/./, (first) => (first === "0" ? "1" : "0"));
+    await expect(registry.verifyCredentials(accountId, wrongSecret)).resolves.toBe(false);
     await expect(registry.verifyCredentials("0123456789abcdef", secret)).resolves.toBe(false);
     await expect(registry.verifyCredentials("../escape", secret)).resolves.toBe(false);
     await expect(registry.verifyCredentials(accountId, "short")).resolves.toBe(false);

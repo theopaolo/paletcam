@@ -34,6 +34,8 @@ async function loadPull({
   localPalettes = [],
   afterPalettes,
   pendingTombstoneUids = [],
+  fetchAsset = async () => new Blob(["photo"], { type: "image/jpeg" }),
+  isImportable = () => true,
 } = {}) {
   const staged = [];
   const staging = {
@@ -45,6 +47,7 @@ async function loadPull({
     }),
     commitImportSession: mock(async (_sessionId) => staged.length),
     abortImportSession: mock(async () => true),
+    isImportablePaletteMetadata: isImportable,
   };
   let indexCalls = 0;
   const ledger = {
@@ -52,6 +55,7 @@ async function loadPull({
       indexCalls += 1;
       return indexCalls === 1 ? localPalettes : (afterPalettes ?? localPalettes);
     }),
+    listStoredBackupUids: mock(async () => localPalettes.map((palette) => palette.backupUid)),
     listAllPendingBackupTombstoneUids: mock(async () => pendingTombstoneUids),
     applyRemotePaletteState: mock(async () => true),
     rekeyPaletteBackupUid: mock(async () => true),
@@ -61,7 +65,7 @@ async function loadPull({
   };
   const api = {
     fetchBackupPalette: mock(async (_credentials, uid) => remoteByUid[uid]),
-    fetchBackupAsset: mock(async () => new Blob(["photo"])),
+    fetchBackupAsset: mock(fetchAsset),
     deleteBackupPalette: mock(async () => {}),
   };
   const clientLog = mock(() => {});
@@ -99,6 +103,54 @@ describe("duplicate winner", () => {
 });
 
 describe("backup pull", () => {
+  test("skips a remote palette it cannot use and still imports the others", async () => {
+    const remote = (hash, assets) => ({
+      envelope: { palette: createRemotePalette("2026-08-01T10:00:00.000Z"), assets },
+      hash: hashOf(hash),
+    });
+    const { pull, staged } = await loadPull({
+      manifest: {
+        palettes: {
+          "uid-gone": { hash: hashOf("1") },
+          "uid-bad": { hash: hashOf("2") },
+          "uid-not-image": { hash: hashOf("3") },
+          "uid-good": { hash: hashOf("4") },
+        },
+        tombstones: {},
+      },
+      remoteByUid: {
+        "uid-gone": remote("1", ["gone"]),
+        "uid-bad": {
+          ...remote("2", ["ok"]),
+          envelope: { palette: createRemotePalette("2026-08-02T10:00:00.000Z"), assets: ["ok"] },
+        },
+        "uid-not-image": {
+          ...remote("3", ["text"]),
+          envelope: { palette: createRemotePalette("2026-08-03T10:00:00.000Z"), assets: ["text"] },
+        },
+        "uid-good": {
+          ...remote("4", ["octet"]),
+          envelope: { palette: createRemotePalette("2026-08-04T10:00:00.000Z"), assets: ["octet"] },
+        },
+      },
+      isImportable: (palette) => palette.backupUid !== "uid-bad",
+      fetchAsset: async (_credentials, assetHash) => {
+        if (assetHash === "gone") throw Object.assign(new Error("404"), { code: "not_found" });
+        if (assetHash === "text") return new Blob(["not an image at all"]);
+        // The server answers application/octet-stream: the bytes name the type.
+        return new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])], {
+          type: "application/octet-stream",
+        });
+      },
+    });
+
+    const result = await pull();
+
+    expect(result).toMatchObject({ invalid: 1, missingPhoto: 2 });
+    expect(staged.map((palette) => palette.backupUid)).toEqual(["uid-good"]);
+    expect(staged[0].photoBlob.type).toBe("image/jpeg");
+  });
+
   test("imports new palettes in capture order and records the downloaded version", async () => {
     const { ledger, pull, staged } = await loadPull({
       manifest: {
