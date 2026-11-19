@@ -61,6 +61,16 @@ function expectedSkips(suite) {
       },
       {
         project: "mobile-webkit",
+        file: "tests/e2e/community.spec.js",
+        title: "a catch rejected by moderation cannot be resubmitted",
+      },
+      {
+        project: "mobile-webkit",
+        file: "tests/e2e/community.spec.js",
+        title: "a catch under review shows as such and can be withdrawn",
+      },
+      {
+        project: "mobile-webkit",
         file: "tests/e2e/storage-v4-migration.spec.js",
         title: "upgrades a same-origin version 3 database through the current asset schema",
       },

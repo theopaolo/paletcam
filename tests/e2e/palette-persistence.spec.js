@@ -161,8 +161,8 @@ for (const version of [1, 2]) {
           photoSize: 19,
           photoType: "image/webp",
         },
-        // Dexie maps its decimal schema version 7 to native IndexedDB version 70.
-        databaseVersion: 70,
+        // Dexie maps its decimal schema version 9 to native IndexedDB version 90.
+        databaseVersion: 90,
         palette: {
           hasPhotoAsset: true,
           id,

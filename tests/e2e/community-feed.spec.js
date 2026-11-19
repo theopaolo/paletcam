@@ -303,7 +303,9 @@ test("the last-catch thumbnail stays unseen until there is a catch to show", asy
   // Hidden, not removed: the caught palette still needs its box to fly to.
   expect((await thumbnail.boundingBox()).width).toBeGreaterThan(0);
 
+  // The thumbnail shows once the photo has a source, which a catch sets.
   await page.locator("#photo").evaluate((image) => {
+    image.src = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAACAkQBADs=";
     image.hidden = false;
   });
   await expect(thumbnail).toHaveCSS("opacity", "1");

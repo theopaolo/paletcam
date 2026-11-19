@@ -305,7 +305,7 @@ export async function embedPaletteMetadata(blob, colors) {
   try {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const embedded = embedPaletteMetadataBytes(bytes, blob.type, hexColors);
-    return embedded ? new Blob([embedded], { type: blob.type }) : blob;
+    return embedded ? new Blob([/** @type {BlobPart} */ (embedded)], { type: blob.type }) : blob;
   } catch (_error) {
     return blob;
   }

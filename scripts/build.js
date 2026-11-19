@@ -97,8 +97,28 @@ async function copyPublicAssets() {
 
     const outputPath = join(outDir, relativePath);
     await mkdir(dirname(outputPath), { recursive: true });
+    if (relativePath.endsWith(".css")) {
+      const source = await readFile(join(publicRoot, relativePath), "utf8");
+      await writeFile(outputPath, stripCssCommentsAndIndentation(source), "utf8");
+      continue;
+    }
     await cp(join(publicRoot, relativePath), outputPath);
   }
+}
+
+/**
+ * Stylesheets ship one file per block, as authored. Comments and indentation
+ * are about a sixth of their bytes and nothing on the phone reads them.
+ * ponytail: text-level strip, file layout unchanged. It would cut a `/*`
+ * inside a CSS string. Use a real minifier if that pattern ever appears.
+ */
+function stripCssCommentsAndIndentation(source) {
+  return `${source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")}\n`;
 }
 
 async function listFilesRecursively(rootDir, currentDir = rootDir) {

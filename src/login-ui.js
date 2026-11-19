@@ -106,7 +106,7 @@ function drawAttentionToCommunityTerms(refs) {
   termsBlock.classList.remove("is-attention");
   void termsBlock.offsetWidth;
   termsBlock.classList.add("is-attention");
-  termsAttentionTimer = setTimeout(() => {
+  termsAttentionTimer = window.setTimeout(() => {
     termsBlock.classList.remove("is-attention");
   }, TERMS_ATTENTION_DURATION_MS);
 }

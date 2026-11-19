@@ -21,7 +21,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - The header's link to the community site is gone: the footer's community key replaces it, and takes over its green "signed in" LED. The app name stays centred in the header.
 - The collection's views, zoom and pinch now live in one shared gallery presenter that both the collection and the community gallery draw through; preview cards and the viewer accept a picture URL as well as a stored blob.
 - The last-catch thumbnail moved from the bottom left to the bottom right, next to the gallery button, to make room for the community button.
-- Database schema advances to version 8. Versions 1–7 upgrade forward in bounded transactions; production rollback must use a forward fix rather than an older app that cannot open the newest schema. Version 8 only adds a sparse `favoritedAt` index to `palettes`, so no records are rewritten.
+- Database schema advances to version 9. Versions 1–8 upgrade forward in bounded transactions; production rollback must use a forward fix rather than an older app that cannot open the newest schema. Version 8 only adds a sparse `favoritedAt` index to `palettes`, so no records are rewritten. Version 9 adds the backup ledger: every palette gets a unique `backupUid` and a `backupDirtyAt` stamp in the upgrade, and a `backupTombstones` table records local deletions the backup server has not seen yet.
 - Collection filtering moved behind a composable filter state, so the published and favourites chips narrow the list together instead of one replacing the other.
 - The collection toolbar holds a single row on a phone instead of two stacked ones: the collapse-all button is gone, and pressing the view option already in use folds or unfolds every day group instead. Day headers still fold one group at a time, and swatch view, which has no groups, ignores the repeat press.
 - Backup schema remains version 2. Existing valid version-2 backups remain compatible; unsupported or unsafe files fail before writes.
@@ -33,6 +33,14 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Client and server now share an exact telemetry event registry; raw URLs/user agents and unknown events or fields are excluded while a documented ephemeral UUIDv4 supports session-level reliability analysis.
 
 ### Fixed
+
+- A collection restored from the backup server can be exported to a file. Photos pulled from the server were stored as `application/octet-stream`, which the export refused. They now get their image type from the file's first bytes, on download and when an already stored photo is read.
+- One unusable palette on the backup server (missing photo, unreadable document, or a document the server refuses) no longer stops the sync pass on a device. Backup requests time out after 30 s, 180 s for photos, and disconnecting stops the running pass.
+- The sync server fails a request when it cannot read an account's manifest, instead of treating the account as empty and overwriting the index on the next write. Its sweep leaves a photo uploaded less than 24 hours ago alone, so it cannot delete one between the photo upload and the palette that references it.
+- On iOS, opening the collection right after returning to the app no longer leaves the camera preview black once the collection closes.
+- A palette deleted from the viewer opened on the last catch no longer comes back as a slide after another delete or publish.
+- A new page of the community gallery no longer rebuilds the grid and the open viewer slide. A color filter no longer downloads the whole feed.
+- The service worker serves each build from its own cache without refreshing it in the background, so a deploy cannot leave an older cache holding a newer `app.js` whose chunks it never stored.
 
 - Pre-v7 published palettes can recover their account binding when an explicit authenticated unpublish succeeds; rejected or concealed not-found responses remain owner-unknown.
 - Camera, service-worker update, worker, publication, deletion, backup, and collection lifecycle races now have explicit ownership and recovery boundaries.
@@ -53,6 +61,10 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Blob backups now stream within a 768 MiB file, 512 MiB cumulative decoded-photo, 32 MiB per-entry, and 16 MiB per-photo contract; whole-string compatibility remains capped at 32 MiB.
 - Exactly-once publication still requires the community backend to enforce the transmitted idempotency key.
 - Deployed observability/operations sign-off and manual exact-artifact browser smoke remain required before promotion.
+
+## [0.9.5] - 2026-10-12
+
+- Version baseline, set with the community publish fix. Changes since 0.1.0 are listed under Unreleased until the next version bump.
 
 ## [0.1.0] - 2026-07-11
 

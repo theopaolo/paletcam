@@ -3,7 +3,7 @@ import { installDeniedCamera } from "./support/browser-fixtures.js";
 
 const DATABASE_NAME = "PaletcamDB";
 const DEXIE_V3_NATIVE_VERSION = 30;
-const CURRENT_DEXIE_NATIVE_VERSION = 70;
+const CURRENT_DEXIE_NATIVE_VERSION = 90;
 const MAINTENANCE_MARKER_KEY = "legacy-polaroid-render-settings:v1";
 const MIGRATION_FAULT_STATE_KEY = "paletcam:test:migration-fault";
 

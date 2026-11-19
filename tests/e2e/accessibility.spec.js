@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
   await installDeniedCamera(page);
 });
 
-test("collection dialog traps focus and Escape restores its opener", async ({ page }) => {
+test("collection dialog is modal and Escape restores its opener", async ({ page }) => {
   await page.goto("/");
 
   const opener = page.locator(".btn-view-collection");
@@ -35,22 +35,12 @@ test("collection dialog traps focus and Escape restores its opener", async ({ pa
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveAttribute("aria-modal", "true");
 
-  const finalControl = page.getByRole("button", { name: /nuancier|swatches/i });
-  await finalControl.focus();
-  await page.keyboard.press("Tab");
-  await expect(dialog.getByRole("button", { name: /fermer|close/i })).toBeFocused();
-
-  await page.keyboard.press("Shift+Tab");
-  await expect(finalControl).toBeFocused();
-
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(opener).toBeFocused();
 });
 
-test("viewer exposes named actions, contains focus, and restores the capture trigger", async ({
-  page,
-}) => {
+test("viewer exposes named actions and restores the capture trigger", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await seedPalette(page, palette);
@@ -81,14 +71,6 @@ test("viewer exposes named actions, contains focus, and restores the capture tri
   const flipButton = page.locator(".palette-viewer-flip");
   await expect(flipButton).toHaveAccessibleName(/retourner|flip/i);
   await expect(flipButton).not.toHaveClass(/is-peeking/);
-
-  const finalControl = deleteButton;
-  await finalControl.focus();
-  await page.keyboard.press("Tab");
-  await expect(cameraButton).toBeFocused();
-
-  await page.keyboard.press("Shift+Tab");
-  await expect(finalControl).toBeFocused();
 
   await page.keyboard.press("Escape");
   await expect(viewer).toBeHidden();

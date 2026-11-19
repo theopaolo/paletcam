@@ -131,6 +131,7 @@ let hybridSettings = { ...getAppSettings().hybrid };
 let lastCameraViewportLayout = null;
 let unsubscribeFromAppSettings = () => {};
 let unsubscribeFromFooterLab = () => {};
+/** @type {ReturnType<typeof bindTuneTray>} */
 let tuneTrayControl = { beginDrag() {}, destroy() {} };
 let unsubscribeFromDatabaseLifecycle = () => {};
 let unbindSignedInIndicator = () => {};
